@@ -430,7 +430,7 @@
                 
                   <span class="post-meta-item-text">更新于</span>
                 
-                <time title="修改时间：2019-07-23 22:44:39" itemprop="dateModified" datetime="2019-07-23T22:44:39+08:00">2019-07-23</time>
+                <time title="修改时间：2019-07-23 23:03:18" itemprop="dateModified" datetime="2019-07-23T23:03:18+08:00">2019-07-23</time>
               </span>
             
           
@@ -487,11 +487,11 @@
 
 <p>行星运动我们都是按万有引力定律算的，实际上按照爱因斯坦的说法，万有引力不是惯性力是时空弯曲的效果，但是按照爱因斯坦的公式算起来特别复杂，所以现在航天轨道的设计还是按万有引力定律在算。</p>
 <h2 id="牛顿万有引力定律"><a href="#牛顿万有引力定律" class="headerlink" title="牛顿万有引力定律"></a>牛顿万有引力定律</h2><p>牛顿万有引力定律：任意两个质点由通过连心线方向上的力相互吸引。该吸引力的大小与它们的质量乘积成正比，与它们距离的平方成反比，G 是万有引力常数。</p>
-<p>$$ F_g=-\frac{G M \cdot m}{r^2} \cdot \frac{\vec{r}}{r} $$</p>
+<p>$$ F=-\frac{G M \cdot m}{r^2} \cdot \frac{\vec{r}}{r} $$</p>
 <h2 id="多体问题"><a href="#多体问题" class="headerlink" title="多体问题"></a>多体问题</h2><p>多体问题，是所有吸引力的叠加，这里排除物体相撞的情况，因为宇宙非常大，两个天体之间的距离非常远，暂时不考虑这种情况，通过加入一个小常量可以在计算上忽略这个问题。</p>
-<p>$$ F_g=-\frac{G M  m r}{(r^2 + \epsilon^2)^{\frac{3}{2}}} $$</p>
+<p>$$ F=-\frac{G M  m r}{(r^2 + \epsilon^2)^{\frac{3}{2}}} $$</p>
 <p>这样累加的时候自己也可以加进去，因为 r 是 0，那一项相当于没算。</p>
-<p>$$ F_j= \sum{i}^{n} F_i $$</p>
+<p>$$F_j= \sum_{i=1}^{n} F_i$$</p>
 <p>对于 N body 有很多的稍微近似的算法，多是基于实际的物理场景的，比如大部分天体是属于一个星系的，每个星系之间都非常远，所以可以将一些星系作为整体计算，构建一颗树，树中的某些节点是其所有叶子的质心，这样就可以减少计算量，但是放到 GPU 的场景下一个 O(N^2) 的暴力算法利用 GPU 的并行能力可以非常快的算出来。</p>
 <h3 id="Python-暴力解"><a href="#Python-暴力解" class="headerlink" title="Python 暴力解"></a>Python 暴力解</h3><p>下面是 N-Body 暴力实现的例子，网上有个各种语言实验的，比较好用来测试准确性，来自<a href="https://rosettacode.org/wiki/N-body_problemhttps://rosettacode.org/wiki/N-body_problem" target="_blank" rel="noopener">这里</a>，就是两层循环。</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">cat &lt;&lt;EOF &gt;&gt; nbody.txt</span><br><span class="line">0.01 3 20</span><br><span class="line">1</span><br><span class="line">0 0 0</span><br><span class="line">0.01 0 0</span><br><span class="line">0.1</span><br><span class="line">1 1 0</span><br><span class="line">0 0 0.02</span><br><span class="line">0.001</span><br><span class="line">0 1 1</span><br><span class="line">0.01 -0.01 -0.01</span><br><span class="line">EOF</span><br></pre></td></tr></table></figure>
