@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next muse use-motion" lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=7.2.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=7.2.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=7.2.0">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=7.2.0" color="#222">
+
+
+
+
+
+
+<link rel="stylesheet" href="/css/main.css?v=7.2.0">
+
+
+
+
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.7.0">
+
+
+
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Muse',
+    version: '7.2.0',
+    sidebar: {"position":"left","display":"post","offset":12,"onmobile":false},
+    back2top: {"enable":true,"sidebar":false,"scrollpercent":false},
+    copycode: {"enable":false,"show_result":false,"style":null},
+    fancybox: false,
+    mediumzoom: false,
+    lazyload: false,
+    pangu: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    },
+    translation: {
+      copy_button: '复制',
+      copy_success: '复制成功',
+      copy_failure: '复制失败'
+    }
+  };
+</script>
+
+  <meta name="description" content="最近因为 k8s 的默认调度器功能太丰富，太“高级”了，一些屌丝特性没有满足，所以前段时间自己魔改了一下满足了一些屌丝特性，暂时叫做乞丐调度器，顺便把默认的调度器代码翻了一下，这里对默认的代码做一下总结。 CreateScheduler  CreateScheduler 会从 policy file 当中获取算法的配置信息。接口k8s.io/kubernetes/plugin/pkg/schedu">
+<meta name="keywords" content="kubernetes,k8s,kube-scheduler">
+<meta property="og:type" content="article">
+<meta property="og:title" content="kubernetes 调度器指北">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2017/09/26/zh-CN/kubernetes-指北/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="最近因为 k8s 的默认调度器功能太丰富，太“高级”了，一些屌丝特性没有满足，所以前段时间自己魔改了一下满足了一些屌丝特性，暂时叫做乞丐调度器，顺便把默认的调度器代码翻了一下，这里对默认的代码做一下总结。 CreateScheduler  CreateScheduler 会从 policy file 当中获取算法的配置信息。接口k8s.io/kubernetes/plugin/pkg/schedu">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2019-07-23T13:31:41.496Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="kubernetes 调度器指北">
+<meta name="twitter:description" content="最近因为 k8s 的默认调度器功能太丰富，太“高级”了，一些屌丝特性没有满足，所以前段时间自己魔改了一下满足了一些屌丝特性，暂时叫做乞丐调度器，顺便把默认的调度器代码翻了一下，这里对默认的代码做一下总结。 CreateScheduler  CreateScheduler 会从 policy file 当中获取算法的配置信息。接口k8s.io/kubernetes/plugin/pkg/schedu">
+
+
+
+
+
+  
+  
+  <link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2017/09/26/zh-CN/kubernetes-指北/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  
+  <title>kubernetes 调度器指北 | ggaaooppeenngg</title>
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">ggaaooppeenngg</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+      
+        <p class="site-subtitle">为什么计算机科学是无限的但生命是有限的</p>
+      
+    
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+      
+    
+
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>首页</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+      
+    
+
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档</a>
+
+  </li>
+
+      
+      
+    </ul>
+  
+
+  
+    
+
+  
+
+  
+</nav>
+
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2017/09/26/zh-CN/kubernetes-指北/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">kubernetes 调度器指北
+
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+
+          
+          
+          
+
+          
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2017-09-26 00:45:56" itemprop="dateCreated datePublished" datetime="2017-09-26T00:45:56+08:00">2017-09-26</time>
+            </span>
+          
+
+          
+            
+
+            
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2019-07-23 21:31:41" itemprop="dateModified" datetime="2019-07-23T21:31:41+08:00">2019-07-23</time>
+              </span>
+            
+          
+
+          
+
+          
+            
+            
+          
+
+          
+          
+
+          
+
+          
+
+          <br>
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>最近因为 k8s 的默认调度器功能太丰富，太“高级”了，一些屌丝特性没有满足，所以前段时间自己魔改了一下满足了一些屌丝特性，暂时叫做乞丐调度器，顺便把默认的调度器代码翻了一下，这里对默认的代码做一下总结。</p>
+<h2 id="CreateScheduler"><a href="#CreateScheduler" class="headerlink" title="CreateScheduler"></a>CreateScheduler</h2>
+
+<p>CreateScheduler 会从 policy file 当中获取算法的配置信息。接口<code>k8s.io/kubernetes/plugin/pkg/scheduler.Configurator</code> 定义了构造一个 scheduler 的配置信息。<code>k8s.io/kubernetes/plugin/pkg/scheduler/factor.ConfigFactory</code> 是这个接口的一个实现。<code>c.Create</code> 会把 <code>AlgorithmProvider</code> 配置的 <code>Predicate</code> 和 <code>Priority</code> 的 key 当作参数传给，<code>f.CreateFromKeys</code> 这样主要对应的 key 注册了的话就会有对应的算法绑定到 scheduler 上面。目前有两种 Provider，一种是用默认 predicate 和 默认 priority 的 AlgorithmProvider，另一种是把 <code>LeastRequestedPriority</code> 换成 <code>MostRequestedPriority</code> 的自动伸缩友好的 AlgorithmProvider。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// Registers algorithm providers. By default we use 'DefaultProvider', but user can specify one to be used</span></span><br><span class="line"><span class="comment">// by specifying flag.</span></span><br><span class="line">factory.RegisterAlgorithmProvider(factory.DefaultProvider, defaultPredicates(), defaultPriorities())</span><br><span class="line"><span class="comment">// Cluster autoscaler friendly scheduling algorithm.</span></span><br><span class="line">factory.RegisterAlgorithmProvider(ClusterAutoscalerProvider, defaultPredicates(),</span><br><span class="line">	copyAndReplace(defaultPriorities(), <span class="string">"LeastRequestedPriority"</span>, <span class="string">"MostRequestedPriority"</span>))</span><br></pre></td></tr></table></figure>
+
+<h2 id="Scheduler-Server"><a href="#Scheduler-Server" class="headerlink" title="Scheduler Server"></a>Scheduler Server</h2><p><code>options.ScheduleServer</code> 是服务端对应的配置结构，其中有几个成员。</p>
+<ol>
+<li>KubeSchedulerConfiguration 调度器的配置</li>
+<li>Master 表示 API server 的地址</li>
+<li>Kubeconfig k8s 配置文件的路径</li>
+</ol>
+<p><code>func Run(s *options.SchedulerServer) error</code> 会根据 <code>Sechduler Server</code> 来运行。<code>EventBroadcaster</code> 接受事件，并且把事件发送给事件处理者（ EventSink watcher, log)，<code>startHTTP</code> 主要是是 profiling 接口，心跳检测接口和 prometheus 的 instrumenting 接口。<code>informerFactory</code>，看起来是一个异步同步信息的 cache，平时调度是直接走 cache，更新的时候才会走 API。最后配置了选主的话会从 Etcd 拿到锁，并且拿到 Master 的锁。</p>
+
+
+<h2 id="k8s-io-kubernetes-plugin-pkg-scheduler-Scheduler-Run"><a href="#k8s-io-kubernetes-plugin-pkg-scheduler-Scheduler-Run" class="headerlink" title="k8s.io/kubernetes/plugin/pkg/scheduler.Scheduler.Run"></a>k8s.io/kubernetes/plugin/pkg/scheduler.Scheduler.Run</h2><p>初始化以后，Run 对应的是一个 0 秒循环的大 loop（相当于每次 loop 等于主动调用一次 Go runtime.Sched())，在每次循环当中都会调用 <code>sched.scheduleOne</code>，首先 <code>NextPod</code> 会同步等待一个 pod 变成 available 的状态，并且跳过正在被删除的 pod，然后调用 <code>sched.schedule</code> 走到具体的调度算法当中，整个过程是串行，没有批量调度 pod 的操作。在进行具体的调度算法之后，会得到一个可行的 node，如果调度失败的话会，并且调度失败的原因是找不到合适的 node 的话，就尝试 <code>sched.preempt</code>，这个的作用就是尝试在替换现有 pod 的情况下能够获得调度机会的策略，那么就抢占已经被调度的 pod，标记目标 pod 的 Annotation 然后踢出权重最低的那个 pod。如果成果获得一个可调度的节点，就通过把本地 cache 先更新到已经调度之后的状态，标记 pod 已经在要调度的 node 上，也就是调用 <code>sched.assume</code> 假设 pod 已经调度到了节点上，再异步的通过 ApiServer 的接口，<code>sched.bind</code> 让 pod 正在运行到 node 上。</p>
+
+
+<h2 id="sched-schedule"><a href="#sched-schedule" class="headerlink" title="sched.schedule"></a>sched.schedule</h2><p>schedule 调用 <em>algorithm/scheduler_interface.go*下面定义的调度器的接口 <code>Schedule</code>。对应的实现在 *core/generic_scheduler.go</em> 下面。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// ScheduleAlgorithm is an interface implemented by things that know how to schedule pods</span></span><br><span class="line"><span class="comment">// onto machines.</span></span><br><span class="line"><span class="keyword">type</span> ScheduleAlgorithm <span class="keyword">interface</span> &#123;</span><br><span class="line">	Schedule(*v1.Pod, NodeLister) (selectedMachine <span class="keyword">string</span>, err error)</span><br><span class="line">	<span class="comment">// Preempt receives scheduling errors for a pod and tries to create room for</span></span><br><span class="line">	<span class="comment">// the pod by preempting lower priority pods if possible.</span></span><br><span class="line">	<span class="comment">// It returns the node where preemption happened, a list of preempted pods, and error if any.</span></span><br><span class="line">	Preempt(*v1.Pod, NodeLister, error) (selectedNode *v1.Node, preemptedPods []*v1.Pod, err error)</span><br><span class="line">	<span class="comment">// Predicates() returns a pointer to a map of predicate functions. This is</span></span><br><span class="line">	<span class="comment">// exposed for testing.</span></span><br><span class="line">	Predicates() <span class="keyword">map</span>[<span class="keyword">string</span>]FitPredicate</span><br><span class="line">	<span class="comment">// Prioritizers returns a slice of priority config. This is exposed for</span></span><br><span class="line">	<span class="comment">// testing.</span></span><br><span class="line">	Prioritizers() []PriorityConfig</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>Schedule</code> 会根据调度算法得到一个合适的节点，而 <code>Preempt</code> 则是尝试抢占一个 pod 以获得调度到节点上的机会。<code>Predicates</code> 和 <code>Priorities</code> 则是两个重要的部分，<code>Predicates</code> 类似一个过滤器，对节点进行筛选，而 <code>Priorities</code> 则是对筛选出来的节点进行权重的排序，最后得到一个合适的调度节点。</p>
+<h3 id="算法工厂"><a href="#算法工厂" class="headerlink" title="算法工厂"></a>算法工厂</h3><p>算法工厂就是注册 <code>Preciate</code> 和 <code>Priority</code> 的地方，之前已经说了可以通过 <code>AlgorithmProvider</code> 获得一组 <code>Predicate</code> 和 <code>Priority</code>，比如 DefaultProvider 提供了默认的一套，如果不用 Provider，需要在 <a href="https://github.com/kubernetes/examples/blob/master/staging/scheduler-policy-config.json" target="_blank" rel="noopener">policy file</a> 当中另外指定要使用的 <code>Predicate</code> 和 <code>Priority</code>，不过目前好像没有用这种方式，还是通过 Provider 指定了一套要使用的算法 。注册 <code>AlgorithmProvider</code>是通过<code>factory.RegisterAlgorithmProvider</code>，然后调用 <code>NewGenericScheduler</code> (在 <em>k8s.io/kubernetes/plugin/pkg/scheduler/core/generic_scheduler.go</em> 当中)，初始化要用到的 predicates 和 priorities。</p>
+<h3 id="调度过程"><a href="#调度过程" class="headerlink" title="调度过程"></a>调度过程</h3><p><code>Schedule</code> 其实很简单，就是通过 <code>findNodesThatFit</code>，先根据 <code>Predicate</code> 过滤出合适的 Node，然后调用 <code>PrioritizeNodes</code>，用 <code>Priorities</code> 对 Node 根据算法的权重进行排序，因为每个 node 要走的流程是一样的并且最终结果相互没有影响，所以这个过程是并发的，<a href="http://blog.csdn.net/waltonwang/article/details/54409917" target="_blank" rel="noopener">这篇文章</a>的图画的很好，示意很明显。</p>
+
+
+<p>最后会得到一个最理想的节点，再通过 bing 告诉 API server 这个节点被选中了。</p>
+<h2 id="sched-preempt"><a href="#sched-preempt" class="headerlink" title="sched.preempt"></a>sched.preempt</h2><p>抢占过程是在 pod 没有找到合适的节点情况下，如果能在踢出一个 pod 获得调度机会的情况下进行抢占。抢占算是一个比较新的特性，在 1.8 里面都是默认关掉的，要打开的话需要指定<code>kube-scheduler</code> 的 <code>--feature-gates=PodPriority=true</code> 还有 apiserver 的 <code>--runtime-config=scheduling.k8s.io/v1alpha1=true</code>。可以通过添加 <code>PriorityClass</code> 把 pod 分权重，现在这个特性算是给 pod 也加上的权重。</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">PriorityClass</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line"><span class="attr">  name:</span> <span class="string">high-priority</span></span><br><span class="line"><span class="attr">value:</span> <span class="number">1000000</span></span><br><span class="line"><span class="attr">globalDefault:</span> <span class="literal">false</span></span><br><span class="line"><span class="attr">description:</span> <span class="string">"This priority class should be used for XYZ service pods only."</span></span><br></pre></td></tr></table></figure>
+
+<p>然后可以在<code>spec</code>当中指定 <code>priorityClassName: high-priority</code>，这样这么大的权重，这个 pod 就很难被抢占了，具体流程如下图。</p>
+
+
+<p><code>podEligibleToPreemptOthers</code> 主要判断如果 目标 pod 被标记为（通过 pod 的 annotation 标记）已经要抢占其他 pod，并且有一个优先级小于 目标 pod 的 pod 即将被删除 (<code>p.DeletionTimestamp != nil</code>)，就直接退出，因为这个时候这个被删除的 pod 其实在为目标 pod 腾出空间了，在下次调度的时候就会获得调度机会。<code>nodesWherePreemptionMightHelp</code>，类似于 schedule 的时候的 predicate 阶段，只不过多了一步是通过尝试移除 pod 跑一遍 predicates 看看这个节点能不能被通过。 <code>selectNodesForPreemption</code> 则和 priority 的阶段类似，把删除 pod 之后的可以通过的节点进行排序选出一个排名最高的节点。再通过 <code>selectVictimsOnNode</code> 把节点上的 pod 按照节点的 priority 排序选出“受害者”，越高越难被抢占。可以在 spec 里面设置这个值，选出了节点上的受害者以后，通过<code>pickOneNodeForPreemption</code>，主要的依据是拥有最低的最高 pod 权重的节点先被选出来，比如 node1 上 pod 的最高权重是 10，node2 上 pod 的最高权重是 8，那么 node2 被选中，如果有平局的话，最少的“受害者”先选，如果还平局，随机选一个。最后得到一个要被抢占的节点。</p>
+<h2 id="自定义调度器的方式"><a href="#自定义调度器的方式" class="headerlink" title="自定义调度器的方式"></a>自定义调度器的方式</h2><p>自定义调度器有三种方法。</p>
+<p>第一种是通过添加 <code>Predicate</code> 和 <code>Priority</code> 的方式，做微调，这种方式比较简单，只要定义好对应的函数并且通过函数工厂注册就可以。</p>
+<p>第二种是使用自定义的调度器，具体的方法可以看<a href="https://kubernetes.io/docs/tasks/administer-cluster/configure-multiple-schedulers/" target="_blank" rel="noopener">官方文档</a>，通过把 pod 的 spec.schedulerName 指向自定义的调度器就可以把调度任务转到自己实现的服务。</p>
+<p>第三种是使用 extender，extender 本身和调度器的过程类似，接口是如下定义的，主要是针对一些不算受集群本身控制的资源，需要通过外部调用来进行调度的情况，相关文档在<a href="blog.kubernetes.io/2017/03/advanced-scheduling-in-kubernetes.html">这里</a>。</p>
+<h2 id="性能测试"><a href="#性能测试" class="headerlink" title="性能测试"></a>性能测试</h2><p>目前单机简单的测试条件下，1s 钟可以调度成功 450 左右的 pod，具体的性能参数还要慢慢挖掘。</p>
+
+      
+    </div>
+
+    
+
+    
+      
+    
+
+    
+    
+    
+
+    
+
+    
+      
+    
+    
+
+    
+
+    <footer class="post-footer">
+      
+        
+          
+        
+        <div class="post-tags">
+          
+            <a href="/tags/kubernetes/" rel="tag"># kubernetes</a>
+          
+            <a href="/tags/k8s/" rel="tag"># k8s</a>
+          
+            <a href="/tags/kube-scheduler/" rel="tag"># kube-scheduler</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/zh-CN/2017/09/21/zh-CN/flannel-网络架构/" rel="next" title="flannel 网络架构">
+                <i class="fa fa-chevron-left"></i> flannel 网络架构
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/zh-CN/2017/11/05/zh-CN/Kubernetes-API-分析/" rel="prev" title="Kubernetes API 分析">
+                Kubernetes API 分析 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description motion-element" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+
+
+  <nav class="site-state motion-element">
+    
+      <div class="site-state-item site-state-posts">
+        
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">51</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+    
+
+    
+      
+      
+      <div class="site-state-item site-state-categories">
+        
+        
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+        <span class="site-state-item-count">14</span>
+        <span class="site-state-item-name">分类</span>
+        
+      </div>
+    
+
+    
+      
+      
+      <div class="site-state-item site-state-tags">
+        
+        
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+        <span class="site-state-item-count">79</span>
+        <span class="site-state-item-name">标签</span>
+        
+      </div>
+    
+  </nav>
+
+
+
+
+
+
+
+
+
+
+
+
+
+          
+          
+        </div>
+      </div>
+
+      
+      <!--noindex-->
+        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+            
+            
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#CreateScheduler"><span class="nav-number">1.</span> <span class="nav-text">CreateScheduler</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Scheduler-Server"><span class="nav-number">2.</span> <span class="nav-text">Scheduler Server</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#k8s-io-kubernetes-plugin-pkg-scheduler-Scheduler-Run"><span class="nav-number">3.</span> <span class="nav-text">k8s.io/kubernetes/plugin/pkg/scheduler.Scheduler.Run</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#sched-schedule"><span class="nav-number">4.</span> <span class="nav-text">sched.schedule</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#算法工厂"><span class="nav-number">4.1.</span> <span class="nav-text">算法工厂</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#调度过程"><span class="nav-number">4.2.</span> <span class="nav-text">调度过程</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#sched-preempt"><span class="nav-number">5.</span> <span class="nav-text">sched.preempt</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#自定义调度器的方式"><span class="nav-number">6.</span> <span class="nav-text">自定义调度器的方式</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#性能测试"><span class="nav-number">7.</span> <span class="nav-text">性能测试</span></a></li></ol></div>
+            
+
+          </div>
+        </div>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2019</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+
+  
+
+  
+</div>
+
+
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Muse</a> v7.2.0</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+    
+
+    
+
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/jquery/index.js?v=3.4.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+
+
+
+  <script src="/js/utils.js?v=7.2.0"></script>
+
+  <script src="/js/motion.js?v=7.2.0"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/schemes/muse.js?v=7.2.0"></script>
+
+
+
+  
+  <script src="/js/scrollspy.js?v=7.2.0"></script>
+<script src="/js/post-details.js?v=7.2.0"></script>
+
+
+
+  <script src="/js/next-boot.js?v=7.2.0"></script>
+
+  
+
+  
+
+  
+
+
+  
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script>
+// GET RESPONSIVE HEIGHT PASSED FROM IFRAME
+
+window.addEventListener("message", function(e) {
+  var data = e.data;
+  if ((typeof data === 'string') && (data.indexOf('ciu_embed') > -1)) {
+    var featureID = data.split(':')[1];
+    var height = data.split(':')[2];
+    $(`iframe[data-feature=${featureID}]`).height(parseInt(height) + 30);
+  }
+}, false);
+</script>
+
+
+
+
+
+
+
+
+  
+
+</body>
+</html>

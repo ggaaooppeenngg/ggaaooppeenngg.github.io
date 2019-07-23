@@ -1,0 +1,1262 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next mist use-motion" lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+
+
+  <meta name="google-site-verification" content="_85tctgPWrqH2EPVuuD5IT6KE-tW8nH0hTISJDMnShg">
+
+
+
+
+
+
+
+  <meta name="baidu-site-verification" content="bb16c5b1fd3302c18e0015bef11eea42">
+
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=7.2.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=7.2.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=7.2.0">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=7.2.0" color="#222">
+
+
+
+
+
+
+<link rel="stylesheet" href="/css/main.css?v=7.2.0">
+
+
+
+
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.7.0">
+
+
+
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Mist',
+    version: '7.2.0',
+    sidebar: {"position":"right","display":"post","offset":12,"onmobile":false},
+    back2top: {"enable":true,"sidebar":true,"scrollpercent":true},
+    copycode: {"enable":false,"show_result":false,"style":null},
+    fancybox: false,
+    mediumzoom: false,
+    lazyload: false,
+    pangu: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    },
+    translation: {
+      copy_button: '复制',
+      copy_success: '复制成功',
+      copy_failure: '复制失败'
+    }
+  };
+</script>
+
+  <meta name="description" content="UNIX 的哲学之一就是一切皆文件，所以可以看出文件系统在操作系统层面是非常重要的，很多基本单元都是通过文件系统展开的，所以了解文件系统有利于分析整个操作系统的脉络。 在 Linux 当中文件系统千奇百种，比较常见的有 EXT3、EXT4，还有基于内存的 ramfs、tmpfs 和基于网络的 nfs，和基于用户态的 fuse，当然 fuse 应该不能完全的文件系统，只能算是一个能把文件系统实现放到">
+<meta name="keywords" content="内核,文件系统">
+<meta property="og:type" content="article">
+<meta property="og:title" content="VFS- 内核是如何抽象文件系统的">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2015/12/22/VFS-内核是如何抽象文件系统的/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="UNIX 的哲学之一就是一切皆文件，所以可以看出文件系统在操作系统层面是非常重要的，很多基本单元都是通过文件系统展开的，所以了解文件系统有利于分析整个操作系统的脉络。 在 Linux 当中文件系统千奇百种，比较常见的有 EXT3、EXT4，还有基于内存的 ramfs、tmpfs 和基于网络的 nfs，和基于用户态的 fuse，当然 fuse 应该不能完全的文件系统，只能算是一个能把文件系统实现放到">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2015/12/22/VFS-内核是如何抽象文件系统的/fs.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2015/12/22/VFS-内核是如何抽象文件系统的/file.png">
+<meta property="og:updated_time" content="2019-07-23T13:31:41.414Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="VFS- 内核是如何抽象文件系统的">
+<meta name="twitter:description" content="UNIX 的哲学之一就是一切皆文件，所以可以看出文件系统在操作系统层面是非常重要的，很多基本单元都是通过文件系统展开的，所以了解文件系统有利于分析整个操作系统的脉络。 在 Linux 当中文件系统千奇百种，比较常见的有 EXT3、EXT4，还有基于内存的 ramfs、tmpfs 和基于网络的 nfs，和基于用户态的 fuse，当然 fuse 应该不能完全的文件系统，只能算是一个能把文件系统实现放到">
+<meta name="twitter:image" content="https://ggaaooppeenngg.github.io/zh-CN/2015/12/22/VFS-内核是如何抽象文件系统的/fs.png">
+
+
+
+
+
+  
+  
+  <link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2015/12/22/VFS-内核是如何抽象文件系统的/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  
+  <title>VFS- 内核是如何抽象文件系统的 | ggaaooppeenngg</title>
+  
+
+
+
+
+  <script async src="https://www.googletagmanager.com/gtag/js?id=UA-62096626-1"></script>
+  <script>
+    var host = window.location.hostname;
+    if (host !== "localhost" || !true) {
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'UA-62096626-1');
+    }
+  </script>
+
+
+
+  <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?bb16c5b1fd3302c18e0015bef11eea42";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+  </script>
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-right page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">ggaaooppeenngg</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+      
+        <h1 class="site-subtitle" itemprop="description">为什么计算机科学是无限的但生命是有限的</h1>
+      
+    
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>首页</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/about/" rel="section"><i class="menu-item-icon fa fa-fw fa-user"></i> <br>关于</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/tags/" rel="section"><i class="menu-item-icon fa fa-fw fa-tags"></i> <br>标签<span class="badge">79</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-categories">
+
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/categories/" rel="section"><i class="menu-item-icon fa fa-fw fa-th"></i> <br>分类<span class="badge">14</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档<span class="badge">51</span></a>
+
+  </li>
+
+      
+      
+    </ul>
+  
+
+  
+    
+
+  
+
+  
+</nav>
+
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2015/12/22/VFS-内核是如何抽象文件系统的/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h2 class="post-title" itemprop="name headline">VFS- 内核是如何抽象文件系统的
+
+              
+            
+          </h2>
+        
+
+        <div class="post-meta">
+
+          
+          
+          
+
+          
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2015-12-22 00:30:06" itemprop="dateCreated datePublished" datetime="2015-12-22T00:30:06+08:00">2015-12-22</time>
+            </span>
+          
+
+          
+            
+
+            
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2019-07-23 21:31:41" itemprop="dateModified" datetime="2019-07-23T21:31:41+08:00">2019-07-23</time>
+              </span>
+            
+          
+
+          
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing"><a href="/categories/内核/" itemprop="url" rel="index"><span itemprop="name">内核</span></a></span>
+
+                
+                
+                  ，
+                
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing"><a href="/categories/内核/文件系统/" itemprop="url" rel="index"><span itemprop="name">文件系统</span></a></span>
+
+                
+                
+                  ，
+                
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing"><a href="/categories/内核/文件系统/VFS/" itemprop="url" rel="index"><span itemprop="name">VFS</span></a></span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+            
+              
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-comment-o"></i>
+                </span>
+            
+                <span class="post-meta-item-text">评论数：</span>
+                <a href="/zh-CN/2015/12/22/VFS-内核是如何抽象文件系统的/#comments" itemprop="discussionUrl">
+                  <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2015/12/22/VFS-内核是如何抽象文件系统的/" itemprop="commentCount"></span>
+                </a>
+              </span>
+            
+          
+
+          
+          
+
+          
+
+          
+
+          <br>
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>UNIX 的哲学之一就是一切皆文件，所以可以看出文件系统在操作系统层面是非常重要的，很多基本单元都是通过文件系统展开的，所以了解文件系统有利于分析整个操作系统的脉络。</p>
+<p>在 Linux 当中文件系统千奇百种，比较常见的有 EXT3、EXT4，还有基于内存的 ramfs、tmpfs 和基于网络的 nfs，和基于用户态的 fuse，当然 fuse 应该不能完全的文件系统，只能算是一个能把文件系统实现放到用户态的模块，满足了内核文件系统的接口，他们都是文件系统的一种实现。这个 <a href="https://en.wikipedia.org/wiki/File_system#Linux" target="_blank" rel="noopener">wiki</a> 上列出了很多 Linux 的文件系统类型。</p>
+<p>对于这些文件系统，Linux 做了一层抽象就是 <a href="https://en.wikipedia.org/wiki/Virtual_file_system" target="_blank" rel="noopener">VFS</a> 虚拟文件系统，这个其实就是软件设计必然的过程，对于不同的实现规定统一的接口，也就是定义与实现分离，如果想要自己实现一个文件系统的话只要实现一个满足 VFS 层的文件系统就能加入到内核当中。所以其实内核的文件和我们普通理解的文件其实有点不一样，这里的文件更像是一个接口，只不过最初是从磁盘上的文件衍生过来的，最后抽象成了一种可以对接各种功能的接口。</p>
+<p>下面就开始剖析 VFS 的主要内容。</p>
+<p>VFS 有几个必不可少的元素，<code>filesystem_type，super_block</code>, <code>dentry</code>, <code>inode</code>, <code>file</code>, <code>vfsmount</code>, <code>nameidata</code> 等等。这里抛开具体的代码，先从概念入手，下一篇博文，我会实现一个简单的文件系统，再基于代码分析具体的概念。</p>
+<p>首先是 <code>filesystem_type</code> 和 <code>super_block</code>，这两者的关系有点类似于软件中的 <code>class</code> 和 <code>object</code> 的关系。在内核当中有一个全局的<code>file_systems</code>链表串接了所有的文件系统类型的代表<code>filesystem_type</code>，对于文件系统的注册和删除就是在链表当中增加和删除对应的节点。而<code>super_block</code>就是一个文件系统的实例。本身也是通过全局链表串连起来的。<code>filesystem_type</code>本身非常简单，定义了获取和删除<code>super_block</code>的接口，和一些共同的相关信息。</p>
+<p>对于<code>super_block</code>来说超级块定义了文件系统的具体信息和对应文件系统的接口，比如<code>write_super</code>,<code>alloc_inode</code>,<code>sync_fs</code>等，这些都是有具体的文件系统实现的。所有的<code>inode</code>都链接到了<code>super_block</code>。</p>
+<p>对于文件系统来说挂载点是个很有意思的点，在内核当中挂载点用<code>vfsmount</code>表示，挂载点是文件系统之间的衔接部分，如果要添加一个新的文件系统势必要将文件系统挂载在某个目录下面使得文件系统生效，<code>vfsmount</code>就是这样一个接口。当文件系统挂载以后原目录将不可见。<code>vfsmount</code>的主要内容是<code>vfsmount</code>的拓扑关系以及指向的目录和<code>super_block</code>。所以从宏观的角度来说，整个文件系统的组织是如图这样的。</p>
+<p><img src="fs.png" alt="fs.png"></p>
+<p>这是文件系统本身这个结构在操作系统里的组织结构，接下来分析文件系统满足 VFS 要包含哪些内容。</p>
+<p>第一个要说的就是 dentry，dentry 表现的是文件在文件系统中的树状关系，dentry 也要实现相应的接口，包括 <code>d_delete</code>，<code>d_release</code>，<code>d_compare</code>等接口。<br>dentry 代表的是目录结构中的一个文件，而文件其实就是没有子目录的文件。dentry 链接到了超级快和父 dentry 和子 dentry 以及对应的 inode。</p>
+<p>接下来是 inode, inode 本身代表的一个文件，保存的信息很多，包括文件的大小，创建时间，文件的块大小等参数，以及文件的读写缓存等信息，还要定义对应的针对文件的函数接口，包括增删改查等等。没有文件名，因为它代表的是文件的原信息，具体的路径的表示依赖<code>dentry</code>。</p>
+<p>dentry 和 inode 的关系是多对一的，即多个 dentry 可以指向同一个文件，这和 linux 当中的文件链接有关。</p>
+<p>接下来就是 file，file 虽然叫 file 但是对应的却不像 inode 一样，它对应的是一个进程所打开的文件。例如两个不同的进程打开了磁盘上的同一个文件，那么他们对应的 inode 是相同的，这也是 inode 意义。但是不同进程之间的 file 不是同一个引用，file 本身的结构还是和文件操作有关的。</p>
+<p>整个关系如图所示。</p>
+<p><img src="file.png" alt="file.png"></p>
+<p>对应的文件目录如下</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">.</span><br><span class="line">├── a</span><br><span class="line">│   └── ab</span><br><span class="line">└── b</span><br><span class="line">    ├── bc -&gt; ../a/ab</span><br><span class="line">    └── bd</span><br></pre></td></tr></table></figure>
+
+<p>图中展示了一个硬链接代表着 bc 和 ab 的 dentry 指向了同一个<code>inode</code>，硬链接是不同 dentry 指向同一个<code>inode</code>，这也是为什么硬链接不能夸文件系统，因为<code>inode</code>是属于特定文件系统的。<br>图中其实<code>inode</code>是串联在<code>super_block</code>上的，<code>super_block</code>维护了文件系统中`inodes，因为画上去太乱了所以省略了。</p>
+<p>VFS 的整体结构就是这样，接下来简要地说几个具体内容：</p>
+<p>所谓的打开文件描述符其实就是进程的 files 数组这个文件描述符表的下标，通过对应的 fd 就能找到 file 结构。例如 dentry，vfsmount 这样的结构都有一个 hashtable 来缓存搜索的内容，这样就能加开目录的遍历搜索。</p>
+<p>inode 其实也有一个全局的 hashtable 用于快速查找，inode 本身能代表的东西很多，一切皆文件就体现在他身上，他既可以表示一个 socket，也可以表示一个管道，还可以表示块设备、字符设备，然后就是普通文件了。</p>
+<p>以上讲的就是整个内核当中 VFS 层的抽象，并没有牵涉到具体的文件系统，在下一篇博客我将会实现一个简单的文件系统，不就具体的代码分析，来熟悉这里提到的这些概念。<br>其实了解了概念以后，就会给人一种不过如此的感觉，真正值得玩味的是下层的实现，这也是我后面的博客将会介绍的内容。比如基于磁盘的文件系统更多的是要关注 I\O 层的东西。</p>
+<p>其实内核的 I\O 路径是这样的：user space -&gt; VFS -&gt; FS -&gt; I\O layer -&gt; I\O scheduler(optional) -&gt; block_driver -&gt; block_device, 一个 I\O 经过了这些才真正到达了对应的存储上。</p>
+<p>一个用户态的系统调用先通过 VFS 找到对应的文件系统再向下传递 I\O，这是 I\O 的一般路径。所以说对于用户来说，一切都是操作文件了。</p>
+
+      
+    </div>
+
+    
+
+    
+      
+    
+
+    
+    
+    
+
+    
+
+    
+      
+    
+    
+      <div>
+        <div id="reward-container">
+  <div></div>
+  <button id="reward-button" disable="enable" onclick="var qr = document.getElementById(&quot;qr&quot;); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+
+    
+      
+      
+        
+      
+      <div style="display: inline-block">
+        <img src="/images/wechat.jpeg" alt="ggaaooppeenngg 微信支付">
+        <p>微信支付</p>
+      </div>
+    
+      
+      
+        
+      
+      <div style="display: inline-block">
+        <img src="/images/alipay.jpeg" alt="ggaaooppeenngg 支付宝">
+        <p>支付宝</p>
+      </div>
+    
+
+  </div>
+</div>
+
+      </div>
+    
+
+    
+
+    <footer class="post-footer">
+      
+        
+          
+        
+        <div class="post-tags">
+          
+            <a href="/tags/内核/" rel="tag"># 内核</a>
+          
+            <a href="/tags/文件系统/" rel="tag"># 文件系统</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/zh-CN/2015/11/19/map当中bool真的值得优化成struct-吗/" rel="next" title="map当中bool真的值得优化成struct{}{}吗?">
+                <i class="fa fa-chevron-left"></i> map当中bool真的值得优化成struct{}{}吗?
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/zh-CN/2016/01/04/aufs-如何自己编写一个文件系统/" rel="prev" title="aufs-如何自己编写一个文件系统">
+                aufs-如何自己编写一个文件系统 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div class="comments" id="comments">
+      <div id="disqus_thread">
+        <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+      </div>
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-inner">
+
+      
+
+      
+
+      <div class="site-overview-wrap sidebar-panel sidebar-panel-active">
+        <div class="site-overview">
+
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description motion-element" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+
+
+  <nav class="site-state motion-element">
+    
+      <div class="site-state-item site-state-posts">
+        
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">51</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+    
+
+    
+      
+      
+      <div class="site-state-item site-state-categories">
+        
+          
+            <a href="/categories/">
+          
+        
+        
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+        <span class="site-state-item-count">14</span>
+        <span class="site-state-item-name">分类</span>
+        </a>
+      </div>
+    
+
+    
+      
+      
+      <div class="site-state-item site-state-tags">
+        
+          
+            <a href="/tags/">
+          
+        
+        
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+        <span class="site-state-item-count">79</span>
+        <span class="site-state-item-name">标签</span>
+        </a>
+      </div>
+    
+  </nav>
+
+
+
+
+
+
+
+  <div class="links-of-author motion-element">
+    
+      <span class="links-of-author-item">
+      
+      
+        
+      
+      
+        
+      
+        <a href="https://github.com/ggaaooppeenngg" title="GitHub &rarr; https://github.com/ggaaooppeenngg" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i>GitHub</a>
+      </span>
+    
+      <span class="links-of-author-item">
+      
+      
+        
+      
+      
+        
+      
+        <a href="mailto:peng.gao.dut@gmail.com" title="E-Mail &rarr; mailto:peng.gao.dut@gmail.com" rel="noopener" target="_blank"><i class="fa fa-fw fa-envelope"></i>E-Mail</a>
+      </span>
+    
+  </div>
+
+
+
+
+
+
+
+          
+          
+        </div>
+      </div>
+
+      
+
+      
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          
+            <span id="scrollpercent"><span>0</span>%</span>
+          
+        </div>
+      
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; 2014 – <span itemprop="copyrightYear">2019</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+
+  
+
+  
+</div>
+
+
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Mist</a> v7.2.0</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+
+    
+
+    
+
+    
+
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/jquery/index.js?v=3.4.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+
+
+
+  <script src="/js/utils.js?v=7.2.0"></script>
+
+  <script src="/js/motion.js?v=7.2.0"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/schemes/muse.js?v=7.2.0"></script>
+
+
+
+
+  
+  <script src="/js/scrollspy.js?v=7.2.0"></script>
+<script src="/js/post-details.js?v=7.2.0"></script>
+
+
+
+  <script src="/js/next-boot.js?v=7.2.0"></script>
+
+  
+  <script src="/js/js.cookie.js?v=7.2.0"></script>
+  <script src="/js/scroll-cookie.js?v=7.2.0"></script>
+
+
+  
+
+  
+
+
+  
+  
+
+  
+  
+
+  
+    
+      <script type="text/x-mathjax-config">
+  
+
+  MathJax.Hub.Config({
+    tex2jax: {
+      inlineMath: [ ['$', '$'], ['\\(', '\\)'] ],
+      processEscapes: true,
+      skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    },
+    TeX: {
+      
+      equationNumbers: {
+        autoNumber: 'AMS'
+      }
+    }
+  });
+  MathJax.Hub.Register.StartupHook('TeX Jax Ready', function() {
+    MathJax.InputJax.TeX.prefilterHooks.Add(function(data) {
+      if (data.display) {
+        var next = data.script.nextSibling;
+        while (next && next.nodeName.toLowerCase() === '#text') { next = next.nextSibling }
+        if (next && next.nodeName.toLowerCase() === 'br') { next.parentNode.removeChild(next) }
+      }
+    });
+  });
+</script>
+
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+    for (i = 0; i < all.length; i += 1) {
+      document.getElementById(all[i].inputID + '-Frame').parentNode.className += ' has-jax';
+    }
+  });
+</script>
+<script src="//cdn.jsdelivr.net/npm/mathjax@2/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+    
+  
+
+
+
+
+
+
+
+
+
+  
+<script>
+  function loadCount() {
+    var d = document, s = d.createElement('script');
+    s.src = 'https://ggaaooppeenngg.disqus.com/count.js';
+    s.id = 'dsq-count-scr';
+    (d.head || d.body).appendChild(s);
+  }
+  // defer loading until the whole page loading is completed
+  window.addEventListener('load', loadCount, false);
+</script>
+
+
+<script>
+  var disqus_config = function() {
+    this.page.url = "https://ggaaooppeenngg.github.io/zh-CN/2015/12/22/VFS-内核是如何抽象文件系统的/";
+    this.page.identifier = "zh-CN/2015/12/22/VFS-内核是如何抽象文件系统的/";
+    this.page.title = 'VFS- 内核是如何抽象文件系统的';
+    };
+  function loadComments() {
+    var d = document, s = d.createElement('script');
+    s.src = 'https://ggaaooppeenngg.disqus.com/embed.js';
+    s.setAttribute('data-timestamp', '' + +new Date());
+    (d.head || d.body).appendChild(s);
+  }
+  
+    window.addEventListener('load', loadComments, false);
+  
+</script>
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script>
+// GET RESPONSIVE HEIGHT PASSED FROM IFRAME
+
+window.addEventListener("message", function(e) {
+  var data = e.data;
+  if ((typeof data === 'string') && (data.indexOf('ciu_embed') > -1)) {
+    var featureID = data.split(':')[1];
+    var height = data.split(':')[2];
+    $(`iframe[data-feature=${featureID}]`).height(parseInt(height) + 30);
+  }
+}, false);
+</script>
+
+
+
+  <script>
+    (function(){
+      var bp = document.createElement('script');
+      var curProtocol = window.location.protocol.split(':')[0];
+      bp.src = (curProtocol === 'https') ? 'https://zz.bdstatic.com/linksubmit/push.js' : 'http://push.zhanzhang.baidu.com/push.js';
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(bp, s);
+    })();
+  </script>
+
+
+
+
+
+
+  
+
+</body>
+</html>

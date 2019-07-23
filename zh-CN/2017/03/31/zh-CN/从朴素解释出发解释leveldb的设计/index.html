@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next muse use-motion" lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=7.2.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=7.2.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=7.2.0">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=7.2.0" color="#222">
+
+
+
+
+
+
+<link rel="stylesheet" href="/css/main.css?v=7.2.0">
+
+
+
+
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.7.0">
+
+
+
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Muse',
+    version: '7.2.0',
+    sidebar: {"position":"left","display":"post","offset":12,"onmobile":false},
+    back2top: {"enable":true,"sidebar":false,"scrollpercent":false},
+    copycode: {"enable":false,"show_result":false,"style":null},
+    fancybox: false,
+    mediumzoom: false,
+    lazyload: false,
+    pangu: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    },
+    translation: {
+      copy_button: '复制',
+      copy_success: '复制成功',
+      copy_failure: '复制失败'
+    }
+  };
+</script>
+
+  <meta name="description" content="其实大家提的 LSM 最开始论文里面都使用树做搜索结构的, 现在在用的都不是严格的树结构了。 如这篇文章解释的一样，从最朴素的角度上来讲可以把SSTable(sorted string table)作为一个连续的kv构成的块。 1234SSTable+-+---+----+---+|k| v |  k | v | ...+-+---+----+---+  对于一个大文件来说，读取整个文件以后就能构">
+<meta name="keywords" content="db,数据库,leveldb,rocksdb">
+<meta property="og:type" content="article">
+<meta property="og:title" content="从朴素解释出发解释leveldb的设计">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2017/03/31/zh-CN/从朴素解释出发解释leveldb的设计/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="其实大家提的 LSM 最开始论文里面都使用树做搜索结构的, 现在在用的都不是严格的树结构了。 如这篇文章解释的一样，从最朴素的角度上来讲可以把SSTable(sorted string table)作为一个连续的kv构成的块。 1234SSTable+-+---+----+---+|k| v |  k | v | ...+-+---+----+---+  对于一个大文件来说，读取整个文件以后就能构">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2019-07-23T13:31:41.571Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="从朴素解释出发解释leveldb的设计">
+<meta name="twitter:description" content="其实大家提的 LSM 最开始论文里面都使用树做搜索结构的, 现在在用的都不是严格的树结构了。 如这篇文章解释的一样，从最朴素的角度上来讲可以把SSTable(sorted string table)作为一个连续的kv构成的块。 1234SSTable+-+---+----+---+|k| v |  k | v | ...+-+---+----+---+  对于一个大文件来说，读取整个文件以后就能构">
+
+
+
+
+
+  
+  
+  <link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2017/03/31/zh-CN/从朴素解释出发解释leveldb的设计/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  
+  <title>从朴素解释出发解释leveldb的设计 | ggaaooppeenngg</title>
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">ggaaooppeenngg</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+      
+        <p class="site-subtitle">为什么计算机科学是无限的但生命是有限的</p>
+      
+    
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+      
+    
+
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>首页</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+      
+    
+
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档</a>
+
+  </li>
+
+      
+      
+    </ul>
+  
+
+  
+    
+
+  
+
+  
+</nav>
+
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2017/03/31/zh-CN/从朴素解释出发解释leveldb的设计/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">从朴素解释出发解释leveldb的设计
+
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+
+          
+          
+          
+
+          
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2017-03-31 00:56:49" itemprop="dateCreated datePublished" datetime="2017-03-31T00:56:49+08:00">2017-03-31</time>
+            </span>
+          
+
+          
+            
+
+            
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2019-07-23 21:31:41" itemprop="dateModified" datetime="2019-07-23T21:31:41+08:00">2019-07-23</time>
+              </span>
+            
+          
+
+          
+
+          
+            
+            
+          
+
+          
+          
+
+          
+
+          
+
+          <br>
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>其实大家提的 LSM 最开始论文里面都使用树做搜索结构的, 现在在用的都不是严格的树结构了。</p>
+<p>如<a href="https://www.igvita.com/2012/02/06/sstable-and-log-structured-storage-leveldb/" target="_blank" rel="noopener">这篇文章</a>解释的一样，从最朴素的角度上来讲可以把<code>SSTable(sorted string table)</code>作为一个连续的kv构成的块。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">SSTable</span><br><span class="line">+-+---+----+---+</span><br><span class="line">|k| v |  k | v | ...</span><br><span class="line">+-+---+----+---+</span><br></pre></td></tr></table></figure>
+
+<p>对于一个大文件来说，读取整个文件以后就能构成一个各个键值的索引，当然可以在文件追加一块索引，和文件一起保存。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">Index</span><br><span class="line">+-+-------+</span><br><span class="line">|k|offset |</span><br><span class="line">+-+-------+</span><br><span class="line">|k|offset |</span><br><span class="line">+-+-------+</span><br><span class="line">    .</span><br><span class="line">    .</span><br><span class="line">    .</span><br></pre></td></tr></table></figure>
+
+<p>有了索引以后用 seek 操作或者直接把文件 mmap 到内存中都可以有很好的随机读性能。</p>
+<p>但是对于随机写来说, 会造成大量的I/O，如果我们能够保证我们的<code>SSTable</code>是不可修改(immutable)的，只有<code>SSTable</code>在内存当中的时候(也就是<code>MemTable</code>)才可以修改，就能避免随机写的大负载问题。</p>
+<p>通过下面几条约束就能完成我们的要求：</p>
+<ol>
+<li>首先<code>SSTable</code>索引要放在内存中，这样读索引更快</li>
+<li>所有写只能写到<code>MemTable</code>当中, 因为<code>SSTable</code>不可修改</li>
+<li>所有读要先查看<code>MemTable</code>如果没有再查看内存中的索引(最后找到磁盘上的kv)</li>
+<li>定期把<code>MemTable</code>刷成<code>SSTable</code>,这段时间<code>MemTable</code>也变成了不可修改的,新的<code>MemTable</code>会顶替</li>
+<li>定期对<code>SSTable</code>进行合并</li>
+</ol>
+<p>最终我们保证了随机写很快（因为只在<code>MemTable</code>中），随机读也很快（因为要么在<code>MemTable</code>中要么通过索引可以很快找到)。</p>
+<p>还有一个问题是对于已有数据的删除和修改怎么办？</p>
+<p>因为<code>SSTable</code>不可修改所以只能追加写一个新的数据覆盖老的数据，对于删除则是追加一个”墓碑”值覆盖掉存在的值。把索引指向新值，这样老值就不会被访问了。最后在<code>SSTable</code>合并的时候这些老值会完全消失。所以还要定期合并<code>SSTable</code></p>
+<p>以上是对leveldb的LSM结构的朴素解释。实际上<code>MemTable</code>和<code>SSTable</code>都没有采用纯粹的树形结构,<code>MemTable</code>使用的是跳表而<code>SSTable</code>使用的是层次的结构。(这也是为什么 leveldb 叫 level db 的原因)</p>
+<p>从这里开始完善朴素解释</p>
+<p>首先对于<code>MemTable</code>来说不是持久化的如果重启导致内存中的数据丢失怎么办？<a href="https://github.com/facebook/rocksdb/wiki/Write-Ahead-Log-File-Format" target="_blank" rel="noopener">WAL</a> 表示的是预写日志，这个日志和<code>MemTable</code>是同步的，这个日志把每次的命令追加到日志中再更改<code>MemTable</code>，这样如果重启的话能够进行”重放”把从已经持久化的状态开始把数据填回到<code>MemTable</code>当中。</p>
+<p>其次是对<code>SSTable</code>的合并，<code>SSTable</code>是分层存储的，第一层也就是Level0(被称作 young level)，是<code>MemTable</code>刷入的一层，允许这一层的<code>SSTable</code>的key有交集。对于每一层都有一个阈值(young level 是 4,其他层是按大小算的，10^L MB)，如果超过阈值自动向下一层合并，从level1开始的每一次key不允许有交集。具体的做法是从 young level 中把有交集的<code>SSTable</code>一起和下一层key有交集的<code>SSTable</code>合并成一个新的<code>SSTable</code>，然后其他层则是从自身层取出一个和下一层有交集的<code>SSTable</code>合并即可。这个属性可以用归纳法证明，从0层向1层合并的时候，1层只有一个的情况下肯定不会相交，然后假设n个的时候也不相交，在n+1的时候有交集，那么n+1合并时有0层的 key 和 n 当中的有交集，但是有交集的部分会被归并掉所以矛盾，所以n+1个的时候也是没有交集的。那1层能保证没有交集的话取出一个向下合并也是类似的不会有交集。所以再重复一遍分层存储的两个属性。</p>
+<p>对于朴素解释的两个扩展使得我们对leveldb的设计更接近了。</p>
+<ol>
+<li>young层SSTable之间可能存在交集</li>
+<li>Li（i&gt;0）层SSTable之间不存在交集</li>
+</ol>
+<p>在这个基础上再增加几个约束条件，一个是，对于合并过程每超过2MB就会产生一个新文件，如果文件和下一层的文件有交集的个数有10个以上的话也会产生一个新文件，这样的目的是保证Ln和Ln+1之间不会重复太多。个人理解是覆盖太多，会成了倒三角的”树”情况，上一层搜索性能不好。</p>
+<p>当然大量的随机读落在磁盘上还是会有性能问题，因为 seek 也可能是不连续的，这个可以想办法优化, 比如leveldb 里面使用了一种LRU缓存优化读性能。</p>
+<p>参考</p>
+<ol>
+<li><a href="https://github.com/google/leveldb/blob/master/doc/impl.md" target="_blank" rel="noopener">官方实现文档</a></li>
+<li><a href="http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.44.2782&rep=rep1&type=pdf" target="_blank" rel="noopener">LSM-tree论文</a></li>
+</ol>
+
+      
+    </div>
+
+    
+
+    
+      
+    
+
+    
+    
+    
+
+    
+
+    
+      
+    
+    
+
+    
+
+    <footer class="post-footer">
+      
+        
+          
+        
+        <div class="post-tags">
+          
+            <a href="/tags/db/" rel="tag"># db</a>
+          
+            <a href="/tags/数据库/" rel="tag"># 数据库</a>
+          
+            <a href="/tags/leveldb/" rel="tag"># leveldb</a>
+          
+            <a href="/tags/rocksdb/" rel="tag"># rocksdb</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/zh-CN/2017/01/22/zh-CN/SSA是什么/" rel="next" title="什么是SSA以及SSA的作用">
+                <i class="fa fa-chevron-left"></i> 什么是SSA以及SSA的作用
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/zh-CN/2017/04/07/zh-CN/MultiRaft-解析/" rel="prev" title="MultiRaft 解析">
+                MultiRaft 解析 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-inner">
+
+      
+
+      
+
+      <div class="site-overview-wrap sidebar-panel sidebar-panel-active">
+        <div class="site-overview">
+
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description motion-element" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+
+
+  <nav class="site-state motion-element">
+    
+      <div class="site-state-item site-state-posts">
+        
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">51</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+    
+
+    
+      
+      
+      <div class="site-state-item site-state-categories">
+        
+        
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+        <span class="site-state-item-count">14</span>
+        <span class="site-state-item-name">分类</span>
+        
+      </div>
+    
+
+    
+      
+      
+      <div class="site-state-item site-state-tags">
+        
+        
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+        <span class="site-state-item-count">79</span>
+        <span class="site-state-item-name">标签</span>
+        
+      </div>
+    
+  </nav>
+
+
+
+
+
+
+
+
+
+
+
+
+
+          
+          
+        </div>
+      </div>
+
+      
+
+      
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2019</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+
+  
+
+  
+</div>
+
+
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Muse</a> v7.2.0</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+    
+
+    
+
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/jquery/index.js?v=3.4.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+
+
+
+  <script src="/js/utils.js?v=7.2.0"></script>
+
+  <script src="/js/motion.js?v=7.2.0"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/schemes/muse.js?v=7.2.0"></script>
+
+
+
+  
+  <script src="/js/scrollspy.js?v=7.2.0"></script>
+<script src="/js/post-details.js?v=7.2.0"></script>
+
+
+
+  <script src="/js/next-boot.js?v=7.2.0"></script>
+
+  
+
+  
+
+  
+
+
+  
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script>
+// GET RESPONSIVE HEIGHT PASSED FROM IFRAME
+
+window.addEventListener("message", function(e) {
+  var data = e.data;
+  if ((typeof data === 'string') && (data.indexOf('ciu_embed') > -1)) {
+    var featureID = data.split(':')[1];
+    var height = data.split(':')[2];
+    $(`iframe[data-feature=${featureID}]`).height(parseInt(height) + 30);
+  }
+}, false);
+</script>
+
+
+
+
+
+
+
+
+  
+
+</body>
+</html>

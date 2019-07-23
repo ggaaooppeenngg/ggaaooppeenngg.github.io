@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next muse use-motion" lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=7.2.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=7.2.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=7.2.0">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=7.2.0" color="#222">
+
+
+
+
+
+
+<link rel="stylesheet" href="/css/main.css?v=7.2.0">
+
+
+
+
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.7.0">
+
+
+
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Muse',
+    version: '7.2.0',
+    sidebar: {"position":"left","display":"post","offset":12,"onmobile":false},
+    back2top: {"enable":true,"sidebar":false,"scrollpercent":false},
+    copycode: {"enable":false,"show_result":false,"style":null},
+    fancybox: false,
+    mediumzoom: false,
+    lazyload: false,
+    pangu: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    },
+    translation: {
+      copy_button: '复制',
+      copy_success: '复制成功',
+      copy_failure: '复制失败'
+    }
+  };
+</script>
+
+  <meta name="description" content="词法分析一般是编译器的第一部分,而且词法分析很简单,就是一个有限状态机.开始词法分析的过程就是把源文件转换成一组预先定义好的token的过程.这一组被统一表现的token之后会被送入语法分析器进行语法解析,这里我们主要关注如何进行词法分析. 做词法分析就几种方法:  直接使用工具比如lex. 使用更低一层的正则表达式. 使用状态动作,构造一个状态机.  而真正实现一个语言的话,使用工具没有什么错,">
+<meta name="keywords" content="编译,Go,compiler,lexer,go,golang">
+<meta property="og:type" content="article">
+<meta property="og:title" content="go-lexer-词法分析">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2016/04/01/zh-CN/go-lexer-词法分析/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="词法分析一般是编译器的第一部分,而且词法分析很简单,就是一个有限状态机.开始词法分析的过程就是把源文件转换成一组预先定义好的token的过程.这一组被统一表现的token之后会被送入语法分析器进行语法解析,这里我们主要关注如何进行词法分析. 做词法分析就几种方法:  直接使用工具比如lex. 使用更低一层的正则表达式. 使用状态动作,构造一个状态机.  而真正实现一个语言的话,使用工具没有什么错,">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2019-07-23T13:31:41.319Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="go-lexer-词法分析">
+<meta name="twitter:description" content="词法分析一般是编译器的第一部分,而且词法分析很简单,就是一个有限状态机.开始词法分析的过程就是把源文件转换成一组预先定义好的token的过程.这一组被统一表现的token之后会被送入语法分析器进行语法解析,这里我们主要关注如何进行词法分析. 做词法分析就几种方法:  直接使用工具比如lex. 使用更低一层的正则表达式. 使用状态动作,构造一个状态机.  而真正实现一个语言的话,使用工具没有什么错,">
+
+
+
+
+
+  
+  
+  <link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2016/04/01/zh-CN/go-lexer-词法分析/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  
+  <title>go-lexer-词法分析 | ggaaooppeenngg</title>
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">ggaaooppeenngg</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+      
+        <p class="site-subtitle">为什么计算机科学是无限的但生命是有限的</p>
+      
+    
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+      
+    
+
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>首页</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+      
+    
+
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档</a>
+
+  </li>
+
+      
+      
+    </ul>
+  
+
+  
+    
+
+  
+
+  
+</nav>
+
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2016/04/01/zh-CN/go-lexer-词法分析/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">go-lexer-词法分析
+
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+
+          
+          
+          
+
+          
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2016-04-01 14:40:36" itemprop="dateCreated datePublished" datetime="2016-04-01T14:40:36+08:00">2016-04-01</time>
+            </span>
+          
+
+          
+            
+
+            
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2019-07-23 21:31:41" itemprop="dateModified" datetime="2019-07-23T21:31:41+08:00">2019-07-23</time>
+              </span>
+            
+          
+
+          
+
+          
+            
+            
+          
+
+          
+          
+
+          
+
+          
+
+          <br>
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>词法分析一般是编译器的第一部分,而且词法分析很简单,就是一个有限状态机.<br>开始词法分析的过程就是把源文件转换成一组预先定义好的token的过程.<br>这一组被统一表现的token之后会被送入语法分析器进行语法解析,这里我们主要关注如何进行词法分析.</p>
+<p>做词法分析就几种方法:</p>
+<ol>
+<li>直接使用工具比如lex.</li>
+<li>使用更低一层的正则表达式.</li>
+<li>使用状态动作,构造一个状态机.</li>
+</ol>
+<p>而真正实现一个语言的话,使用工具没有什么错,但是问题是,很难获得正确的错误提示.<br>工具生成的错误处理很弱.而且需要学习另一门规则或特定的语法.生成的代码可能性能不好,难以优化,但是用工具可以非常简单实现词法分析.<br>早期编译器的设计阶段都会使用lex来做词法分析器,比如gcc和Go都是这么做的,但是到了后期一个真正生产化的语言可能不能依赖生成的代码,而需要做自己特定的修改和优化,所以自己实现一个词法分析器就显得比较重要了.</p>
+<p>正则表达被人诟病的一个话题就是效率问题,比如perl拥有功能最强大的正则表达式,但是整个正则表达式引擎的效率却很低,Go在这方面牺牲了一些正则表达式的特性来保证正则表达式的效率不至于过低,但是正则表达式对于大量文本处理体现的弱势却是很明显的.因为可能我们要处理的状态其实不需要一个繁重的正则表达来解决.</p>
+<p>其实实现一个词法分析器很简单,而且这种技能是基本不会变的,如果写过一次,以后都是同样的实现方式.</p>
+<p>先看一下Go的实现,在Go的源码下面<code>go/token/token.go</code>目录里面是这么定义token的.</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">// Token is the set of lexical tokens of the Go programming language.</span><br><span class="line">type Token int</span><br></pre></td></tr></table></figure>
+
+<p>其实就是个枚举类型,对于每种类型的字面值都有对应的token.<br>实际上这个只能算是一个token的类型.</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">// The list of tokens.</span><br><span class="line">const (</span><br><span class="line">        // Special tokens</span><br><span class="line">        ILLEGAL Token = iota</span><br><span class="line">        EOF</span><br><span class="line">        COMMENT</span><br><span class="line"></span><br><span class="line">        literal_beg</span><br><span class="line">        // Identifiers and basic type literals</span><br><span class="line">        // (these tokens stand for classes of literals)</span><br><span class="line">        IDENT  // main</span><br><span class="line">        INT    // 12345</span><br><span class="line">        FLOAT  // 123.45</span><br><span class="line">        IMAG   // 123.45i</span><br><span class="line">        CHAR   // &apos;a&apos;</span><br><span class="line">        STRING // &quot;abc&quot;</span><br><span class="line">	// 省略</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+
+<p>枚举所有可以碰到的token类型.</p>
+<p><code>go/token/position.go</code> 当中是关于token位置相关的定义.</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">// -----------------------------------------------------------------------------</span><br><span class="line">// Positions</span><br><span class="line"></span><br><span class="line">// Position describes an arbitrary source position</span><br><span class="line">// including the file, line, and column location.</span><br><span class="line">// A Position is valid if the line number is &gt; 0.</span><br><span class="line">//</span><br><span class="line">type Position struct &#123;</span><br><span class="line">        Filename string // filename, if any</span><br><span class="line">        Offset   int    // offset, starting at 0 </span><br><span class="line">        Line     int    // line number, starting at 1   </span><br><span class="line">        Column   int    // column number, starting at 1 (byte count)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这个很简单就是标示在文件中的位置,比较有意思的是<code>Pos</code>的定义<code>type Pos int</code>,这是位置标示的紧凑表示.接下来看看Pos和Position之间是如何转换的.</p>
+<p>首先定义了一个<code>FileSet</code>,可以理解为把<code>File</code>的内容字节按顺序存放的一个大数组,而某个文件则属于数组的一个区间[base,base+size]中,base是文件的第一个字节在大数组中的位置,size是这个文件的大小,某个文件中的<code>Pos</code>是在[base,base+size]这个区间里的一个小标.</p>
+<p>所以最后<code>Pos</code>能够压缩成一个整数来表示一个文件当中的位置,当需要使用的使用再从<code>FileSet</code>中转换出完整的<code>Position</code>对象.</p>
+<p><code>go/token/serialize.go</code> 是对<code>FileSet</code>序列化,这里就略过了.</p>
+<p>所以整个<code>go/token</code>包只是对token的一些定义和转化,词法分析的部分在<code>go/scanner</code>当中.</p>
+<p>scan的主流程如下,主体是一个switch case表示的状态机,<br>比如碰到字符那么扫描到不为字符为止就作为一个标识符,比如碰到数字那么可能按照扫描数字,然后向后看一次小数字再扫描数字,直到没有数字为止.<br>scan每次会返回一个被扫描的token,压缩表示的位置,和字面值的字符串,这样就能够把一个源文件转化成一个token的记号流,也就是tokenize或者lexical analysis的过程.</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line">func (s *Scanner) Scan() (pos token.Pos, tok token.Token, lit string) &#123;</span><br><span class="line">scanAgain:</span><br><span class="line">        s.skipWhitespace() </span><br><span class="line">        // current token start</span><br><span class="line">        pos = s.file.Pos(s.offset)</span><br><span class="line">        // determine token value</span><br><span class="line">        insertSemi := false</span><br><span class="line">        switch ch := s.ch; &#123;</span><br><span class="line">	/* 字符开头,开始扫描标识符 */</span><br><span class="line">        case isLetter(ch):</span><br><span class="line">                lit = s.scanIdentifier()</span><br><span class="line">                if len(lit) &gt; 1 &#123;</span><br><span class="line">                        // keywords are longer than one letter - avoid lookup otherwise</span><br><span class="line">                        tok = token.Lookup(lit)</span><br><span class="line">                        switch tok &#123;</span><br><span class="line">                        case token.IDENT, token.BREAK, token.CONTINUE, token.FALLTHROUGH, token.RETURN:</span><br><span class="line">                                insertSemi = true</span><br><span class="line">                        &#125;</span><br><span class="line">                &#125; else &#123;</span><br><span class="line">                        insertSemi = true</span><br><span class="line">                        tok = token.IDENT</span><br><span class="line">                &#125; </span><br><span class="line">	/* 数字开头,扫描数字 */</span><br><span class="line">        case &apos;0&apos; &lt;= ch &amp;&amp; ch &lt;= &apos;9&apos;:</span><br><span class="line">                insertSemi = true</span><br><span class="line">                tok, lit = s.scanNumber(false)</span><br><span class="line">        default:</span><br></pre></td></tr></table></figure>
+
+<p>看一下例子的结果.</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line">func ExampleScanner_Scan() &#123;</span><br><span class="line">        // src is the input that we want to tokenize.</span><br><span class="line">	// 需要记号化的源文件</span><br><span class="line">        src := []byte(&quot;cos(x) + 1i*sin(x) // Euler&quot;)</span><br><span class="line"></span><br><span class="line">        // Initialize the scanner.</span><br><span class="line">        var s scanner.Scanner</span><br><span class="line">        fset := token.NewFileSet()                      // positions are relative to fset</span><br><span class="line">	// 添加到文件集合中</span><br><span class="line">        file := fset.AddFile(&quot;&quot;, fset.Base(), len(src)) // register input &quot;file&quot;</span><br><span class="line">	// 初始化scanner</span><br><span class="line">        s.Init(file, src, nil /* no error handler */, scanner.ScanComments)</span><br><span class="line"></span><br><span class="line">        // Repeated calls to Scan yield the token sequence found in the input.</span><br><span class="line">        for &#123;</span><br><span class="line">                pos, tok, lit := s.Scan()</span><br><span class="line">                if tok == token.EOF &#123;</span><br><span class="line">                        break</span><br><span class="line">                &#125;</span><br><span class="line">                fmt.Printf(&quot;%s\t%s\t%q\n&quot;, fset.Position(pos), tok, lit)</span><br><span class="line">        &#125;</span><br><span class="line">	// 不断扫描就能得到如下结果</span><br><span class="line">	// 词法分析就是做这样一件事情.</span><br><span class="line">        // output:</span><br><span class="line">        // 1:1  IDENT   &quot;cos&quot;</span><br><span class="line">        // 1:4  (       &quot;&quot;</span><br><span class="line">        // 1:5  IDENT   &quot;x&quot;</span><br><span class="line">        // 1:6  )       &quot;&quot;</span><br><span class="line">        // 1:8  +       &quot;&quot;</span><br><span class="line">        // 1:10 IMAG    &quot;1i&quot;</span><br><span class="line">        // 1:12 *       &quot;&quot;</span><br><span class="line">        // 1:13 IDENT   &quot;sin&quot;</span><br><span class="line">        // 1:16 (       &quot;&quot;</span><br><span class="line">        // 1:17 IDENT   &quot;x&quot;</span><br><span class="line">        // 1:18 )       &quot;&quot;</span><br><span class="line">        // 1:20 ;       &quot;\n&quot;</span><br><span class="line">        // 1:20 COMMENT &quot;// Euler&quot;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>我在我的数据结构字符画生成工具[1]里面就实现了一个词法分析器,方便我用简单的语法构造一个字符画,然后插入到注释中辅助解释.<br>唯一的不同的是,我使用了channel读取token记号,来增加并发,而go本身的记号化是串行的,当然,这点区别其实没有多大,而且这个设计<br>在Go的模板包里面使用了,Rob Pike也有过相关的演讲[2].</p>
+<ol>
+<li><a href="https://github.com/ggaaooppeenngg/cpic/blob/master/lex.go" target="_blank" rel="noopener">https://github.com/ggaaooppeenngg/cpic/blob/master/lex.go</a></li>
+<li><a href="http://cuddle.googlecode.com/hg/talk/lex.html#landing-slide" target="_blank" rel="noopener">http://cuddle.googlecode.com/hg/talk/lex.html#landing-slide</a></li>
+</ol>
+
+      
+    </div>
+
+    
+
+    
+      
+    
+
+    
+    
+    
+
+    
+
+    
+      
+    
+    
+
+    
+
+    <footer class="post-footer">
+      
+        
+          
+        
+        <div class="post-tags">
+          
+            <a href="/tags/编译/" rel="tag"># 编译</a>
+          
+            <a href="/tags/Go/" rel="tag"># Go</a>
+          
+            <a href="/tags/compiler/" rel="tag"># compiler</a>
+          
+            <a href="/tags/lexer/" rel="tag"># lexer</a>
+          
+            <a href="/tags/go/" rel="tag"># go</a>
+          
+            <a href="/tags/golang/" rel="tag"># golang</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/zh-CN/2016/03/18/zh-CN/git-commit-message-如何写好/" rel="next" title="git-commit-message- 如何写好">
+                <i class="fa fa-chevron-left"></i> git-commit-message- 如何写好
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/zh-CN/2016/04/06/zh-CN/go-parser-语法分析/" rel="prev" title="go-parser-语法分析">
+                go-parser-语法分析 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-inner">
+
+      
+
+      
+
+      <div class="site-overview-wrap sidebar-panel sidebar-panel-active">
+        <div class="site-overview">
+
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description motion-element" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+
+
+  <nav class="site-state motion-element">
+    
+      <div class="site-state-item site-state-posts">
+        
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">51</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+    
+
+    
+      
+      
+      <div class="site-state-item site-state-categories">
+        
+        
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+        <span class="site-state-item-count">14</span>
+        <span class="site-state-item-name">分类</span>
+        
+      </div>
+    
+
+    
+      
+      
+      <div class="site-state-item site-state-tags">
+        
+        
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+        <span class="site-state-item-count">79</span>
+        <span class="site-state-item-name">标签</span>
+        
+      </div>
+    
+  </nav>
+
+
+
+
+
+
+
+
+
+
+
+
+
+          
+          
+        </div>
+      </div>
+
+      
+
+      
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2019</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+
+  
+
+  
+</div>
+
+
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Muse</a> v7.2.0</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+    
+
+    
+
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/jquery/index.js?v=3.4.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+
+
+
+  <script src="/js/utils.js?v=7.2.0"></script>
+
+  <script src="/js/motion.js?v=7.2.0"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/schemes/muse.js?v=7.2.0"></script>
+
+
+
+  
+  <script src="/js/scrollspy.js?v=7.2.0"></script>
+<script src="/js/post-details.js?v=7.2.0"></script>
+
+
+
+  <script src="/js/next-boot.js?v=7.2.0"></script>
+
+  
+
+  
+
+  
+
+
+  
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script>
+// GET RESPONSIVE HEIGHT PASSED FROM IFRAME
+
+window.addEventListener("message", function(e) {
+  var data = e.data;
+  if ((typeof data === 'string') && (data.indexOf('ciu_embed') > -1)) {
+    var featureID = data.split(':')[1];
+    var height = data.split(':')[2];
+    $(`iframe[data-feature=${featureID}]`).height(parseInt(height) + 30);
+  }
+}, false);
+</script>
+
+
+
+
+
+
+
+
+  
+
+</body>
+</html>

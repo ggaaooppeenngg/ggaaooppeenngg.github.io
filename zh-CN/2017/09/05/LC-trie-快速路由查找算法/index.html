@@ -1,0 +1,1298 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next mist use-motion" lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+
+
+  <meta name="google-site-verification" content="_85tctgPWrqH2EPVuuD5IT6KE-tW8nH0hTISJDMnShg">
+
+
+
+
+
+
+
+  <meta name="baidu-site-verification" content="bb16c5b1fd3302c18e0015bef11eea42">
+
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=7.2.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=7.2.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=7.2.0">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=7.2.0" color="#222">
+
+
+
+
+
+
+<link rel="stylesheet" href="/css/main.css?v=7.2.0">
+
+
+
+
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.7.0">
+
+
+
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Mist',
+    version: '7.2.0',
+    sidebar: {"position":"right","display":"post","offset":12,"onmobile":false},
+    back2top: {"enable":true,"sidebar":true,"scrollpercent":true},
+    copycode: {"enable":false,"show_result":false,"style":null},
+    fancybox: false,
+    mediumzoom: false,
+    lazyload: false,
+    pangu: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    },
+    translation: {
+      copy_button: '复制',
+      copy_success: '复制成功',
+      copy_failure: '复制失败'
+    }
+  };
+</script>
+
+  <meta name="description" content="一般来说我们把字典树称作 trie，这是一个用于查找字符串的数据结构，举个简单的例子。下面就是一个把 b，abc，abd，bcd，abcd，efg，hii 这 6 个单词构造成字典树的例子。   在路由表中我们可以把子网看作一个二进制字符串，对于 IPv4 来说，字符串的长度就有 32 位。   以上面这个为例子，有编号 0 到 14 这几个二进制的字符串（字符集和只有 0 和 1），右边是他们的">
+<meta name="keywords" content="内核,网络,算法,network">
+<meta property="og:type" content="article">
+<meta property="og:title" content="LC-trie 快速路由查找算法">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2017/09/05/LC-trie-快速路由查找算法/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="一般来说我们把字典树称作 trie，这是一个用于查找字符串的数据结构，举个简单的例子。下面就是一个把 b，abc，abd，bcd，abcd，efg，hii 这 6 个单词构造成字典树的例子。   在路由表中我们可以把子网看作一个二进制字符串，对于 IPv4 来说，字符串的长度就有 32 位。   以上面这个为例子，有编号 0 到 14 这几个二进制的字符串（字符集和只有 0 和 1），右边是他们的">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2019-07-23T13:31:41.372Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="LC-trie 快速路由查找算法">
+<meta name="twitter:description" content="一般来说我们把字典树称作 trie，这是一个用于查找字符串的数据结构，举个简单的例子。下面就是一个把 b，abc，abd，bcd，abcd，efg，hii 这 6 个单词构造成字典树的例子。   在路由表中我们可以把子网看作一个二进制字符串，对于 IPv4 来说，字符串的长度就有 32 位。   以上面这个为例子，有编号 0 到 14 这几个二进制的字符串（字符集和只有 0 和 1），右边是他们的">
+
+
+
+
+
+  
+  
+  <link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2017/09/05/LC-trie-快速路由查找算法/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  
+  <title>LC-trie 快速路由查找算法 | ggaaooppeenngg</title>
+  
+
+
+
+
+  <script async src="https://www.googletagmanager.com/gtag/js?id=UA-62096626-1"></script>
+  <script>
+    var host = window.location.hostname;
+    if (host !== "localhost" || !true) {
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'UA-62096626-1');
+    }
+  </script>
+
+
+
+  <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?bb16c5b1fd3302c18e0015bef11eea42";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+  </script>
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-right page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">ggaaooppeenngg</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+      
+        <h1 class="site-subtitle" itemprop="description">为什么计算机科学是无限的但生命是有限的</h1>
+      
+    
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>首页</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/about/" rel="section"><i class="menu-item-icon fa fa-fw fa-user"></i> <br>关于</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/tags/" rel="section"><i class="menu-item-icon fa fa-fw fa-tags"></i> <br>标签<span class="badge">79</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-categories">
+
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/categories/" rel="section"><i class="menu-item-icon fa fa-fw fa-th"></i> <br>分类<span class="badge">14</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档<span class="badge">51</span></a>
+
+  </li>
+
+      
+      
+    </ul>
+  
+
+  
+    
+
+  
+
+  
+</nav>
+
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2017/09/05/LC-trie-快速路由查找算法/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h2 class="post-title" itemprop="name headline">LC-trie 快速路由查找算法
+
+              
+            
+          </h2>
+        
+
+        <div class="post-meta">
+
+          
+          
+          
+
+          
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2017-09-05 00:46:17" itemprop="dateCreated datePublished" datetime="2017-09-05T00:46:17+08:00">2017-09-05</time>
+            </span>
+          
+
+          
+            
+
+            
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2019-07-23 21:31:41" itemprop="dateModified" datetime="2019-07-23T21:31:41+08:00">2019-07-23</time>
+              </span>
+            
+          
+
+          
+
+          
+            
+            
+              
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-comment-o"></i>
+                </span>
+            
+                <span class="post-meta-item-text">评论数：</span>
+                <a href="/zh-CN/2017/09/05/LC-trie-快速路由查找算法/#comments" itemprop="discussionUrl">
+                  <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2017/09/05/LC-trie-快速路由查找算法/" itemprop="commentCount"></span>
+                </a>
+              </span>
+            
+          
+
+          
+          
+
+          
+
+          
+
+          <br>
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>一般来说我们把字典树称作 trie，这是一个用于查找字符串的数据结构，举个简单的例子。下面就是一个把 b，abc，abd，bcd，abcd，efg，hii 这 6 个单词构造成字典树的例子。</p>
+
+
+<p>在路由表中我们可以把子网看作一个二进制字符串，对于 IPv4 来说，字符串的长度就有 32 位。</p>
+
+
+<p>以上面这个为例子，有编号 0 到 14 这几个二进制的字符串（字符集和只有 0 和 1），右边是他们的具体字符串，这样的字典树有一点像二叉树。如果把它画出来是这样的。</p>
+
+
+<p>对这个树做压缩有一个办法就是把单节点作压缩，形成下面这个树，这个就是路径压缩，path compressed trie。</p>
+
+
+<p>我们需要在压缩的地方进行标记，比如 skip 4 那里把一段 1011 压缩掉了。而 LC-trie 指的是 Level Compressed trie，这个树会把层级进行压缩，因为我们得到的这个字典树实际上是一个稀疏树，高度并不是平衡的，所以为了达到平衡，需要做的一件事情是把高度进行压缩，压缩之后变成下面这个形式，这样整棵树就会更加扁平。</p>
+
+
+<p>这个树是有两种类型的节点，一种是 leaf，保存了路由具体的信息的叶子结点，一种是 trie node（tnode）保存了中间节点，子节点可能是 tnode 或者 leaf。trie 上有几个数据要存储，一个是 bits，这个表示的是子节点的选择度（这个怎么理解呢，就是我接下来的子节点是八叉了，因为我把原来的树压缩了，所以现在不需要二选一，现在直接来个八选一就可以），对于一个八叉的压缩来说，就要有一个 3 位的数字来存储，也就是 log(8)，当然也可以能是 7 叉，但是必须是 2 的指数。而 pos 表示的是从那个 bit 开始，它的作用和 skip 类似只不过不是一个相对值，而是一个累加值，表示我们要从哪开始（从字符串的起始位置开始数）。</p>
+<p>我们先看一下搜索的代码，其实很简单，就是不断匹配公共前缀直到直到找到叶子节点（ bits == 0）。匹配前缀的方式比较 tricky，用异或进行确认。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/* rcu_read_lock needs to be hold by caller from readside */</span></span><br><span class="line"><span class="function"><span class="keyword">static</span> struct key_vector *<span class="title">fib_find_node</span><span class="params">(struct trie *t,</span></span></span><br><span class="line"><span class="function"><span class="params">					struct key_vector **tp, u32 key)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">key_vector</span> *<span class="title">pn</span>, *<span class="title">n</span> = <span class="title">t</span>-&gt;<span class="title">kv</span>;</span></span><br><span class="line">	<span class="keyword">unsigned</span> <span class="keyword">long</span> index = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">do</span> &#123;</span><br><span class="line">		pn = n;</span><br><span class="line">		n = get_child_rcu(n, index);</span><br><span class="line"></span><br><span class="line">		<span class="keyword">if</span> (!n)</span><br><span class="line">			<span class="keyword">break</span>;</span><br><span class="line"></span><br><span class="line">		index = get_cindex(key, n);</span><br><span class="line"></span><br><span class="line">		<span class="comment">/* This bit of code is a bit tricky but it combines multiple</span></span><br><span class="line"><span class="comment">		 * checks into a single check.  The prefix consists of the</span></span><br><span class="line"><span class="comment">		 * prefix plus zeros for the bits in the cindex. The index</span></span><br><span class="line"><span class="comment">		 * is the difference between the key and this value.  From</span></span><br><span class="line"><span class="comment">		 * this we can actually derive several pieces of data.</span></span><br><span class="line"><span class="comment">		 *   if (index &gt;= (1ul &lt;&lt; bits))</span></span><br><span class="line"><span class="comment">		 *     we have a mismatch in skip bits and failed</span></span><br><span class="line"><span class="comment">		 *   else</span></span><br><span class="line"><span class="comment">		 *     we know the value is cindex</span></span><br><span class="line"><span class="comment">		 *</span></span><br><span class="line"><span class="comment">		 * This check is safe even if bits == KEYLENGTH due to the</span></span><br><span class="line"><span class="comment">		 * fact that we can only allocate a node with 32 bits if a</span></span><br><span class="line"><span class="comment">		 * long is greater than 32 bits.</span></span><br><span class="line"><span class="comment">		 */</span></span><br><span class="line">		<span class="keyword">if</span> (index &gt;= (<span class="number">1u</span>l &lt;&lt; n-&gt;bits)) &#123;</span><br><span class="line">			n = <span class="literal">NULL</span>;</span><br><span class="line">			<span class="keyword">break</span>;</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		<span class="comment">/* keep searching until we find a perfect match leaf or NULL */</span></span><br><span class="line">	&#125; <span class="keyword">while</span> (IS_TNODE(n));</span><br><span class="line"></span><br><span class="line">	*tp = pn;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> n;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>具体看一下 <code>get_cindex</code> 匹配的方式，<code>#define get_cindex(key, kv) (((key) ^ (kv)-&gt;key) &gt;&gt; (kv)-&gt;pos)</code>，对 tnode 和 被比较的 key 做异或，这个怎么理解呢，看下面的图的例子这是正确匹配以后的结果，灰色代表 0，蓝色代表 1，两个值进行异或的话，首先 pos 会被右移掉，然后 bits 的部分会原样保留，因为 tnode 的这部分都是 0。然后亲址的部分如果完全匹配的话结果就都是 0 ，但是如果不完全匹配的话，结果就会比 index 还要大，因为高位还有 1，所以这就是为什么 <code>index &gt;= (1ul &lt;&lt; n-&gt;bits</code> 能判断是否匹配的前缀的原因。</p>
+
+
+<p>然后我们再看一下插入的流程。首先算出匹配到当前节点的子节点（有可能有，有可能没有）。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">static</span> <span class="keyword">int</span> <span class="title">fib_insert_node</span><span class="params">(struct trie *t, struct key_vector *tp,</span></span></span><br><span class="line"><span class="function"><span class="params">			   struct fib_alias *<span class="keyword">new</span>, t_key key)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">key_vector</span> *<span class="title">n</span>, *<span class="title">l</span>;</span></span><br><span class="line"></span><br><span class="line">	l = leaf_new(key, <span class="keyword">new</span>);</span><br><span class="line">	<span class="keyword">if</span> (!l)</span><br><span class="line">		<span class="keyword">goto</span> noleaf;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* retrieve child from parent node */</span></span><br><span class="line">	n = get_child(tp, get_index(key, tp));</span><br></pre></td></tr></table></figure>
+
+<p>如果有子节点，就要创建一个新的 tnode，再把这个 key 给插入。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/* Case 2: n is a LEAF or a TNODE and the key doesn't match.</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> *  Add a new tnode here</span></span><br><span class="line"><span class="comment"> *  first tnode need some special handling</span></span><br><span class="line"><span class="comment"> *  leaves us in position for handling as case 3</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">if</span> (n) &#123;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">key_vector</span> *<span class="title">tn</span>;</span></span><br></pre></td></tr></table></figure>
+
+<p><code>__fls</code> find last set bit，就是找到 pos，然后扩展出有两个选择（2 的 1 次方）的 tnode。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">tn = tnode_new(key, __fls(key ^ n-&gt;key), <span class="number">1</span>);</span><br><span class="line"><span class="keyword">if</span> (!tn)</span><br><span class="line">	<span class="keyword">goto</span> notnode;</span><br></pre></td></tr></table></figure>
+
+<p>设置 tn 的 父节点为 tp，然后把 key 插入到 tn 当中。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">	<span class="comment">/* initialize routes out of node */</span></span><br><span class="line">	NODE_INIT_PARENT(tn, tp);</span><br><span class="line">	put_child(tn, get_index(key, tn) ^ <span class="number">1</span>, n);</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* start adding routes into the node */</span></span><br><span class="line">	put_child_root(tp, key, tn);</span><br><span class="line">	node_set_parent(n, tn);</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* parent now has a NULL spot where the leaf can go */</span></span><br><span class="line">	tp = tn;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">/* Case 3: n is NULL, and will just insert a new leaf */</span></span><br><span class="line">node_push_suffix(tp, <span class="keyword">new</span>-&gt;fa_slen);</span><br><span class="line">NODE_INIT_PARENT(l, tp);</span><br><span class="line">put_child_root(tp, key, l);</span><br></pre></td></tr></table></figure>
+
+<p>开始进行平衡调整树形。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">	trie_rebalance(t, tp);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">notnode:</span><br><span class="line">	node_free(l);</span><br><span class="line">noleaf:</span><br><span class="line">	<span class="keyword">return</span> -ENOMEM;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>再看一下树的高度是如何进行调整的，从当前节点一直向上压缩。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">static</span> <span class="keyword">void</span> <span class="title">trie_rebalance</span><span class="params">(struct trie *t, struct key_vector *tn)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="keyword">while</span> (!IS_TRIE(tn))</span><br><span class="line">		tn = resize(t, tn);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">define</span> MAX_WORK 10</span></span><br><span class="line"><span class="function"><span class="keyword">static</span> struct key_vector *<span class="title">resize</span><span class="params">(struct trie *t, struct key_vector *tn)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line"><span class="meta">#<span class="meta-keyword">ifdef</span> CONFIG_IP_FIB_TRIE_STATS</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">trie_use_stats</span> __<span class="title">percpu</span> *<span class="title">stats</span> = <span class="title">t</span>-&gt;<span class="title">stats</span>;</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">endif</span></span></span><br></pre></td></tr></table></figure>
+
+<p>利用 <code>container_of</code> 获取父节点。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">key_vector</span> *<span class="title">tp</span> = <span class="title">node_parent</span>(<span class="title">tn</span>);</span></span><br></pre></td></tr></table></figure>
+
+<p>获取子节点，初始化 <code>max_work</code> 为 10。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">unsigned</span> <span class="keyword">long</span> cindex = get_index(tn-&gt;key, tp);</span><br><span class="line"><span class="keyword">int</span> max_work = MAX_WORK;</span><br><span class="line"></span><br><span class="line">pr_debug(<span class="string">"In tnode_resize %p inflate_threshold=%d threshold=%d\n"</span>,</span><br><span class="line">	 tn, inflate_threshold, halve_threshold);</span><br><span class="line"></span><br><span class="line"><span class="comment">/* track the tnode via the pointer from the parent instead of</span></span><br><span class="line"><span class="comment"> * doing it ourselves.  This way we can let RCU fully do its</span></span><br><span class="line"><span class="comment"> * thing without us interfering</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line">BUG_ON(tn != get_child(tp, cindex));</span><br><span class="line"></span><br><span class="line"><span class="comment">/* Double as long as the resulting node has a number of</span></span><br><span class="line"><span class="comment"> * nonempty nodes that are above the threshold.</span></span><br><span class="line"><span class="comment"> */</span></span><br></pre></td></tr></table></figure>
+
+<p><code>should_inflate</code> 决定要不要压缩的依据是根据动态压缩算法来的（引用4），直观的来说就是高度超过了一个动态计算的阈值，并且还没压缩超过十次就会继续压缩。这个动态阈值的算法是用非空子节点的数目如果超过压缩之后子节点数目的一半就值得压缩。而 <code>inflate</code> 做的事情就把层级压缩一层，也就是把 children 的 children 按照 bits 的匹配放到 parent 的 new_children 当中。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">	<span class="keyword">while</span> (should_inflate(tp, tn) &amp;&amp; max_work) &#123;</span><br><span class="line">		tp = inflate(t, tn);</span><br><span class="line">		<span class="keyword">if</span> (!tp) &#123;</span><br><span class="line"><span class="meta">#<span class="meta-keyword">ifdef</span> CONFIG_IP_FIB_TRIE_STATS</span></span><br><span class="line">			this_cpu_inc(stats-&gt;resize_node_skipped);</span><br><span class="line"><span class="meta">#<span class="meta-keyword">endif</span></span></span><br><span class="line">			<span class="keyword">break</span>;</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		max_work--;</span><br><span class="line">		tn = get_child(tp, cindex);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* update parent in case inflate failed */</span></span><br><span class="line">	tp = node_parent(tn);</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* Return if at least one inflate is run */</span></span><br><span class="line">	<span class="keyword">if</span> (max_work != MAX_WORK)</span><br><span class="line">		<span class="keyword">return</span> tp;</span><br></pre></td></tr></table></figure>
+
+<p>到这里说明一次调整都没有发生，说明节点很稀疏，也就是把节点分开。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">	<span class="comment">/* Halve as long as the number of empty children in this</span></span><br><span class="line"><span class="comment">	 * node is above threshold.</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="keyword">while</span> (should_halve(tp, tn) &amp;&amp; max_work) &#123;</span><br><span class="line">		tp = halve(t, tn);</span><br><span class="line">		<span class="keyword">if</span> (!tp) &#123;</span><br><span class="line"><span class="meta">#<span class="meta-keyword">ifdef</span> CONFIG_IP_FIB_TRIE_STATS</span></span><br><span class="line">			this_cpu_inc(stats-&gt;resize_node_skipped);</span><br><span class="line"><span class="meta">#<span class="meta-keyword">endif</span></span></span><br><span class="line">			<span class="keyword">break</span>;</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		max_work--;</span><br><span class="line">		tn = get_child(tp, cindex);</span><br><span class="line">	&#125;</span><br></pre></td></tr></table></figure>
+
+<p>只有一个孩子，可以进行 path compress，没必要再多一个中间节点。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">	<span class="comment">/* Only one child remains */</span></span><br><span class="line">	<span class="keyword">if</span> (should_collapse(tn))</span><br><span class="line">		<span class="keyword">return</span> collapse(t, tn);</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* update parent in case halve failed */</span></span><br><span class="line">	<span class="keyword">return</span> node_parent(tn);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>整个的 LC-trie 的结构大致如此，主要用于路由表中路由规则的快速匹配，是在 3.6 之后引进的，摒弃了之前用哈希来查找路由表的算法。</p>
+<h2 id="引用"><a href="#引用" class="headerlink" title="引用"></a>引用</h2><ol>
+<li><a href="https://github.com/julycoding/The-Art-Of-Programming-By-July/blob/master/ebook/zh/06.09.md" target="_blank" rel="noopener">The-Art-Of-Programming-By-July</a></li>
+<li><a href="https://www.nada.kth.se/~snilsson/publications/IP-address-lookup-using-LC-tries/" target="_blank" rel="noopener">Fast address lookup for Internet routers</a></li>
+<li><a href="https://www.kernel.org/doc/Documentation/networking/fib_trie.txt" target="_blank" rel="noopener">LC-trie implementation notes</a></li>
+<li><a href="https://pdfs.semanticscholar.org/e880/05c8801983758917bf6e647da97f1027c86b.pdf" target="_blank" rel="noopener">Implementing a dynamic compressed trie</a></li>
+</ol>
+
+      
+    </div>
+
+    
+
+    
+      
+    
+
+    
+    
+    
+
+    
+
+    
+      
+    
+    
+      <div>
+        <div id="reward-container">
+  <div></div>
+  <button id="reward-button" disable="enable" onclick="var qr = document.getElementById(&quot;qr&quot;); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+
+    
+      
+      
+        
+      
+      <div style="display: inline-block">
+        <img src="/images/wechat.jpeg" alt="ggaaooppeenngg 微信支付">
+        <p>微信支付</p>
+      </div>
+    
+      
+      
+        
+      
+      <div style="display: inline-block">
+        <img src="/images/alipay.jpeg" alt="ggaaooppeenngg 支付宝">
+        <p>支付宝</p>
+      </div>
+    
+
+  </div>
+</div>
+
+      </div>
+    
+
+    
+
+    <footer class="post-footer">
+      
+        
+          
+        
+        <div class="post-tags">
+          
+            <a href="/tags/内核/" rel="tag"># 内核</a>
+          
+            <a href="/tags/网络/" rel="tag"># 网络</a>
+          
+            <a href="/tags/算法/" rel="tag"># 算法</a>
+          
+            <a href="/tags/network/" rel="tag"># network</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/zh-CN/2017/08/07/neighboring-subsystem-浅析/" rel="next" title="neighboring subsystem 浅析">
+                <i class="fa fa-chevron-left"></i> neighboring subsystem 浅析
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/zh-CN/2017/09/21/flannel-网络架构/" rel="prev" title="flannel 网络架构">
+                flannel 网络架构 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div class="comments" id="comments">
+      <div id="disqus_thread">
+        <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+      </div>
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description motion-element" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+
+
+  <nav class="site-state motion-element">
+    
+      <div class="site-state-item site-state-posts">
+        
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">51</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+    
+
+    
+      
+      
+      <div class="site-state-item site-state-categories">
+        
+          
+            <a href="/categories/">
+          
+        
+        
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+        <span class="site-state-item-count">14</span>
+        <span class="site-state-item-name">分类</span>
+        </a>
+      </div>
+    
+
+    
+      
+      
+      <div class="site-state-item site-state-tags">
+        
+          
+            <a href="/tags/">
+          
+        
+        
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+        <span class="site-state-item-count">79</span>
+        <span class="site-state-item-name">标签</span>
+        </a>
+      </div>
+    
+  </nav>
+
+
+
+
+
+
+
+  <div class="links-of-author motion-element">
+    
+      <span class="links-of-author-item">
+      
+      
+        
+      
+      
+        
+      
+        <a href="https://github.com/ggaaooppeenngg" title="GitHub &rarr; https://github.com/ggaaooppeenngg" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i>GitHub</a>
+      </span>
+    
+      <span class="links-of-author-item">
+      
+      
+        
+      
+      
+        
+      
+        <a href="mailto:peng.gao.dut@gmail.com" title="E-Mail &rarr; mailto:peng.gao.dut@gmail.com" rel="noopener" target="_blank"><i class="fa fa-fw fa-envelope"></i>E-Mail</a>
+      </span>
+    
+  </div>
+
+
+
+
+
+
+
+          
+          
+        </div>
+      </div>
+
+      
+      <!--noindex-->
+        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+            
+            
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#引用"><span class="nav-number">1.</span> <span class="nav-text">引用</span></a></li></ol></div>
+            
+
+          </div>
+        </div>
+      <!--/noindex-->
+      
+
+      
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          
+            <span id="scrollpercent"><span>0</span>%</span>
+          
+        </div>
+      
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; 2014 – <span itemprop="copyrightYear">2019</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+
+  
+
+  
+</div>
+
+
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Mist</a> v7.2.0</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+
+    
+
+    
+
+    
+
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/jquery/index.js?v=3.4.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+
+
+
+  <script src="/js/utils.js?v=7.2.0"></script>
+
+  <script src="/js/motion.js?v=7.2.0"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/schemes/muse.js?v=7.2.0"></script>
+
+
+
+
+  
+  <script src="/js/scrollspy.js?v=7.2.0"></script>
+<script src="/js/post-details.js?v=7.2.0"></script>
+
+
+
+  <script src="/js/next-boot.js?v=7.2.0"></script>
+
+  
+  <script src="/js/js.cookie.js?v=7.2.0"></script>
+  <script src="/js/scroll-cookie.js?v=7.2.0"></script>
+
+
+  
+
+  
+
+
+  
+  
+
+  
+  
+
+  
+    
+      <script type="text/x-mathjax-config">
+  
+
+  MathJax.Hub.Config({
+    tex2jax: {
+      inlineMath: [ ['$', '$'], ['\\(', '\\)'] ],
+      processEscapes: true,
+      skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    },
+    TeX: {
+      
+      equationNumbers: {
+        autoNumber: 'AMS'
+      }
+    }
+  });
+  MathJax.Hub.Register.StartupHook('TeX Jax Ready', function() {
+    MathJax.InputJax.TeX.prefilterHooks.Add(function(data) {
+      if (data.display) {
+        var next = data.script.nextSibling;
+        while (next && next.nodeName.toLowerCase() === '#text') { next = next.nextSibling }
+        if (next && next.nodeName.toLowerCase() === 'br') { next.parentNode.removeChild(next) }
+      }
+    });
+  });
+</script>
+
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+    for (i = 0; i < all.length; i += 1) {
+      document.getElementById(all[i].inputID + '-Frame').parentNode.className += ' has-jax';
+    }
+  });
+</script>
+<script src="//cdn.jsdelivr.net/npm/mathjax@2/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+    
+  
+
+
+
+
+
+
+
+
+
+  
+<script>
+  function loadCount() {
+    var d = document, s = d.createElement('script');
+    s.src = 'https://ggaaooppeenngg.disqus.com/count.js';
+    s.id = 'dsq-count-scr';
+    (d.head || d.body).appendChild(s);
+  }
+  // defer loading until the whole page loading is completed
+  window.addEventListener('load', loadCount, false);
+</script>
+
+
+<script>
+  var disqus_config = function() {
+    this.page.url = "https://ggaaooppeenngg.github.io/zh-CN/2017/09/05/LC-trie-快速路由查找算法/";
+    this.page.identifier = "zh-CN/2017/09/05/LC-trie-快速路由查找算法/";
+    this.page.title = 'LC-trie 快速路由查找算法';
+    };
+  function loadComments() {
+    var d = document, s = d.createElement('script');
+    s.src = 'https://ggaaooppeenngg.disqus.com/embed.js';
+    s.setAttribute('data-timestamp', '' + +new Date());
+    (d.head || d.body).appendChild(s);
+  }
+  
+    window.addEventListener('load', loadComments, false);
+  
+</script>
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script>
+// GET RESPONSIVE HEIGHT PASSED FROM IFRAME
+
+window.addEventListener("message", function(e) {
+  var data = e.data;
+  if ((typeof data === 'string') && (data.indexOf('ciu_embed') > -1)) {
+    var featureID = data.split(':')[1];
+    var height = data.split(':')[2];
+    $(`iframe[data-feature=${featureID}]`).height(parseInt(height) + 30);
+  }
+}, false);
+</script>
+
+
+
+  <script>
+    (function(){
+      var bp = document.createElement('script');
+      var curProtocol = window.location.protocol.split(':')[0];
+      bp.src = (curProtocol === 'https') ? 'https://zz.bdstatic.com/linksubmit/push.js' : 'http://push.zhanzhang.baidu.com/push.js';
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(bp, s);
+    })();
+  </script>
+
+
+
+
+
+
+  
+
+</body>
+</html>

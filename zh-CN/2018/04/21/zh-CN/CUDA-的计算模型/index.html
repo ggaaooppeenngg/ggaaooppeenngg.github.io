@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next muse use-motion" lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=7.2.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=7.2.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=7.2.0">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=7.2.0" color="#222">
+
+
+
+
+
+
+<link rel="stylesheet" href="/css/main.css?v=7.2.0">
+
+
+
+
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.7.0">
+
+
+
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Muse',
+    version: '7.2.0',
+    sidebar: {"position":"left","display":"post","offset":12,"onmobile":false},
+    back2top: {"enable":true,"sidebar":false,"scrollpercent":false},
+    copycode: {"enable":false,"show_result":false,"style":null},
+    fancybox: false,
+    mediumzoom: false,
+    lazyload: false,
+    pangu: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    },
+    translation: {
+      copy_button: '复制',
+      copy_success: '复制成功',
+      copy_failure: '复制失败'
+    }
+  };
+</script>
+
+  <meta name="description" content="我的一点观点我个人觉得 nvidia 的 CUDA 太封闭了，不是很能明白这样封闭的产品怎么能够长久生存，仅仅是因为家大业大么，如果有家公司推出了八成性能的 GPU，但是整套开发的生态非常友好，是不是会像 Android 取代诺基亚一样，还是 nvidia 就是苹果，就算封闭环境也能保证强劲体验，这我也不好说了。 安装CUDA+cudnn 装起来挺麻烦的，反正如果有错误的话，可以检查 CUDA">
+<meta name="keywords" content="CUDA,GPU">
+<meta property="og:type" content="article">
+<meta property="og:title" content="CUDA 的计算模型">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2018/04/21/zh-CN/CUDA-的计算模型/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="我的一点观点我个人觉得 nvidia 的 CUDA 太封闭了，不是很能明白这样封闭的产品怎么能够长久生存，仅仅是因为家大业大么，如果有家公司推出了八成性能的 GPU，但是整套开发的生态非常友好，是不是会像 Android 取代诺基亚一样，还是 nvidia 就是苹果，就算封闭环境也能保证强劲体验，这我也不好说了。 安装CUDA+cudnn 装起来挺麻烦的，反正如果有错误的话，可以检查 CUDA">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https://www.researchgate.net/profile/Marco_Nobile/publication/261069154/figure/fig1/AS:296718735298563@1447754667270/Schematization-of-CUDA-architecture-Schematic-representation-of-CUDA-threads-and-memory.png">
+<meta property="og:image" content="http://15418.courses.cs.cmu.edu/spring2013content/lectures/02_basicarch/images/slide_030.png">
+<meta property="og:updated_time" content="2019-07-23T13:31:41.614Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="CUDA 的计算模型">
+<meta name="twitter:description" content="我的一点观点我个人觉得 nvidia 的 CUDA 太封闭了，不是很能明白这样封闭的产品怎么能够长久生存，仅仅是因为家大业大么，如果有家公司推出了八成性能的 GPU，但是整套开发的生态非常友好，是不是会像 Android 取代诺基亚一样，还是 nvidia 就是苹果，就算封闭环境也能保证强劲体验，这我也不好说了。 安装CUDA+cudnn 装起来挺麻烦的，反正如果有错误的话，可以检查 CUDA">
+<meta name="twitter:image" content="https://www.researchgate.net/profile/Marco_Nobile/publication/261069154/figure/fig1/AS:296718735298563@1447754667270/Schematization-of-CUDA-architecture-Schematic-representation-of-CUDA-threads-and-memory.png">
+
+
+
+
+
+  
+  
+  <link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2018/04/21/zh-CN/CUDA-的计算模型/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  
+  <title>CUDA 的计算模型 | ggaaooppeenngg</title>
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">ggaaooppeenngg</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+      
+        <p class="site-subtitle">为什么计算机科学是无限的但生命是有限的</p>
+      
+    
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+      
+    
+
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>首页</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+      
+    
+
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档</a>
+
+  </li>
+
+      
+      
+    </ul>
+  
+
+  
+    
+
+  
+
+  
+</nav>
+
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2018/04/21/zh-CN/CUDA-的计算模型/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">CUDA 的计算模型
+
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+
+          
+          
+          
+
+          
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2018-04-21 18:20:28" itemprop="dateCreated datePublished" datetime="2018-04-21T18:20:28+08:00">2018-04-21</time>
+            </span>
+          
+
+          
+            
+
+            
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2019-07-23 21:31:41" itemprop="dateModified" datetime="2019-07-23T21:31:41+08:00">2019-07-23</time>
+              </span>
+            
+          
+
+          
+
+          
+            
+            
+          
+
+          
+          
+
+          
+
+          
+
+          <br>
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <h2 id="我的一点观点"><a href="#我的一点观点" class="headerlink" title="我的一点观点"></a>我的一点观点</h2><p>我个人觉得 nvidia 的 CUDA 太封闭了，不是很能明白这样封闭的产品怎么能够长久生存，仅仅是因为家大业大么，如果有家公司推出了八成性能的 GPU，但是整套开发的生态非常友好，是不是会像 Android 取代诺基亚一样，还是 nvidia 就是苹果，就算封闭环境也能保证强劲体验，这我也不好说了。</p>
+<h2 id="安装"><a href="#安装" class="headerlink" title="安装"></a>安装</h2><p>CUDA+cudnn 装起来挺麻烦的，反正如果有错误的话，可以检查 CUDA samples 里面的 deviceQuery 是否成功，如果不成功可以用 strace 看一下少了什么东西，再想办法安装上去。检查 cudnn samples 是否成功也是一样的，里面有一个 mnistDNN 的例子。</p>
+<h2 id="Hello-World"><a href="#Hello-World" class="headerlink" title="Hello World!"></a>Hello World!</h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">#include &lt;stdio.h&gt;</span><br><span class="line"></span><br><span class="line">__global__ void helloFromGPU (void)</span><br><span class="line">&#123;</span><br><span class="line">	printf(&quot;Hello world!\n&quot;);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">int main(void)</span><br><span class="line">&#123;</span><br><span class="line">	printf(&quot;Hello World! from CPU\n&quot;);</span><br><span class="line"></span><br><span class="line">	helloFromGPU &lt;&lt;&lt;1, 10&gt;&gt;&gt;();</span><br><span class="line">	cudaDeviceReset();</span><br><span class="line">	return 0;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>以上就是一段 GPU 的 Hello world，执行下面的代码可以看到我们在 GPU 上并行执行了十个 “Hello world!” 的打印。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">$</span> nvcc -arch sm_20 hello.cu -o hello</span><br><span class="line"><span class="meta">$</span> ./hello</span><br><span class="line">Hello World! from CPU</span><br><span class="line">Hello world!</span><br><span class="line">Hello world!</span><br><span class="line">Hello world!</span><br><span class="line">Hello world!</span><br><span class="line">Hello world!</span><br><span class="line">Hello world!</span><br><span class="line">Hello world!</span><br><span class="line">Hello world!</span><br><span class="line">Hello world!</span><br><span class="line">Hello world!</span><br></pre></td></tr></table></figure>
+
+<h2 id="CUDA"><a href="#CUDA" class="headerlink" title="CUDA"></a>CUDA</h2><p>CUDA 全称 Compute Unified Device Architecure，用于定义 GPU 的架构标准。GPU 的工作方式主要依赖于多核心的并行计算，CUDA 提供了方便的模型进行这种模式的编程，下面就会简单介绍一下 CUDA 的架构以及基于 GPU 的编程。</p>
+<p>CUDA 一次启动的线程称为网格(grid)，网格中包含块，每个块包含新程，是一个二维的模式，这张图片就说明得很清晰，首先是由 Grid 组成，然后每个 Block 有 shared memory，同 block 的线程可以访问 shared memory，不同的 Block 的线程只能访问全局的内存，这种结构也方便设计和实现并行算法。</p>
+<p><img src="https://www.researchgate.net/profile/Marco_Nobile/publication/261069154/figure/fig1/AS:296718735298563@1447754667270/Schematization-of-CUDA-architecture-Schematic-representation-of-CUDA-threads-and-memory.png" alt="cuda-arch"></p>
+<p>CUDA 的编译器 nvcc 是 gcc 的一个扩展，支持编写运行在 GPU 上的函数，其中的，<code>&lt;&lt;x, y&gt;&gt;</code> 扩展就是用来指定 block 和 thread 的数量的。</p>
+<p>比如典型的俩个向量相加的例子：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">sumArrayOnHost</span><span class="params">(<span class="keyword">float</span> *A, <span class="keyword">float</span> *B, <span class="keyword">float</span> *C, <span class="keyword">const</span> <span class="keyword">int</span> N)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; N; i++)</span><br><span class="line">        C[i] = A[i] + B[i]</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>但是 GPU 的核函数怎么写呢，是这样的。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">__<span class="function">global__ <span class="keyword">void</span> <span class="title">sumArrayOnGPU</span><span class="params">(<span class="keyword">float</span> *A, <span class="keyword">float</span> *N, <span class="keyword">float</span> C)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">int</span> i = threadIdx.x</span><br><span class="line">    C[i] = A[i] + B[i]</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>然后，如果 N 是 32 的话，可以如下调用，<code>__global__</code> 表示这个函数可以在 host 调用也可以在 GPU 上调用，用个 32 个线程的 block 算这个向量和，N 隐性包含在了定义中。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sumArrayOnGPU&lt;&lt;<span class="number">1</span>, <span class="number">32</span>&gt;&gt;(<span class="keyword">float</span> *A, <span class="keyword">float</span> *B, <span class="keyword">float</span> *C)</span><br></pre></td></tr></table></figure>
+
+<h2 id="线程组织"><a href="#线程组织" class="headerlink" title="线程组织"></a>线程组织</h2><p>基于 CPU 和 GPU 的异构计算平台可以优势互补，CPU 负责处理逻辑复杂的串行程序，而 GPU 重点处理数据密集型的并行计算程序，从而发挥最大功效。</p>
+<p>线程组织主要依据网格（现在网络这个词其实比较容易混淆，可以是神经网络可以是计算机网络，这里指的是线程的组织形式）模型。主要分 grid, block, thread，组织的方式就靠索引来决定，可以通过 block 索引和 thread 索引进行线程的定位。CUDA 提供了块内线程同步的方法，但是没有提供块间同步的原语。</p>
+<h3 id="线程束分化"><a href="#线程束分化" class="headerlink" title="线程束分化"></a>线程束分化</h3><p>线程束 = warp</p>
+<p>CPU 有很强的分支预测的能力，会预加载指令，如果预测正确，执行代价就很小，但是 GPU 在这方面是很弱的，因为线程束当中如果执行分支出现不同，那出现分支的线程就会被禁止执行，这也是用 GPU 做并行编程的时候需要参考的一个很重要的因素，保证并行的线程出现线程束分化的情况尽量少。</p>
+<p>下面就是线程束分化的例子。</p>
+<p><img src="http://15418.courses.cs.cmu.edu/spring2013content/lectures/02_basicarch/images/slide_030.png" alt></p>
+<h3 id="并行归约问题"><a href="#并行归约问题" class="headerlink" title="并行归约问题"></a>并行归约问题</h3><p>并行归约是指如何对并行问题进行归约，比如说相邻配对和交错配对。</p>
+<h2 id="设备管理"><a href="#设备管理" class="headerlink" title="设备管理"></a>设备管理</h2><p>管理 GPU 主要是通过 CUDA API 或者 <code>nvidia-smi</code> 命令来获取。</p>
+<h2 id="SM（流式多处理器）"><a href="#SM（流式多处理器）" class="headerlink" title="SM（流式多处理器）"></a>SM（流式多处理器）</h2><p>上面讲的是抽象上的分层，但是实际的物理层面承载 GPU 的是 SM。最早的 GPU 架构叫 Fermi，然后是 Kepler，然后才是 Tesla。一般说的 <code>cm_20</code>, <code>sm_20</code> 就指这种计算能力和架构，新款的 GPU 计算能力要更强一点。</p>
+<h2 id="内存模型"><a href="#内存模型" class="headerlink" title="内存模型"></a>内存模型</h2><p>CUDA 的内存模型和 CPU 是类似的也是多级的结构。线程有局部内存，块之间有全局内存。GPU 和 CPU 都是主要采用 DRAM 来做主存，CPU 的一级缓存会用 SRAM 做。CPU 的多级缓存对用户来说不是很需要考虑，尽量屏蔽了其中的细节，但是 GPU 相对来说会把这种分级结构暴露给用户，这对编程来说也是一种新的挑战。</p>
+<h2 id="后面"><a href="#后面" class="headerlink" title="后面"></a>后面</h2><p>用 GPU 计算一些计算密集型的程序，速度是真快，比 CPU 块很多，所以这也是为什么大量深度学习的应用都要通过 GPU 加速的原因。</p>
+
+      
+    </div>
+
+    
+
+    
+      
+    
+
+    
+    
+    
+
+    
+
+    
+      
+    
+    
+
+    
+
+    <footer class="post-footer">
+      
+        
+          
+        
+        <div class="post-tags">
+          
+            <a href="/tags/CUDA/" rel="tag"># CUDA</a>
+          
+            <a href="/tags/GPU/" rel="tag"># GPU</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/zh-CN/2018/01/03/zh-CN/从零实现反向误差传播/" rel="next" title="裸写反向误差传播">
+                <i class="fa fa-chevron-left"></i> 裸写反向误差传播
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/zh-CN/2018/04/26/zh-CN/HTTPS-的公钥体系/" rel="prev" title="HTTPS 加密体系">
+                HTTPS 加密体系 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description motion-element" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+
+
+  <nav class="site-state motion-element">
+    
+      <div class="site-state-item site-state-posts">
+        
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">51</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+    
+
+    
+      
+      
+      <div class="site-state-item site-state-categories">
+        
+        
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+        <span class="site-state-item-count">14</span>
+        <span class="site-state-item-name">分类</span>
+        
+      </div>
+    
+
+    
+      
+      
+      <div class="site-state-item site-state-tags">
+        
+        
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+        <span class="site-state-item-count">79</span>
+        <span class="site-state-item-name">标签</span>
+        
+      </div>
+    
+  </nav>
+
+
+
+
+
+
+
+
+
+
+
+
+
+          
+          
+        </div>
+      </div>
+
+      
+      <!--noindex-->
+        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+            
+            
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#我的一点观点"><span class="nav-number">1.</span> <span class="nav-text">我的一点观点</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#安装"><span class="nav-number">2.</span> <span class="nav-text">安装</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Hello-World"><span class="nav-number">3.</span> <span class="nav-text">Hello World!</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#CUDA"><span class="nav-number">4.</span> <span class="nav-text">CUDA</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#线程组织"><span class="nav-number">5.</span> <span class="nav-text">线程组织</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#线程束分化"><span class="nav-number">5.1.</span> <span class="nav-text">线程束分化</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#并行归约问题"><span class="nav-number">5.2.</span> <span class="nav-text">并行归约问题</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#设备管理"><span class="nav-number">6.</span> <span class="nav-text">设备管理</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#SM（流式多处理器）"><span class="nav-number">7.</span> <span class="nav-text">SM（流式多处理器）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#内存模型"><span class="nav-number">8.</span> <span class="nav-text">内存模型</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#后面"><span class="nav-number">9.</span> <span class="nav-text">后面</span></a></li></ol></div>
+            
+
+          </div>
+        </div>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2019</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+
+  
+
+  
+</div>
+
+
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Muse</a> v7.2.0</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+    
+
+    
+
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/jquery/index.js?v=3.4.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+
+
+
+  <script src="/js/utils.js?v=7.2.0"></script>
+
+  <script src="/js/motion.js?v=7.2.0"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/schemes/muse.js?v=7.2.0"></script>
+
+
+
+  
+  <script src="/js/scrollspy.js?v=7.2.0"></script>
+<script src="/js/post-details.js?v=7.2.0"></script>
+
+
+
+  <script src="/js/next-boot.js?v=7.2.0"></script>
+
+  
+
+  
+
+  
+
+
+  
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script>
+// GET RESPONSIVE HEIGHT PASSED FROM IFRAME
+
+window.addEventListener("message", function(e) {
+  var data = e.data;
+  if ((typeof data === 'string') && (data.indexOf('ciu_embed') > -1)) {
+    var featureID = data.split(':')[1];
+    var height = data.split(':')[2];
+    $(`iframe[data-feature=${featureID}]`).height(parseInt(height) + 30);
+  }
+}, false);
+</script>
+
+
+
+
+
+
+
+
+  
+
+</body>
+</html>

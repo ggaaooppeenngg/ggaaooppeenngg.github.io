@@ -1,0 +1,1276 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next mist use-motion" lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+
+
+  <meta name="google-site-verification" content="_85tctgPWrqH2EPVuuD5IT6KE-tW8nH0hTISJDMnShg">
+
+
+
+
+
+
+
+  <meta name="baidu-site-verification" content="bb16c5b1fd3302c18e0015bef11eea42">
+
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=7.2.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=7.2.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=7.2.0">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=7.2.0" color="#222">
+
+
+
+
+
+
+<link rel="stylesheet" href="/css/main.css?v=7.2.0">
+
+
+
+
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.7.0">
+
+
+
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Mist',
+    version: '7.2.0',
+    sidebar: {"position":"right","display":"post","offset":12,"onmobile":false},
+    back2top: {"enable":true,"sidebar":true,"scrollpercent":true},
+    copycode: {"enable":false,"show_result":false,"style":null},
+    fancybox: false,
+    mediumzoom: false,
+    lazyload: false,
+    pangu: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    },
+    translation: {
+      copy_button: '复制',
+      copy_success: '复制成功',
+      copy_failure: '复制失败'
+    }
+  };
+</script>
+
+  <meta name="description" content="qlang[1]是用Go实现的一套基于虚拟机实现的动态语言,这里主要分解一下虚拟机的实现如何嵌入到解释器当中的. 我们用tpl定义了一套语法,类似于yacc的语法,首先是运算优先级. *代表匹配至少0个,/表示回调动作,|表示或,这是语法的第一部分,属于基本表达式: 1234567891011term1 = factor *(&amp;apos;*&amp;apos; factor/mul | &amp;apos;/&amp;a">
+<meta name="keywords" content="编译,Go,compiler,go,golang,虚拟机">
+<meta property="og:type" content="article">
+<meta property="og:title" content="language-vm-给编程语言加入虚拟机作为后端">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2016/04/23/qlang-源代码到字节码的转换/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="qlang[1]是用Go实现的一套基于虚拟机实现的动态语言,这里主要分解一下虚拟机的实现如何嵌入到解释器当中的. 我们用tpl定义了一套语法,类似于yacc的语法,首先是运算优先级. *代表匹配至少0个,/表示回调动作,|表示或,这是语法的第一部分,属于基本表达式: 1234567891011term1 = factor *(&amp;apos;*&amp;apos; factor/mul | &amp;apos;/&amp;a">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2016/04/23/qlang-源代码到字节码的转换/tree.png">
+<meta property="og:updated_time" content="2019-07-23T13:31:41.473Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="language-vm-给编程语言加入虚拟机作为后端">
+<meta name="twitter:description" content="qlang[1]是用Go实现的一套基于虚拟机实现的动态语言,这里主要分解一下虚拟机的实现如何嵌入到解释器当中的. 我们用tpl定义了一套语法,类似于yacc的语法,首先是运算优先级. *代表匹配至少0个,/表示回调动作,|表示或,这是语法的第一部分,属于基本表达式: 1234567891011term1 = factor *(&amp;apos;*&amp;apos; factor/mul | &amp;apos;/&amp;a">
+<meta name="twitter:image" content="https://ggaaooppeenngg.github.io/zh-CN/2016/04/23/qlang-源代码到字节码的转换/tree.png">
+
+
+
+
+
+  
+  
+  <link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2016/04/23/qlang-源代码到字节码的转换/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  
+  <title>language-vm-给编程语言加入虚拟机作为后端 | ggaaooppeenngg</title>
+  
+
+
+
+
+  <script async src="https://www.googletagmanager.com/gtag/js?id=UA-62096626-1"></script>
+  <script>
+    var host = window.location.hostname;
+    if (host !== "localhost" || !true) {
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'UA-62096626-1');
+    }
+  </script>
+
+
+
+  <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?bb16c5b1fd3302c18e0015bef11eea42";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+  </script>
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-right page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">ggaaooppeenngg</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+      
+        <h1 class="site-subtitle" itemprop="description">为什么计算机科学是无限的但生命是有限的</h1>
+      
+    
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>首页</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/about/" rel="section"><i class="menu-item-icon fa fa-fw fa-user"></i> <br>关于</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/tags/" rel="section"><i class="menu-item-icon fa fa-fw fa-tags"></i> <br>标签<span class="badge">79</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-categories">
+
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/categories/" rel="section"><i class="menu-item-icon fa fa-fw fa-th"></i> <br>分类<span class="badge">14</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档<span class="badge">51</span></a>
+
+  </li>
+
+      
+      
+    </ul>
+  
+
+  
+    
+
+  
+
+  
+</nav>
+
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2016/04/23/qlang-源代码到字节码的转换/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h2 class="post-title" itemprop="name headline">language-vm-给编程语言加入虚拟机作为后端
+
+              
+            
+          </h2>
+        
+
+        <div class="post-meta">
+
+          
+          
+          
+
+          
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2016-04-23 16:03:47" itemprop="dateCreated datePublished" datetime="2016-04-23T16:03:47+08:00">2016-04-23</time>
+            </span>
+          
+
+          
+            
+
+            
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2019-07-23 21:31:41" itemprop="dateModified" datetime="2019-07-23T21:31:41+08:00">2019-07-23</time>
+              </span>
+            
+          
+
+          
+
+          
+            
+            
+              
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-comment-o"></i>
+                </span>
+            
+                <span class="post-meta-item-text">评论数：</span>
+                <a href="/zh-CN/2016/04/23/qlang-源代码到字节码的转换/#comments" itemprop="discussionUrl">
+                  <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2016/04/23/qlang-源代码到字节码的转换/" itemprop="commentCount"></span>
+                </a>
+              </span>
+            
+          
+
+          
+          
+
+          
+
+          
+
+          <br>
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>qlang[1]是用Go实现的一套基于虚拟机实现的动态语言,这里主要分解一下虚拟机的实现如何嵌入到解释器当中的.</p>
+<p>我们用tpl定义了一套语法,类似于yacc的语法,首先是运算优先级.</p>
+<p><code>*</code>代表匹配至少0个,<code>/</code>表示回调动作,<code>|</code>表示或,这是语法的第一部分,属于基本表达式:</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">term1 = factor *(&apos;*&apos; factor/mul | &apos;/&apos; factor/quo | &apos;%&apos; factor/mod)</span><br><span class="line"></span><br><span class="line">term2 = term1 *(&apos;+&apos; term1/add | &apos;-&apos; term1/sub)</span><br><span class="line"></span><br><span class="line">term31 = term2 *(&apos;&lt;&apos; term2/lt | &apos;&gt;&apos; term2/gt | &quot;==&quot; term2/eq | &quot;&lt;=&quot; term2/le | &quot;&gt;=&quot; term2/ge | &quot;!=&quot; term2/ne)</span><br><span class="line"></span><br><span class="line">term3 = term31 *(&quot;&lt;-&quot; term31/chin)</span><br><span class="line"></span><br><span class="line">term4 = term3 *(&quot;&amp;&amp;&quot;/_mute term3/_code/_unmute/and)</span><br><span class="line"></span><br><span class="line">expr = term4 *(&quot;||&quot;/_mute term4/_code/_unmute/or)</span><br></pre></td></tr></table></figure>
+
+<p>所以<code>term1</code>表示乘性运算,相似的<code>term2</code>表示加性运算,<code>term3</code>表示逻辑运算,<code>term4</code>表示与,expr表示表达式.<br>这里有一个特点就是优先级越高的运算在语法上写在了越前面,这是有原因的.</p>
+<p>由上向下的递归推导可以看做是把输入的记号流转化成一颗语法树,从根节点按先序遍历进行.所以对应的也是寻找一个最左推导的过程.<br>递归方式的遍历也是一种实现,比如说如果我要匹配<code>1+2</code>那么就会构建一颗树形结构如下图的第一个.但是如果要匹配<code>1+2*3</code>这样的表达式就有可能出现问题,既可以是图中的第二种情况也可以是第三种情况.这里就关系到优先级的问题.因为递归向下的解析过程是深度优先的也就是意味着如果最先选择匹配,就能先形成语法结构,比如说,当输入是<code>1+2*3</code>时,如果先匹配加法,那么前三个token就是<code>1+2</code>就会构成一个结点,之后3就只能作为<code>*</code>的右边的因数加入到语法树中,但是如果乘法在语法顺序中靠前,那么匹配到<code>1+</code>的时候,就会去匹配<code>term1</code>这个语法,然后<code>term1</code>就会把乘法匹配完,这样就能构成下图中第三个语法树.这种优先级可以推而广之,同级优先的运算作为一个语法,高优先级的语法排在较前即可.</p>
+<p><img src="tree.png" alt="语法树"></p>
+<p>下面语句的部分:</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><span class="line">sexpr = expr (</span><br><span class="line">        &apos;=&apos;/tovar! expr/assign |</span><br><span class="line">        &apos;,&apos;/tovar! expr/tovar % &apos;,&apos;/ARITY &apos;=&apos; expr % &apos;,&apos;/ARITY /massign |</span><br><span class="line">        &quot;++&quot;/tovar/inc | &quot;--&quot;/tovar/dec |</span><br><span class="line">        &quot;+=&quot;/tovar! expr/adda | &quot;-=&quot;/tovar! expr/suba |</span><br><span class="line">        &quot;*=&quot;/tovar! expr/mula | &quot;/=&quot;/tovar! expr/quoa | &quot;%=&quot;/tovar! expr/moda | 1/pop)</span><br><span class="line"></span><br><span class="line">s = &quot;if&quot;/_mute! expr/_code body *(&quot;elif&quot; expr/_code body)/_ARITY ?(&quot;else&quot; body)/_ARITY/_unmute/if |</span><br><span class="line">        &quot;switch&quot;/_mute! ?(~&apos;&#123;&apos; expr)/_code &apos;&#123;&apos; swbody &apos;&#125;&apos;/_unmute/switch |</span><br><span class="line">        &quot;for&quot;/_mute/_urange! fhead body/_unmute/for |</span><br><span class="line">        &quot;return&quot;! expr %= &apos;,&apos;/ARITY /return |</span><br><span class="line">        &quot;break&quot; /brk |</span><br><span class="line">        &quot;continue&quot; /cont |</span><br><span class="line">        &quot;include&quot;! STRING/include |</span><br><span class="line">        &quot;import&quot;! (STRING ?(&quot;as&quot; IDENT/name)/ARITY)/import |</span><br><span class="line">        &quot;export&quot;! IDENT/name % &apos;,&apos;/ARITY /export |</span><br><span class="line">        &quot;defer&quot;/_mute! expr/_code/_unmute/defer |</span><br><span class="line">        &quot;go&quot;/_mute! expr/_code/_unmute/go |</span><br><span class="line">        sexpr</span><br><span class="line"></span><br><span class="line">doc = ?s *(&apos;;&apos; ?s)</span><br><span class="line"></span><br><span class="line">body = &apos;&#123;&apos; doc/_code &apos;&#125;&apos;</span><br><span class="line"></span><br><span class="line">fhead = (~&apos;&#123;&apos; s)/_code %= &apos;;&apos;/_ARITY</span><br><span class="line"></span><br><span class="line">frange = ?(IDENT/name % &apos;,&apos;/ARITY &apos;=&apos;)/ARITY &quot;range&quot; expr</span><br><span class="line"></span><br><span class="line">swbody = *(&quot;case&quot;! expr/_code &apos;:&apos; doc/_code)/_ARITY ?(&quot;default&quot;! &apos;:&apos; doc/_code)/_ARITY</span><br><span class="line"></span><br><span class="line">fnbody = &apos;(&apos; IDENT/name %= &apos;,&apos;/ARITY ?&quot;...&quot;/ARITY &apos;)&apos; &apos;&#123;&apos;/_mute doc/_code &apos;&#125;&apos;/_unmute</span><br><span class="line"></span><br><span class="line">afn = &apos;&#123;&apos;/_mute doc/_code &apos;&#125;&apos;/_unmute/afn</span><br><span class="line"></span><br><span class="line">clsname = &apos;(&apos; IDENT/ref &apos;)&apos; | IDENT/ref</span><br><span class="line"></span><br><span class="line">newargs = ?(&apos;(&apos; expr %= &apos;,&apos;/ARITY &apos;)&apos;)/ARITY</span><br></pre></td></tr></table></figure>
+
+<p>语句主要支持的是赋值表达式,if语句,switch语句,for语句,return语句,break语句,continue语句,include语句,import语句,export语句,defer语句,go语句和单表达式构成的语句.</p>
+<p>if语句类似于<code>if expr body elif expr else body</code>,<br>switch语句类似于<code>switch expr { swbody }</code>,swbody的定义又是类似于<code>case expr: body default: body</code>的形式.<br>for语句类似于<code>for stmt;stmt;stmt body</code>的形式.<br>retur语句比较简答,对应的是<code>return expr</code>.<br>break,continue语句只有<code>continue</code>和<code>break.
+include,import语句则是</code>include STRING<code>和</code>import STRING<code>的形式.
+defer语句是</code>defer expr<code>的形式.
+go语句是</code>go expr`的形式,这里的go语句就是起一个routine进行执行.</p>
+<p>从这里可以说一下这门语言的设计,类似于lua从简实现.因为继承了Go通道的特性所以语法中出现了类似<code>&lt;-</code>的语法,并且支持类和成员函数.支持复合类型比如说slice,map和chan.</p>
+<p>接着是单一元素的定义.</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">classb = &quot;fn&quot;! IDENT/name fnbody ?&apos;;&apos;/mfn</span><br><span class="line"></span><br><span class="line">atom =</span><br><span class="line">	&apos;(&apos; expr %= &apos;,&apos;/ARITY ?&quot;...&quot;/ARITY ?&apos;,&apos; &apos;)&apos;/call |</span><br><span class="line">	&apos;.&apos; (IDENT|&quot;class&quot;|&quot;new&quot;|&quot;recover&quot;|&quot;main&quot;)/mref |</span><br><span class="line">	&apos;[&apos; ?expr/ARITY ?&apos;:&apos;/ARITY ?expr/ARITY &apos;]&apos;/index</span><br><span class="line"></span><br><span class="line">factor =</span><br><span class="line">	INT/pushi |</span><br><span class="line">	FLOAT/pushf |</span><br><span class="line">	STRING/pushs |</span><br><span class="line">	CHAR/pushc |</span><br><span class="line">	(IDENT/ref | &apos;(&apos;! expr &apos;)&apos; |</span><br><span class="line">	&quot;fn&quot;! (~&apos;&#123;&apos; fnbody/fn | afn) | &apos;[&apos; expr %= &apos;,&apos;/ARITY ?&apos;,&apos; &apos;]&apos;/slice) *atom |</span><br><span class="line">	&quot;new&quot;! clsname newargs /new |</span><br><span class="line">	&quot;range&quot;! expr/_range |</span><br><span class="line">	&quot;class&quot;! &apos;&#123;&apos; *classb/ARITY &apos;&#125;&apos;/class |</span><br><span class="line">	&quot;recover&quot;! &apos;(&apos; &apos;)&apos;/recover |</span><br><span class="line">	&quot;main&quot;! afn |</span><br><span class="line">	&apos;&#123;&apos;! (expr &apos;:&apos; expr) %= &apos;,&apos;/ARITY ?&apos;,&apos; &apos;&#125;&apos;/map |</span><br><span class="line">	&apos;!&apos; factor/not |</span><br><span class="line">	&apos;-&apos; factor/neg |</span><br><span class="line">	&quot;&lt;-&quot; factor/chout |</span><br><span class="line">	&apos;+&apos; factor</span><br></pre></td></tr></table></figure>
+
+<p>atom是个比较常见的定义,作为一个变量的atom,就是类似于<code>fn(expr)</code>,<code>var.selector</code>或者<code>indent[index]</code>构成atom定义,作为元素的一部分.<br>整数(INT),浮点数(FLOAT),字符串(STRING),字符(CHAR),组合atom的元素(INDENT atom,fn{}atom,[expr,expr…]atom)等都可能是一个元素.<br>支持语法级别的<code>new</code>返回的对象,支持<code>range</code>,从panic中<code>recover</code>也可能是一个返回值,以及一些单操作符可以表达的字符串.</p>
+<p>以上是整个语法的定义.qlang运行的环境是自行编写的虚拟机环境,实现一个虚拟机主要是要实现各种字节码的实现,还有对应的系统调用.<br>但是目前的实现没有定义中间状态的字节码,而是以一个库的形式,用接口的形式作为字节码执行的接口.</p>
+<p>任何字节码的定义都要满足这样的接口,第一个参数是当前的栈,第二个参数是执行的上下文.</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">type Instr interface &#123;</span><br><span class="line">        Exec(stk *Stack, ctx *Context)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>对应的实现者为<code>Class</code>,<code>iAnonymFn</code>(匿名函数),<code>iAs</code>,</p>
+<p><code>iAssign</code>(赋值),<code>iCall</code>(调用),<code>iDefer</code>,isExport`,</p>
+<p><code>iForRange</code>,<code>iFunc</code>,<code>iGo</code>,<code>iMacro</code>,<code>iMemberRef</code>,</p>
+<p><code>iModule</code>,<code>iMultiAssign</code>,<code>iMultiAssingFromSlice</code>,</p>
+<p><code>iOp1Assign</code>,<code>iOp3</code>,<code>iOpAssign</code>,<code>iPush</code>,<code>iRef</code>,</p>
+<p><code>iRem</code>,<code>iUnSet</code>,<code>iAnd</code>,<code>iCallFn</code>,<code>iCallFnv</code>,</p>
+<p><code>iCase</code>,<code>iGo</code>,<code>iChanIn</code>,<code>iClear</code>,<code>iJmp</code>,</p>
+<p><code>iJmpIfFalse</code>,<code>iNew</code>,<code>iOr</code>,<code>iPop</code>,<code>iPopEx</code>,</p>
+<p><code>iRecover</code>,<code>iReturn</code>,等等这些字节码都是通过构造函数变作为<code>Insrt</code>接口返回的.</p>
+<p>其实编程语言的虚拟机说白了就是一种提供字节码的运行环境,比如我定义<code>add x1,x2</code>和<code>sub x1,x2</code>两条指令作为我的虚拟机的集合,那么我的虚拟寄字节码就支持加法和乘法,也就可以完成一个简易计算器的算式到字节码的转化,再把得到的字节码按照我们的需要进行转换.</p>
+<p>比如LLVM[2]就是把自己定义的一套字节码(也就是类似于平台无关的虚拟汇编,其实这种汇编要稍微好用一点点,因为里面的寄存器是无限多个的,不需要自己考虑寄存器不够的情况),然后把这些字节码转化成平台相关的汇编,最后变成二进制文件.所以实现一套编程语言虚拟机就是要定义一套字节码的集合和对应的实现方式.</p>
+<p>这里我们用Go实现虚拟机是通过Go来运行的,所以没有静态语言的性质,只是跑在Go的运行时上的虚拟机.这里我们举个例子看一下具体的实现.</p>
+<p>现在以<code>switch</code>语法为例说一下运行流程<br>在C转汇编的过程中,<code>switch case</code>是通过跳转表来实现的,比如下面的C代码</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">#include &lt;stdio.h&gt;</span><br><span class="line"></span><br><span class="line">int f(int x)</span><br><span class="line">&#123;</span><br><span class="line">	switch(x)</span><br><span class="line">	&#123;</span><br><span class="line">		case 1:</span><br><span class="line">			printf(&quot;1&quot;);	</span><br><span class="line">			break;</span><br><span class="line">		case 2: </span><br><span class="line">			printf(&quot;2&quot;);</span><br><span class="line">			break;</span><br><span class="line">		default:</span><br><span class="line">			printf(&quot;default&quot;);</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line">int main()</span><br><span class="line">&#123;</span><br><span class="line">	f(3);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>转成汇编的话就是如下代码,f为<code>switch case</code>的部分的实现.</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><span class="line">	.file	&quot;main.c&quot;</span><br><span class="line">	.section	.rodata</span><br><span class="line">.LC0:</span><br><span class="line">	.string	&quot;default&quot;</span><br><span class="line">	.text</span><br><span class="line">	.globl	f</span><br><span class="line">	.type	f, @function</span><br><span class="line">f:</span><br><span class="line">	pushq	%rbp // 保存栈base指针</span><br><span class="line">	movq	%rsp, %rbp  // 移动栈指针到rbp</span><br><span class="line">	subq	$16, %rsp // 因为leaf function,可以开辟red zone[3]  128个字节</span><br><span class="line">	movl	%edi, -4(%rbp) // 栈指针开始第4个字节,也就是第一个参数,0(%rbp)是callee保留的rbp.</span><br><span class="line">	movl	-4(%rbp), %eax //　移动到eax中</span><br><span class="line">	cmpl	$1, %eax //和1比较跳到L3</span><br><span class="line">	je	.L3</span><br><span class="line">	cmpl	$2, %eax //和2比较跳到L4</span><br><span class="line">	je	.L4</span><br><span class="line">	jmp	.L7 // default跳到L7</span><br><span class="line">.L3:</span><br><span class="line">	movl	$49, %edi // 放入参数&apos;1&apos;调用putchar,这里只打印一个字符,被优化成了putchar.</span><br><span class="line">	call	putchar</span><br><span class="line">	jmp	.L6</span><br><span class="line">.L4:</span><br><span class="line">	movl	$50, %edi // 放入参数&apos;2&apos;</span><br><span class="line">	call	putchar</span><br><span class="line">	jmp	.L6</span><br><span class="line">.L7:</span><br><span class="line">	movl	$.LC0, %edi // 让如.LC0,也就是字符串&quot;default&quot;的地址放入edi作为printf的参数</span><br><span class="line">	movl	$0, %eax</span><br><span class="line">	call	printf</span><br><span class="line">.L6:</span><br><span class="line">	leave</span><br><span class="line">	ret</span><br><span class="line">	.size	f, .-f</span><br><span class="line">	.globl	main</span><br><span class="line">	.type	main, @function</span><br><span class="line">main:</span><br><span class="line">	pushq	%rbp</span><br><span class="line">	movq	%rsp, %rbp</span><br><span class="line">	movl	$3, %edi</span><br><span class="line">	call	f</span><br><span class="line">	popq	%rbp</span><br><span class="line">	ret</span><br><span class="line">	.size	main, .-main</span><br><span class="line">	.ident	&quot;GCC: (Ubuntu 4.8.4-2ubuntu1~14.04.1) 4.8.4&quot;</span><br><span class="line">	.section	.note.GNU-stack,&quot;&quot;,@progbits</span><br></pre></td></tr></table></figure>
+
+<p>从汇编可以看出<code>switch case</code>其实本身其实是可以通过<code>goto</code>实现的,<code>switch case</code>只是<code>goto</code>的一个高级封装的实现技巧而已.如何放到虚拟机中<br>其实就是提供类似的<code>goto</code>机制来满足跳转的需求.</p>
+<p>switch解析的时候首先注册了<code>$switch</code>的回调函数,如果匹配了<code>&quot;switch&quot;/_mute! ?(~&#39;{&#39; expr)/_code &#39;{&#39; swbody &#39;}&#39;/_unmute/switch</code>就会调用<code>Compiler.Switch函数进行处理</code>.</p>
+<p><code>_mute</code>会禁止回调函数的运行,除了<code>_</code>开头的回调函数,<code>_unmute</code>则是解开禁止.<br><code>_code</code>的作用是把匹配到的语法记号流(tokens []tpl.Token)入栈.</p>
+<p>swith boyd 是按照如下定义的:</p>
+<p><code>swbody = *(&quot;case&quot;! expr/_code &#39;:&#39; doc/_code)/_ARITY ?(&quot;default&quot;! &#39;:&#39; doc/_code)/_ARITY</code></p>
+<p><code>_ARITY</code>获取的是语法匹配的次数,分别记录了<code>case</code>和<code>default</code>匹配的次数,<code>case</code>可以匹配<code>*</code>次,<code>default</code>可以匹配<code>?</code>次.</p>
+<p>然后可以看下Switch如何处理的.</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br></pre></td><td class="code"><pre><span class="line">func (p *Compiler) Switch(e interpreter.Engine) &#123;</span><br><span class="line"></span><br><span class="line">	var defaultCode interface&#123;&#125;</span><br><span class="line">	// 之前push了一个 ? 的匹配次数, 如果是1那么就有default的代码, 所以把defaultCode pop出来.</span><br><span class="line">	defaultArity := p.popArity()</span><br><span class="line">	if defaultArity == 1 &#123;</span><br><span class="line">		defaultCode, _ = p.gstk.Pop()</span><br><span class="line">	&#125;</span><br><span class="line">	// 获取case的匹配次数</span><br><span class="line">	caseArity := p.popArity()</span><br><span class="line">	// case 中有个expression,case:后面有一个statment,所以乘2</span><br><span class="line">	casebr := p.gstk.PopNArgs(caseArity &lt;&lt; 1) // 2 * caseArity</span><br><span class="line">	// 这switch:后面跟着的expression的代码取出</span><br><span class="line">	switchCode, _ := p.gstk.Pop()</span><br><span class="line">	// 保存老的块上下文</span><br><span class="line">	old := p.bctx</span><br><span class="line">	p.bctx = blockCtx&#123;&#125;</span><br><span class="line">	// switchCode有两种 , 一种是 switch , 一种是 switch expr.</span><br><span class="line">	// 这里处理的是switch &#123;&#125;的形式,每个case中都是条件表达式,就变成了if语句.</span><br><span class="line">	if switchCode == nil &#123;</span><br><span class="line">		// 执行case branch,和default branch</span><br><span class="line">		p.doIf(e, casebr, defaultCode, caseArity)</span><br><span class="line">		p.bctx.MergeSw(&amp;old, p.code.Len())</span><br><span class="line">		return</span><br><span class="line">	&#125;</span><br><span class="line">	// 转换switchCode</span><br><span class="line">	// reserved2 是一组空的指令,用于最后填充跳转指令跳到switch body的末尾.</span><br><span class="line">	reserved2 := make([]exec.ReservedInstr, caseArity)</span><br><span class="line">	if err := e.EvalCode(p, &quot;expr&quot;, switchCode); err != nil &#123;</span><br><span class="line">		panic(err)</span><br><span class="line">	&#125;</span><br><span class="line">	// 解析switchCode完毕,添加一行代码</span><br><span class="line">	p.CodeLine(switchCode)</span><br><span class="line">	for i := 0; i &lt; caseArity; i++ &#123;</span><br><span class="line">		caseCode := casebr[i&lt;&lt;1]</span><br><span class="line">		// 解析表达式</span><br><span class="line">		if err := e.EvalCode(p, &quot;expr&quot;, caseCode); err != nil &#123;</span><br><span class="line">			panic(err)</span><br><span class="line">		&#125;</span><br><span class="line">		// 记录解析过的一行代码</span><br><span class="line">		p.CodeLine(caseCode)</span><br><span class="line">		</span><br><span class="line">		// 保留指令一行空指令留待插入 case的跳转指令</span><br><span class="line">		reserved1 := p.code.Reserve()</span><br><span class="line">		bodyCode := casebr[(i&lt;&lt;1)+1]</span><br><span class="line">		// 解析块代码</span><br><span class="line">		bctx := evalDocCode(e, p, bodyCode)</span><br><span class="line">		// 把当前作用域中break,continue指令加入到p.bctx中</span><br><span class="line">		// 等最后到解析末尾再把跳转距离计算出来</span><br><span class="line">		bctx.MergeTo(&amp;p.bctx)</span><br><span class="line">		// 把当前位置留空.	</span><br><span class="line">		// 解析到了case :&#123;&#125;结尾作为跳转到结尾的指令的插入位置.</span><br><span class="line">		reserved2[i] = p.code.Reserve()</span><br><span class="line">		// 把reserved1保留的位置插入跳转到reserved2的保留的地址的地方.</span><br><span class="line">		// 相当于 Case delta,如果case 成功那么就跳到body的末尾,reserved2[i]</span><br><span class="line">		reserved1.Set(exec.Case(reserved2[i].Delta(reserved1)))</span><br><span class="line">	&#125;</span><br><span class="line">	// 类似的解析default的case</span><br><span class="line">	p.code.Block(exec.Default)</span><br><span class="line">	bctx := evalDocCode(e, p, defaultCode)</span><br><span class="line">	bctx.MergeTo(&amp;p.bctx)</span><br><span class="line"></span><br><span class="line">	end := p.code.Len()</span><br><span class="line">	for i := 0; i &lt; caseArity; i++ &#123;</span><br><span class="line">		// 设置跳转到末尾的指令</span><br><span class="line">		reserved2[i].Set(exec.Jmp(end - reserved2[i].Next()))</span><br><span class="line">	&#125;</span><br><span class="line">	// 设置break指令的跳转地址.</span><br><span class="line">	// 并把旧bctx换回来,也就是说break,continue</span><br><span class="line">	// 跳转范围就终止在 switch 的作用域内.</span><br><span class="line">	p.bctx.MergeSw(&amp;old, end)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>比如下面的代码进行转化的话</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">x=1</span><br><span class="line">switch(x)&#123;</span><br><span class="line">case 1:</span><br><span class="line">        x=4</span><br><span class="line">        break</span><br><span class="line">case 2:</span><br><span class="line">        x=2</span><br><span class="line">        break</span><br><span class="line">case 3:</span><br><span class="line">        x=3</span><br><span class="line">        break</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>就跳到执行块的末尾,最后的翻译结果就是下面这样</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line">==&gt; 0000: Var &amp;&#123;x&#125; // 变量x</span><br><span class="line">==&gt; 0001: Push &amp;&#123;1&#125; // 压入1</span><br><span class="line">==&gt; 0002: AssignEx 0 // x=1</span><br><span class="line">==&gt; 0003: Ref &amp;&#123;x&#125; // 引用x</span><br><span class="line">==&gt; 0004: Push &amp;&#123;1&#125; // 压入1</span><br><span class="line">==&gt; 0005: Case 5 // case是自己定义的字节码,等于pop 1 再和当前栈顶的x比较,如果成功向下跳转5</span><br><span class="line">==&gt; 0006: Var &amp;&#123;x&#125; // 引用x</span><br><span class="line">==&gt; 0007: Push &amp;&#123;4&#125; // 压入4</span><br><span class="line">==&gt; 0008: AssignEx 0 // x=4</span><br><span class="line">==&gt; 0009: Jmp 16 // break 跳到结尾</span><br><span class="line">==&gt; 0010: Jmp 15 // case 不会继续执行,也是跳到结尾</span><br><span class="line">==&gt; 0011: Push &amp;&#123;2&#125; // 后面是类似的</span><br><span class="line">==&gt; 0012: Case 5</span><br><span class="line">==&gt; 0013: Var &amp;&#123;x&#125;</span><br><span class="line">==&gt; 0014: Push &amp;&#123;2&#125;</span><br><span class="line">==&gt; 0015: AssignEx 0</span><br><span class="line">==&gt; 0016: Jmp 9</span><br><span class="line">==&gt; 0017: Jmp 8</span><br><span class="line">==&gt; 0018: Push &amp;&#123;3&#125;</span><br><span class="line">==&gt; 0019: Case 5</span><br><span class="line">==&gt; 0020: Var &amp;&#123;x&#125;</span><br><span class="line">==&gt; 0021: Push &amp;&#123;3&#125;</span><br><span class="line">==&gt; 0022: AssignEx 0</span><br><span class="line">==&gt; 0023: Jmp 2</span><br><span class="line">==&gt; 0024: Jmp 1</span><br><span class="line">==&gt; 0025: Pop 0</span><br></pre></td></tr></table></figure>
+
+<p>比起汇编,我们定义的字节码稍微高级一点不需要构造跳转表，而是用Case指令替代,和栈顶的值比较,如果为true就顺序执行,不然就会跳转<br>相对距离的位置,到这里为止,我们的转换就结束了.</p>
+<p>最后总结一下,现代编译器的实现已经非常方便了,前端有lex,yacc,后端有llvm,比如object-c和clang,以及rust的后端都是llvm,所以llvm还是很靠谱的,而前端手写或者用工具生成各有利弊,但是并不是什么决定因素.</p>
+<p>而这里实现的qlang主要是优势是短小精悍无依赖,全部前后端自行实现,可以作为Golang的项目的嵌入脚本语言,类似于lua.</p>
+<p>[1] <a href="https://github.com/qiniu/qlang" target="_blank" rel="noopener">https://github.com/qiniu/qlang</a><br>[2] <a href="http://llvm.org/" target="_blank" rel="noopener">http://llvm.org/</a><br>[3] <a href="http://eli.thegreenplace.net/2011/09/06/stack-frame-layout-on-x86-64/" target="_blank" rel="noopener">http://eli.thegreenplace.net/2011/09/06/stack-frame-layout-on-x86-64/</a></p>
+
+      
+    </div>
+
+    
+
+    
+      
+    
+
+    
+    
+    
+
+    
+
+    
+      
+    
+    
+      <div>
+        <div id="reward-container">
+  <div></div>
+  <button id="reward-button" disable="enable" onclick="var qr = document.getElementById(&quot;qr&quot;); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+
+    
+      
+      
+        
+      
+      <div style="display: inline-block">
+        <img src="/images/wechat.jpeg" alt="ggaaooppeenngg 微信支付">
+        <p>微信支付</p>
+      </div>
+    
+      
+      
+        
+      
+      <div style="display: inline-block">
+        <img src="/images/alipay.jpeg" alt="ggaaooppeenngg 支付宝">
+        <p>支付宝</p>
+      </div>
+    
+
+  </div>
+</div>
+
+      </div>
+    
+
+    
+
+    <footer class="post-footer">
+      
+        
+          
+        
+        <div class="post-tags">
+          
+            <a href="/tags/编译/" rel="tag"># 编译</a>
+          
+            <a href="/tags/Go/" rel="tag"># Go</a>
+          
+            <a href="/tags/compiler/" rel="tag"># compiler</a>
+          
+            <a href="/tags/go/" rel="tag"># go</a>
+          
+            <a href="/tags/golang/" rel="tag"># golang</a>
+          
+            <a href="/tags/虚拟机/" rel="tag"># 虚拟机</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/zh-CN/2016/04/06/go-parser-语法分析/" rel="next" title="go-parser-语法分析">
+                <i class="fa fa-chevron-left"></i> go-parser-语法分析
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/zh-CN/2016/08/31/buddy-system-内核物理页分配的实现/" rel="prev" title="buddy-system-内核物理页管理的实现">
+                buddy-system-内核物理页管理的实现 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div class="comments" id="comments">
+      <div id="disqus_thread">
+        <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+      </div>
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-inner">
+
+      
+
+      
+
+      <div class="site-overview-wrap sidebar-panel sidebar-panel-active">
+        <div class="site-overview">
+
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description motion-element" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+
+
+  <nav class="site-state motion-element">
+    
+      <div class="site-state-item site-state-posts">
+        
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">51</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+    
+
+    
+      
+      
+      <div class="site-state-item site-state-categories">
+        
+          
+            <a href="/categories/">
+          
+        
+        
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+        <span class="site-state-item-count">14</span>
+        <span class="site-state-item-name">分类</span>
+        </a>
+      </div>
+    
+
+    
+      
+      
+      <div class="site-state-item site-state-tags">
+        
+          
+            <a href="/tags/">
+          
+        
+        
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+        <span class="site-state-item-count">79</span>
+        <span class="site-state-item-name">标签</span>
+        </a>
+      </div>
+    
+  </nav>
+
+
+
+
+
+
+
+  <div class="links-of-author motion-element">
+    
+      <span class="links-of-author-item">
+      
+      
+        
+      
+      
+        
+      
+        <a href="https://github.com/ggaaooppeenngg" title="GitHub &rarr; https://github.com/ggaaooppeenngg" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i>GitHub</a>
+      </span>
+    
+      <span class="links-of-author-item">
+      
+      
+        
+      
+      
+        
+      
+        <a href="mailto:peng.gao.dut@gmail.com" title="E-Mail &rarr; mailto:peng.gao.dut@gmail.com" rel="noopener" target="_blank"><i class="fa fa-fw fa-envelope"></i>E-Mail</a>
+      </span>
+    
+  </div>
+
+
+
+
+
+
+
+          
+          
+        </div>
+      </div>
+
+      
+
+      
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          
+            <span id="scrollpercent"><span>0</span>%</span>
+          
+        </div>
+      
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; 2014 – <span itemprop="copyrightYear">2019</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+
+  
+
+  
+</div>
+
+
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Mist</a> v7.2.0</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+
+    
+
+    
+
+    
+
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/jquery/index.js?v=3.4.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+
+
+
+  <script src="/js/utils.js?v=7.2.0"></script>
+
+  <script src="/js/motion.js?v=7.2.0"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/schemes/muse.js?v=7.2.0"></script>
+
+
+
+
+  
+  <script src="/js/scrollspy.js?v=7.2.0"></script>
+<script src="/js/post-details.js?v=7.2.0"></script>
+
+
+
+  <script src="/js/next-boot.js?v=7.2.0"></script>
+
+  
+  <script src="/js/js.cookie.js?v=7.2.0"></script>
+  <script src="/js/scroll-cookie.js?v=7.2.0"></script>
+
+
+  
+
+  
+
+
+  
+  
+
+  
+  
+
+  
+    
+      <script type="text/x-mathjax-config">
+  
+
+  MathJax.Hub.Config({
+    tex2jax: {
+      inlineMath: [ ['$', '$'], ['\\(', '\\)'] ],
+      processEscapes: true,
+      skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    },
+    TeX: {
+      
+      equationNumbers: {
+        autoNumber: 'AMS'
+      }
+    }
+  });
+  MathJax.Hub.Register.StartupHook('TeX Jax Ready', function() {
+    MathJax.InputJax.TeX.prefilterHooks.Add(function(data) {
+      if (data.display) {
+        var next = data.script.nextSibling;
+        while (next && next.nodeName.toLowerCase() === '#text') { next = next.nextSibling }
+        if (next && next.nodeName.toLowerCase() === 'br') { next.parentNode.removeChild(next) }
+      }
+    });
+  });
+</script>
+
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+    for (i = 0; i < all.length; i += 1) {
+      document.getElementById(all[i].inputID + '-Frame').parentNode.className += ' has-jax';
+    }
+  });
+</script>
+<script src="//cdn.jsdelivr.net/npm/mathjax@2/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+    
+  
+
+
+
+
+
+
+
+
+
+  
+<script>
+  function loadCount() {
+    var d = document, s = d.createElement('script');
+    s.src = 'https://ggaaooppeenngg.disqus.com/count.js';
+    s.id = 'dsq-count-scr';
+    (d.head || d.body).appendChild(s);
+  }
+  // defer loading until the whole page loading is completed
+  window.addEventListener('load', loadCount, false);
+</script>
+
+
+<script>
+  var disqus_config = function() {
+    this.page.url = "https://ggaaooppeenngg.github.io/zh-CN/2016/04/23/qlang-源代码到字节码的转换/";
+    this.page.identifier = "zh-CN/2016/04/23/qlang-源代码到字节码的转换/";
+    this.page.title = 'language-vm-给编程语言加入虚拟机作为后端';
+    };
+  function loadComments() {
+    var d = document, s = d.createElement('script');
+    s.src = 'https://ggaaooppeenngg.disqus.com/embed.js';
+    s.setAttribute('data-timestamp', '' + +new Date());
+    (d.head || d.body).appendChild(s);
+  }
+  
+    window.addEventListener('load', loadComments, false);
+  
+</script>
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script>
+// GET RESPONSIVE HEIGHT PASSED FROM IFRAME
+
+window.addEventListener("message", function(e) {
+  var data = e.data;
+  if ((typeof data === 'string') && (data.indexOf('ciu_embed') > -1)) {
+    var featureID = data.split(':')[1];
+    var height = data.split(':')[2];
+    $(`iframe[data-feature=${featureID}]`).height(parseInt(height) + 30);
+  }
+}, false);
+</script>
+
+
+
+  <script>
+    (function(){
+      var bp = document.createElement('script');
+      var curProtocol = window.location.protocol.split(':')[0];
+      bp.src = (curProtocol === 'https') ? 'https://zz.bdstatic.com/linksubmit/push.js' : 'http://push.zhanzhang.baidu.com/push.js';
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(bp, s);
+    })();
+  </script>
+
+
+
+
+
+
+  
+
+</body>
+</html>
