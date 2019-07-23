@@ -106,10 +106,14 @@
 <meta property="og:site_name" content="ggaaooppeenngg">
 <meta property="og:description" content="neighbor 在协议栈里指的是同一个 LAN 下面的邻居，也就是他们在 L3 上通过媒介或者点对点连接在了一起。邻居子系统同时也可以理解为一个 L2 和 L3 地址的转换器。邻居子系统的目的就在于上层协议不应该关心下层的地址信息，我发送过来的 IP 地址应该让下层来决定发送到哪个 MAC 地址。neighbor solicitation and neighbor advertisement，可">
 <meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2019-07-23T13:31:41.465Z">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/08/07/neighboring-subsystem-浅析/p1.jpg">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/08/07/neighboring-subsystem-浅析/p2.jpg">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/08/07/neighboring-subsystem-浅析/p3.jpg">
+<meta property="og:updated_time" content="2019-07-23T15:24:30.441Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="neighboring subsystem 浅析">
 <meta name="twitter:description" content="neighbor 在协议栈里指的是同一个 LAN 下面的邻居，也就是他们在 L3 上通过媒介或者点对点连接在了一起。邻居子系统同时也可以理解为一个 L2 和 L3 地址的转换器。邻居子系统的目的就在于上层协议不应该关心下层的地址信息，我发送过来的 IP 地址应该让下层来决定发送到哪个 MAC 地址。neighbor solicitation and neighbor advertisement，可">
+<meta name="twitter:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/08/07/neighboring-subsystem-浅析/p1.jpg">
 
 
 
@@ -428,7 +432,7 @@
                 
                   <span class="post-meta-item-text">更新于</span>
                 
-                <time title="修改时间：2019-07-23 21:31:41" itemprop="dateModified" datetime="2019-07-23T21:31:41+08:00">2019-07-23</time>
+                <time title="修改时间：2019-07-23 23:24:30" itemprop="dateModified" datetime="2019-07-23T23:24:30+08:00">2019-07-23</time>
               </span>
             
           
@@ -488,11 +492,11 @@
 <p><code>struct neigh_ops</code>  邻居对应的一些操作函数。</p>
 <p><code>struct hh_cache</code> 缓存 L2 的头部，不是所有的设备都支持头部缓存。</p>
 <p><code>struct rttable</code> 和 <code>struct dst_enry</code>， IPv4 的路由缓存信息是通过 <code>struct rttable</code> 缓存的。</p>
-
+<img src="/zh-CN/2017/08/07/neighboring-subsystem-浅析/p1.jpg">
 
 <p>这是 <code>dst_entry</code>, <code>hh_cache</code> 和 <code>neighbour</code> 之间的关系。</p>
 <p>neighbor 结构是用 hash 存储的，key 是 L3 地址加设备（对应的 device 结构体）加一个随机值。hash 表通过 <code>neigh_hash_alloc</code> 和 <code>neigh_hash_free</code> 来分配和释放。<code>neigh_lookup</code> 就是通过 key 从 hash table 中找到对应的 neighbour 结构体，实现都不复杂，这里理解就可以了。</p>
-
+<img src="/zh-CN/2017/08/07/neighboring-subsystem-浅析/p2.jpg">
 
 
 <p>一般邻居子系统的缓存流程是这样的，如果 L3 的请求到达，地址解析缓存没有命中，把 L3 packet 入队，开始neighbor solicitation 等收到 neighbor advertisement 之后再出队并且发送。</p>
@@ -566,7 +570,7 @@
 <p>当然还有一个缓存项是 L2 header 的缓存这里就简单略过了。</p>
 <h2 id="ARP"><a href="#ARP" class="headerlink" title="ARP"></a>ARP</h2><p>接下来说一下 ARP 相关的内容，ARP 本身的格式其实很简单。</p>
 <p>邻居子系统有一个比较关键的协议就是 ARP，这里简单介绍一下 ARP 协议，我们来看一下 ARP 的格式。</p>
-
+<img src="/zh-CN/2017/08/07/neighboring-subsystem-浅析/p3.jpg">
 
 <p>先是两个字节的 L2 类型，然后是两个字节的 L3 类型。一般 L2 是 1 (以太网)，L3 是 0x0800 (IPV4)，接着跟着的是 L2 类型的长度和 L3 类型的长度，这里 Ethernet 的 MAC 地址是 6 个字节，IPV4 的 IP 地址是 4 个字节，接着是两个字节的操作，1 表示请求，2 表示回复，然后是发送端 L2 的地址，L3 的地址，接着是接收端 L2 和 L3 的地址。整个翻译过来就是『我（MAC 是 0a:00:27:00:00:00 IP 是 192.168.56.1）广而告之（MAC 广播地址），问一下谁知道 192.168.56.102 的地址』。</p>
 <h3 id="gARP-gratuitous-ARP"><a href="#gARP-gratuitous-ARP" class="headerlink" title="gARP (gratuitous ARP)"></a>gARP (gratuitous ARP)</h3><p>听起来像是一个无理由的 ARP 请求，实际上是一种主动通知的 ARP 请求。gARP 本身不是一个查询请求，而是一个通知请求，主要运用于主动通知 L2 地址改变，重复地址发现（请求解析自己的地址，如果收到回复说明有地址重复）。</p>

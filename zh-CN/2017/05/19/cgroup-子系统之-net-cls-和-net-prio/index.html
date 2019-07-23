@@ -108,6 +108,7 @@
 <meta property="og:locale" content="zh-CN">
 <meta property="og:image" content="http://linux-ip.net/articles/Traffic-Control-HOWTO/images/pfifo_fast-qdisc.png">
 <meta property="og:image" content="http://www.cisco.com/c/dam/en/us/support/docs/quality-of-service-qos/qos-link-efficiency-mechanisms/24906-152-n.gif">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/05/19/cgroup-子系统之-net-cls-和-net-prio/map.jpg">
 <meta property="og:image" content="http://luxik.cdi.cz/~devik/qos/htb/manual/feed1.gif">
 <meta property="og:image" content="http://luxik.cdi.cz/~devik/qos/htb/manual/feed2.gif">
 <meta property="og:image" content="http://luxik.cdi.cz/~devik/qos/htb/manual/feed3.gif">
@@ -115,8 +116,9 @@
 <meta property="og:image" content="http://luxik.cdi.cz/~devik/qos/htb/manual/feed5.gif">
 <meta property="og:image" content="http://luxik.cdi.cz/~devik/qos/htb/manual/feed6.gif">
 <meta property="og:image" content="http://linux-ip.net/articles/Traffic-Control-HOWTO/images/htb-class.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/05/19/cgroup-子系统之-net-cls-和-net-prio/qdisc.jpeg">
 <meta property="og:image" content="https://upload.wikimedia.org/wikipedia/commons/thumb/3/37/Netfilter-packet-flow.svg/1600px-Netfilter-packet-flow.svg.png">
-<meta property="og:updated_time" content="2019-07-23T13:31:41.597Z">
+<meta property="og:updated_time" content="2019-07-23T15:24:30.441Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="cgroup 子系统之 net_cls 和 net_prio">
 <meta name="twitter:description" content="在分析net_cls和net_prio之前先要解释几个东西，一个是网络的 QoS 以及 netfilter。 网络 QoSIP 服务模型是尽力而为的，这样的模型不能体现某些流量的重要性，所以诞生了QOS技术，Linux 很早就提供了流量控制接口，命令行工具是tc。 协议栈的 QoS 主要由三部分组成。 qdisc 队列规则（queueing discipline)，class 控制策略，filte">
@@ -439,7 +441,7 @@
                 
                   <span class="post-meta-item-text">更新于</span>
                 
-                <time title="修改时间：2019-07-23 21:31:41" itemprop="dateModified" datetime="2019-07-23T21:31:41+08:00">2019-07-23</time>
+                <time title="修改时间：2019-07-23 23:24:30" itemprop="dateModified" datetime="2019-07-23T23:24:30+08:00">2019-07-23</time>
               </span>
             
           
@@ -506,7 +508,7 @@
 <p><img src="http://linux-ip.net/articles/Traffic-Control-HOWTO/images/pfifo_fast-qdisc.png" alt="pfifo"></p>
 <p>用 IP 的 ToS 可以映射到这些队列，对应的关系如图。</p>
 <p><img src="http://www.cisco.com/c/dam/en/us/support/docs/quality-of-service-qos/qos-link-efficiency-mechanisms/24906-152-n.gif" alt="tos"></p>
-
+<img src="/zh-CN/2017/05/19/cgroup-子系统之-net-cls-和-net-prio/map.jpg">
 
 <p>他的实现依赖下面这个结构，bands 一般是 3 个，代表三个不同优先级的队列，然后<code>filter_list</code>是他的过滤器列表，最后<code>prio2band</code>就是上图的<code>ToS To Queue</code> 的映射中的<code>Linux priority 到 Band</code>的那部分，<code>queues</code>保存的是三个<code>fifo</code>的<code>qdisc</code>，也就是三个最简单的队列。</p>
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">struct prio_sched_data &#123;</span><br><span class="line">	int bands;</span><br><span class="line">	struct tcf_proto __rcu *filter_list;</span><br><span class="line">	u8  prio2band[TC_PRIO_MAX+1];</span><br><span class="line">	struct Qdisc *queues[TCQ_PRIO_BANDS];</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
@@ -568,7 +570,7 @@
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">dev_queue_xmit -&gt;</span><br><span class="line">	__dev_queue_xmit -&gt;</span><br><span class="line">    	__dev_xmit_skb -&gt;</span><br><span class="line">    		qdisc-&gt;enqueue</span><br><span class="line">    		__qdisc_run -&gt;</span><br><span class="line">    		  qdisc_restart -&gt;</span><br><span class="line">    		    qdisc-&gt;dequeue -&gt;</span><br><span class="line">    		      sch_direct_xmit</span><br></pre></td></tr></table></figure>
 
 <p>在<code>enqueue</code>的时候会主动唤起<code>dequeue</code>也可能是硬件发送就绪会唤醒发送软中断来<code>dequeue</code>，描述的整个过程大概是图中的这部分。</p>
-
+<img src="/zh-CN/2017/05/19/cgroup-子系统之-net-cls-和-net-prio/qdisc.jpeg">
 
 <h2 id="补充"><a href="#补充" class="headerlink" title="补充"></a>补充</h2><h3 id="netfilter"><a href="#netfilter" class="headerlink" title="netfilter"></a>netfilter</h3><p>netfilter 在数据包传输中有一些 hook 可以在其中注册回调函数。</p>
 <p><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/3/37/Netfilter-packet-flow.svg/1600px-Netfilter-packet-flow.svg.png" alt="netfilter"></p>

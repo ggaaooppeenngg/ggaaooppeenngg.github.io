@@ -430,7 +430,7 @@
                 
                   <span class="post-meta-item-text">更新于</span>
                 
-                <time title="修改时间：2019-07-23 21:31:41" itemprop="dateModified" datetime="2019-07-23T21:31:41+08:00">2019-07-23</time>
+                <time title="修改时间：2019-07-23 23:24:30" itemprop="dateModified" datetime="2019-07-23T23:24:30+08:00">2019-07-23</time>
               </span>
             
           
@@ -637,7 +637,7 @@
                 
                   <span class="post-meta-item-text">更新于</span>
                 
-                <time title="修改时间：2019-07-23 21:31:41" itemprop="dateModified" datetime="2019-07-23T21:31:41+08:00">2019-07-23</time>
+                <time title="修改时间：2019-07-23 23:24:30" itemprop="dateModified" datetime="2019-07-23T23:24:30+08:00">2019-07-23</time>
               </span>
             
           
@@ -724,13 +724,13 @@
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">for each node b</span><br><span class="line">    if the number of immediate predecessors of b ≥ 2</span><br><span class="line">        for each p in immediate predecessors of b</span><br><span class="line">            runner := p</span><br><span class="line">            while runner ≠ idom(b)</span><br><span class="line">                add b to runner’s dominance frontier set</span><br><span class="line">                runner := idom(runner)</span><br></pre></td></tr></table></figure>
 
 <p>idom(b) 代表相邻的strictly dominate b的结点。这样的点只有一个，因为相邻的点有两个的话就不会是必经之路了。</p>
-
+<img src="/zh-CN/2017/01/22/SSA是什么/example_1.jpg">
 
 <p>如图是一个例子，2的前驱是1和7，7没有sd(strictly dominate) 2，所以把2加入到7的DF(dominate frontiers)当中。3是7的相邻sd，然后3不是2的sd所以2加入到3的DF当中，接着2是3相邻的sd，然后2不是2的sd所以把2加入到2的DF中，最后遍历到7，5和6不是7的sd所以把7加入到5和6的df当中。</p>
 <p>df(A)可以认为是可以通过A到达的，但不是必经之路的点的集合。</p>
 <p>有了这个定义以后就可以插入Φ函数了和重命名了。如果X中有定义a那么所有df(X)都需要a的Φ函数。并且Φ函数本身也是一个定义。</p>
 <p>比如还是同一个例子。</p>
-
+<img src="/zh-CN/2017/01/22/SSA是什么/example_2.jpg">
 
 <p>1当中有j的定义，但是df(1)是空的，5当中有j的定义，并且5的df有7所以7当中要插入一个φ(j, j)。j现在在7中定义了(通过φ函数）所以df(7)中的2也要有φ(j, j)，6也有j的定义但是7已经有了φ函数了，2的df有2，但是2已经有φ函数了。类似的方式可以应用到i和k。接着对定义重命名就可以完成SSA的转换了。</p>
 <h2 id="SSA的应用"><a href="#SSA的应用" class="headerlink" title="SSA的应用"></a>SSA的应用</h2><p>上面只是通俗的解释了一下SSA，没有给出更多详细的理论和算法以及证明，因为证明实在难看懂，下面说一下SSA的应用。</p>
@@ -862,7 +862,7 @@
                 
                   <span class="post-meta-item-text">更新于</span>
                 
-                <time title="修改时间：2019-07-23 21:31:41" itemprop="dateModified" datetime="2019-07-23T21:31:41+08:00">2019-07-23</time>
+                <time title="修改时间：2019-07-23 23:24:30" itemprop="dateModified" datetime="2019-07-23T23:24:30+08:00">2019-07-23</time>
               </span>
             
           
@@ -950,7 +950,7 @@
 <p>这个函数的主体就是把<code>&amp;sd-&gt;input_pkt_queue</code>交给<code>&amp;sd-&gt;process_queue</code>然后从<code>&amp;sd-&gt;process_queue</code>当中取出<code>sk_buff</code>，再调用<code>__netif_receive_skb</code>，进一步处理.我想老是把<code>&amp;sd-&gt;input_pkt_queue</code>拷贝并且清空应该是因为希望不因为锁独占这个队列太久的原因.</p>
 <p><code>__netif_receive_skb</code>的内容主要是根据<code>skb-&gt;protocol</code>，遍历<code>&amp;skb-&gt;dev-&gt;ptype_all</code>然后将frame交给L3的<code>ptype-&gt;func</code>处理，还有一些在这一层需要处理的特性，比如bridging.</p>
 <p>目前说描述的东西就是整个传输路径的这部分，完整的图在<a href="https://wiki.linuxfoundation.org/images/1/1c/Network_data_flow_through_kernel.png" target="_blank" rel="noopener">这里</a></p>
-
+<img src="/zh-CN/2016/11/21/kernel-协议栈链路层分析/l2_recv.png">
 
 <h2 id="frame的发送"><a href="#frame的发送" class="headerlink" title="frame的发送"></a>frame的发送</h2><p>在frame的发送路径，主要包含几个任务，开关设备的发送功能，调度设备进行发送，选择在设备发送队列的frame进行发送，还要传输过程的本身.而且发送的例程也是类似接收的过程，有对应的softirq(<code>NET_TX_SOFTIRQ</code>)和对应的handler，<code>net_tx_action</code>。和<code>poll_list</code>对应的是<code>output_queue</code>，也是一个等待发送的设备列表。<br><code>__LINK_STATE_START</code> 和 <code>__LINK_ STATE_XOFF</code>，<code>__LINK_STATE_RX_SCHED</code>和<code>__LINK_STATE_SCHED</code>也是对应的.回顾开头中断的代码</p>
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">if (status &amp; TxAvailable) &#123; // 中断表示可以传输的时候</span><br><span class="line">	if (vortex_debug &gt; 5)</span><br><span class="line">		pr_debug(&quot;	TX room bit was handled.\n&quot;);</span><br><span class="line">	/* There&apos;s room in the FIFO for a full-sized packet. */</span><br><span class="line">	iowrite16(AckIntr | TxAvailable, ioaddr + EL3_CMD);</span><br><span class="line">	netif_wake_queue (dev);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
@@ -1097,7 +1097,7 @@
                 
                   <span class="post-meta-item-text">更新于</span>
                 
-                <time title="修改时间：2019-07-23 21:31:41" itemprop="dateModified" datetime="2019-07-23T21:31:41+08:00">2019-07-23</time>
+                <time title="修改时间：2019-07-23 23:24:30" itemprop="dateModified" datetime="2019-07-23T23:24:30+08:00">2019-07-23</time>
               </span>
             
           
@@ -1281,7 +1281,7 @@
                 
                   <span class="post-meta-item-text">更新于</span>
                 
-                <time title="修改时间：2019-07-23 21:31:41" itemprop="dateModified" datetime="2019-07-23T21:31:41+08:00">2019-07-23</time>
+                <time title="修改时间：2019-07-23 23:24:30" itemprop="dateModified" datetime="2019-07-23T23:24:30+08:00">2019-07-23</time>
               </span>
             
           
@@ -1346,7 +1346,7 @@
 <p><code>vm_struct</code>的组织是通过链表实现的,<br>其中<code>next</code>指向下一个<code>vm_struct</code>, <code>addr</code>指向的是虚拟地址, <code>size</code>对应分配的内存的大小,在有guard page(也就是flag的<code>VM_NO_GUARD</code>没有设置的话)的时候会多出一个PAGE_SIZE的大小(但没有映射内存), <code>pages</code>是页的地址, <code>nr_pages</code>是页的数量, <code>phy_addr</code>这个字段一般为0,当用于ioremap的时候会用到, <code>caller</code>是调用者的地址.</p>
 <p>上面说了, 每个<code>vm_struct</code>代表的区间之间会有一PAGE_SIZE大小的分隔,也是为了能够方便检查非法越界的情况.</p>
 <p>这是32位的一张分布图, 整体结构没变, 就是64位的区间变大了.</p>
- 
+<img src="/zh-CN/2016/09/05/vmalloc-非连续内存的分配/memory.jpeg"> 
 
 <p><code>vmap_area</code>用于代表虚拟地址的区间, 和vm_struct是有对应关系的.<br>list 是按地址排序存的线性链表节点.<br>rb_node 是按地址存的红黑树节点.<br>这两个值都是在插入的时候修改的.<br>也就是为了方便搜索,它既存在红黑树上也存在链表里面.</p>
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">struct vmap_area &#123;</span><br><span class="line">	unsigned long va_start;</span><br><span class="line">	unsigned long va_end;</span><br><span class="line">	unsigned long flags;</span><br><span class="line">	struct rb_node rb_node;         /* address sorted rbtree */</span><br><span class="line">	struct list_head list;          /* address sorted list */</span><br><span class="line">	struct llist_node purge_list;    /* &quot;lazy purge&quot; list */</span><br><span class="line">	struct vm_struct *vm;</span><br><span class="line">	struct rcu_head rcu_head;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
@@ -1363,10 +1363,10 @@
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line">/*</span><br><span class="line"> *</span><br><span class="line"> * Set up page tables in kva (addr, end). The ptes shall have prot &quot;prot&quot;, and</span><br><span class="line"> * will have pfns corresponding to the &quot;pages&quot; array.</span><br><span class="line"> * 这里的kva指的是kernel virtual address.</span><br><span class="line"> * Ie. pte at addr+N*PAGE_SIZE shall point to pfn corresponding to pages[N]</span><br><span class="line"> */</span><br><span class="line">static int vmap_page_range_noflush(unsigned long start, unsigned long end,</span><br><span class="line">				   pgprot_t prot, struct page **pages)</span><br><span class="line">&#123;</span><br><span class="line">	pgd_t *pgd;</span><br><span class="line">	unsigned long next;</span><br><span class="line">	unsigned long addr = start;</span><br><span class="line">	int err = 0;</span><br><span class="line">	int nr = 0;</span><br><span class="line"></span><br><span class="line">	BUG_ON(addr &gt;= end);</span><br><span class="line">	pgd = pgd_offset_k(addr); /* 把虚拟地址hash到pgd */</span><br><span class="line">	do &#123;</span><br><span class="line">		next = pgd_addr_end(addr, end); /* 获取下一个pgd */</span><br><span class="line">		err = vmap_pud_range(pgd, addr, next, prot, pages, &amp;nr); /* 再去初始化 pud pmd pte */</span><br><span class="line">		if (err)</span><br><span class="line">			return err;</span><br><span class="line">	&#125; while (pgd++, addr = next, addr != end);</span><br><span class="line"></span><br><span class="line">	return nr;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <p>对应的调用关系如图.</p>
-
+<img src="/zh-CN/2016/09/05/vmalloc-非连续内存的分配/vmalloc-callgraph.png">
 
 <h2 id="释放"><a href="#释放" class="headerlink" title="释放"></a>释放</h2><p>释放的入口是<code>vfree</code>, 这个函数首先通过<code>in_interrupt</code>检查是否在中断上下文, 如果是正处于中断中则使用<code>workqueue</code>传入<code>vfree_deferred</code>用workqueue进行释放, 不然就直接调用<code>__vunmap</code>来释放, 它会调用<code>remove_vm_area</code>, 最终调用用<code>unmap_vmap_area</code>重置页表, 然后用<code>free_vmap_area_noflush</code>把<code>vmp_area</code>加入到<code>vmap_purge_list</code>这个链表当中, 放入这个链表之后只有链表长度超过阈值才会尝试调用<code>try_purge_vmap_area_lazy</code>真正释放掉<code>vmap_area</code>,释放过程主要是从红黑树中移除, 然后把自己也给free掉, 这是一个延迟的释放过程, 最后把把<code>vm_struct</code>自己和它管理的物理页全部释放. 调用图如图所示.</p>
-
+<img src="/zh-CN/2016/09/05/vmalloc-非连续内存的分配/vfree-callgraph.png">
 
 
 <h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>vmalloc主要是针对连续地址分配的需求, 涉及两个部分, 一个是虚拟地址的管理以及到物理地址的映射. 其中虚拟地址的管理比较麻烦一点, 用链表红黑树保存了每个<code>vmap_area</code>并且寻找合适的<code>空洞</code>用于分配虚拟地址. 而物理地址的分配之前我的博客已经讲过了, 建立映射只要设置对应的页表项就OK了.</p>
@@ -1496,7 +1496,7 @@
                 
                   <span class="post-meta-item-text">更新于</span>
                 
-                <time title="修改时间：2019-07-23 21:31:41" itemprop="dateModified" datetime="2019-07-23T21:31:41+08:00">2019-07-23</time>
+                <time title="修改时间：2019-07-23 23:24:30" itemprop="dateModified" datetime="2019-07-23T23:24:30+08:00">2019-07-23</time>
               </span>
             
           
@@ -1578,7 +1578,7 @@
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">struct free_area &#123;</span><br><span class="line">	struct list_head	free_list[MIGRATE_TYPES];</span><br><span class="line">	unsigned long		nr_free;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
 
 <p>所以整个的空闲块的管理结构如图.</p>
-
+<img src="/zh-CN/2016/08/31/buddy-system-内核物理页分配的实现/buddy-system-free.png">
 <p>每一个free_area用来存储一种\(2^k\)块,用链表链接,<code>MAX_ORDER</code>表示的允许最大的块就是\(2^{MAX_ORDER}\)大小.</p>
 <h3 id="migratetype"><a href="#migratetype" class="headerlink" title="migratetype"></a>migratetype</h3><p>图中省略了<code>MIGRATE_TYPES</code>的表示, 仔细观察<code>free_list</code>是一个数组每个代表了一种migratetype, 用于page分配从node之间迁移的,  让内存尽量分配在离CPU近的node上, 这个特性是在2.6.32.25引入的, 同时对外部碎片的现象进行了优化, 这一点是这么理解的, 外部碎片是因为小内存块的分配位置可能占据了某个地方, 导致大的内存块无法分配出来, 比如说如果这个页是一些内核的永久数据可能这个碎片就会一直存在, 但是我们提前从可移动页分配一大块内存来给不可移动页, 那么内存碎片就不会影响到可移动页的分配, 这样就不会让内核初始化的时候分配的一些永久性的内存导致碎片影响了其他内存的分配,下面我们看看迁移类型的具体定义.</p>
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line">/*</span><br><span class="line"> * PAGE_ALLOC_COSTLY_ORDER is the order at which allocations are deemed</span><br><span class="line"> * costly to service.  That is between allocation orders which should</span><br><span class="line"> * coalesce naturally under reasonable reclaim pressure and those which</span><br><span class="line"> * will not.</span><br><span class="line"> */</span><br><span class="line"> /* 内核认为超过8个页算是大的内存分配 */</span><br><span class="line">#define PAGE_ALLOC_COSTLY_ORDER 3</span><br><span class="line"></span><br><span class="line">enum &#123;</span><br><span class="line">	MIGRATE_UNMOVABLE,</span><br><span class="line">	MIGRATE_MOVABLE,</span><br><span class="line">	MIGRATE_RECLAIMABLE,</span><br><span class="line">	MIGRATE_PCPTYPES,	/* the number of types on the pcp lists */</span><br><span class="line">	MIGRATE_HIGHATOMIC = MIGRATE_PCPTYPES,</span><br><span class="line">#ifdef CONFIG_CMA</span><br><span class="line">	/*</span><br><span class="line">	 * MIGRATE_CMA migration type is designed to mimic the way</span><br><span class="line">	 * ZONE_MOVABLE works.  Only movable pages can be allocated</span><br><span class="line">	 * from MIGRATE_CMA pageblocks and page allocator never</span><br><span class="line">	 * implicitly change migration type of MIGRATE_CMA pageblock.</span><br><span class="line">	 *</span><br><span class="line">	 * The way to use it is to change migratetype of a range of</span><br><span class="line">	 * pageblocks to MIGRATE_CMA which can be done by</span><br><span class="line">	 * __free_pageblock_cma() function.  What is important though</span><br><span class="line">	 * is that a range of pageblocks must be aligned to</span><br><span class="line">	 * MAX_ORDER_NR_PAGES should biggest page be bigger then</span><br><span class="line">	 * a single pageblock.</span><br><span class="line">	 */</span><br><span class="line">	MIGRATE_CMA,</span><br><span class="line">#endif</span><br><span class="line">#ifdef CONFIG_MEMORY_ISOLATION</span><br><span class="line">	MIGRATE_ISOLATE,	/* can&apos;t allocate from here */</span><br><span class="line">#endif</span><br><span class="line">	MIGRATE_TYPES</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
@@ -1606,9 +1606,9 @@
 <p>expand 就是向下一层的free_area留一半, 然后接着用另一半进行迭代.</p>
 <p>举个例子说明分配的过程:</p>
 <p>假设当前需要从<code>zone</code>当中分配一个order为1的page,   就会从下往上找到一个可以分配的块.</p>
-
+<img src="/zh-CN/2016/08/31/buddy-system-内核物理页分配的实现/buddy-alloc-1.png">
 <p>从1开始迭代到2, 发现2有可以分配的\(2^3\)page, 然后进入expand, 进行拆分.</p>
-
+<img src="/zh-CN/2016/08/31/buddy-system-内核物理页分配的实现/buddy-alloc-2.png">
 
 <p>拆分以后一半用于分配一半进入了同一层的free_list当中,如图所示,  核心流程非常简洁明了.</p>
 <p>现在再重新回到<code>__rmqueue</code>,分析这个函数后半部分的fallback行为是如何迁移的.<br>首先如果编译选项带了CMA就会有具体内容, 其实就是再尝试从MIGRATE_CMA当中再分配一次page.</p>
@@ -1626,7 +1626,7 @@
 
 <p>这个结构体主要是一些内存分配的参数, 因为从上到下的调用都一直有用到这几个参数所以合成一个<code>context</code>向下传递.</p>
 <p><code>__alloc_pages_nodemask</code>第一步会检查<code>cpusets</code>的功能是否打开, 这个是一个<code>cgroup</code>的子模块, 如果没有设置<code>nodemask</code>就会用<code>cpusets</code>配置的<code>cpuset_current_mems_allowed</code>来限制在哪个node上分配, 这个也是在NUMA结构当中才会有用的. 之后会用到<code>might_sleep_if</code>,判断<code>gfp_mask &amp; __GFP_DIRECT_RECLAIM)</code>, 表示当前内存压力比较大需要直接回收内存, 会循环睡眠同步等待页可用, 而<code>might_sleep_if</code>是一个debug函数,标记当前函数在<code>if</code>为<code>true</code>的时候表示可能会进入睡眠, 如果当前调用进入了一个不可睡眠的上下文就会报错. <code>should_fail_alloc_page</code>会做一些预检查, 一些无法分配的条件会直接报错.<br>接着获取<code>read_mems_allowed_begin</code>,这个会拿到<code>current</code>当前进程的cpusets允许的节点分配掩码, 这个结果的读取通过顺序锁(<code>seqcount_t</code>)进行, 如果在分配page期间这个值发生了改变(通过<code>read_mems_allowed_retry</code>判断), 那么读操作需要重新进行尝试.<br>调用<code>first_zones_zonelist</code>会从<code>zonelist</code>这个表示分配page的zone的优先顺序链表里获取第一个<code>zoneref</code>, <code>zoneref</code>是一个链表节点用于迭代之后的<code>zone</code>选项.<br>接着就会调用关键函数<code>get_page_from_freelist</code>从而分配到页.<br>分配完页如果失败会调用<code>__alloc_pages_slowpath</code>唤起<code>swapd</code>进程进行页回收从而获取可用的页, 再尝试调用<code>get_page_from_free_list</code>.<br>函数的调用图如下.</p>
-
+<img src="/zh-CN/2016/08/31/buddy-system-内核物理页分配的实现/callgraph__alloc_pages.png">
 
 <p>这是最外层的一个过程, 但是内核往往经过了很多实践才会有这么一套机制, 内核在这一层之前加了一套缓存, 来加速物理页的分配,  <code>get_page_from_free_list</code>到伙伴分配器之间还有一层高速缓存. 这个结构是一个percpu结构, 每个cpu独有一份链表缓存分配的页,</p>
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">struct per_cpu_pages &#123;</span><br><span class="line">	int count;		/* number of pages in the list */</span><br><span class="line">	int high;		/* high watermark, emptying needed */</span><br><span class="line">	int batch;		/* chunk size for buddy add/remove */</span><br><span class="line"></span><br><span class="line">	/* Lists of pages, one per migrate type stored on the pcp-lists */</span><br><span class="line">	struct list_head lists[MIGRATE_PCPTYPES];</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">struct per_cpu_pageset &#123;</span><br><span class="line">	struct per_cpu_pages pcp;</span><br><span class="line">#ifdef CONFIG_NUMA</span><br><span class="line">	s8 expire;</span><br><span class="line">#endif</span><br><span class="line">#ifdef CONFIG_SMP</span><br><span class="line">	s8 stat_threshold;</span><br><span class="line">	s8 vm_stat_diff[NR_VM_ZONE_STAT_ITEMS];</span><br><span class="line">#endif</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
@@ -1634,7 +1634,7 @@
 <p>每个zone都会有一个这个结构用于缓存页的分配, 中文一般就叫高速缓存.</p>
 <p>缓存的过程是这样的, 首先通过<code>for_next_zone_zonelist_nodemask</code>遍历每个zone 会选择合适的zone, 选择合适的zone一笔带过但其实考虑了很多因素比如是否满足分配的wartermark, 是否需要均衡到别的zone当中, 是否被cpusets禁止了分配等等, 然后调用<code>buffered_rmqueue</code>这个函数, 这个函数就是构建对buddy分配器裹了一层高速缓存. 这个函数在只分配1页(order=0)的情况下,会判断是不是”冷”页, <code>bool cold = ((gfp_flags &amp; __GFP_COLD) != 0)</code>, 冷页的区别是会放到高速缓存的末尾, 相反热页会放到高速缓存的头部. 然后尝试获取高速缓存的page, 如果高速缓存为空就调用<code>rmqueue_bulk</code>分配一段<code>batch</code>大小的页块到高速缓存中继续尝试分配, 而<code>rmqueue_bulk</code>就是循环了<code>batch</code>次分配了order=0的page逐个添加到高速缓存当中. 如果需要分配的order不为0的话还是会直接从buddy-system当中分配不依靠高速缓存. 高速缓存主要是缓存单页的分配.</p>
 <p>所以调整后的走高速缓存的主流程就如下图所示.</p>
-
+<img src="/zh-CN/2016/08/31/buddy-system-内核物理页分配的实现/callgraph__alloc_pages-2.png">
 
 
 <h3 id="释放"><a href="#释放" class="headerlink" title="释放"></a>释放</h3><p>还是从伙伴系统的最内部实现向外说, 释放对应的是<code>__free_one_page</code>, 指定释放\(2^{order}\)的物理页块, 地址为page, 可以说释放过程是拆分过程的一个逆过程.</p>
@@ -1647,7 +1647,7 @@
 <p>现在再从外层看物理页的分配.</p>
 <p>入口函数是<code>__free_pages</code>, 其实知道了分配的过程对于释放的过程可以说是轻而易举就能理解的.首先这个函数<code>put_page_testzero</code>会减少引用计数, 如果到达0才真正执行释放操作.释放路径有两个一个是order为0和不为0的情况, 为0很好理解, 需要交回到高速缓存即可, 如果高速缓存满了再交回给buddy system, 不为0说明也没有缓存过,就直接调用<code>free_one_page</code>,这个函数会调用<code>__free_one_page</code>,最终还给buddy system. 所以这里主要看一下代缓存的路径, 先是调用<code>free_hot_cold_page</code>, 指定是热页也就是添加到高速缓存的头，如果计数器超过阈值<code>pcp-&gt;count &gt;= pcp-&gt;high</code>调用<code>free_pcppages_bulk</code>交还给buddy system,  这个函数可以遍历高速缓存中的migratetype,然后根据指定的count从高速缓存中交还给buddy system的页, 当前路径是整个batch个的页都会还回去.</p>
 <p>带高速缓存的释放的调用图如图所示.</p>
-
+<img src="/zh-CN/2016/08/31/buddy-system-内核物理页分配的实现/callgraph__free_pages.png">
 
 <h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>伙伴分配器的确是一个非常简洁的算法(我认为可以递归表示和迭代表示算法都美妙无比), 但是内核对于这样一个简单的算法也结合了很多实际工程的内容还有一些优化,比如迁移类型还有冷热页的标记和高速缓存等等. 充分理解内核的物理页分配对于接下来理解slab分配起和内核虚拟内存的相关内容有很好的帮助作用. 文末给出了许多参考链接, 我结合了前人的知识进行总结, 并且基于最新的4.7.2的内核重新走了一遍分析之路, 做了解释和补充, 对自己的学习是一个积累, 同时希望对大家有帮助.</p>
 <p>参考</p>
@@ -1776,7 +1776,7 @@
                 
                   <span class="post-meta-item-text">更新于</span>
                 
-                <time title="修改时间：2019-07-23 21:31:41" itemprop="dateModified" datetime="2019-07-23T21:31:41+08:00">2019-07-23</time>
+                <time title="修改时间：2019-07-23 23:24:30" itemprop="dateModified" datetime="2019-07-23T23:24:30+08:00">2019-07-23</time>
               </span>
             
           
@@ -2009,7 +2009,7 @@ go语句是</code>go expr`的形式,这里的go语句就是起一个routine进�
                 
                   <span class="post-meta-item-text">更新于</span>
                 
-                <time title="修改时间：2019-07-23 21:31:41" itemprop="dateModified" datetime="2019-07-23T21:31:41+08:00">2019-07-23</time>
+                <time title="修改时间：2019-07-23 23:24:30" itemprop="dateModified" datetime="2019-07-23T23:24:30+08:00">2019-07-23</time>
               </span>
             
           
@@ -2314,7 +2314,7 @@ go语句是</code>go expr`的形式,这里的go语句就是起一个routine进�
                 
                   <span class="post-meta-item-text">更新于</span>
                 
-                <time title="修改时间：2019-07-23 21:31:41" itemprop="dateModified" datetime="2019-07-23T21:31:41+08:00">2019-07-23</time>
+                <time title="修改时间：2019-07-23 23:24:30" itemprop="dateModified" datetime="2019-07-23T23:24:30+08:00">2019-07-23</time>
               </span>
             
           
@@ -2521,7 +2521,7 @@ go语句是</code>go expr`的形式,这里的go语句就是起一个routine进�
                 
                   <span class="post-meta-item-text">更新于</span>
                 
-                <time title="修改时间：2019-07-23 21:31:41" itemprop="dateModified" datetime="2019-07-23T21:31:41+08:00">2019-07-23</time>
+                <time title="修改时间：2019-07-23 23:24:30" itemprop="dateModified" datetime="2019-07-23T23:24:30+08:00">2019-07-23</time>
               </span>
             
           

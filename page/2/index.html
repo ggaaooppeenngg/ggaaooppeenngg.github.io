@@ -430,7 +430,7 @@
                 
                   <span class="post-meta-item-text">更新于</span>
                 
-                <time title="修改时间：2019-07-23 21:31:41" itemprop="dateModified" datetime="2019-07-23T21:31:41+08:00">2019-07-23</time>
+                <time title="修改时间：2019-07-23 23:24:30" itemprop="dateModified" datetime="2019-07-23T23:24:30+08:00">2019-07-23</time>
               </span>
             
           
@@ -492,17 +492,17 @@
 <p>Paxos 论文里面描述的算法，其实不是很清晰，一般人看了都会有疑问，所以后来很多人对这个算法做了补充和解释，包括作者本人。</p>
 <h2 id="基本需求"><a href="#基本需求" class="headerlink" title="基本需求"></a>基本需求</h2><p>第一个是安全性，就是只有一个值会被选择，并且节点对这个值不会主动知道，而是在值被选择以后被动学习知道这个值被选择的（这个原文有点难懂我换成了自己的话解释了一下）。<br>第二个是活性，也就是值最终会被选择，并且所有节点会最终学习到这个值被选择了。</p>
 <h2 id="解决方案"><a href="#解决方案" class="headerlink" title="解决方案"></a>解决方案</h2><p>首先单点可以排除，因为单点虽然是最容易解决一致性问题的，但是如果单点挂了，整个就不可用了，所以显然不能依靠单点。</p>
-
+<img src="/zh-CN/2018/05/20/paxos-总结/quorum-base.png" title="[single point]">
 
 <p>那如果每个节点就接受自己接受到的第一个值，也会有平票问题(split votes)。<code>red</code> 和 <code>blue</code> 对等的，那到底谁被选择了呢，所以来了就接受的策略并不可行。</p>
-
+<img src="/zh-CN/2018/05/20/paxos-总结/split-votes.png" title="[split votes]">
 
 <p>Paxos 是 quorum based 的，表示的一致性协议是少数服从多数的，在大多数节点都接受了这个值以后，这个值就被选择了。为了让节点可以接受多个值，多个值之间需要区分，所以就有了提交号，这个号码是单增的，拒绝掉小号的提交，并且当一个值已经被选择，那么之后的提交都要提交这个值，这样做的目的是让提交者知道这个值被学习了，是大家认可的一个值。有了少数服从多数原则，就会碰到冲突的问题。</p>
 <p>这种情况就是下面这样，从时间上来讲，<code>red</code> 已经被选择了，如果 <code>S3</code> 能够拒绝 <code>red</code> 的提交，那么 <code>S3</code>,<code>S4</code>,<code>S5</code>就可以拿着 <code>red</code> 重试，并且知道 <code>red</code> 已经被大多数人接受了，而知道冲突的 <code>S3</code> 就会决绝这次请求，这个点上就处理了两个值（接受了一个拒绝了一个）。</p>
-
+<img src="/zh-CN/2018/05/20/paxos-总结/conflict.png" title="[conflict 1]">
 
 <p>序列号可以帮助我们区分优先关系，这样因为网络问题延迟的请求就可以被处理。下面这种情况，<code>red</code> 虽然先提交，但是并不是先被大多数接受的（存在网络延迟），这个时候<code>blue</code>已经被选择了（被大多数人接受），我们需要提交 <code>red</code> 的提交意识到自己已经太“老”了，而触发这就是接受了 <code>blue</code> 的 <code>S3</code>。</p>
-
+<img src="/zh-CN/2018/05/20/paxos-总结/conflict-1.png" title="[conflict 2]">
 
 <p>所以你会发现，矛盾的点其实就是这个 S3，也就是少数服从多数原则，能保证任意的大多数都是有交集的。交集中的点会发现矛盾和之前接受的值有矛盾选择拒绝。</p>
 <blockquote>
@@ -514,27 +514,27 @@
 <p>下一阶段就是 accept(value,n)，如果接受者发现自己目前收到的n，没有比accpet给的n大，就接受这个值，并且更新自己的n，否则就拒绝（这里就保证提交者能够发现自己变老了或者被拒绝了）。<br>如果接受者发现提交号大于自己当前的最大提交号，就接受这个值，不然就拒绝。当提交者从大多数人那里接受到返回以后发现有拒绝的情况，就进行重试拿一个新的n开始，否则这个值就被接受了。</p>
 <p>Basic Paxos value 就是设置一次，不存在再设次一次的情况。</p>
 <p>总结起来就是如图：</p>
-
+<img src="/zh-CN/2018/05/20/paxos-总结/basic-paxos.png" title="[basic paxos]">
 
 <p>那这样的一个二阶段提交，看看能不能解决前面的问题，主要有三种可能。<br>注意，这里的例子是原文里的例子，一个变量的取值是<code>X</code>或者<code>Y</code>，然后<code>3.1</code> 表示 <code>S1</code>提交的提交号为 <code>3</code> 的提交，这是我们定义的 message ID。</p>
 <p>第一种值被选择了，后者意识到了<code>X</code>，放弃<code>Y</code> 用 <code>X</code>提交，也就意味着提交者学习到了这个值已经被选择了。</p>
-
+<img src="/zh-CN/2018/05/20/paxos-总结/paxos-p1.png" title="[situation 1]">
 
 <p>第二种情况，值没有被选择，但是交集的部分看到了一个被选择的值，也会选择放弃<code>Y</code>用<code>X</code>提交，虽然<code>X</code>暂时没有被选择（被大多数人接受），但是可以保证两个提交都成功。</p>
-
+<img src="/zh-CN/2018/05/20/paxos-总结/paxos-conflict-2.png" title="[situation 2]">
 
 <p>第三种情况，值没有被选择，同时交集的部分也没有发现被选择的值，如果已经做了 promies 这个时候就会拒绝老的提交。比如下面在 S3 accept(X) 的时候就会放弃提交并且进行重试(S1 S2 也会一起重试）, 并且在重试的时候覆盖掉原先接受的x)。</p>
-
+<img src="/zh-CN/2018/05/20/paxos-总结/paxos-conflict3.png" title="[situation 3]">
 
 <p>看起来所有的问题都解决了，但是活性问题无法保证。这个情况发生在提交之间相互阻塞的情况，<code>S3</code> <code>S4</code> <code>S5</code> 拿着更高的提交号导致 <code>S1</code> <code>S2</code> <code>S3</code> 的 accept 被拒绝重新进行提交，又把 <code>S3</code> <code>S4</code> <code>S5</code> 给拒绝了。</p>
-
+<img src="/zh-CN/2018/05/20/paxos-总结/paxos-liveness.png" title="[liveness]">
 
 <p>解决这个问题的办法就是把重试时间进行一些随机化，减少这种巧合发生，或者把重试的时间指数增长等等。</p>
 <h2 id="Multi-Paxos"><a href="#Multi-Paxos" class="headerlink" title="Multi-Paxos"></a>Multi-Paxos</h2><p>到此 classic Paxos 算是告一段落。那 Paxos 有什么问题呢。首先是活性的问题，这个在后面可以通过选主的方式解决。其次是学习是通过 propose 获知值的，不然无法知道一个值是否被接受了，要走一遍整套的 Paxos 协议。</p>
 <p>Multi-Paxos 新增的问题是如何选择 log entry，并且用选主的方式减少冲突，以及减少 prepare 的请求。</p>
 <p>以下图为例。深色框表示这个 log 已经被选择（怎么确定选择后面会提到）。寻找 log entry 的方式就是寻找第一个没有被选择的 log，尝试执行 basic Paxos，如果有值被选择会尝试用这个 log 提交帮助这个 log 被选择，这个过程和 basic paxos 是一致的，但是在此之后就要继续寻找下一个 log 尝试进行我们的尝试。</p>
 <p>下图中（只看 S1 和 S2 这两行），第一次会找到最后一个没有没学习的 log，也就是 index=3 的 log，但是发现了 <code>s1</code> 的 <code>cmp</code>，就会服从这个 <code>cmp</code>，然后到 <code>index=4</code> 发现了 <code>s2</code> 的 <code>sub</code>，也选择服从，并且学习到了 index=4 的 log 应该是 <code>sub</code>，最后到了 index=5 才进行插入。</p>
-
+<img src="/zh-CN/2018/05/20/paxos-总结/multi-paxos-log.png" title="[multi-paxos]">
 
 <p>这样的情况下，Paxos 可以接受并发的请求，而 Raft 却规定了对 log 只能 append，不能 3 4 5 都能同时处理，简化了实现。反正只要保证了 log 的顺序一致，状态机的最终状态都是一致的。 </p>
 <p>接下来的是对于性能的一些提升，一个是选主避免大面积冲突，另一个是优化二阶段提交的次数。解决方法是选出一个主，保证一次只有一个提交者。另外对于 prepare 是对整个 log 进行 prepare，而不是单个 log entry，这样大多数情况下，大部分 log 都可以一次性就被选择。</p>
@@ -543,11 +543,11 @@
 <p>我们可以改变提交号的意义，让他代表整个 log，也就是所有 log entry 都用一个提交号，这样接受者可以通过返回 <code>noMoreAccepted</code> 让提交者意识到在当前 log entry 之后的 log 都没有 accpeted 是可以被“锁”住的，然后如果大多数节点返回 <code>noMoreAccepted</code>，就可以跳过之后的 prepare 直到 accept 被拒绝。这样后续的 accept 操作就可以不用 prepare 在一趟之内解决，所以二阶段提交的第一阶段的 promise 落在了整个 log 上。这个情况下 发起者的 accept 一直顺序进行就可以，问题发生在有其他主（之前说到的会临时有多主的情况），又提交了 prepare，然后这个提交号更高，把后一段锁住了，accept 就会发现冲突学习新的值。</p>
 <p>补充 1 持续发送 accept 请求，让所有的节点都同步这个 log。<br>补充 2 让 proposer 带上 firstUnchosenIndex 让 acceptor 知道大多数可以确认被选择的 log。</p>
 <p>但是还有问题，例如下面这张图，对于所有小于 firstUnchosenIndex 的 i 来说，如果 accpetedProposal[i] 的提交号和 request 的 proposal 一样的话，就可以确认 log[i] 是被选择了的，并且标记 acceptedProposal[i] = 无限。但是 2.5 确实来自之前的 leader 的，貌似无法被标记为选择了。这需要我们进一步修改这个协议。</p>
-
+<img src="/zh-CN/2018/05/20/paxos-总结/multi-paxos-index.png" title="[multi paxos index]">
 
 <p>这个时候需要在 accept 返回的时候带上自己的 firtUnchosenIndex，如果 proposer 的比这个大，可以把 acceptor 直接补齐。用 success 命令，让 acceptor 直接更改index 的这个值, 并且继续返回 firtUnchosenIndex，让 proposer 弥补。</p>
 <p>最后一部分是配置改变，degree of replication，也就是要保证同时只有一个 conf 生效，可以用 a 个之前的 log 做 conf，这样在使用这个 conf 之前，conf 已经发生了改变。但是同时限制住了并发度（只能为a）。直觉上讲就是约定一个 index 在某个时间点一次性切换。</p>
-
+<img src="/zh-CN/2018/05/20/paxos-总结/multi-paxos-conf.png" title="[multi paxos conf]">
 
 <p>参考文献</p>
 <ul>
@@ -673,7 +673,7 @@
                 
                   <span class="post-meta-item-text">更新于</span>
                 
-                <time title="修改时间：2019-07-23 21:31:41" itemprop="dateModified" datetime="2019-07-23T21:31:41+08:00">2019-07-23</time>
+                <time title="修改时间：2019-07-23 23:24:30" itemprop="dateModified" datetime="2019-07-23T23:24:30+08:00">2019-07-23</time>
               </span>
             
           
@@ -750,7 +750,7 @@
 <figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// NewSelfSignedCACert creates a CA certificate</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">NewSelfSignedCACert</span><span class="params">(cfg Config, key *rsa.PrivateKey)</span> <span class="params">(*x509.Certificate, error)</span></span> &#123;</span><br><span class="line">        now := time.Now()</span><br><span class="line">        tmpl := x509.Certificate&#123;</span><br><span class="line">                SerialNumber: <span class="built_in">new</span>(big.Int).SetInt64(<span class="number">0</span>),</span><br><span class="line">                Subject: pkix.Name&#123;</span><br><span class="line">                        CommonName:   cfg.CommonName,</span><br><span class="line">                        Organization: cfg.Organization,</span><br><span class="line">                &#125;,</span><br><span class="line">                NotBefore:             now.UTC(),</span><br><span class="line">                NotAfter:              now.Add(duration365d * <span class="number">10</span>).UTC(),</span><br><span class="line">                KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,</span><br><span class="line">                BasicConstraintsValid: <span class="literal">true</span>,</span><br><span class="line">                IsCA: <span class="literal">true</span>,</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        certDERBytes, err := x509.CreateCertificate(cryptorand.Reader, &amp;tmpl, &amp;tmpl, key.Public(), key)</span><br><span class="line">        <span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">                <span class="keyword">return</span> <span class="literal">nil</span>, err</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> x509.ParseCertificate(certDERBytes)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <p>用 <code>openssl x509 -in /etc/kubernetes/pki/ca.crt -text -noout</code> 可以查看 ca 证书里面的内容，和我们看到的配置是一致的。</p>
-
+<img src="/zh-CN/2018/04/30/k8s-基于-kubeadm-的安全配置和高可用/ca-pic.png" title="[ca]">
 
 <p>然后我们再看一下 apiserver 的私钥和证书是怎么签的，首先把生成的 CA 证书和私钥加载进来，然后生成私钥并且签出自己的证书。</p>
 <figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">CreateAPIServerCertAndKeyFiles</span><span class="params">(cfg *kubeadmapi.MasterConfiguration)</span> <span class="title">error</span></span> &#123;</span><br><span class="line"></span><br><span class="line">        caCert, caKey, err := loadCertificateAuthority(cfg.CertificatesDir, kubeadmconstants.CACertAndKeyBaseName)</span><br><span class="line">        <span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">                <span class="keyword">return</span> err</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        apiCert, apiKey, err := NewAPIServerCertAndKey(cfg, caCert, caKey)</span><br><span class="line">        <span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">                <span class="keyword">return</span> err</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> writeCertificateFilesIfNotExist(</span><br><span class="line">                cfg.CertificatesDir,</span><br><span class="line">                kubeadmconstants.APIServerCertAndKeyBaseName,</span><br><span class="line">                caCert,</span><br><span class="line">                apiCert,</span><br><span class="line">                apiKey,</span><br><span class="line">        )</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
@@ -758,7 +758,7 @@
 <p>这里比较重要，因为 SAN 这个是用来匹配域名的，如果这里没写好，HTTPS 是拒绝访问的。</p>
 <figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// NewAPIServerCertAndKey generate certificate for apiserver, signed by the given CA.</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">NewAPIServerCertAndKey</span><span class="params">(cfg *kubeadmapi.MasterConfiguration, caCert *x509.Certificate, caKey *rsa.PrivateKey)</span> <span class="params">(*x509.Certificate, *rsa.PrivateKey, error)</span></span> &#123;</span><br><span class="line"></span><br><span class="line">        altNames, err := pkiutil.GetAPIServerAltNames(cfg)</span><br><span class="line">        <span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">                <span class="keyword">return</span> <span class="literal">nil</span>, <span class="literal">nil</span>, fmt.Errorf(<span class="string">"failure while composing altnames for API server: %v"</span>, err)</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        config := certutil.Config&#123;</span><br><span class="line">                CommonName: kubeadmconstants.APIServerCertCommonName,</span><br><span class="line">                AltNames:   *altNames,</span><br><span class="line">                Usages:     []x509.ExtKeyUsage&#123;x509.ExtKeyUsageServerAuth&#125;,</span><br><span class="line">        &#125;</span><br><span class="line">        apiCert, apiKey, err := pkiutil.NewCertAndKey(caCert, caKey, config)</span><br><span class="line">        <span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">                <span class="keyword">return</span> <span class="literal">nil</span>, <span class="literal">nil</span>, fmt.Errorf(<span class="string">"failure while creating API server key and certificate: %v"</span>, err)</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> apiCert, apiKey, <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
-
+<img src="/zh-CN/2018/04/30/k8s-基于-kubeadm-的安全配置和高可用/api-crt.png" title="[apiserver crt]">
 
 <p>apiserver 的证书也是对的，马赛克的部分是我自己配的一些 IP 和 域名，和 kubeadm 配的一些 kube-dns 用的 overlay 网络上的 master 域名，其他 master 上的 components 也是类似的，在配高可用的时候要把每个 master 节点上的域名和 IP 都配上。kubelet 的证书也要配对，就在 join 里面介绍了，这个会用来鉴权 node 的身份。</p>
 <p>其他部分的代码和设计文档的描述是一致的，所以没什么好看的，感觉一个好的设计文档是非常重要的，代码只是设计的实现，如果设计本身就可读性很强，阅读代码只是辅助理解一些细节和找 BUG 用的而已。</p>
@@ -775,13 +775,13 @@
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">discovery.For</span><br><span class="line">-&gt;GetValidatedClusterInfoObject 这个是获取 CA 证书的过程</span><br><span class="line">     -&gt;token.RetrieveValidatedClusterInfo 这一步是 JWT 验证</span><br><span class="line">         -&gt;tokenutil.ParseToken   得到 tokenID 和 tokenSecret</span><br><span class="line">         -&gt;pubKeyPins.Allow 加载用于检验 CA 证书的 HASH 值</span><br><span class="line">         -&gt;buildInsecureBootstrapKubeConfig （用 token-bootstrap-client 身份)获取信息</span><br><span class="line">            -&gt; 从kube-public 获取 configmap (和 kubectl describe configmap cluster-info -n kube-public 中的信息是一致的）这个configmap 里面包含 JWS 签名和 master 的 CA 证书，获取对应 tokenID 的 jws token，验证 token 成功，并且验证 CA 的证书 hash，如果通过说明这个 master 是可信的，然后拿到 CA 证书以后开始构建自己的证书，建立 secure config。</span><br><span class="line">         -&gt;</span><br></pre></td></tr></table></figure>
 
 <p>kubeconfigutil.WriteToDisk 会把 <code>bootstrap-kubelet.conf</code> 写入到配置目录中，kubeadm 的任务就完成了，之前的 kubeadm 会代替 kubelet 生成 kubelet.conf（其中用的是公钥鉴权），现在移走了，kubelet 启动的时候会尝试使用这个配置文件建立 HTTPS 的鉴权配置文件。</p>
-
+<img src="/zh-CN/2018/04/30/k8s-基于-kubeadm-的安全配置和高可用/bootstrap-conf.png" title="[boostrap conf]">
 
 <p>可以看一下 kubelet 用这个配置给 master 发 CSR 以后得到了什么，可以看到是生成了自己的证书的。</p>
-
+<img src="/zh-CN/2018/04/30/k8s-基于-kubeadm-的安全配置和高可用/kubelet-crt.png" title="[kubelet bootstrap conf]">
 
 <p>并且这个证书里面的 SAN 也是用来进行 Node 鉴权的身份确认的信息。用 <code>openssl x509 -in /var/lib/kubelet/pki/kubelet-client.crt  -text -noout</code>查看信息。</p>
-
+<img src="/zh-CN/2018/04/30/k8s-基于-kubeadm-的安全配置和高可用/kubelet-https-crt.png" title="[kubelet conf]">
 
 <p>红线部分就是 Node 鉴权的信息，基于这个确认 node 的身份。另外一个是 Role Based Access Control，那个主要是配给 pod，限制 pod 行为用的，类似于 linux 的 <code>chmod</code>。</p>
 <h2 id="kubeadm-高可用配置"><a href="#kubeadm-高可用配置" class="headerlink" title="kubeadm 高可用配置"></a>kubeadm 高可用配置</h2><p>如果没有安全配置，其实高可用挺好配置的，现在加入了安全配置，虽然麻烦，但是还是能理解 k8s 的良苦用心的，理解了整个鉴权的过程以后就可以做，现在支持配置文件初始化其实更好配置了。可以基于<a href="https://kubernetes.io/docs/setup/independent/high-availability/" target="_blank" rel="noopener">这个文档配置</a>，算了我还是不总结了，看懂上面的，照着配置就好了。主要是自己生成 CA，他们用的 <code>cfssl</code> 和 <code>cfssljson</code>，这个工具比 openssl 好用一点，比较容易配置。生成 ca 证书和私钥以后，就可以构建 HTTPS 的 etcd。</p>
@@ -800,7 +800,7 @@
 <figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">cfssl print-defaults csr &gt; config.json</span><br><span class="line">sed -i '0,/CN/&#123;s/example\.net/'"$PEER_NAME"'/&#125;' config.json</span><br><span class="line">sed -i 's/www\.example\.net/'"$PRIVATE_IP"'/' config.json</span><br><span class="line">sed -i 's/example\.net/'"$PEER_NAME"'/' config.json</span><br><span class="line"></span><br><span class="line">cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=server config.json | cfssljson -bare server</span><br><span class="line">cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=peer config.json | cfssljson -bare peer</span><br></pre></td></tr></table></figure>
 
 <p>签出出两对密钥和证书，把每台的机器的 域名 和 IP 替换掉示例的 example 配置，就是这些地方可以改成自己的域名和地址，这个会被用来 check。</p>
-
+<img src="/zh-CN/2018/04/30/k8s-基于-kubeadm-的安全配置和高可用/etcd-csr.png" title="[etcd csr ]">
 
 <p>可以放到 kubelet 的 static pod 里面，启动 etcd，两个证书分别是用作 server 验证和 client 验证的，server 让别人访问的时候相信你，peer 是你访问别人的时候让别人相信你。</p>
 <figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br></pre></td><td class="code"><pre><span class="line"><span class="string">cat</span> <span class="string">&gt;/etc/kubernetes/manifests/etcd.yaml</span> <span class="string">&lt;&lt;EOF</span></span><br><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Pod</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line"><span class="attr">labels:</span></span><br><span class="line"><span class="attr">    component:</span> <span class="string">etcd</span></span><br><span class="line"><span class="attr">    tier:</span> <span class="string">control-plane</span></span><br><span class="line"><span class="attr">name:</span> <span class="string">&lt;podname&gt;</span></span><br><span class="line"><span class="attr">namespace:</span> <span class="string">kube-system</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line"><span class="attr">containers:</span></span><br><span class="line"><span class="attr">- command:</span></span><br><span class="line"><span class="bullet">    -</span> <span class="string">etcd</span> <span class="bullet">--name</span> <span class="string">$&#123;PEER_NAME&#125;</span> <span class="string">\</span></span><br><span class="line"><span class="bullet">    -</span> <span class="bullet">--data-dir</span> <span class="string">/var/lib/etcd</span> <span class="string">\</span></span><br><span class="line"><span class="bullet">    -</span> <span class="bullet">--listen-client-urls</span> <span class="attr">https://$&#123;PRIVATE_IP&#125;:2379</span> <span class="string">\</span></span><br><span class="line"><span class="bullet">    -</span> <span class="bullet">--advertise-client-urls</span> <span class="attr">https://$&#123;PRIVATE_IP&#125;:2379</span> <span class="string">\</span></span><br><span class="line"><span class="bullet">    -</span> <span class="bullet">--listen-peer-urls</span> <span class="attr">https://$&#123;PRIVATE_IP&#125;:2380</span> <span class="string">\</span></span><br><span class="line"><span class="bullet">    -</span> <span class="bullet">--initial-advertise-peer-urls</span> <span class="attr">https://$&#123;PRIVATE_IP&#125;:2380</span> <span class="string">\</span></span><br><span class="line"><span class="bullet">    -</span> <span class="bullet">--cert-file=/certs/server.pem</span> <span class="string">\</span></span><br><span class="line"><span class="bullet">    -</span> <span class="bullet">--key-file=/certs/server-key.pem</span> <span class="string">\</span></span><br><span class="line"><span class="bullet">    -</span> <span class="bullet">--client-cert-auth</span> <span class="string">\</span></span><br><span class="line"><span class="bullet">    -</span> <span class="bullet">--trusted-ca-file=/certs/ca.pem</span> <span class="string">\</span></span><br><span class="line"><span class="bullet">    -</span> <span class="bullet">--peer-cert-file=/certs/peer.pem</span> <span class="string">\</span></span><br><span class="line"><span class="bullet">    -</span> <span class="bullet">--peer-key-file=/certs/peer-key.pem</span> <span class="string">\</span></span><br><span class="line"><span class="bullet">    -</span> <span class="bullet">--peer-client-cert-auth</span> <span class="string">\</span></span><br><span class="line"><span class="bullet">    -</span> <span class="bullet">--peer-trusted-ca-file=/certs/ca.pem</span> <span class="string">\</span></span><br><span class="line"><span class="bullet">    -</span> <span class="bullet">--initial-cluster</span> <span class="string">etcd0=https://&lt;etcd0-ip-address&gt;:2380,etcd1=https://&lt;etcd1-ip-address&gt;:2380,etcd2=https://&lt;etcd2-ip-address&gt;:2380</span> <span class="string">\</span></span><br><span class="line"><span class="bullet">    -</span> <span class="bullet">--initial-cluster-token</span> <span class="string">my-etcd-token</span> <span class="string">\</span></span><br><span class="line"><span class="bullet">    -</span> <span class="bullet">--initial-cluster-state</span> <span class="string">new</span></span><br><span class="line"><span class="attr">    image:</span> <span class="string">k8s.gcr.io/etcd-amd64:3.1.10</span></span><br><span class="line"><span class="attr">    livenessProbe:</span></span><br><span class="line"><span class="attr">    httpGet:</span></span><br><span class="line"><span class="attr">        path:</span> <span class="string">/health</span></span><br><span class="line"><span class="attr">        port:</span> <span class="number">2379</span></span><br><span class="line"><span class="attr">        scheme:</span> <span class="string">HTTP</span></span><br><span class="line"><span class="attr">    initialDelaySeconds:</span> <span class="number">15</span></span><br><span class="line"><span class="attr">    timeoutSeconds:</span> <span class="number">15</span></span><br><span class="line"><span class="attr">    name:</span> <span class="string">etcd</span></span><br><span class="line"><span class="attr">    env:</span></span><br><span class="line"><span class="attr">    - name:</span> <span class="string">PUBLIC_IP</span></span><br><span class="line"><span class="attr">    valueFrom:</span></span><br><span class="line"><span class="attr">        fieldRef:</span></span><br><span class="line"><span class="attr">        fieldPath:</span> <span class="string">status.hostIP</span></span><br><span class="line"><span class="attr">    - name:</span> <span class="string">PRIVATE_IP</span></span><br><span class="line"><span class="attr">    valueFrom:</span></span><br><span class="line"><span class="attr">        fieldRef:</span></span><br><span class="line"><span class="attr">        fieldPath:</span> <span class="string">status.podIP</span></span><br><span class="line"><span class="attr">    - name:</span> <span class="string">PEER_NAME</span></span><br><span class="line"><span class="attr">    valueFrom:</span></span><br><span class="line"><span class="attr">        fieldRef:</span></span><br><span class="line"><span class="attr">        fieldPath:</span> <span class="string">metadata.name</span></span><br><span class="line"><span class="attr">    volumeMounts:</span></span><br><span class="line"><span class="attr">    - mountPath:</span> <span class="string">/var/lib/etcd</span></span><br><span class="line"><span class="attr">    name:</span> <span class="string">etcd</span></span><br><span class="line"><span class="attr">    - mountPath:</span> <span class="string">/certs</span></span><br><span class="line"><span class="attr">    name:</span> <span class="string">certs</span></span><br><span class="line"><span class="attr">hostNetwork:</span> <span class="literal">true</span></span><br><span class="line"><span class="attr">volumes:</span></span><br><span class="line"><span class="attr">- hostPath:</span></span><br><span class="line"><span class="attr">    path:</span> <span class="string">/var/lib/etcd</span></span><br><span class="line"><span class="attr">    type:</span> <span class="string">DirectoryOrCreate</span></span><br><span class="line"><span class="attr">    name:</span> <span class="string">etcd</span></span><br><span class="line"><span class="attr">- hostPath:</span></span><br><span class="line"><span class="attr">    path:</span> <span class="string">/etc/kubernetes/pki/etcd</span></span><br><span class="line"><span class="attr">    name:</span> <span class="string">certs</span></span><br><span class="line"><span class="string">EOF</span></span><br></pre></td></tr></table></figure>
@@ -927,7 +927,7 @@
                 
                   <span class="post-meta-item-text">更新于</span>
                 
-                <time title="修改时间：2019-07-23 21:31:41" itemprop="dateModified" datetime="2019-07-23T21:31:41+08:00">2019-07-23</time>
+                <time title="修改时间：2019-07-23 23:24:30" itemprop="dateModified" datetime="2019-07-23T23:24:30+08:00">2019-07-23</time>
               </span>
             
           
@@ -999,7 +999,7 @@
 <p>HTTPS 是基于 SSL/TLS 的安全 HTTP 协议，其实 HTTPS 主要还是看安全套接字层，在这之上还是一个 HTTP 协议，这里主要总结一下我们现在主流用到的加密体系，比如我们经常看到的 <code>.pem</code>、<code>.crt</code>、<code>.key</code>、<code>.csr</code> 还有 <code>CA</code> 啊之类的是啥东西，并且这些东西都如何工作和应用的。</p>
 <p>在密码学里面，有几个角色，类似于中国的甲乙丙丁，一个是 Alice 和 Bob，这是正常通信的两个人，还有一个是 Eve，是信道上具备窃听能力的人，另外一个是 Mallory，这个人可以妨碍网络流量，主动攻击。</p>
 <h2 id="对称加密"><a href="#对称加密" class="headerlink" title="对称加密"></a>对称加密</h2><p>其实最简单的加密算法就是对称加密</p>
-
+<img src="/zh-CN/2018/04/26/HTTPS-的公钥体系/symmetric-encryption.gif" title="[symmetric encryption]">
 
 <p>Alice 和 Bob 有一个共有的密码，也就是只有两个人拥有，相互传输的密文只能通过这个密钥解开。</p>
 <p>首先加密需要基于密钥，凯撒密码可不可以，可以是可以，但是被人知道算法以后，就可以被所有人破解，并且优秀的加密算法应该被人验证，如果不是公开的算法就没有办法验证，当然一些保守的加密方法会不公开，这样其实也很难解密，但是互联网的加密协议很显然是用在千家万户的，所以一定要是经得起推敲的加密算法。</p>
@@ -1008,7 +1008,7 @@
 <h2 id="哈希函数"><a href="#哈希函数" class="headerlink" title="哈希函数"></a>哈希函数</h2><p>哈希函数其实很熟悉了，解释一下 MAC。</p>
 <h3 id="MAC"><a href="#MAC" class="headerlink" title="MAC"></a>MAC</h3><p>MAC 是 message authetication code，是密钥的哈希函数，因为普通哈希函数，如果 Mallory 可以直接用假的数据用哈希算出结果发给 Bob，缺少身份验证，MAC 就是带密钥的哈希函数，HMAC 其实就是把密钥和消息组合在一起的协议。</p>
 <h2 id="非对称加密"><a href="#非对称加密" class="headerlink" title="非对称加密"></a>非对称加密</h2><p>非对称加密又叫做公钥加密，对称加密固然好，但是对称密钥在团体中使用的话，大家都要共享，密钥给来给去的很容易出问题。对称加密就没有这个问题，可以方便传播，对称密钥分私钥和公钥，一个用于加密一个用于解密，私钥加密的数据只能用公钥解密。公钥的出现使得密钥可以大范围传播。</p>
-
+<img src="/zh-CN/2018/04/26/HTTPS-的公钥体系/asymmetric-encryption.gif" title="[symmetric encryption]">
 
 <h2 id="数字签名"><a href="#数字签名" class="headerlink" title="数字签名"></a>数字签名</h2><p>数字签名主要验证消息的真实性，对消息进行验证。主要是对消息进行哈希，然后用私钥加密，追加到文档中做身份验证，这样用公钥解的开的话就能证明消息的发送者。</p>
 <h2 id="TLS-的具体协议"><a href="#TLS-的具体协议" class="headerlink" title="TLS 的具体协议"></a>TLS 的具体协议</h2><h2 id="PKI-公钥基础设施"><a href="#PKI-公钥基础设施" class="headerlink" title="PKI 公钥基础设施"></a>PKI 公钥基础设施</h2><p>PKI 主要是用来保证公钥的可信，通过中间的权威机构（CA）签发的公钥也就是证书才能被认可是合法的证书。</p>
@@ -1167,7 +1167,7 @@
                 
                   <span class="post-meta-item-text">更新于</span>
                 
-                <time title="修改时间：2019-07-23 21:31:41" itemprop="dateModified" datetime="2019-07-23T21:31:41+08:00">2019-07-23</time>
+                <time title="修改时间：2019-07-23 23:24:30" itemprop="dateModified" datetime="2019-07-23T23:24:30+08:00">2019-07-23</time>
               </span>
             
           
@@ -1369,7 +1369,7 @@
                 
                   <span class="post-meta-item-text">更新于</span>
                 
-                <time title="修改时间：2019-07-23 21:31:41" itemprop="dateModified" datetime="2019-07-23T21:31:41+08:00">2019-07-23</time>
+                <time title="修改时间：2019-07-23 23:24:30" itemprop="dateModified" datetime="2019-07-23T23:24:30+08:00">2019-07-23</time>
               </span>
             
           
@@ -1541,7 +1541,7 @@
                 
                   <span class="post-meta-item-text">更新于</span>
                 
-                <time title="修改时间：2019-07-23 21:31:41" itemprop="dateModified" datetime="2019-07-23T21:31:41+08:00">2019-07-23</time>
+                <time title="修改时间：2019-07-23 23:24:30" itemprop="dateModified" datetime="2019-07-23T23:24:30+08:00">2019-07-23</time>
               </span>
             
           
@@ -1595,7 +1595,7 @@
         
           
             <p>kube-dns 是 kubernetes 基于 DNS 的服务发现模块，主要由三个容器组成，分别是 dnsmasq, kube-dns, sidecar，整体的结构如图。</p>
-
+<img src="/zh-CN/2017/12/19/kube-dns-service/kube-dns-infra.png">
 
 <h2 id="sidecar"><a href="#sidecar" class="headerlink" title="sidecar"></a>sidecar</h2><p>sidecar 是一个监控健康模块，同时向外暴露metrics 记录，但是为啥叫三蹦子不知道。</p>
 <p>接受的探测参数是</p>
@@ -1604,7 +1604,7 @@
 <p><code>--probe=dnsmasq,127.0.0.1:53,kubernetes.default.svc.cluster.local,5,A</code></p>
 <p>等于是每隔 5s 向127.0.0.1:53 进行 DNS 查询 kubernetes.default.svc.cluster.local 的 A 记录</p>
 <p>对应的结构体是</p>
-
+<img src="/zh-CN/2017/12/19/kube-dns-service/dns-probe-option.png">
 
 <h2 id="dnsmasq"><a href="#dnsmasq" class="headerlink" title="dnsmasq"></a>dnsmasq</h2><p>dnsmasq-nanny 是 dnsmasq 的保姆进程，<a href="http://www.thekelleys.org.uk/dnsmasq/doc.html" target="_blank" rel="noopener">dnsmasq</a> 是一个简易的 DNS server。</p>
 <p>dnsmasq-nanny “–” 后面是 dnsmasq 的参数，比如下面这个参数表示的是把 <code>server=/cluster.local/127.0.0.1#10053</code> 当作 dnsmasq 的配置，10053 是 kube-dns 的地址，也就是把 cluster.local 的域名拦截转到 kube-dns 进行解析，剩下的通过正常的域名解析流程。</p>
@@ -1613,12 +1613,12 @@
 <h2 id="kube-dns"><a href="#kube-dns" class="headerlink" title="kube-dns"></a>kube-dns</h2><p>kube-dns 主要基于 <a href="https://github.com/skynetservices/skydns" target="_blank" rel="noopener">skydns</a> 来实现。</p>
 <p>在 <code>k8s.io/dns/pkg/dns/dns.go</code>  的 <code>KubeDNS.Start</code> 下面有 endpoints 和 services 的 controllers，会把 service 注册到 kube-dns 的 cache 当中 (k8s.io/dns/pkg/dns/treecache)，这里有 k8s 域名命名<a href="https://github.com/kubernetes/dns/blob/master/docs/specification.md" target="_blank" rel="noopener">规范</a></p>
 <p>主要的实现方式是 skydns 接受一个后端实现。</p>
-
+<img src="/zh-CN/2017/12/19/kube-dns-service/skydns-backend.png">
 
 
 
 <p><code>KubeDNS.Records</code> <code>KubeDNS.ReverseRecord</code> 基于 TreeCache 实现 DNS 记录存储的后端，从而使得 skydns 提供 DNS 服务。</p>
-
+<img src="/zh-CN/2017/12/19/kube-dns-service/kube-dns.png">
 
 <h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>整体来说 kube-dns 还是一个比较简单的模块，基于 kube-apiserver 的一个控制器，提供中心化的 DNS 查询。</p>
 
@@ -1739,7 +1739,7 @@
                 
                   <span class="post-meta-item-text">更新于</span>
                 
-                <time title="修改时间：2019-07-23 21:31:41" itemprop="dateModified" datetime="2019-07-23T21:31:41+08:00">2019-07-23</time>
+                <time title="修改时间：2019-07-23 23:24:30" itemprop="dateModified" datetime="2019-07-23T23:24:30+08:00">2019-07-23</time>
               </span>
             
           
@@ -1794,7 +1794,7 @@
           
             <p>kube-controller-manager 可以认为是一个守护进程用于监视 apiserver 暴露的集群状态，并且不断地尝试把当前状态向集群的目标状态迁移。为了避免频繁查询 apiserver，apiserver 提供了 watch 接口用于监视资源的增加删除和更新，client-go 对此作了抽象，封装一层 informer 来表示本地 apiserver 状态的 cache。<a href="https://v.qq.com/x/page/c03641vzw2m.html?start=7" target="_blank" rel="noopener">这个视频</a> 有一个 Google 工程师讲解的 client-go 的详细内容，<a href="https://www.kubernetes.org.cn/2693.html" target="_blank" rel="noopener">这篇</a> 七牛前同事的文章介绍了 informer 的整体结构，写得也很好。</p>
 <h3 id="client-当中的-controller"><a href="#client-当中的-controller" class="headerlink" title="client 当中的 controller"></a>client 当中的 controller</h3><p>处理事件的 controller 由几部分构成，首先是 Config 当中的可配置部分，下图是 controller 的关系，controller 实现了 Controller 接口。</p>
-
+<img src="/zh-CN/2017/11/27/kube-controller-分析/controller.png">
 
 <p>controller 从 Queue 当中通过 Pop 获取对象交给 Process 回调处理，DeltaFIFO 和 FIFO 是类似的，只是 DeltaFIFO 可以处理删除事件，一般都用 DeltaFIFO。ListerWatcher 就是用客户端构造出来的，针对对应资源的 List Watch 方法的集合，List 用于获取最开始的对象获取，Watch 用于监控之后的变化，所有最开始的时候现有的对象会通过 List 传给 Add 回调，同步了当前状态以后再不断接受新的变化，但是 Watch 本身是有超时机制的，不能永久监听，所以再超时之后还会通过 List 方法，先同步一次再进行删除操作。Resync Period 表示把 cache 中的对象重新入队给回调函数处理，这种情况一般是可能你可能漏掉了更细操作，或者是之前的一些失败了。大部分情况用不到这个选项，可以非常相信 etcd 的功能。</p>
 <p>调用路径</p>
@@ -1817,7 +1817,7 @@
 <figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// Run starts an asynchronous loop that monitors the status of cluster nodes.</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(nc *Controller)</span> <span class="title">Run</span><span class="params">(stopCh &lt;-<span class="keyword">chan</span> <span class="keyword">struct</span>&#123;&#125;)</span></span> &#123;</span><br><span class="line">        <span class="keyword">defer</span> utilruntime.HandleCrash()</span><br><span class="line"></span><br><span class="line">        glog.Infof(<span class="string">"Starting node controller"</span>)</span><br><span class="line">        <span class="keyword">defer</span> glog.Infof(<span class="string">"Shutting down node controller"</span>)</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> !controller.WaitForCacheSync(<span class="string">"node"</span>, stopCh, nc.nodeInformerSynced, nc.podInformerSynced, nc.daemonSetInformerSynced) &#123;</span><br><span class="line">                <span class="keyword">return</span></span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// Incorporate the results of node status pushed from kubelet to master.</span></span><br><span class="line">        <span class="keyword">go</span> wait.Until(<span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;</span><br><span class="line">                <span class="keyword">if</span> err := nc.monitorNodeStatus(); err != <span class="literal">nil</span> &#123;</span><br><span class="line">                        glog.Errorf(<span class="string">"Error monitoring node status: %v"</span>, err)</span><br><span class="line">                &#125;</span><br><span class="line">        &#125;, nc.nodeMonitorPeriod, wait.NeverStop)</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> nc.runTaintManager &#123;</span><br><span class="line">                <span class="keyword">go</span> nc.taintManager.Run(wait.NeverStop)</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> nc.useTaintBasedEvictions &#123;</span><br><span class="line">                <span class="comment">// Handling taint based evictions. Because we don't want a dedicated logic in TaintManager for NC-originated</span></span><br><span class="line">                <span class="comment">// taints and we normally don't rate limit evictions caused by taints, we need to rate limit adding taints.</span></span><br><span class="line">                <span class="keyword">go</span> wait.Until(nc.doNoExecuteTaintingPass, scheduler.NodeEvictionPeriod, wait.NeverStop)</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                <span class="comment">// Managing eviction of nodes:</span></span><br><span class="line">                <span class="comment">// When we delete pods off a node, if the node was not empty at the time we then</span></span><br><span class="line">                <span class="comment">// queue an eviction watcher. If we hit an error, retry deletion.</span></span><br><span class="line">                <span class="keyword">go</span> wait.Until(nc.doEvictionPass, scheduler.NodeEvictionPeriod, wait.NeverStop)</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        &lt;-stopCh</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <p>现在看一下运行的时候是如何做的，首先要调用 <code>controller.WaitForCacheSync</code> 等待 node，pod，daemonSet 的 inofrmer 同步，这是因为在 kube-controller-manager 当中使用的子 controller 使用的 informer 都是共享型的，也就是多个 controller 之间共享一个 informer  的 cache，所以在开始的时候需要保证所有的 sharedInformerFactory 创建的 informers 之间的 cache 先等待一次一致。controller 的读基本上是从 cache 读的，只要写才会打到 etcd 里面，然后等待 cache 的更新回调。</p>
-
+<img src="/zh-CN/2017/11/27/kube-controller-分析/monitor_node_status.png">
 
 <p>nodeController 主要分成两部分，一部分是 <code>monitorNodeStatus</code> , 它首先从 informer 的 cache 当中 list 新添加的节点和删除的节点，和 newZoneRepresentations。node 是分 zone 的，这在单可用区的 cluster 当中是个空字符串，但是如果 labels 中有 <code>failure-domain.beta.kubernetes.io/zone</code> 和 <code>failure-domain.beta.kubernetes.io/region</code> 就会构成不同的可用区的划分, 这个适用于仅仅在一家云厂商分不同可用区的时候可以用到。<a href="https://kubernetes.io/docs/admin/multiple-zones/" target="_blank" rel="noopener">这篇文档</a> 描述了多 zone 的 cluster 的内容，没有 zone 有相应的可用状态，如果某个 zone 变成不可用需要把 pod 从这个 zone 当中剔除，所以 pod 的 failover 是以 zone 为单位的。</p>
 <p>处理 node 比较啰嗦，<code>tryUpdateNodeStatus</code> 尝试获取当前的 conditions 更新并且获取 conditions。处理 node 过程主要是标记 node 为不可用的 node，或者把不可用的状态恢复过来。</p>
@@ -1948,7 +1948,7 @@
                 
                   <span class="post-meta-item-text">更新于</span>
                 
-                <time title="修改时间：2019-07-23 21:31:41" itemprop="dateModified" datetime="2019-07-23T21:31:41+08:00">2019-07-23</time>
+                <time title="修改时间：2019-07-23 23:24:30" itemprop="dateModified" datetime="2019-07-23T23:24:30+08:00">2019-07-23</time>
               </span>
             
           
@@ -2002,7 +2002,7 @@
         
           
             <h2 id="kubernetes-概览"><a href="#kubernetes-概览" class="headerlink" title="kubernetes 概览"></a>kubernetes 概览</h2><p>以下是 k8s 的整体架构，在 master 节点上主要是 kube-apiserver（整合了 kube-aggregator），还有 kube-scheduler，以及 kube-controller-manager，包括后端存储 etcd。</p>
-
+<img src="/zh-CN/2017/11/05/Kubernetes-API-分析/architecture.png">
 
 <p>其中 kube-apiserver 是一个比较关键的部分，而且前期写得坑很多，导致这一部分虽然看起来是一个 API server 其实代码很复杂，特别冗余，而且目前对 kube-apiserver 还要做拆分，能够支持插入第三方的 apiserver，也就是又一个 aggregated apiserver 的 feature，也是和 kube-apiserver 和里面包的一层 genericserver 揉合在一起了，感觉一个大的系统 API server 越写越挫是一个通病，还好现在 k8s 迷途知返正在调整。</p>
 <h2 id="kube-apiserver"><a href="#kube-apiserver" class="headerlink" title="kube-apiserver"></a>kube-apiserver</h2><p>Kube-apiserver 可以是认为在 generic server 上封装的一层官方默认的 apiserver，有第三方需要的情况下，自己也可以在 generic server 上封装一层加入到集成模式中，这里主要介绍 kube-apiserver 的结构。</p>
@@ -2013,16 +2013,16 @@
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">Request Body: &#123;&quot;apiVersion&quot;:&quot;v1&quot;,&quot;kind&quot;:&quot;Pod&quot;,&quot;metadata&quot;:&#123;&quot;labels&quot;:&#123;&quot;name&quot;:&quot;ubuntu1&quot;&#125;,&quot;name&quot;:&quot;ubuntu1&quot;,&quot;namespace&quot;:&quot;default&quot;&#125;,&quot;spec&quot;:&#123;&quot;containers&quot;:[&#123;&quot;command&quot;:[&quot;sleep&quot;,&quot;1d&quot;],&quot;image&quot;:&quot;ubuntu&quot;,&quot;name&quot;:&quot;ubuntu1&quot;&#125;],&quot;schedulerName&quot;:&quot;default-scheduler&quot;&#125;&#125;</span><br><span class="line">curl -k -v -XPOST  -H &quot;Content-Type: application/json&quot; -H &quot;Accept: application/json&quot; -H &quot;User-Agent: kubectl/v1.7.5 (linux/amd64) kubernetes/17d7182&quot; https://localhost:6443/api/v1/namespaces/default/pods</span><br><span class="line">POST https://localhost:6443/api/v1/namespaces/default/pods 201 Created in 6 milliseconds</span><br><span class="line">Response Headers:</span><br><span class="line">    Content-Type: application/json</span><br><span class="line">    Content-Length: 1208</span><br><span class="line">    Date: Wed, 18 Oct 2017 15:04:17 GMT</span><br><span class="line">Response Body: &#123;&quot;kind&quot;:&quot;Pod&quot;,&quot;apiVersion&quot;:&quot;v1&quot;,&quot;metadata&quot;:&#123;&quot;name&quot;:&quot;ubuntu1&quot;,&quot;namespace&quot;:&quot;default&quot;,&quot;selfLink&quot;:&quot;/api/v1/namespaces/default/pods/ubuntu1&quot;,&quot;uid&quot;:&quot;9c9af581-b415-11e7-8033-024d1ba659e8&quot;,&quot;resourceVersion&quot;:&quot;486154&quot;,&quot;creationTimestamp&quot;:&quot;2017-10-18T15:04:17Z&quot;,&quot;labels&quot;:&#123;&quot;name&quot;:&quot;ubuntu1&quot;&#125;&#125;,&quot;spec&quot;:&#123;&quot;volumes&quot;:[&#123;&quot;name&quot;:&quot;default-token-p0980&quot;,&quot;secret&quot;:&#123;&quot;secretName&quot;:&quot;default-token-p0980&quot;,&quot;defaultMode&quot;:420&#125;&#125;],&quot;containers&quot;:[&#123;&quot;name&quot;:&quot;ubuntu1&quot;,&quot;image&quot;:&quot;ubuntu&quot;,&quot;command&quot;:[&quot;sleep&quot;,&quot;1d&quot;],&quot;resources&quot;:&#123;&#125;,&quot;volumeMounts&quot;:[&#123;&quot;name&quot;:&quot;default-token-p0980&quot;,&quot;readOnly&quot;:true,&quot;mountPath&quot;:&quot;/var/run/secrets/kubernetes.io/serviceaccount&quot;&#125;],&quot;terminationMessagePath&quot;:&quot;/dev/termination-log&quot;,&quot;terminationMessagePolicy&quot;:&quot;File&quot;,&quot;imagePullPolicy&quot;:&quot;Always&quot;&#125;],&quot;restartPolicy&quot;:&quot;Always&quot;,&quot;terminationGracePeriodSeconds&quot;:30,&quot;dnsPolicy&quot;:&quot;ClusterFirst&quot;,&quot;serviceAccountName&quot;:&quot;default&quot;,&quot;serviceAccount&quot;:&quot;default&quot;,&quot;securityContext&quot;:&#123;&#125;,&quot;schedulerName&quot;:&quot;default-scheduler&quot;,&quot;tolerations&quot;:[&#123;&quot;key&quot;:&quot;node.kubernetes.io/not-ready&quot;,&quot;operator&quot;:&quot;Exists&quot;,&quot;effect&quot;:&quot;NoExecute&quot;,&quot;tolerationSeconds&quot;:300&#125;,&#123;&quot;key&quot;:&quot;node.alpha.kubernetes.io/unreachable&quot;,&quot;operator&quot;:&quot;Exists&quot;,&quot;effect&quot;:&quot;NoExecute&quot;,&quot;tolerationSeconds&quot;:300&#125;]&#125;,&quot;status&quot;:&#123;&quot;phase&quot;:&quot;Pending&quot;,&quot;qosClass&quot;:&quot;BestEffort&quot;&#125;&#125;</span><br></pre></td></tr></table></figure>
 
 <p>从 url path 里面可以看到几个划分，path 的分类大概有下面这几种。</p>
-
+<img src="/zh-CN/2017/11/05/Kubernetes-API-分析/api-path.png">
 
 <p>路径上整体分成 group, version, resource, 作为核心 API group 的 core（包括 pod, node 之类的 resource)，不带 group，直接接在 /api/ 后面，其他的 api group 则接在 /apis 后面。以 pod 为例，pod 对应的数据类型如下，这个数据结构和 POST 请求中的结构的参数是一致的。</p>
-
+<img src="/zh-CN/2017/11/05/Kubernetes-API-分析/pod.png">
 
 <p>如果是 job 的话则是在，<code>pkg/apis/batch/v2alpha1/types.go</code>，和 API 路径是对应的。例子当中 <code>kubectl</code> 加上 level 大于 8 的 log 就会打印请求和相应的 body，可以看到 request body 和上面的数据结构是一致的。这个请求会发送到 apiserver 进行处理并且返回存储之后的 pod。</p>
 <h3 id="重要结构体"><a href="#重要结构体" class="headerlink" title="重要结构体"></a>重要结构体</h3><h4 id="Config"><a href="#Config" class="headerlink" title="Config"></a>Config</h4><p>父结构，主要的配置内容，其中有一个结构 <code>RESTOptionsGetter genericregistry.RESTOptionsGetter</code> 是和 API 初始化相关的，这个接口的实现是在 <code>k8s.io/apiserver/pkg/server/options/etcd.go</code> 中的 <code>storageFactoryRestOptionsFactory</code> 实现的，对应的实现函数是</p>
 <figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(f *storageFactoryRestOptionsFactory)</span> <span class="title">GetRESTOptions</span><span class="params">(resource schema.GroupResource)</span> <span class="params">(generic.RESTOptions, error)</span></span> &#123;</span><br><span class="line">	storageConfig, err := f.StorageFactory.NewConfig(resource)</span><br><span class="line">	<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> generic.RESTOptions&#123;&#125;, fmt.Errorf(<span class="string">"unable to find storage destination for %v, due to %v"</span>, resource, err.Error())</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	ret := generic.RESTOptions&#123;</span><br><span class="line">		StorageConfig:           storageConfig,</span><br><span class="line">		Decorator:               generic.UndecoratedStorage,</span><br><span class="line">		DeleteCollectionWorkers: f.Options.DeleteCollectionWorkers,</span><br><span class="line">		EnableGarbageCollection: f.Options.EnableGarbageCollection,</span><br><span class="line">		ResourcePrefix:          f.StorageFactory.ResourcePrefix(resource),</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">if</span> f.Options.EnableWatchCache &#123;</span><br><span class="line">		sizes, err := ParseWatchCacheSizes(f.Options.WatchCacheSizes)</span><br><span class="line">		<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">			<span class="keyword">return</span> generic.RESTOptions&#123;&#125;, err</span><br><span class="line">		&#125;</span><br><span class="line">		cacheSize, ok := sizes[resource]</span><br><span class="line">		<span class="keyword">if</span> !ok &#123;</span><br><span class="line">			cacheSize = f.Options.DefaultWatchCacheSize</span><br><span class="line">		&#125;</span><br><span class="line">		ret.Decorator = genericregistry.StorageWithCacher(cacheSize)</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> ret, <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
-<h4 id="APIGroupInfo"><a href="#APIGroupInfo" class="headerlink" title="APIGroupInfo"></a>APIGroupInfo</h4>
+<h4 id="APIGroupInfo"><a href="#APIGroupInfo" class="headerlink" title="APIGroupInfo"></a>APIGroupInfo</h4><img src="/zh-CN/2017/11/05/Kubernetes-API-分析/APIGroupInfo.png">
 
 <p>APIGroupInfo 主要定义了一个 API 组的相关信息，观察一下 APIGroupInfo 是如何初始化的。</p>
 <p>在 <code>k8s.io/pkg/master/master.go</code> 当中，每个 Resource 都要提供自己的 Provider，比如说 <code>storagerest</code> 就在 <code>k8s.io/kubernetes/pkg/registry/storage/rest/storage_storage.go</code> 定义了 <code>NewRESTStorage</code> 方法。而默认的 resource 的 legacy provider 单独处理。</p>
@@ -2060,7 +2060,7 @@
 
 <p>handler 里面做的内容就是序列化，然后根据具体的要求（GET DELETE 等）到 etcd 中操作，当然本身还有一层缓存，这取决于 API 的 options 是希望更新还是直接读缓存（缓存会比 etcd 旧一些），比如对于 kubelet 会不断查询 node 信息，但是 kubelet 本身并不需要最新的信息，这个时候就会从缓存中读取。</p>
 <h3 id="性能调优"><a href="#性能调优" class="headerlink" title="性能调优"></a>性能调优</h3><p>开启代理 <code>kubectl proxy</code>，就可以通过 localhost 直接访问 kube-apiserver HTTP 服务。然后执行 <code>go tool pprof http://localhost:8001/debug/pprof/profile</code> 可以获得 profile 结果，下图红色的部分就是调用耗时最多的部分。</p>
-
+<img src="/zh-CN/2017/11/05/Kubernetes-API-分析/prof.png">
 
 <p>除此之外，kube-apiserver 本身也暴露了很多 prometheus 的 metrics 但是往上现在没有现成的模板，只能根据自己的需求来在 prometheus 当作做 query。可以在 <code>k8s.io/apiserver/pkg/endpoints/metrics/metrics.go</code> 里面看到。</p>
 <p>之前也说过，超时间调用时会打 log 的，在代码中保存了一些 trace 日志，可以通过 <code>grep Trace</code>来过滤。Trace[%d] 这样开头, %d 是一个 id 可以看到具体的 trace 信息。</p>
@@ -2182,7 +2182,7 @@
                 
                   <span class="post-meta-item-text">更新于</span>
                 
-                <time title="修改时间：2019-07-23 21:31:41" itemprop="dateModified" datetime="2019-07-23T21:31:41+08:00">2019-07-23</time>
+                <time title="修改时间：2019-07-23 23:24:30" itemprop="dateModified" datetime="2019-07-23T23:24:30+08:00">2019-07-23</time>
               </span>
             
           
@@ -2236,7 +2236,7 @@
         
           
             <p>最近因为 k8s 的默认调度器功能太丰富，太“高级”了，一些屌丝特性没有满足，所以前段时间自己魔改了一下满足了一些屌丝特性，暂时叫做乞丐调度器，顺便把默认的调度器代码翻了一下，这里对默认的代码做一下总结。</p>
-<h2 id="CreateScheduler"><a href="#CreateScheduler" class="headerlink" title="CreateScheduler"></a>CreateScheduler</h2>
+<h2 id="CreateScheduler"><a href="#CreateScheduler" class="headerlink" title="CreateScheduler"></a>CreateScheduler</h2><img src="/zh-CN/2017/09/26/kubernetes-指北/CreateScheduler.png">
 
 <p>CreateScheduler 会从 policy file 当中获取算法的配置信息。接口<code>k8s.io/kubernetes/plugin/pkg/scheduler.Configurator</code> 定义了构造一个 scheduler 的配置信息。<code>k8s.io/kubernetes/plugin/pkg/scheduler/factor.ConfigFactory</code> 是这个接口的一个实现。<code>c.Create</code> 会把 <code>AlgorithmProvider</code> 配置的 <code>Predicate</code> 和 <code>Priority</code> 的 key 当作参数传给，<code>f.CreateFromKeys</code> 这样主要对应的 key 注册了的话就会有对应的算法绑定到 scheduler 上面。目前有两种 Provider，一种是用默认 predicate 和 默认 priority 的 AlgorithmProvider，另一种是把 <code>LeastRequestedPriority</code> 换成 <code>MostRequestedPriority</code> 的自动伸缩友好的 AlgorithmProvider。</p>
 <figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// Registers algorithm providers. By default we use 'DefaultProvider', but user can specify one to be used</span></span><br><span class="line"><span class="comment">// by specifying flag.</span></span><br><span class="line">factory.RegisterAlgorithmProvider(factory.DefaultProvider, defaultPredicates(), defaultPriorities())</span><br><span class="line"><span class="comment">// Cluster autoscaler friendly scheduling algorithm.</span></span><br><span class="line">factory.RegisterAlgorithmProvider(ClusterAutoscalerProvider, defaultPredicates(),</span><br><span class="line">	copyAndReplace(defaultPriorities(), <span class="string">"LeastRequestedPriority"</span>, <span class="string">"MostRequestedPriority"</span>))</span><br></pre></td></tr></table></figure>
@@ -2248,10 +2248,10 @@
 <li>Kubeconfig k8s 配置文件的路径</li>
 </ol>
 <p><code>func Run(s *options.SchedulerServer) error</code> 会根据 <code>Sechduler Server</code> 来运行。<code>EventBroadcaster</code> 接受事件，并且把事件发送给事件处理者（ EventSink watcher, log)，<code>startHTTP</code> 主要是是 profiling 接口，心跳检测接口和 prometheus 的 instrumenting 接口。<code>informerFactory</code>，看起来是一个异步同步信息的 cache，平时调度是直接走 cache，更新的时候才会走 API。最后配置了选主的话会从 Etcd 拿到锁，并且拿到 Master 的锁。</p>
-
+<img src="/zh-CN/2017/09/26/kubernetes-指北/scheduler-init.png">
 
 <h2 id="k8s-io-kubernetes-plugin-pkg-scheduler-Scheduler-Run"><a href="#k8s-io-kubernetes-plugin-pkg-scheduler-Scheduler-Run" class="headerlink" title="k8s.io/kubernetes/plugin/pkg/scheduler.Scheduler.Run"></a>k8s.io/kubernetes/plugin/pkg/scheduler.Scheduler.Run</h2><p>初始化以后，Run 对应的是一个 0 秒循环的大 loop（相当于每次 loop 等于主动调用一次 Go runtime.Sched())，在每次循环当中都会调用 <code>sched.scheduleOne</code>，首先 <code>NextPod</code> 会同步等待一个 pod 变成 available 的状态，并且跳过正在被删除的 pod，然后调用 <code>sched.schedule</code> 走到具体的调度算法当中，整个过程是串行，没有批量调度 pod 的操作。在进行具体的调度算法之后，会得到一个可行的 node，如果调度失败的话会，并且调度失败的原因是找不到合适的 node 的话，就尝试 <code>sched.preempt</code>，这个的作用就是尝试在替换现有 pod 的情况下能够获得调度机会的策略，那么就抢占已经被调度的 pod，标记目标 pod 的 Annotation 然后踢出权重最低的那个 pod。如果成果获得一个可调度的节点，就通过把本地 cache 先更新到已经调度之后的状态，标记 pod 已经在要调度的 node 上，也就是调用 <code>sched.assume</code> 假设 pod 已经调度到了节点上，再异步的通过 ApiServer 的接口，<code>sched.bind</code> 让 pod 正在运行到 node 上。</p>
-
+<img src="/zh-CN/2017/09/26/kubernetes-指北/scheduleOne.png">
 
 <h2 id="sched-schedule"><a href="#sched-schedule" class="headerlink" title="sched.schedule"></a>sched.schedule</h2><p>schedule 调用 <em>algorithm/scheduler_interface.go*下面定义的调度器的接口 <code>Schedule</code>。对应的实现在 *core/generic_scheduler.go</em> 下面。</p>
 <figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// ScheduleAlgorithm is an interface implemented by things that know how to schedule pods</span></span><br><span class="line"><span class="comment">// onto machines.</span></span><br><span class="line"><span class="keyword">type</span> ScheduleAlgorithm <span class="keyword">interface</span> &#123;</span><br><span class="line">	Schedule(*v1.Pod, NodeLister) (selectedMachine <span class="keyword">string</span>, err error)</span><br><span class="line">	<span class="comment">// Preempt receives scheduling errors for a pod and tries to create room for</span></span><br><span class="line">	<span class="comment">// the pod by preempting lower priority pods if possible.</span></span><br><span class="line">	<span class="comment">// It returns the node where preemption happened, a list of preempted pods, and error if any.</span></span><br><span class="line">	Preempt(*v1.Pod, NodeLister, error) (selectedNode *v1.Node, preemptedPods []*v1.Pod, err error)</span><br><span class="line">	<span class="comment">// Predicates() returns a pointer to a map of predicate functions. This is</span></span><br><span class="line">	<span class="comment">// exposed for testing.</span></span><br><span class="line">	Predicates() <span class="keyword">map</span>[<span class="keyword">string</span>]FitPredicate</span><br><span class="line">	<span class="comment">// Prioritizers returns a slice of priority config. This is exposed for</span></span><br><span class="line">	<span class="comment">// testing.</span></span><br><span class="line">	Prioritizers() []PriorityConfig</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
@@ -2259,14 +2259,14 @@
 <p><code>Schedule</code> 会根据调度算法得到一个合适的节点，而 <code>Preempt</code> 则是尝试抢占一个 pod 以获得调度到节点上的机会。<code>Predicates</code> 和 <code>Priorities</code> 则是两个重要的部分，<code>Predicates</code> 类似一个过滤器，对节点进行筛选，而 <code>Priorities</code> 则是对筛选出来的节点进行权重的排序，最后得到一个合适的调度节点。</p>
 <h3 id="算法工厂"><a href="#算法工厂" class="headerlink" title="算法工厂"></a>算法工厂</h3><p>算法工厂就是注册 <code>Preciate</code> 和 <code>Priority</code> 的地方，之前已经说了可以通过 <code>AlgorithmProvider</code> 获得一组 <code>Predicate</code> 和 <code>Priority</code>，比如 DefaultProvider 提供了默认的一套，如果不用 Provider，需要在 <a href="https://github.com/kubernetes/examples/blob/master/staging/scheduler-policy-config.json" target="_blank" rel="noopener">policy file</a> 当中另外指定要使用的 <code>Predicate</code> 和 <code>Priority</code>，不过目前好像没有用这种方式，还是通过 Provider 指定了一套要使用的算法 。注册 <code>AlgorithmProvider</code>是通过<code>factory.RegisterAlgorithmProvider</code>，然后调用 <code>NewGenericScheduler</code> (在 <em>k8s.io/kubernetes/plugin/pkg/scheduler/core/generic_scheduler.go</em> 当中)，初始化要用到的 predicates 和 priorities。</p>
 <h3 id="调度过程"><a href="#调度过程" class="headerlink" title="调度过程"></a>调度过程</h3><p><code>Schedule</code> 其实很简单，就是通过 <code>findNodesThatFit</code>，先根据 <code>Predicate</code> 过滤出合适的 Node，然后调用 <code>PrioritizeNodes</code>，用 <code>Priorities</code> 对 Node 根据算法的权重进行排序，因为每个 node 要走的流程是一样的并且最终结果相互没有影响，所以这个过程是并发的，<a href="http://blog.csdn.net/waltonwang/article/details/54409917" target="_blank" rel="noopener">这篇文章</a>的图画的很好，示意很明显。</p>
-
+<img src="/zh-CN/2017/09/26/kubernetes-指北/Schedule.jpeg">
 
 <p>最后会得到一个最理想的节点，再通过 bing 告诉 API server 这个节点被选中了。</p>
 <h2 id="sched-preempt"><a href="#sched-preempt" class="headerlink" title="sched.preempt"></a>sched.preempt</h2><p>抢占过程是在 pod 没有找到合适的节点情况下，如果能在踢出一个 pod 获得调度机会的情况下进行抢占。抢占算是一个比较新的特性，在 1.8 里面都是默认关掉的，要打开的话需要指定<code>kube-scheduler</code> 的 <code>--feature-gates=PodPriority=true</code> 还有 apiserver 的 <code>--runtime-config=scheduling.k8s.io/v1alpha1=true</code>。可以通过添加 <code>PriorityClass</code> 把 pod 分权重，现在这个特性算是给 pod 也加上的权重。</p>
 <figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">PriorityClass</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line"><span class="attr">  name:</span> <span class="string">high-priority</span></span><br><span class="line"><span class="attr">value:</span> <span class="number">1000000</span></span><br><span class="line"><span class="attr">globalDefault:</span> <span class="literal">false</span></span><br><span class="line"><span class="attr">description:</span> <span class="string">"This priority class should be used for XYZ service pods only."</span></span><br></pre></td></tr></table></figure>
 
 <p>然后可以在<code>spec</code>当中指定 <code>priorityClassName: high-priority</code>，这样这么大的权重，这个 pod 就很难被抢占了，具体流程如下图。</p>
-
+<img src="/zh-CN/2017/09/26/kubernetes-指北/schedule-preempt.png">
 
 <p><code>podEligibleToPreemptOthers</code> 主要判断如果 目标 pod 被标记为（通过 pod 的 annotation 标记）已经要抢占其他 pod，并且有一个优先级小于 目标 pod 的 pod 即将被删除 (<code>p.DeletionTimestamp != nil</code>)，就直接退出，因为这个时候这个被删除的 pod 其实在为目标 pod 腾出空间了，在下次调度的时候就会获得调度机会。<code>nodesWherePreemptionMightHelp</code>，类似于 schedule 的时候的 predicate 阶段，只不过多了一步是通过尝试移除 pod 跑一遍 predicates 看看这个节点能不能被通过。 <code>selectNodesForPreemption</code> 则和 priority 的阶段类似，把删除 pod 之后的可以通过的节点进行排序选出一个排名最高的节点。再通过 <code>selectVictimsOnNode</code> 把节点上的 pod 按照节点的 priority 排序选出“受害者”，越高越难被抢占。可以在 spec 里面设置这个值，选出了节点上的受害者以后，通过<code>pickOneNodeForPreemption</code>，主要的依据是拥有最低的最高 pod 权重的节点先被选出来，比如 node1 上 pod 的最高权重是 10，node2 上 pod 的最高权重是 8，那么 node2 被选中，如果有平局的话，最少的“受害者”先选，如果还平局，随机选一个。最后得到一个要被抢占的节点。</p>
 <h2 id="自定义调度器的方式"><a href="#自定义调度器的方式" class="headerlink" title="自定义调度器的方式"></a>自定义调度器的方式</h2><p>自定义调度器有三种方法。</p>
@@ -2392,7 +2392,7 @@
                 
                   <span class="post-meta-item-text">更新于</span>
                 
-                <time title="修改时间：2019-07-23 21:31:41" itemprop="dateModified" datetime="2019-07-23T21:31:41+08:00">2019-07-23</time>
+                <time title="修改时间：2019-07-23 23:24:30" itemprop="dateModified" datetime="2019-07-23T23:24:30+08:00">2019-07-23</time>
               </span>
             
           
@@ -2447,7 +2447,7 @@
           
             <p>flannel 是一个中心化的 overlay 容器网络，设计简单，容易理解，对于 k8s 来说，有一个假设：所有容器都可以和集群里任意其他容器或者节点通信，并且通信双方看到的对方的 IP 地址就是实际的地址，主要的好处就是不需要任何的端口映射和地址转换，拥有一张扁平的网络更容易管理，而且由于是基于 Etcd 的中心化的管理，所以对于一些 IP 变化异常频繁的场景来说，比一些去中心化的方案能够较及时同步网络拓扑关系。</p>
 <h2 id="IP-地址的管理"><a href="#IP-地址的管理" class="headerlink" title="IP 地址的管理"></a>IP 地址的管理</h2><p>flannel 的 IP 地址是通过 Etcd 管理的，在 k8s 初始化的时候指定 pod 大网的网段 <code>--pod-network-cidr=10.244.0.0/16</code>，flanneld 可以直接通过 Etcd 管理，如果启动的时候指定了 <code>--kube-subnet-mgr</code>，可以直接通过 k8s 的 apiserver 来获得一个小网段的租期，通过 <code>kubectl get &lt;NodeName&gt; -o jsonpath=&#39;{.spec.podCIDR}&#39;</code> 可以获取对应节点的 CIDR 表示的网段，flannel 是以节点为单元划分小网段的，每个节点上的 pod 在这个例子当中是划分一个 10.244.x.0/24 的网段，所以总共能分配 255 个节点，每个节点上可以分配 253 个 pod。结构如下图所示，每个节点上都会有一个 flanneld 用于管理自己网段的租期。</p>
-
+<img src="/zh-CN/2017/09/21/flannel-网络架构/flannel-02.png">
 
 <p>可以通过在 host 上 <code>cat /run/flannel/subnet.env</code> 查看同步下来的信息，例如：</p>
 <figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">FLANNEL_NETWORK=10.244.0.0/16</span><br><span class="line">FLANNEL_SUBNET=10.244.0.1/24</span><br><span class="line">FLANNEL_MTU=8951</span><br><span class="line">FLANNEL_IPMASQ=true</span><br></pre></td></tr></table></figure>
@@ -2458,7 +2458,7 @@
 <figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">    <span class="attr">"name"</span> : <span class="string">"cni0"</span>,</span><br><span class="line">    <span class="attr">"type"</span> : <span class="string">"bridge"</span>,</span><br><span class="line">    <span class="attr">"mtu"</span> : <span class="number">8973</span>,</span><br><span class="line">    <span class="attr">"ipMasq"</span> : <span class="literal">true</span>,</span><br><span class="line">    <span class="attr">"isGateway"</span> : <span class="literal">true</span>,</span><br><span class="line">    <span class="attr">"ipam"</span> : &#123;</span><br><span class="line">        <span class="attr">"type"</span> : <span class="string">"host-local"</span>,</span><br><span class="line">        <span class="attr">"subnet"</span> : <span class="string">"10.244.0.1/24"</span>,</span><br><span class="line">         <span class="attr">"routes"</span> : [ &#123; <span class="attr">"dst"</span> : <span class="string">"10.244.0.0/16"</span> &#125; ]</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <p>具体的网络拓扑图如下，所用的网段开头是 10.1，但是划分是一致的，图里面的 docker0 应该是 cni0，flannel0 应该是 flannel.1，这个命名的区别主要是不带点的是 UDP 封装，带点的是 vxlan 封装，图片比较早。</p>
-
+<img src="/zh-CN/2017/09/21/flannel-网络架构/flannel-01.png">
 
 <p>第一步，首先是从容器中(10.1.20.3)出来，走桥接去到 cni0 (10.1.20.1)，通过<code>brctl show</code> 可以看到 <code>cni0</code> 接了两个容器的 veth。</p>
 <p>第二步，然后根据路由规则，在宿主机上能够用<code>ip route</code>，找到一条走到大网段的路由。<code>10.15.0.0/16 dev flannel.1</code>，到达 <code>flannel.1</code>。</p>

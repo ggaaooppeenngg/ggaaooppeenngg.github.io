@@ -1,0 +1,36 @@
+digraph bmap {
+
+graph [
+rankdir = "LR" // 竖着显示label
+];
+
+"hmap" [
+label = "count|flags|B|hash0|<b>buckets|<old>oldbuckets|nevacuate|<o>overflow"
+shape = "record"
+];
+
+"bmap" [
+label = "<top> tophash\
+|key|<k>key|key|key|key|key|key|key\
+|value|<v> value|value|value|value|value|value|value\
+|<o> overflow" // <fx> label id.
+shape = "record"
+];
+"overflow" [
+label= "<o> tophash|k|k|k|k|k|k|k|k|v|v|v|v|v|v|v|v|overflow|"
+shape= "record"
+];
+
+"hash" [
+label = "{<top> tophash| |<low> lowhash}"
+shape = "record"
+];
+
+"hash":low -> "bmap":k;
+"hash":low -> "bmap":v;
+"hash":top -> "bmap":top;
+"bmap":o -> "overflow":o;
+"hmap":b -> "bmap":top;
+"hmap":old -> "oldbucket" [label="指向将要被替代的桶数组"];
+"hmap":o -> "overflow":o;
+}

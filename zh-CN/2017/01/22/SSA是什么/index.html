@@ -106,10 +106,13 @@
 <meta property="og:site_name" content="ggaaooppeenngg">
 <meta property="og:description" content="SSA概述SSA在Go1.7中被引入，这个特性对编译器的性能有很大的提高，但是也导致编译过程有些减速。下面来结合网上的资粮和书籍，简单说明一下SSA以及SSA的应用。 SSA 代表 static single-assignment，是一种IR(中间表示代码)，要保证每个变量只被赋值一次。这个能帮助简化编译器的优化算法。 123y := 1y := 2x := y  比如上面这段代码，y = 1其实">
 <meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2019-07-23T13:31:41.495Z">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/01/22/SSA是什么/example_1.jpg">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/01/22/SSA是什么/example_2.jpg">
+<meta property="og:updated_time" content="2019-07-23T15:24:30.441Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="什么是SSA以及SSA的作用">
 <meta name="twitter:description" content="SSA概述SSA在Go1.7中被引入，这个特性对编译器的性能有很大的提高，但是也导致编译过程有些减速。下面来结合网上的资粮和书籍，简单说明一下SSA以及SSA的应用。 SSA 代表 static single-assignment，是一种IR(中间表示代码)，要保证每个变量只被赋值一次。这个能帮助简化编译器的优化算法。 123y := 1y := 2x := y  比如上面这段代码，y = 1其实">
+<meta name="twitter:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/01/22/SSA是什么/example_1.jpg">
 
 
 
@@ -428,7 +431,7 @@
                 
                   <span class="post-meta-item-text">更新于</span>
                 
-                <time title="修改时间：2019-07-23 21:31:41" itemprop="dateModified" datetime="2019-07-23T21:31:41+08:00">2019-07-23</time>
+                <time title="修改时间：2019-07-23 23:24:30" itemprop="dateModified" datetime="2019-07-23T23:24:30+08:00">2019-07-23</time>
               </span>
             
           
@@ -513,13 +516,13 @@
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">for each node b</span><br><span class="line">    if the number of immediate predecessors of b ≥ 2</span><br><span class="line">        for each p in immediate predecessors of b</span><br><span class="line">            runner := p</span><br><span class="line">            while runner ≠ idom(b)</span><br><span class="line">                add b to runner’s dominance frontier set</span><br><span class="line">                runner := idom(runner)</span><br></pre></td></tr></table></figure>
 
 <p>idom(b) 代表相邻的strictly dominate b的结点。这样的点只有一个，因为相邻的点有两个的话就不会是必经之路了。</p>
-
+<img src="/zh-CN/2017/01/22/SSA是什么/example_1.jpg">
 
 <p>如图是一个例子，2的前驱是1和7，7没有sd(strictly dominate) 2，所以把2加入到7的DF(dominate frontiers)当中。3是7的相邻sd，然后3不是2的sd所以2加入到3的DF当中，接着2是3相邻的sd，然后2不是2的sd所以把2加入到2的DF中，最后遍历到7，5和6不是7的sd所以把7加入到5和6的df当中。</p>
 <p>df(A)可以认为是可以通过A到达的，但不是必经之路的点的集合。</p>
 <p>有了这个定义以后就可以插入Φ函数了和重命名了。如果X中有定义a那么所有df(X)都需要a的Φ函数。并且Φ函数本身也是一个定义。</p>
 <p>比如还是同一个例子。</p>
-
+<img src="/zh-CN/2017/01/22/SSA是什么/example_2.jpg">
 
 <p>1当中有j的定义，但是df(1)是空的，5当中有j的定义，并且5的df有7所以7当中要插入一个φ(j, j)。j现在在7中定义了(通过φ函数）所以df(7)中的2也要有φ(j, j)，6也有j的定义但是7已经有了φ函数了，2的df有2，但是2已经有φ函数了。类似的方式可以应用到i和k。接着对定义重命名就可以完成SSA的转换了。</p>
 <h2 id="SSA的应用"><a href="#SSA的应用" class="headerlink" title="SSA的应用"></a>SSA的应用</h2><p>上面只是通俗的解释了一下SSA，没有给出更多详细的理论和算法以及证明，因为证明实在难看懂，下面说一下SSA的应用。</p>

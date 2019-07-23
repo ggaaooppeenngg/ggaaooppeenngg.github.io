@@ -106,10 +106,14 @@
 <meta property="og:site_name" content="ggaaooppeenngg">
 <meta property="og:description" content="glusterfs 主要有以下几个组件  gluster 命令行。 glusterd 管理进程。 glusterfsd 服务进程。 glusterfs 客户端 fuse 进程。  glusterfs 是靠 translator 做分层设计的，类似于可插拔的模块的概念，对应的结构体是 xlator_t，因为是 C 写的，一些面向的对象的写法也是通过 xlator 实现的，可以理解 xlator 是类">
 <meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2019-07-23T13:31:41.603Z">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2018/08/06/glusterfs-writev-主要流程分析/translator.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2018/08/06/glusterfs-writev-主要流程分析/overallprocess.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2018/08/06/glusterfs-writev-主要流程分析/stack.png">
+<meta property="og:updated_time" content="2019-07-23T15:24:30.441Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="glusterfs writev 的主要流程单分析">
 <meta name="twitter:description" content="glusterfs 主要有以下几个组件  gluster 命令行。 glusterd 管理进程。 glusterfsd 服务进程。 glusterfs 客户端 fuse 进程。  glusterfs 是靠 translator 做分层设计的，类似于可插拔的模块的概念，对应的结构体是 xlator_t，因为是 C 写的，一些面向的对象的写法也是通过 xlator 实现的，可以理解 xlator 是类">
+<meta name="twitter:image" content="https://ggaaooppeenngg.github.io/zh-CN/2018/08/06/glusterfs-writev-主要流程分析/translator.png">
 
 
 
@@ -428,7 +432,7 @@
                 
                   <span class="post-meta-item-text">更新于</span>
                 
-                <time title="修改时间：2019-07-23 21:31:41" itemprop="dateModified" datetime="2019-07-23T21:31:41+08:00">2019-07-23</time>
+                <time title="修改时间：2019-07-23 23:24:30" itemprop="dateModified" datetime="2019-07-23T23:24:30+08:00">2019-07-23</time>
               </span>
             
           
@@ -490,19 +494,19 @@
 <p>volfile 会配置在 <code>/var/lib/glusterd/vols/</code> 下面，对应的文件名是 volfile-id 选项指定的。<code>xlator_t</code> 定义在 <code>libglusterfs/src/xlator.h</code> 里面。下面这张图就可以看到各个 translator 的关系。</p>
 <p>glusterfsd 最开始是 <code>protocol/server</code> 最后是 <code>storage/posix</code> 两个 xlator 作为开头和结束。</p>
 <p>glusterfs (client) 是以<code>protocol/client</code> 结尾。</p>
-
+<img src="/zh-CN/2018/08/06/glusterfs-writev-主要流程分析/translator.png">
 
 <blockquote>
 <p>那个 write-behind 应该对应的是缓存策略里面的 write back，异步写，而不是直写。</p>
 </blockquote>
 <p>这种设计的好处是方便扩展，你只要填补 <code>xlator</code> 的实现，编译成 .so ，放到链接目录下面，就可以加载进去，不用改整个 glusterfs 的代码。</p>
 <p>glusterfs 的整个应用的结构也可以看一下。</p>
-
+<img src="/zh-CN/2018/08/06/glusterfs-writev-主要流程分析/overallprocess.png">
 
 <p>用户态是 fuse 实现的文件系统，通过网络协议走到 server，server 本身用的是本地的文件系统，glusterfs 推荐使用 xfs。</p>
 <p>下面举个详细的例子。</p>
 <p>以 <code>writev</code> 举例，（write 的本质也是 writev，这里的 v 指的是内存向量，写的时候用链表表示的内存向量可以减少内存的拷贝，因为要分配一段连续的内存，然后拷到一起很没有效率，而且系统调用本身也支持这个系统调用，走到底层是硬件支持的，硬件不支持，也能 hook 帮你再拷贝到一起，但上层就不用管这些细节了），他们的调用关系通过 <code>STACK_WIND</code> 和 <code>STACK_UNWIND</code> 实现，对于所有的 xlator 的 op 都是这种调用关系，本身一层结束以后通过调用 <code>STACK_WIND</code> 调用下一层对应的 op，然后在调用完成之后通过 <code>STACK_UNWIND</code> 回调 op_cbk，并且这种调用关系是树状的。</p>
-
+<img src="/zh-CN/2018/08/06/glusterfs-writev-主要流程分析/stack.png">
 
 <p>这张图解释挺好的，说明了 xlator 向下传递的过程，通过 <code>STACK_WIND</code> 调用下一层，通过 <code>STACK_UNWIND</code> 调用上一层的 cbk。</p>
 <p><code>glusterfsd</code> 每个 volume 都会起一个线程来处理。</p>

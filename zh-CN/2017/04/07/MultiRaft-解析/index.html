@@ -106,10 +106,14 @@
 <meta property="og:site_name" content="ggaaooppeenngg">
 <meta property="og:description" content="援引自 cockroach 博客 的解释 cockroach 的底层 scaling 存储本身可以认为是一张无限大的有序 KV map，上层封装了一层 SQL。他 sharding 的方式是通过 range 实现的。对一组 64M 大小数据的范围内的 key 做冗余，用二级 metadata range 可以理论上存储 4EB 的数据。 举个例子，五节点打散三副本的一个 range 做冗余，是成本">
 <meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2019-07-23T13:31:41.568Z">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/04/07/MultiRaft-解析/raft1.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/04/07/MultiRaft-解析/raft2.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/04/07/MultiRaft-解析/multiraft.png">
+<meta property="og:updated_time" content="2019-07-23T15:24:30.441Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="MultiRaft 解析">
 <meta name="twitter:description" content="援引自 cockroach 博客 的解释 cockroach 的底层 scaling 存储本身可以认为是一张无限大的有序 KV map，上层封装了一层 SQL。他 sharding 的方式是通过 range 实现的。对一组 64M 大小数据的范围内的 key 做冗余，用二级 metadata range 可以理论上存储 4EB 的数据。 举个例子，五节点打散三副本的一个 range 做冗余，是成本">
+<meta name="twitter:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/04/07/MultiRaft-解析/raft1.png">
 
 
 
@@ -428,7 +432,7 @@
                 
                   <span class="post-meta-item-text">更新于</span>
                 
-                <time title="修改时间：2019-07-23 21:31:41" itemprop="dateModified" datetime="2019-07-23T21:31:41+08:00">2019-07-23</time>
+                <time title="修改时间：2019-07-23 23:24:30" itemprop="dateModified" datetime="2019-07-23T23:24:30+08:00">2019-07-23</time>
               </span>
             
           
@@ -485,13 +489,13 @@
 <p>另外租约的存在（不知道算不算在 multi raft 算法内），也可以缓解集中化的压力，通过获得授权的租约旁路一些“可以本地化”的请求（比如只对一个 replica 的操作以及一些能保证数据不变的一段时间的读请求），来缓解主的压力，这个最早我记得在 GFS 里面看到过是这么设计的。</p>
 <p>另外 gossip 的协议有点像交换机的生成树协议，是通过互相传播自己的负载和位置信心来传播信息的，没有中心化的决策节点，这样的好处就是无中心化，不会依靠一个中心的节点来做负载均衡，而且整个系统就需要一个二进制文件不依赖任何的其他服务。</p>
 <p>如图是一个 range 在三节点上的三副本的一个 raft group 之间有网路通信。</p>
-
+<img src="/zh-CN/2017/04/07/MultiRaft-解析/raft1.png">
 
 <p>但是如果 range 变多的话，就会很复杂，如下图，是四个节点之间大概 8 个 （如果我没看错颜色的话） range 的 raft group 之间通信。</p>
-
+<img src="/zh-CN/2017/04/07/MultiRaft-解析/raft2.png">
 
 <p>很明显网络 RoundTrip 太多了。针对这个的优化就是 MultiRaft 了，说白了就是把网络请求 batch up，变成下面的形式。</p>
-
+<img src="/zh-CN/2017/04/07/MultiRaft-解析/multiraft.png">
 
 <p>这样网络压力就会小很多。针对这个的优化和应用本身的实现是耦合的，作者也尝试把这个优化加到 etcd/raft 当中，但是最后的决定是增加 RawNode 这样的无线程安全的接口给应用层实用，方便对心跳等请求的合并，所以你会看到有个非线程安全的 RawNode 的实现。</p>
 <p>具体到 cockroach 的实现是可以找到相应的代码的，省略无关代码就如下。</p>

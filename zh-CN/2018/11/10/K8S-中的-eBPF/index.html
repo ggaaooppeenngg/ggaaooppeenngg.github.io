@@ -106,10 +106,12 @@
 <meta property="og:site_name" content="ggaaooppeenngg">
 <meta property="og:description" content="BPFBPF (Berkeley Packet Filter) 最早是用在 tcpdump 里面的，比如 tcpdump tcp and dst port 80  这样的过滤规则会单独复制 tcp 协议并且目的端口是 80 的包到用户态。整个实现是基于内核中的一个虚拟机来实现的，通过翻译 BPF 规则到字节码运行到内核中的虚拟机当中。最早的论文是这篇，这篇论文我大概翻了一下，主要讲的是原本的基于栈">
 <meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2019-07-23T13:31:41.494Z">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2018/11/10/K8S-中的-eBPF/image-20181110153643535.png">
+<meta property="og:updated_time" content="2019-07-23T15:24:30.441Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="K8S 中的 eBPF">
 <meta name="twitter:description" content="BPFBPF (Berkeley Packet Filter) 最早是用在 tcpdump 里面的，比如 tcpdump tcp and dst port 80  这样的过滤规则会单独复制 tcp 协议并且目的端口是 80 的包到用户态。整个实现是基于内核中的一个虚拟机来实现的，通过翻译 BPF 规则到字节码运行到内核中的虚拟机当中。最早的论文是这篇，这篇论文我大概翻了一下，主要讲的是原本的基于栈">
+<meta name="twitter:image" content="https://ggaaooppeenngg.github.io/zh-CN/2018/11/10/K8S-中的-eBPF/image-20181110153643535.png">
 
 
 
@@ -428,7 +430,7 @@
                 
                   <span class="post-meta-item-text">更新于</span>
                 
-                <time title="修改时间：2019-07-23 21:31:41" itemprop="dateModified" datetime="2019-07-23T21:31:41+08:00">2019-07-23</time>
+                <time title="修改时间：2019-07-23 23:24:30" itemprop="dateModified" datetime="2019-07-23T23:24:30+08:00">2019-07-23</time>
               </span>
             
           
@@ -495,7 +497,7 @@
 <p>一般的 ePBF 的工作流是编写一个 C 的子集（比如没有循环），通过 LLVM 编译到字节码，然成生成 ELF 文件，然后 JIT 编译进内核。</p>
 <p>eBPF 一个最重要的功能是可以做到动态跟踪（dynamic tracing），可以不修改程序直接监控一个正在运行的进程。</p>
 <h3 id="在-eBPF-之前"><a href="#在-eBPF-之前" class="headerlink" title="在 eBPF 之前"></a>在 eBPF 之前</h3><p>在 ebpf 之前，为了实现同样的功能，要在执行的指令中嵌入 hook，并且支持跳到 inspect 函数，然后再恢复执行，这个流程和 debugger 非常相似，这是用 kprobe 来实现，kprobe 是 2007 年引入内核的。比如下面的例子，把 Instruction 3 改成跳转指令，然后再执行 Instruction 3，然后再跳转回去。</p>
-
+<img src="/zh-CN/2018/11/10/K8S-中的-eBPF/image-20181110153643535.png">
 
 <p>使用 kprobe 需要通过编译 kernel module 注册到内核当中，非常麻烦，等于是直接动内核的代码很容易引起内核 panic，而且每个内核版本都不一样，函数符号和位移是有区别的，对每个版本的内核都要编译一个对应的版本的 module。为了解决这个问题引入了一些静态的稳定的 trace point，不会因为版本而改变的地方可以插入 kprobe，但这样就限制了 kprobe 可以探测的范围。</p>
 <h3 id="有了-eBPF"><a href="#有了-eBPF" class="headerlink" title="有了 eBPF"></a>有了 eBPF</h3><p>有了 eBPF，就可以将用户态的程序插入到内核中，不用编写内核模块了，但是问题并没有改善，内核版本带来的问题还是没有解决。</p>

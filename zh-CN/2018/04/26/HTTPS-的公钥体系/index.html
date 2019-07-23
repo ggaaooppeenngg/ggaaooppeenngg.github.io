@@ -106,10 +106,13 @@
 <meta property="og:site_name" content="ggaaooppeenngg">
 <meta property="og:description" content="首先公钥念“gongyue”，而不是公钥，拼音打字打多了就发现得这么读。 HTTPS 是基于 SSL/TLS 的安全 HTTP 协议，其实 HTTPS 主要还是看安全套接字层，在这之上还是一个 HTTP 协议，这里主要总结一下我们现在主流用到的加密体系，比如我们经常看到的 .pem、.crt、.key、.csr 还有 CA 啊之类的是啥东西，并且这些东西都如何工作和应用的。 在密码学里面，有几个">
 <meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2019-07-23T13:31:41.464Z">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2018/04/26/HTTPS-的公钥体系/symmetric-encryption.gif">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2018/04/26/HTTPS-的公钥体系/asymmetric-encryption.gif">
+<meta property="og:updated_time" content="2019-07-23T15:24:30.441Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="HTTPS 加密体系">
 <meta name="twitter:description" content="首先公钥念“gongyue”，而不是公钥，拼音打字打多了就发现得这么读。 HTTPS 是基于 SSL/TLS 的安全 HTTP 协议，其实 HTTPS 主要还是看安全套接字层，在这之上还是一个 HTTP 协议，这里主要总结一下我们现在主流用到的加密体系，比如我们经常看到的 .pem、.crt、.key、.csr 还有 CA 啊之类的是啥东西，并且这些东西都如何工作和应用的。 在密码学里面，有几个">
+<meta name="twitter:image" content="https://ggaaooppeenngg.github.io/zh-CN/2018/04/26/HTTPS-的公钥体系/symmetric-encryption.gif">
 
 
 
@@ -428,7 +431,7 @@
                 
                   <span class="post-meta-item-text">更新于</span>
                 
-                <time title="修改时间：2019-07-23 21:31:41" itemprop="dateModified" datetime="2019-07-23T21:31:41+08:00">2019-07-23</time>
+                <time title="修改时间：2019-07-23 23:24:30" itemprop="dateModified" datetime="2019-07-23T23:24:30+08:00">2019-07-23</time>
               </span>
             
           
@@ -498,7 +501,7 @@
 <p>HTTPS 是基于 SSL/TLS 的安全 HTTP 协议，其实 HTTPS 主要还是看安全套接字层，在这之上还是一个 HTTP 协议，这里主要总结一下我们现在主流用到的加密体系，比如我们经常看到的 <code>.pem</code>、<code>.crt</code>、<code>.key</code>、<code>.csr</code> 还有 <code>CA</code> 啊之类的是啥东西，并且这些东西都如何工作和应用的。</p>
 <p>在密码学里面，有几个角色，类似于中国的甲乙丙丁，一个是 Alice 和 Bob，这是正常通信的两个人，还有一个是 Eve，是信道上具备窃听能力的人，另外一个是 Mallory，这个人可以妨碍网络流量，主动攻击。</p>
 <h2 id="对称加密"><a href="#对称加密" class="headerlink" title="对称加密"></a>对称加密</h2><p>其实最简单的加密算法就是对称加密</p>
-
+<img src="/zh-CN/2018/04/26/HTTPS-的公钥体系/symmetric-encryption.gif" title="[symmetric encryption]">
 
 <p>Alice 和 Bob 有一个共有的密码，也就是只有两个人拥有，相互传输的密文只能通过这个密钥解开。</p>
 <p>首先加密需要基于密钥，凯撒密码可不可以，可以是可以，但是被人知道算法以后，就可以被所有人破解，并且优秀的加密算法应该被人验证，如果不是公开的算法就没有办法验证，当然一些保守的加密方法会不公开，这样其实也很难解密，但是互联网的加密协议很显然是用在千家万户的，所以一定要是经得起推敲的加密算法。</p>
@@ -507,7 +510,7 @@
 <h2 id="哈希函数"><a href="#哈希函数" class="headerlink" title="哈希函数"></a>哈希函数</h2><p>哈希函数其实很熟悉了，解释一下 MAC。</p>
 <h3 id="MAC"><a href="#MAC" class="headerlink" title="MAC"></a>MAC</h3><p>MAC 是 message authetication code，是密钥的哈希函数，因为普通哈希函数，如果 Mallory 可以直接用假的数据用哈希算出结果发给 Bob，缺少身份验证，MAC 就是带密钥的哈希函数，HMAC 其实就是把密钥和消息组合在一起的协议。</p>
 <h2 id="非对称加密"><a href="#非对称加密" class="headerlink" title="非对称加密"></a>非对称加密</h2><p>非对称加密又叫做公钥加密，对称加密固然好，但是对称密钥在团体中使用的话，大家都要共享，密钥给来给去的很容易出问题。对称加密就没有这个问题，可以方便传播，对称密钥分私钥和公钥，一个用于加密一个用于解密，私钥加密的数据只能用公钥解密。公钥的出现使得密钥可以大范围传播。</p>
-
+<img src="/zh-CN/2018/04/26/HTTPS-的公钥体系/asymmetric-encryption.gif" title="[symmetric encryption]">
 
 <h2 id="数字签名"><a href="#数字签名" class="headerlink" title="数字签名"></a>数字签名</h2><p>数字签名主要验证消息的真实性，对消息进行验证。主要是对消息进行哈希，然后用私钥加密，追加到文档中做身份验证，这样用公钥解的开的话就能证明消息的发送者。</p>
 <h2 id="TLS-的具体协议"><a href="#TLS-的具体协议" class="headerlink" title="TLS 的具体协议"></a>TLS 的具体协议</h2><h2 id="PKI-公钥基础设施"><a href="#PKI-公钥基础设施" class="headerlink" title="PKI 公钥基础设施"></a>PKI 公钥基础设施</h2><p>PKI 主要是用来保证公钥的可信，通过中间的权威机构（CA）签发的公钥也就是证书才能被认可是合法的证书。</p>

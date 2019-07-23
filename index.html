@@ -430,7 +430,7 @@
                 
                   <span class="post-meta-item-text">更新于</span>
                 
-                <time title="修改时间：2019-07-23 23:03:18" itemprop="dateModified" datetime="2019-07-23T23:03:18+08:00">2019-07-23</time>
+                <time title="修改时间：2019-07-23 23:24:30" itemprop="dateModified" datetime="2019-07-23T23:24:30+08:00">2019-07-23</time>
               </span>
             
           
@@ -483,7 +483,7 @@
       
         
           
-            
+            <img src="/zh-CN/2019/07/21/N-Body-问题之-CUDA-计算/2-body.gif">
 
 <p>行星运动我们都是按万有引力定律算的，实际上按照爱因斯坦的说法，万有引力不是惯性力是时空弯曲的效果，但是按照爱因斯坦的公式算起来特别复杂，所以现在航天轨道的设计还是按万有引力定律在算。</p>
 <h2 id="牛顿万有引力定律"><a href="#牛顿万有引力定律" class="headerlink" title="牛顿万有引力定律"></a>牛顿万有引力定律</h2><p>牛顿万有引力定律：任意两个质点由通过连心线方向上的力相互吸引。该吸引力的大小与它们的质量乘积成正比，与它们距离的平方成反比，G 是万有引力常数。</p>
@@ -491,7 +491,7 @@
 <h2 id="多体问题"><a href="#多体问题" class="headerlink" title="多体问题"></a>多体问题</h2><p>多体问题，是所有吸引力的叠加，这里排除物体相撞的情况，因为宇宙非常大，两个天体之间的距离非常远，暂时不考虑这种情况，通过加入一个小常量可以在计算上忽略这个问题。</p>
 <p>$$ F=-\frac{G M  m r}{(r^2 + \epsilon^2)^{\frac{3}{2}}} $$</p>
 <p>这样累加的时候自己也可以加进去，因为 r 是 0，那一项相当于没算。</p>
-<p>$$F_j= \sum_{i=1}^{n} F_i$$</p>
+<p>$$ F_j= \sum_{i=1}^{n} F_i $$</p>
 <p>对于 N body 有很多的稍微近似的算法，多是基于实际的物理场景的，比如大部分天体是属于一个星系的，每个星系之间都非常远，所以可以将一些星系作为整体计算，构建一颗树，树中的某些节点是其所有叶子的质心，这样就可以减少计算量，但是放到 GPU 的场景下一个 O(N^2) 的暴力算法利用 GPU 的并行能力可以非常快的算出来。</p>
 <h3 id="Python-暴力解"><a href="#Python-暴力解" class="headerlink" title="Python 暴力解"></a>Python 暴力解</h3><p>下面是 N-Body 暴力实现的例子，网上有个各种语言实验的，比较好用来测试准确性，来自<a href="https://rosettacode.org/wiki/N-body_problemhttps://rosettacode.org/wiki/N-body_problem" target="_blank" rel="noopener">这里</a>，就是两层循环。</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">cat &lt;&lt;EOF &gt;&gt; nbody.txt</span><br><span class="line">0.01 3 20</span><br><span class="line">1</span><br><span class="line">0 0 0</span><br><span class="line">0.01 0 0</span><br><span class="line">0.1</span><br><span class="line">1 1 0</span><br><span class="line">0 0 0.02</span><br><span class="line">0.001</span><br><span class="line">0 1 1</span><br><span class="line">0.01 -0.01 -0.01</span><br><span class="line">EOF</span><br></pre></td></tr></table></figure>
@@ -499,7 +499,7 @@
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> math</span><br><span class="line"> </span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Vector</span>:</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__init__</span><span class="params">(self, x, y, z)</span>:</span></span><br><span class="line">        self.x = x</span><br><span class="line">        self.y = y</span><br><span class="line">        self.z = z</span><br><span class="line"> </span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__add__</span><span class="params">(self, other)</span>:</span></span><br><span class="line">        <span class="keyword">return</span> Vector(self.x + other.x, self.y + other.y, self.z + other.z)</span><br><span class="line"> </span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__sub__</span><span class="params">(self, other)</span>:</span></span><br><span class="line">        <span class="keyword">return</span> Vector(self.x - other.x, self.y - other.y, self.z - other.z)</span><br><span class="line"> </span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__mul__</span><span class="params">(self, other)</span>:</span></span><br><span class="line">        <span class="keyword">return</span> Vector(self.x * other, self.y * other, self.z * other)</span><br><span class="line"> </span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__div__</span><span class="params">(self, other)</span>:</span></span><br><span class="line">        <span class="keyword">return</span> Vector(self.x / other, self.y / other, self.z / other)</span><br><span class="line"> </span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__eq__</span><span class="params">(self, other)</span>:</span></span><br><span class="line">        <span class="keyword">if</span> isinstance(other, Vector):</span><br><span class="line">            <span class="keyword">return</span> self.x == other.x <span class="keyword">and</span> self.y == other.y <span class="keyword">and</span> self.z == other.z</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">False</span></span><br><span class="line"> </span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__ne__</span><span class="params">(self, other)</span>:</span></span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">not</span> self.__eq__(other)</span><br><span class="line"> </span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__str__</span><span class="params">(self)</span>:</span></span><br><span class="line">        <span class="keyword">return</span> <span class="string">'(&#123;x&#125;, &#123;y&#125;, &#123;z&#125;)'</span>.format(x=self.x, y=self.y, z=self.z)</span><br><span class="line"> </span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">abs</span><span class="params">(self)</span>:</span></span><br><span class="line">        <span class="keyword">return</span> math.sqrt(self.x*self.x + self.y*self.y + self.z*self.z)</span><br><span class="line"> </span><br><span class="line">origin = Vector(<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>)</span><br><span class="line"> </span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">NBody</span>:</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__init__</span><span class="params">(self, fileName)</span>:</span></span><br><span class="line">        <span class="keyword">with</span> open(fileName, <span class="string">"r"</span>) <span class="keyword">as</span> fh:</span><br><span class="line">            lines = fh.readlines()</span><br><span class="line">            gbt = lines[<span class="number">0</span>].split()</span><br><span class="line">            self.gc = float(gbt[<span class="number">0</span>])</span><br><span class="line">            self.bodies = int(gbt[<span class="number">1</span>])</span><br><span class="line">            self.timeSteps = int(gbt[<span class="number">2</span>])</span><br><span class="line">            self.masses = [<span class="number">0.0</span> <span class="keyword">for</span> i <span class="keyword">in</span> range(self.bodies)]</span><br><span class="line">            self.positions = [origin <span class="keyword">for</span> i <span class="keyword">in</span> range(self.bodies)]</span><br><span class="line">            self.velocities = [origin <span class="keyword">for</span> i <span class="keyword">in</span> range(self.bodies)]</span><br><span class="line">            self.accelerations = [origin <span class="keyword">for</span> i <span class="keyword">in</span> range(self.bodies)]</span><br><span class="line">            <span class="keyword">for</span> i <span class="keyword">in</span> range(self.bodies):</span><br><span class="line">                self.masses[i] = float(lines[i*<span class="number">3</span> + <span class="number">1</span>])</span><br><span class="line">                self.positions[i] = self.__decompose(lines[i*<span class="number">3</span> + <span class="number">2</span>])</span><br><span class="line">                self.velocities[i] = self.__decompose(lines[i*<span class="number">3</span> + <span class="number">3</span>])</span><br><span class="line"> </span><br><span class="line">            print(<span class="string">"Contents of"</span>, fileName)</span><br><span class="line">            <span class="keyword">for</span> line <span class="keyword">in</span> lines:</span><br><span class="line">                print(line.rstrip())</span><br><span class="line">            <span class="keyword">print</span></span><br><span class="line">            print(<span class="string">"Body   :      x          y          z    |"</span>)</span><br><span class="line">            print(<span class="string">"     vx         vy         vz"</span>)</span><br><span class="line"> </span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__decompose</span><span class="params">(self, line)</span>:</span></span><br><span class="line">        xyz = line.split()</span><br><span class="line">        x = float(xyz[<span class="number">0</span>])</span><br><span class="line">        y = float(xyz[<span class="number">1</span>])</span><br><span class="line">        z = float(xyz[<span class="number">2</span>])</span><br><span class="line">        <span class="keyword">return</span> Vector(x, y, z)</span><br><span class="line"> </span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__computeAccelerations</span><span class="params">(self)</span>:</span></span><br><span class="line">        <span class="keyword">for</span> i <span class="keyword">in</span> range(self.bodies):</span><br><span class="line">            self.accelerations[i] = origin</span><br><span class="line">            <span class="keyword">for</span> j <span class="keyword">in</span> range(self.bodies):</span><br><span class="line">                <span class="keyword">if</span> i != j:</span><br><span class="line">                    temp = self.gc * self.masses[j] / math.pow((self.positions[i] - self.positions[j]).abs(), <span class="number">3</span>)</span><br><span class="line">                    self.accelerations[i] += (self.positions[j] - self.positions[i]) * temp</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">None</span></span><br><span class="line"> </span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__computePositions</span><span class="params">(self)</span>:</span></span><br><span class="line">        <span class="keyword">for</span> i <span class="keyword">in</span> range(self.bodies):</span><br><span class="line">            self.positions[i] += self.velocities[i] + self.accelerations[i] * <span class="number">0.5</span></span><br><span class="line">        <span class="keyword">return</span> <span class="literal">None</span></span><br><span class="line"> </span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__computeVelocities</span><span class="params">(self)</span>:</span></span><br><span class="line">        <span class="keyword">for</span> i <span class="keyword">in</span> range(self.bodies):</span><br><span class="line">            self.velocities[i] += self.accelerations[i]</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">None</span></span><br><span class="line"> </span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__resolveCollisions</span><span class="params">(self)</span>:</span></span><br><span class="line">        <span class="keyword">for</span> i <span class="keyword">in</span> range(self.bodies):</span><br><span class="line">            <span class="keyword">for</span> j <span class="keyword">in</span> range(self.bodies):</span><br><span class="line">                <span class="keyword">if</span> self.positions[i] == self.positions[j]:</span><br><span class="line">                    (self.velocities[i], self.velocities[j]) = (self.velocities[j], self.velocities[i])</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">None</span></span><br><span class="line"> </span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">simulate</span><span class="params">(self)</span>:</span></span><br><span class="line">        self.__computeAccelerations()</span><br><span class="line">        self.__computePositions()</span><br><span class="line">        self.__computeVelocities()</span><br><span class="line">        self.__resolveCollisions()</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">None</span></span><br><span class="line"> </span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">printResults</span><span class="params">(self)</span>:</span></span><br><span class="line">        fmt = <span class="string">"Body %d : % 8.6f  % 8.6f  % 8.6f | % 8.6f  % 8.6f  % 8.6f"</span></span><br><span class="line">        <span class="keyword">for</span> i <span class="keyword">in</span> range(self.bodies):</span><br><span class="line">            print(fmt % (i+<span class="number">1</span>, self.positions[i].x, self.positions[i].y, self.positions[i].z, self.velocities[i].x, self.velocities[i].y, self.velocities[i].z))</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">None</span></span><br><span class="line"> </span><br><span class="line">nb = NBody(<span class="string">"nbody.txt"</span>)</span><br><span class="line"><span class="keyword">for</span> i <span class="keyword">in</span> range(nb.timeSteps):</span><br><span class="line">    print(<span class="string">"\nCycle %d"</span> % (i + <span class="number">1</span>))</span><br><span class="line">    nb.simulate()</span><br><span class="line">    nb.printResults()</span><br></pre></td></tr></table></figure>
 
 <h3 id="CUDA-并行计算"><a href="#CUDA-并行计算" class="headerlink" title="CUDA 并行计算"></a>CUDA 并行计算</h3><p>在 CUDA 中并行化首先要理解 CUDA 的层次结构，CUDA 有 grid 和 block 对线程做划分。首先设计一个 computation tile，相当于一个 block 的计算。</p>
-
+<img src="/zh-CN/2019/07/21/N-Body-问题之-CUDA-计算/cuda-tile.png">
 
 <p>左侧表示一个 block 中的 p 个 body 执行 p 次，最后就能更新所有 body 的加速度，这里的内存占用是 O(p) 的不是 O(p^2)，浅绿色表示的是串行执行的流，官方的文档没有更新，对应 CUDA 10 的例子里是这样的，vec3 存的是 x/y/z 轴的加速度，vec4 存的是坐标加质量，就是计算 i 受到 j 的加速度，这里没有并行设计是串行的。</p>
 <figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line">__device__ <span class="keyword">typename</span> vec3&lt;T&gt;::Type</span><br><span class="line">bodyBodyInteraction(<span class="keyword">typename</span> vec3&lt;T&gt;::Type ai,</span><br><span class="line">                    <span class="keyword">typename</span> vec4&lt;T&gt;::Type bi,</span><br><span class="line">                    <span class="keyword">typename</span> vec4&lt;T&gt;::Type bj)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">typename</span> vec3&lt;T&gt;::Type r;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// r_ij  [3 FLOPS]</span></span><br><span class="line">    r.x = bj.x - bi.x;</span><br><span class="line">    r.y = bj.y - bi.y;</span><br><span class="line">    r.z = bj.z - bi.z;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// distSqr = dot(r_ij, r_ij) + EPS^2  [6 FLOPS]</span></span><br><span class="line">    T distSqr = r.x * r.x + r.y * r.y + r.z * r.z;</span><br><span class="line">    distSqr += getSofteningSquared&lt;T&gt;();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// invDistCube =1/distSqr^(3/2)  [4 FLOPS (2 mul, 1 sqrt, 1 inv)]</span></span><br><span class="line">    T invDist = rsqrt_T(distSqr);</span><br><span class="line">    T invDistCube =  invDist * invDist * invDist;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// s = m_j * invDistCube [1 FLOP]</span></span><br><span class="line">    T s = bj.w * invDistCube;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// a_i =  a_i + s * r_ij [6 FLOPS]</span></span><br><span class="line">    ai.x += r.x * s;</span><br><span class="line">    ai.y += r.y * s;</span><br><span class="line">    ai.z += r.z * s;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> ai;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
@@ -508,10 +508,10 @@
 <figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">for</span> (<span class="keyword">unsigned</span> <span class="keyword">int</span> counter = <span class="number">0</span>; counter &lt; blockDim.x; counter++)</span><br><span class="line">&#123;</span><br><span class="line">    acc = bodyBodyInteraction&lt;T&gt;(acc, bodyPos, sharedPos[counter]);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <p>每次计算完了以后要对线程做共享内存的同步</p>
-
+<img src="/zh-CN/2019/07/21/N-Body-问题之-CUDA-计算/sync-title.png">
 
 <p>黑实线就是一次  block 共享内存同步的边界，也就是一次 tile compuation，图中是 p 个 body 按时间串行执行的流程，超出 p 的时间计算的不是 p 中的 body，看下面这张图。</p>
-
+<img src="/zh-CN/2019/07/21/N-Body-问题之-CUDA-计算/global-sync.png">
 
 <p>也就是按照时间串行的计算每个 body 对一个 body 的加速度，然后 N/p 个 block 并行，每个 block 有 p 个线程并行，没 p 次计算每个 block 要同步一次，但是多个 block 之间不需要同步，所以每个并行线程的主体是这样的要在 tile computation 之间包一层同步的调用 cg::sync(ca)，同步一次 block 中线程的共享内存。</p>
 <figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line">__device__ <span class="keyword">typename</span> vec3&lt;T&gt;::Type</span><br><span class="line">computeBodyAccel(<span class="keyword">typename</span> vec4&lt;T&gt;::Type bodyPos,</span><br><span class="line">                 <span class="keyword">typename</span> vec4&lt;T&gt;::Type *positions,</span><br><span class="line">                 <span class="keyword">int</span> numTiles, cg::thread_block cta)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">typename</span> vec4&lt;T&gt;::Type *sharedPos = SharedMemory&lt;<span class="keyword">typename</span> vec4&lt;T&gt;::Type&gt;();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">typename</span> vec3&lt;T&gt;::Type acc = &#123;<span class="number">0.0f</span>, <span class="number">0.0f</span>, <span class="number">0.0f</span>&#125;;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">int</span> tile = <span class="number">0</span>; tile &lt; numTiles; tile++)</span><br><span class="line">    &#123;</span><br><span class="line">        sharedPos[threadIdx.x] = positions[tile * blockDim.x + threadIdx.x];</span><br><span class="line"></span><br><span class="line">        cg::sync(cta);</span><br><span class="line">        <span class="comment">// This is the "tile_calculation" from the GPUG3 article.</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">pragma</span> unroll 128</span></span><br><span class="line"></span><br><span class="line">        <span class="keyword">for</span> (<span class="keyword">unsigned</span> <span class="keyword">int</span> counter = <span class="number">0</span>; counter &lt; blockDim.x; counter++)</span><br><span class="line">        &#123;</span><br><span class="line">            acc = bodyBodyInteraction&lt;T&gt;(acc, bodyPos, sharedPos[counter]);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        cg::sync(cta);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> acc;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
@@ -638,7 +638,7 @@
                 
                   <span class="post-meta-item-text">更新于</span>
                 
-                <time title="修改时间：2019-07-23 21:31:41" itemprop="dateModified" datetime="2019-07-23T21:31:41+08:00">2019-07-23</time>
+                <time title="修改时间：2019-07-23 23:24:30" itemprop="dateModified" datetime="2019-07-23T23:24:30+08:00">2019-07-23</time>
               </span>
             
           
@@ -809,7 +809,7 @@
                 
                   <span class="post-meta-item-text">更新于</span>
                 
-                <time title="修改时间：2019-07-23 21:31:41" itemprop="dateModified" datetime="2019-07-23T21:31:41+08:00">2019-07-23</time>
+                <time title="修改时间：2019-07-23 23:24:30" itemprop="dateModified" datetime="2019-07-23T23:24:30+08:00">2019-07-23</time>
               </span>
             
           
@@ -1020,7 +1020,7 @@
                 
                   <span class="post-meta-item-text">更新于</span>
                 
-                <time title="修改时间：2019-07-23 21:31:41" itemprop="dateModified" datetime="2019-07-23T21:31:41+08:00">2019-07-23</time>
+                <time title="修改时间：2019-07-23 23:24:30" itemprop="dateModified" datetime="2019-07-23T23:24:30+08:00">2019-07-23</time>
               </span>
             
           
@@ -1207,7 +1207,7 @@
                 
                   <span class="post-meta-item-text">更新于</span>
                 
-                <time title="修改时间：2019-07-23 21:31:41" itemprop="dateModified" datetime="2019-07-23T21:31:41+08:00">2019-07-23</time>
+                <time title="修改时间：2019-07-23 23:24:30" itemprop="dateModified" datetime="2019-07-23T23:24:30+08:00">2019-07-23</time>
               </span>
             
           
@@ -1276,7 +1276,7 @@
 <p>一般的 ePBF 的工作流是编写一个 C 的子集（比如没有循环），通过 LLVM 编译到字节码，然成生成 ELF 文件，然后 JIT 编译进内核。</p>
 <p>eBPF 一个最重要的功能是可以做到动态跟踪（dynamic tracing），可以不修改程序直接监控一个正在运行的进程。</p>
 <h3 id="在-eBPF-之前"><a href="#在-eBPF-之前" class="headerlink" title="在 eBPF 之前"></a>在 eBPF 之前</h3><p>在 ebpf 之前，为了实现同样的功能，要在执行的指令中嵌入 hook，并且支持跳到 inspect 函数，然后再恢复执行，这个流程和 debugger 非常相似，这是用 kprobe 来实现，kprobe 是 2007 年引入内核的。比如下面的例子，把 Instruction 3 改成跳转指令，然后再执行 Instruction 3，然后再跳转回去。</p>
-
+<img src="/zh-CN/2018/11/10/K8S-中的-eBPF/image-20181110153643535.png">
 
 <p>使用 kprobe 需要通过编译 kernel module 注册到内核当中，非常麻烦，等于是直接动内核的代码很容易引起内核 panic，而且每个内核版本都不一样，函数符号和位移是有区别的，对每个版本的内核都要编译一个对应的版本的 module。为了解决这个问题引入了一些静态的稳定的 trace point，不会因为版本而改变的地方可以插入 kprobe，但这样就限制了 kprobe 可以探测的范围。</p>
 <h3 id="有了-eBPF"><a href="#有了-eBPF" class="headerlink" title="有了 eBPF"></a>有了 eBPF</h3><p>有了 eBPF，就可以将用户态的程序插入到内核中，不用编写内核模块了，但是问题并没有改善，内核版本带来的问题还是没有解决。</p>
@@ -1436,7 +1436,7 @@
                 
                   <span class="post-meta-item-text">更新于</span>
                 
-                <time title="修改时间：2019-07-23 21:31:41" itemprop="dateModified" datetime="2019-07-23T21:31:41+08:00">2019-07-23</time>
+                <time title="修改时间：2019-07-23 23:24:30" itemprop="dateModified" datetime="2019-07-23T23:24:30+08:00">2019-07-23</time>
               </span>
             
           
@@ -1650,7 +1650,7 @@
                 
                   <span class="post-meta-item-text">更新于</span>
                 
-                <time title="修改时间：2019-07-23 21:31:41" itemprop="dateModified" datetime="2019-07-23T21:31:41+08:00">2019-07-23</time>
+                <time title="修改时间：2019-07-23 23:24:30" itemprop="dateModified" datetime="2019-07-23T23:24:30+08:00">2019-07-23</time>
               </span>
             
           
@@ -1846,7 +1846,7 @@
                 
                   <span class="post-meta-item-text">更新于</span>
                 
-                <time title="修改时间：2019-07-23 21:31:41" itemprop="dateModified" datetime="2019-07-23T21:31:41+08:00">2019-07-23</time>
+                <time title="修改时间：2019-07-23 23:24:30" itemprop="dateModified" datetime="2019-07-23T23:24:30+08:00">2019-07-23</time>
               </span>
             
           
@@ -1910,19 +1910,19 @@
 <p>volfile 会配置在 <code>/var/lib/glusterd/vols/</code> 下面，对应的文件名是 volfile-id 选项指定的。<code>xlator_t</code> 定义在 <code>libglusterfs/src/xlator.h</code> 里面。下面这张图就可以看到各个 translator 的关系。</p>
 <p>glusterfsd 最开始是 <code>protocol/server</code> 最后是 <code>storage/posix</code> 两个 xlator 作为开头和结束。</p>
 <p>glusterfs (client) 是以<code>protocol/client</code> 结尾。</p>
-
+<img src="/zh-CN/2018/08/06/glusterfs-writev-主要流程分析/translator.png">
 
 <blockquote>
 <p>那个 write-behind 应该对应的是缓存策略里面的 write back，异步写，而不是直写。</p>
 </blockquote>
 <p>这种设计的好处是方便扩展，你只要填补 <code>xlator</code> 的实现，编译成 .so ，放到链接目录下面，就可以加载进去，不用改整个 glusterfs 的代码。</p>
 <p>glusterfs 的整个应用的结构也可以看一下。</p>
-
+<img src="/zh-CN/2018/08/06/glusterfs-writev-主要流程分析/overallprocess.png">
 
 <p>用户态是 fuse 实现的文件系统，通过网络协议走到 server，server 本身用的是本地的文件系统，glusterfs 推荐使用 xfs。</p>
 <p>下面举个详细的例子。</p>
 <p>以 <code>writev</code> 举例，（write 的本质也是 writev，这里的 v 指的是内存向量，写的时候用链表表示的内存向量可以减少内存的拷贝，因为要分配一段连续的内存，然后拷到一起很没有效率，而且系统调用本身也支持这个系统调用，走到底层是硬件支持的，硬件不支持，也能 hook 帮你再拷贝到一起，但上层就不用管这些细节了），他们的调用关系通过 <code>STACK_WIND</code> 和 <code>STACK_UNWIND</code> 实现，对于所有的 xlator 的 op 都是这种调用关系，本身一层结束以后通过调用 <code>STACK_WIND</code> 调用下一层对应的 op，然后在调用完成之后通过 <code>STACK_UNWIND</code> 回调 op_cbk，并且这种调用关系是树状的。</p>
-
+<img src="/zh-CN/2018/08/06/glusterfs-writev-主要流程分析/stack.png">
 
 <p>这张图解释挺好的，说明了 xlator 向下传递的过程，通过 <code>STACK_WIND</code> 调用下一层，通过 <code>STACK_UNWIND</code> 调用上一层的 cbk。</p>
 <p><code>glusterfsd</code> 每个 volume 都会起一个线程来处理。</p>
@@ -2067,7 +2067,7 @@
                 
                   <span class="post-meta-item-text">更新于</span>
                 
-                <time title="修改时间：2019-07-23 21:31:41" itemprop="dateModified" datetime="2019-07-23T21:31:41+08:00">2019-07-23</time>
+                <time title="修改时间：2019-07-23 23:24:30" itemprop="dateModified" datetime="2019-07-23T23:24:30+08:00">2019-07-23</time>
               </span>
             
           
@@ -2134,7 +2134,7 @@
 <figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// Interface to access the raw ref-counted data buffer.</span></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">TensorBuffer</span> :</span> <span class="keyword">public</span> core::RefCounted &#123;</span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">  ~TensorBuffer() override &#123;&#125;</span><br><span class="line">  ...</span><br></pre></td></tr></table></figure>
 
 <p>他们的对应的关系如下。</p>
-
+<img src="/zh-CN/2018/05/29/Tensorflow-的-Tensor-和-OpKernel-分析/class.png" title="[Tensor]">
 
 <p>Tensor 从下往上看，其实就是一个带”形状“的内存，和 NumPy 的数组是差不多的。</p>
 <h2 id="OpKernel"><a href="#OpKernel" class="headerlink" title="OpKernel"></a>OpKernel</h2><p>对于一个线性回归来说，是最简单也最好理解的模型，方便分析底层的代码实现。</p>
@@ -2288,7 +2288,7 @@
                 
                   <span class="post-meta-item-text">更新于</span>
                 
-                <time title="修改时间：2019-07-23 21:31:41" itemprop="dateModified" datetime="2019-07-23T21:31:41+08:00">2019-07-23</time>
+                <time title="修改时间：2019-07-23 23:24:30" itemprop="dateModified" datetime="2019-07-23T23:24:30+08:00">2019-07-23</time>
               </span>
             
           
@@ -2343,27 +2343,27 @@
           
             <p>Raft 的作者其实对 Paxos 研究得很深，毕竟 Paxos 基本上就是共识算法的代名词，建议在了解 Raft 之前先看看 Paxos，因为 Paxos 里面有一段从单点开始完整的推断共识算法的正确性和必要性的过程，方便建立一种对共识算法上直觉的认同。Raft 论文最好看作者的博士论文，那个比较完整。</p>
 <h2 id="leader-election"><a href="#leader-election" class="headerlink" title="leader election"></a>leader election</h2><p>Raft 有 Term 的概念，把时间每分成了一个个的任期，每个任期开始是选举过程。Raft server 有三种角色，Candidate 就是选举中的状态，Leader 是当选的状态，Follower 是服从并选择接受 Leader 的 Log 的状态。</p>
-
+<img src="/zh-CN/2018/05/27/raft-解读/raft-server-state.png" title="[raft server state]">
 
 <p>其实可以把选主看作一个 basic Paxos，大家对 leader=? 达成一致，触发的条件是超时和初始化的时候，term 就是类似于 Paxos 的 propose number，和 basic Paxos 不一样的是每个 term 只能投一个人，所以每个 term 不会有冲突，只有一个人会当选，但是会有平票的问题，大家用同一个 term 选举的情况下就会发生（比如说大家都投自己，谁都不接受谁），所以为了减少冲突，把重试的时间随机化，快速超时的人能拿到高 term，并且其他慢速超时的 candidate 会服从这个先拿到下一个 term 的 leader。成为 leader 的标志是收到了大部分人的服从(3/5 或者 2/3)。</p>
+<img src="/zh-CN/2018/05/27/raft-解读/raft-terms.png" title="[raft terms]">
 
-
-<h2 id="log-replication"><a href="#log-replication" class="headerlink" title="log replication"></a>log replication</h2>
+<h2 id="log-replication"><a href="#log-replication" class="headerlink" title="log replication"></a>log replication</h2><img src="/zh-CN/2018/05/27/raft-解读/raft-log-conflict.png" title="[raft log conflicts]">
 
 <p>log 不一致的就以上几种情况，可能少了 entry，可能多了没 commited 的 entry，可能又少了 entry 还多了没 commited 的 entry，log 不一致的情况就这几种。index term 能唯一确定一个 entry，如果一个 entry  确定，之前的也确定了。基于上面的性质，如果 entry commited 之前的就是都 commited 了。这个通过 append 的 prev index prev term，来保证这个特性。解决方法是在 AppendRequest 里面带上新的 entry 前的 index 和 term（在 leader 那里存的前一个），如果这个 entry 不在 follower 里面的话，就拒绝追加新 entry，然后 leader 就要用前一个 index 尝试，直到开始出现 match 的点，有点像 git tree 里面开始产生分支的那个 base，这个过程一直减少自己保存的 follower 的 nextIndex，一直到获得和自己 match 的最后一个 index 开始追加复制自己的 log。也就是说这样会强迫所有的 follower 复制主节点的 log，这里有一个按 term 回溯 base 的方法，但是这个优化作者认为有点多此一举，毕竟错误发生的情况比较少。这里会有一个问题（啥问题），后面会通过选举的时候加上限制解决。</p>
 <p>这个问题就是，新的 leader 可能没有之前 commited 的 log，然后修改了其他 follower 的 log，导致每个 state machine 执行的命令是不一致的，所以要加一个约束，在投票的时候，新的 leader 必须包含之前 commited 的 log，这个保证就需要通过定义 entry 的 update-to-date，在投票的时候拒绝比自己老的 leader 当选。</p>
 <h2 id="safety"><a href="#safety" class="headerlink" title="safety"></a>safety</h2><p>这个问题被称作 <code>safety</code>，为了解决这个问题 update-to-date 怎么定义呢？比如下面这个例子，如果 S3 挂了，其实 index 5 已经 commited 了，但是没有办法确定 index 5 的这个 log 是否 commited 了。所以要选个最可能包含所有 log 的做 leader。</p>
-
+<img src="/zh-CN/2018/05/27/raft-解读/raft-not-commited.png" title="[raft not commited]">
 
 <p>先比 term，再比 log 数量，按顺序比，有点像字符串比较，这样可以确保 leader 有其他 follower 的 entry。没有大多数人的又新又全就无法成为 leader。</p>
 <h3 id="commit-from-previous-entry"><a href="#commit-from-previous-entry" class="headerlink" title="commit from previous entry"></a>commit from previous entry</h3><p>如果一个 leader 在 commit 之前 crash 了，并且新的 leader 没有已经在大多数节点上的 entry 可能会覆盖掉本该 commit 的 entry。</p>
 <p>比如这图，如果是 (d1) 的情况，3 就会把 2 盖掉，但是实际上 2 本该 commited 了，但是在 commit 之前 S5 可能在 term 5 成为了主（这个没有违背上面的 upda-to-date 因为 3 确实比 2 要新，并且可以从 S2, S3, S4 那里获得选票）。</p>
-
+<img src="/zh-CN/2018/05/27/raft-解读/raft-conflict-2.png" title="[raft conflict 2]">
 
 <p>光看数量，没办法替之前 term 的 entry commit，因为 d1 的情况，可能就把 2 盖掉了。只有 term 4 的时候 4 commit 了（当前的 term 可以 commit）才能替之前 term 的 entry commit（实际上间接 commit 了，这个可以证明），这样 term 3 就不会成为主，就不可能盖掉 2。</p>
 <p><strong>总结一下，在 Raft 中 leader 不会 commit 之前 term 的 entry，只 commit 当前 term 的 entry。当前 term 的 entry commit 了，之前 term 的 entry 就间接 commit 了。</strong></p>
 <h3 id="持久化数据"><a href="#持久化数据" class="headerlink" title="持久化数据"></a>持久化数据</h3><p>当前的 term 和 vote 。</p>
-<h2 id="membership-change"><a href="#membership-change" class="headerlink" title="membership change"></a>membership change</h2>
+<h2 id="membership-change"><a href="#membership-change" class="headerlink" title="membership change"></a>membership change</h2><img src="/zh-CN/2018/05/27/raft-解读/raft-conf-change.png" title="[raft conf change]">
 
 <p>raft conf change 有几个主要阶段，其中 C(old)+c(new) 的情况下，需要服从两个 conf 的大多数，并且，每次只能一个一个的增加 server 和 减少 server。</p>
 <p>参考文献</p>

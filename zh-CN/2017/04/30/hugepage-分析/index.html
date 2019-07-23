@@ -106,10 +106,12 @@
 <meta property="og:site_name" content="ggaaooppeenngg">
 <meta property="og:description" content="首先介绍一下 hugepage 的背景。 一般来说操作系统分配内存的最小单元是页，一般是 4KB 大小，但是这个页放到现在来说可能有点“不够用”，因为很多程序内存消耗很大，分配内存很频繁，所以选择更大的页可以提升性能，大页带来的好处很多，首先是页表的层次可以减少，增加访存的速度，其次是减少 TLB miss 的概率，同时 page fault 也会减少，减少到 hugepage size / 4K">
 <meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2019-07-23T13:31:41.619Z">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/04/30/hugepage-分析/table.png">
+<meta property="og:updated_time" content="2019-07-23T15:24:30.441Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="hugepage 分析">
 <meta name="twitter:description" content="首先介绍一下 hugepage 的背景。 一般来说操作系统分配内存的最小单元是页，一般是 4KB 大小，但是这个页放到现在来说可能有点“不够用”，因为很多程序内存消耗很大，分配内存很频繁，所以选择更大的页可以提升性能，大页带来的好处很多，首先是页表的层次可以减少，增加访存的速度，其次是减少 TLB miss 的概率，同时 page fault 也会减少，减少到 hugepage size / 4K">
+<meta name="twitter:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/04/30/hugepage-分析/table.png">
 
 
 
@@ -428,7 +430,7 @@
                 
                   <span class="post-meta-item-text">更新于</span>
                 
-                <time title="修改时间：2019-07-23 21:31:41" itemprop="dateModified" datetime="2019-07-23T21:31:41+08:00">2019-07-23</time>
+                <time title="修改时间：2019-07-23 23:24:30" itemprop="dateModified" datetime="2019-07-23T23:24:30+08:00">2019-07-23</time>
               </span>
             
           
@@ -481,7 +483,7 @@
       
         <p>首先介绍一下 hugepage 的背景。</p>
 <p>一般来说操作系统分配内存的最小单元是页，一般是 4KB 大小，但是这个页放到现在来说可能有点“不够用”，因为很多程序内存消耗很大，分配内存很频繁，所以选择更大的页可以提升性能，大页带来的好处很多，首先是页表的层次可以减少，增加访存的速度，其次是减少 TLB miss 的概率，同时 page fault 也会减少，减少到 hugepage size / 4KB (x86_64 一般有 2MB 的 hugepage 和 1GB 的 hugepage)。例如下面这张图就说明了 hugepage 带来的改变。文章中的代码使用的是 4.x 的内核版本。</p>
-
+<img src="/zh-CN/2017/04/30/hugepage-分析/table.png">
 
 <p>hugepage 有两种类型，一种是 THP(Transparent Huge Page) ，顾名思义，就是对用户来说对这种大页是无感知的，它本身可以被分成 4KB 的小页，并且可以被 swap out，有一个 Khugepaged 周期性扫描 4KB 的页合并成大页。</p>
 <p>另一种大页是 persistent hugepage，这种 page 是预先分配的并且不能拆分成 4KB 小页，而且不能 swap out。这种的隐患是可能在内存 fragmentation 太多分不出大页的时候压缩小页，这在内存分配有压力的时候会造成很大的性能影响。</p>

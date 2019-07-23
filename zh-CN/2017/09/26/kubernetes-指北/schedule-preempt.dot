@@ -1,0 +1,16 @@
+digraph {
+    label="sched.preempt"
+
+    "End"[shape="box" style=rounded];
+    "是因为 FitError 没有调度成功" [shape="diamond"];
+    "podEligibleToPreemptOthers" [shape="diamond"];
+
+    "是因为 FitError 没有调度成功" -> "End" [label="否"];
+    "是因为 FitError 没有调度成功" -> "podEligibleToPreemptOthers" [label="是"];
+    "podEligibleToPreemptOthers" -> "End" [label="否"];
+    "podEligibleToPreemptOthers" -> "nodesWherePreemptionMightHelp";
+    "nodesWherePreemptionMightHelp" -> "selectNodesForPreemption";
+    "selectNodesForPreemption" -> "selectVictimsOnNode";
+    "selectVictimsOnNode" -> "pickOneNodeForPreemption";
+    "pickOneNodeForPreemption" -> "End";
+}
