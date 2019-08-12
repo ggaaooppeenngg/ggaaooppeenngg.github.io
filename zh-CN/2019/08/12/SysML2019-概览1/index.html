@@ -1,0 +1,1346 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next mist use-motion" lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+
+
+  <meta name="google-site-verification" content="_85tctgPWrqH2EPVuuD5IT6KE-tW8nH0hTISJDMnShg">
+
+
+
+
+
+
+
+  <meta name="baidu-site-verification" content="bb16c5b1fd3302c18e0015bef11eea42">
+
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=7.2.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=7.2.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=7.2.0">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=7.2.0" color="#222">
+
+
+
+
+
+
+<link rel="stylesheet" href="/css/main.css?v=7.2.0">
+
+
+
+
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.7.0">
+
+
+
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Mist',
+    version: '7.2.0',
+    sidebar: {"position":"right","display":"post","offset":12,"onmobile":false},
+    back2top: {"enable":true,"sidebar":true,"scrollpercent":true},
+    copycode: {"enable":false,"show_result":false,"style":null},
+    fancybox: false,
+    mediumzoom: false,
+    lazyload: false,
+    pangu: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    },
+    translation: {
+      copy_button: '复制',
+      copy_success: '复制成功',
+      copy_failure: '复制失败'
+    }
+  };
+</script>
+
+  <meta name="description" content="总结一下 SysML 2019 的一些论文。 TICTAC问题背景是解决分布式训练的 scale 问题。如图，网络带宽和传输的顺序是关键因素，网络带宽很好理解，如果 Best 要提高只能加带宽，同时传输顺序如图会影响计算时间。   Communication to Computation Ratio 传输计算比，如果比值大说明效率高  增大 BatchSize，但是会过拟合(贾扬清的 Train">
+<meta name="keywords" content="ml,机器学习,分布式系统">
+<meta property="og:type" content="article">
+<meta property="og:title" content="SysML2019 概览1">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2019/08/12/SysML2019-概览1/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="总结一下 SysML 2019 的一些论文。 TICTAC问题背景是解决分布式训练的 scale 问题。如图，网络带宽和传输的顺序是关键因素，网络带宽很好理解，如果 Best 要提高只能加带宽，同时传输顺序如图会影响计算时间。   Communication to Computation Ratio 传输计算比，如果比值大说明效率高  增大 BatchSize，但是会过拟合(贾扬清的 Train">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2019/08/12/SysML2019-概览1/tictac.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2019/08/12/SysML2019-概览1/overlap.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2019/08/12/SysML2019-概览1/pic1.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2019/08/12/SysML2019-概览1/pic2.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2019/08/12/SysML2019-概览1/pic4.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2019/08/12/SysML2019-概览1/pic3.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2019/08/12/SysML2019-概览1/pic5.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2019/08/12/SysML2019-概览1/pic6.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2019/08/12/SysML2019-概览1/pic7.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2019/08/12/SysML2019-概览1/pic8.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2019/08/12/SysML2019-概览1/pic9.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2019/08/12/SysML2019-概览1/pic10.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2019/08/12/SysML2019-概览1/pic11.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2019/08/12/SysML2019-概览1/pic12.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2019/08/12/SysML2019-概览1/pic13.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2019/08/12/SysML2019-概览1/pic14.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2019/08/12/SysML2019-概览1/pic15.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2019/08/12/SysML2019-概览1/pic16.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2019/08/12/SysML2019-概览1/pic17.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2019/08/12/SysML2019-概览1/pic18.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2019/08/12/SysML2019-概览1/pic20.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2019/08/12/SysML2019-概览1/pic19.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2019/08/12/SysML2019-概览1/pic21.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2019/08/12/SysML2019-概览1/pic22.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2019/08/12/SysML2019-概览1/pic23.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2019/08/12/SysML2019-概览1/pic25.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2019/08/12/SysML2019-概览1/pic28.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2019/08/12/SysML2019-概览1/pic23.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2019/08/12/SysML2019-概览1/pic26.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2019/08/12/SysML2019-概览1/pic27.png">
+<meta property="og:updated_time" content="2019-08-12T13:35:43.023Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="SysML2019 概览1">
+<meta name="twitter:description" content="总结一下 SysML 2019 的一些论文。 TICTAC问题背景是解决分布式训练的 scale 问题。如图，网络带宽和传输的顺序是关键因素，网络带宽很好理解，如果 Best 要提高只能加带宽，同时传输顺序如图会影响计算时间。   Communication to Computation Ratio 传输计算比，如果比值大说明效率高  增大 BatchSize，但是会过拟合(贾扬清的 Train">
+<meta name="twitter:image" content="https://ggaaooppeenngg.github.io/zh-CN/2019/08/12/SysML2019-概览1/tictac.png">
+
+
+
+
+
+  
+  
+  <link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2019/08/12/SysML2019-概览1/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  
+  <title>SysML2019 概览1 | ggaaooppeenngg</title>
+  
+
+
+
+
+  <script async src="https://www.googletagmanager.com/gtag/js?id=UA-62096626-1"></script>
+  <script>
+    var host = window.location.hostname;
+    if (host !== "localhost" || !true) {
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'UA-62096626-1');
+    }
+  </script>
+
+
+
+  <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?bb16c5b1fd3302c18e0015bef11eea42";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+  </script>
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-right page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">ggaaooppeenngg</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+      
+        <h1 class="site-subtitle" itemprop="description">为什么计算机科学是无限的但生命是有限的</h1>
+      
+    
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>首页</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/about/" rel="section"><i class="menu-item-icon fa fa-fw fa-user"></i> <br>关于</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/tags/" rel="section"><i class="menu-item-icon fa fa-fw fa-tags"></i> <br>标签<span class="badge">80</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-categories">
+
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/categories/" rel="section"><i class="menu-item-icon fa fa-fw fa-th"></i> <br>分类<span class="badge">14</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档<span class="badge">51</span></a>
+
+  </li>
+
+      
+      
+    </ul>
+  
+
+  
+    
+
+  
+
+  
+</nav>
+
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2019/08/12/SysML2019-概览1/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h2 class="post-title" itemprop="name headline">SysML2019 概览1
+
+              
+            
+          </h2>
+        
+
+        <div class="post-meta">
+
+          
+          
+          
+
+          
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2019-08-12 21:28:09 / 修改时间：21:35:43" itemprop="dateCreated datePublished" datetime="2019-08-12T21:28:09+08:00">2019-08-12</time>
+            </span>
+          
+
+          
+            
+
+            
+          
+
+          
+
+          
+            
+            
+              
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-comment-o"></i>
+                </span>
+            
+                <span class="post-meta-item-text">评论数：</span>
+                <a href="/zh-CN/2019/08/12/SysML2019-概览1/#comments" itemprop="discussionUrl">
+                  <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2019/08/12/SysML2019-概览1/" itemprop="commentCount"></span>
+                </a>
+              </span>
+            
+          
+
+          
+          
+
+          
+
+          
+
+          <br>
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>总结一下 SysML 2019 的一些论文。</p>
+<h2 id="TICTAC"><a href="#TICTAC" class="headerlink" title="TICTAC"></a>TICTAC</h2><p>问题背景是解决分布式训练的 scale 问题。<br>如图，网络带宽和传输的顺序是关键因素，网络带宽很好理解，如果 Best 要提高只能加带宽，同时传输顺序如图会影响计算时间。</p>
+<img src="/zh-CN/2019/08/12/SysML2019-概览1/tictac.png">
+
+<p>Communication to Computation Ratio 传输计算比，如果比值大说明效率高</p>
+<ol>
+<li><p>增大 BatchSize，但是会过拟合(贾扬清的 Train ImageNet in 1 Hour)，减小参数精度(FP16，腾讯绝艺 1024 张V100）。</p>
+</li>
+<li><p>Overlay Coeffiecient 提供传输和计算的重合率，是 TicTac 的优化方向。</p>
+</li>
+</ol>
+<img src="/zh-CN/2019/08/12/SysML2019-概览1/overlap.png">
+
+<p>计算最优传输依赖，这是个 NP 问题，需要找近似解。recv op 是图的 root，可行的拓扑排序有很多种，解决方案就是找到近似优化排序。（原问题是 NP 问题）</p>
+<p>几种符号</p>
+<p>op.P 直接 Op 执行计算时间<br>op.M Op传输时间<br>op.M+ 触发计算 op 的最小传输时间</p>
+<img src="/zh-CN/2019/08/12/SysML2019-概览1/pic1.png">
+
+<h3 id="Tic"><a href="#Tic" class="headerlink" title="Tic"></a>Tic</h3><p>设 Communication Time 对于每个 recv op 来说都相等，从直觉上解释就是计算执行 recv op 的优先度。<br>如图计算对应的值</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">case 1</span><br><span class="line">A.M = B.M = 1</span><br><span class="line">case 2</span><br><span class="line">A.M = B.M = 1</span><br><span class="line">C.M = 1+1</span><br><span class="line">D.M = 1+1+1</span><br></pre></td></tr></table></figure>
+
+<p>越小优先级越高，这个可以在 DAG 中静态算出</p>
+<img src="/zh-CN/2019/08/12/SysML2019-概览1/pic2.png">
+
+<h3 id="Tac"><a href="#Tac" class="headerlink" title="Tac"></a>Tac</h3><img src="/zh-CN/2019/08/12/SysML2019-概览1/pic4.png">
+
+<p>Communication Time 对于每个 recv op 来说有对应的时间，对应的算法。</p>
+<img src="/zh-CN/2019/08/12/SysML2019-概览1/pic3.png">
+
+<img src="/zh-CN/2019/08/12/SysML2019-概览1/pic5.png">
+
+<h3 id="系统设计"><a href="#系统设计" class="headerlink" title="系统设计"></a>系统设计</h3><p>Time Oracle: Tensorflow metrics 计算 op time</p>
+<p>Ordering Wizard: 计算静态依赖优先级</p>
+<p>Enforcing: 修改 Tensorflow gRPC 子模块</p>
+<img src="/zh-CN/2019/08/12/SysML2019-概览1/pic6.png">
+
+<h2 id="P3"><a href="#P3" class="headerlink" title="P3"></a>P3</h2><p>PRIORITY-BASED PARAMETER PROPAGATION FOR DISTRIBUTED DNN TRAINING</p>
+<p>和上一篇论文类似，也是基于传输优化的思路，因为网络带宽基本上就是一个硬件问题。一些优化手段是用了有损压缩或者降低收敛时准确率的方式。还是通过提高 overlap 来实现。<br>直观的现象是如图 L4 的一次正向传播和反向传播之间的间隔很大。</p>
+<img src="/zh-CN/2019/08/12/SysML2019-概览1/pic7.png">
+
+<h3 id="解决方法：带优先级的参数切分"><a href="#解决方法：带优先级的参数切分" class="headerlink" title="解决方法：带优先级的参数切分"></a>解决方法：带优先级的参数切分</h3><p>在 MXNet 里面，worker 算完当层的梯度<br>就会提一个 pull request 当其他 work 同步了这个梯度。<br>问题在于发送的顺序和反向传播的顺序一致，并且颗粒度<br>是以 layer 为单位的。</p>
+<p>根据领域知识将大 layer 分片成小 slice。<br>对每个 slice 进行权重排序，优先传输权重高的 slice。<br>被称为 Priority-Based Parameter Propagation</p>
+<img src="/zh-CN/2019/08/12/SysML2019-概览1/pic8.png">
+
+<p>如图如果参数传输有优先级能够被中断就能减少 delay</p>
+<img src="/zh-CN/2019/08/12/SysML2019-概览1/pic9.png">
+
+<img src="/zh-CN/2019/08/12/SysML2019-概览1/pic10.png">
+
+<p>大部分模型每层的参数是不平衡的，特别是全连接的参数非常大。</p>
+<img src="/zh-CN/2019/08/12/SysML2019-概览1/pic11.png">
+
+<p>对每一层切分以后利用 TCP 的全双工可以达到流水线的效果。</p>
+<img src="/zh-CN/2019/08/12/SysML2019-概览1/pic12.png">
+
+<img src="/zh-CN/2019/08/12/SysML2019-概览1/pic13.png">
+
+<h3 id="P3-的设计"><a href="#P3-的设计" class="headerlink" title="P3 的设计"></a>P3 的设计</h3><p>参数切片：根据领域知识和实验选择大小(50000)<br>参数优先级：下一层先需要的先发送，可以抢占低优先级的</p>
+<img src="/zh-CN/2019/08/12/SysML2019-概览1/pic14.png">
+
+<p>我个人觉得简单，这个比上一个更好理解也简单。</p>
+<h2 id="BlueConnect"><a href="#BlueConnect" class="headerlink" title="BlueConnect"></a>BlueConnect</h2><p>主要是一个对分层（原本的一层或者两层）的 All-Reduce 的泛化算法。<br>首先使用递归的方法可以减少 all-gather 的传输次数。</p>
+<img src="/zh-CN/2019/08/12/SysML2019-概览1/pic15.png">
+
+<img src="/zh-CN/2019/08/12/SysML2019-概览1/pic16.png">
+
+<p>这个只要三次 logp</p>
+<img src="/zh-CN/2019/08/12/SysML2019-概览1/pic17.png">
+<p>ring reduce 要7次 (p-1)</p>
+<h3 id="问题背景"><a href="#问题背景" class="headerlink" title="问题背景"></a>问题背景</h3><p>多卡之间的带宽很高 32GB/s，不同网络拓扑下，最慢的会成为瓶颈。<br>分两层可以解决网络和总线的带宽差异。</p>
+<p>对于二层的一个泛化，</p>
+<img src="/zh-CN/2019/08/12/SysML2019-概览1/pic18.png">
+<img src="/zh-CN/2019/08/12/SysML2019-概览1/pic20.png">
+<img src="/zh-CN/2019/08/12/SysML2019-概览1/pic19.png">
+<p>三层的 reduce-scatter 的例子，reduce-gather 是反的。</p>
+<img src="/zh-CN/2019/08/12/SysML2019-概览1/pic21.png">
+<img src="/zh-CN/2019/08/12/SysML2019-概览1/pic22.png">
+
+<h2 id="BEYOND-DATA-AND-MODEL-PARALLELISM-FOR-DEEP-NEURAL-NETWORKS"><a href="#BEYOND-DATA-AND-MODEL-PARALLELISM-FOR-DEEP-NEURAL-NETWORKS" class="headerlink" title="BEYOND DATA AND MODEL PARALLELISM FOR DEEP NEURAL NETWORKS"></a>BEYOND DATA AND MODEL PARALLELISM FOR DEEP NEURAL NETWORKS</h2><p>这个主要是提到了并行程度除了数据和模型之外可以更细粒度到参数和属性，也就是模型的小划分和样本的小划分。<br>SOAP= Sample Attribute Operator Parameter</p>
+<img src="/zh-CN/2019/08/12/SysML2019-概览1/pic23.png">
+
+<p>全连接层有大量的参数，造成传输瓶颈。<br>领域特定的优化：RNN 和 CNN 用 data 并行，最后全连接用 model 并行。</p>
+<h3 id="搜索策略"><a href="#搜索策略" class="headerlink" title="搜索策略"></a>搜索策略</h3><img src="/zh-CN/2019/08/12/SysML2019-概览1/pic25.png">
+
+<p>找到最优并行策略是 NP 问题。<br>Execution Optimizer 通过找到最小 cost 的<br>并行策略寻找较优解。<br>Cost = tensor size/ bandwidth</p>
+<img src="/zh-CN/2019/08/12/SysML2019-概览1/pic28.png">
+
+<p>随机从搜索空间选取策略，依据 MCMC<br>最够贪心，又不会太局部贪心。</p>
+<img src="/zh-CN/2019/08/12/SysML2019-概览1/pic23.png">
+
+<p>总的来有点和 AutoML 类似，在一个搜索空间选择一个策略使得 cost 最低，一个是原本的 cost 函数，这个是<br>计算本身执行的时间。目前主流框架也不支持 SOAP 级别的并行划分，没手调的好，但很接近。</p>
+<img src="/zh-CN/2019/08/12/SysML2019-概览1/pic26.png">
+
+<p>可以看到搜索出来的结果全连接基本上是单卡算的</p>
+<img src="/zh-CN/2019/08/12/SysML2019-概览1/pic27.png">
+
+      
+    </div>
+
+    
+
+    
+      
+    
+
+    
+    
+    
+
+    
+
+    
+      
+    
+    
+      <div>
+        <div id="reward-container">
+  <div></div>
+  <button id="reward-button" disable="enable" onclick="var qr = document.getElementById(&quot;qr&quot;); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+
+    
+      
+      
+        
+      
+      <div style="display: inline-block">
+        <img src="/images/wechat.jpeg" alt="ggaaooppeenngg 微信支付">
+        <p>微信支付</p>
+      </div>
+    
+      
+      
+        
+      
+      <div style="display: inline-block">
+        <img src="/images/alipay.jpeg" alt="ggaaooppeenngg 支付宝">
+        <p>支付宝</p>
+      </div>
+    
+
+  </div>
+</div>
+
+      </div>
+    
+
+    
+
+    <footer class="post-footer">
+      
+        
+          
+        
+        <div class="post-tags">
+          
+            <a href="/tags/ml/" rel="tag"># ml</a>
+          
+            <a href="/tags/机器学习/" rel="tag"># 机器学习</a>
+          
+            <a href="/tags/分布式系统/" rel="tag"># 分布式系统</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/zh-CN/2019/07/21/N-Body-问题之-CUDA-计算/" rel="next" title="N Body 问题之 CUDA 计算">
+                <i class="fa fa-chevron-left"></i> N Body 问题之 CUDA 计算
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div class="comments" id="comments">
+      <div id="disqus_thread">
+        <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+      </div>
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description motion-element" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+
+
+  <nav class="site-state motion-element">
+    
+      <div class="site-state-item site-state-posts">
+        
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">51</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+    
+
+    
+      
+      
+      <div class="site-state-item site-state-categories">
+        
+          
+            <a href="/categories/">
+          
+        
+        
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+        <span class="site-state-item-count">14</span>
+        <span class="site-state-item-name">分类</span>
+        </a>
+      </div>
+    
+
+    
+      
+      
+      <div class="site-state-item site-state-tags">
+        
+          
+            <a href="/tags/">
+          
+        
+        
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+        <span class="site-state-item-count">80</span>
+        <span class="site-state-item-name">标签</span>
+        </a>
+      </div>
+    
+  </nav>
+
+
+
+
+
+
+
+  <div class="links-of-author motion-element">
+    
+      <span class="links-of-author-item">
+      
+      
+        
+      
+      
+        
+      
+        <a href="https://github.com/ggaaooppeenngg" title="GitHub &rarr; https://github.com/ggaaooppeenngg" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i>GitHub</a>
+      </span>
+    
+      <span class="links-of-author-item">
+      
+      
+        
+      
+      
+        
+      
+        <a href="mailto:peng.gao.dut@gmail.com" title="E-Mail &rarr; mailto:peng.gao.dut@gmail.com" rel="noopener" target="_blank"><i class="fa fa-fw fa-envelope"></i>E-Mail</a>
+      </span>
+    
+  </div>
+
+
+
+
+
+
+
+          
+          
+        </div>
+      </div>
+
+      
+      <!--noindex-->
+        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+            
+            
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#TICTAC"><span class="nav-number">1.</span> <span class="nav-text">TICTAC</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Tic"><span class="nav-number">1.1.</span> <span class="nav-text">Tic</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Tac"><span class="nav-number">1.2.</span> <span class="nav-text">Tac</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#系统设计"><span class="nav-number">1.3.</span> <span class="nav-text">系统设计</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#P3"><span class="nav-number">2.</span> <span class="nav-text">P3</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#解决方法：带优先级的参数切分"><span class="nav-number">2.1.</span> <span class="nav-text">解决方法：带优先级的参数切分</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#P3-的设计"><span class="nav-number">2.2.</span> <span class="nav-text">P3 的设计</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#BlueConnect"><span class="nav-number">3.</span> <span class="nav-text">BlueConnect</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#问题背景"><span class="nav-number">3.1.</span> <span class="nav-text">问题背景</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#BEYOND-DATA-AND-MODEL-PARALLELISM-FOR-DEEP-NEURAL-NETWORKS"><span class="nav-number">4.</span> <span class="nav-text">BEYOND DATA AND MODEL PARALLELISM FOR DEEP NEURAL NETWORKS</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#搜索策略"><span class="nav-number">4.1.</span> <span class="nav-text">搜索策略</span></a></li></ol></li></ol></div>
+            
+
+          </div>
+        </div>
+      <!--/noindex-->
+      
+
+      
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          
+            <span id="scrollpercent"><span>0</span>%</span>
+          
+        </div>
+      
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; 2014 – <span itemprop="copyrightYear">2019</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+
+  
+
+  
+</div>
+
+
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Mist</a> v7.2.0</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+
+    
+
+    
+
+    
+
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/jquery/index.js?v=3.4.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+
+
+
+  <script src="/js/utils.js?v=7.2.0"></script>
+
+  <script src="/js/motion.js?v=7.2.0"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/schemes/muse.js?v=7.2.0"></script>
+
+
+
+
+  
+  <script src="/js/scrollspy.js?v=7.2.0"></script>
+<script src="/js/post-details.js?v=7.2.0"></script>
+
+
+
+  <script src="/js/next-boot.js?v=7.2.0"></script>
+
+  
+  <script src="/js/js.cookie.js?v=7.2.0"></script>
+  <script src="/js/scroll-cookie.js?v=7.2.0"></script>
+
+
+  
+
+  
+
+
+  
+  
+
+  
+  
+
+  
+    
+      <script type="text/x-mathjax-config">
+  
+
+  MathJax.Hub.Config({
+    tex2jax: {
+      inlineMath: [ ['$', '$'], ['\\(', '\\)'] ],
+      processEscapes: true,
+      skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    },
+    TeX: {
+      
+      equationNumbers: {
+        autoNumber: 'AMS'
+      }
+    }
+  });
+  MathJax.Hub.Register.StartupHook('TeX Jax Ready', function() {
+    MathJax.InputJax.TeX.prefilterHooks.Add(function(data) {
+      if (data.display) {
+        var next = data.script.nextSibling;
+        while (next && next.nodeName.toLowerCase() === '#text') { next = next.nextSibling }
+        if (next && next.nodeName.toLowerCase() === 'br') { next.parentNode.removeChild(next) }
+      }
+    });
+  });
+</script>
+
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+    for (i = 0; i < all.length; i += 1) {
+      document.getElementById(all[i].inputID + '-Frame').parentNode.className += ' has-jax';
+    }
+  });
+</script>
+<script src="//cdn.jsdelivr.net/npm/mathjax@2/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+    
+  
+
+
+
+
+
+
+
+
+
+  
+<script>
+  function loadCount() {
+    var d = document, s = d.createElement('script');
+    s.src = 'https://ggaaooppeenngg.disqus.com/count.js';
+    s.id = 'dsq-count-scr';
+    (d.head || d.body).appendChild(s);
+  }
+  // defer loading until the whole page loading is completed
+  window.addEventListener('load', loadCount, false);
+</script>
+
+
+<script>
+  var disqus_config = function() {
+    this.page.url = "https://ggaaooppeenngg.github.io/zh-CN/2019/08/12/SysML2019-概览1/";
+    this.page.identifier = "zh-CN/2019/08/12/SysML2019-概览1/";
+    this.page.title = 'SysML2019 概览1';
+    };
+  function loadComments() {
+    var d = document, s = d.createElement('script');
+    s.src = 'https://ggaaooppeenngg.disqus.com/embed.js';
+    s.setAttribute('data-timestamp', '' + +new Date());
+    (d.head || d.body).appendChild(s);
+  }
+  
+    window.addEventListener('load', loadComments, false);
+  
+</script>
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script>
+// GET RESPONSIVE HEIGHT PASSED FROM IFRAME
+
+window.addEventListener("message", function(e) {
+  var data = e.data;
+  if ((typeof data === 'string') && (data.indexOf('ciu_embed') > -1)) {
+    var featureID = data.split(':')[1];
+    var height = data.split(':')[2];
+    $(`iframe[data-feature=${featureID}]`).height(parseInt(height) + 30);
+  }
+}, false);
+</script>
+
+
+
+  <script>
+    (function(){
+      var bp = document.createElement('script');
+      var curProtocol = window.location.protocol.split(':')[0];
+      bp.src = (curProtocol === 'https') ? 'https://zz.bdstatic.com/linksubmit/push.js' : 'http://push.zhanzhang.baidu.com/push.js';
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(bp, s);
+    })();
+  </script>
+
+
+
+
+
+
+  
+
+</body>
+</html>
