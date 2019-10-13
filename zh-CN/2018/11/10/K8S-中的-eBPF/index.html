@@ -99,7 +99,7 @@
 </script>
 
   <meta name="description" content="BPFBPF (Berkeley Packet Filter) 最早是用在 tcpdump 里面的，比如 tcpdump tcp and dst port 80  这样的过滤规则会单独复制 tcp 协议并且目的端口是 80 的包到用户态。整个实现是基于内核中的一个虚拟机来实现的，通过翻译 BPF 规则到字节码运行到内核中的虚拟机当中。最早的论文是这篇，这篇论文我大概翻了一下，主要讲的是原本的基于栈">
-<meta name="keywords" content="kubernetes,网络,eBPF">
+<meta name="keywords" content="网络,kubernetes,eBPF">
 <meta property="og:type" content="article">
 <meta property="og:title" content="K8S 中的 eBPF">
 <meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2018/11/10/K8S-中的-eBPF/index.html">
@@ -288,7 +288,7 @@
       
     
 
-    <a href="/tags/" rel="section"><i class="menu-item-icon fa fa-fw fa-tags"></i> <br>标签<span class="badge">84</span></a>
+    <a href="/tags/" rel="section"><i class="menu-item-icon fa fa-fw fa-tags"></i> <br>标签<span class="badge">88</span></a>
 
   </li>
         
@@ -324,7 +324,7 @@
       
     
 
-    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档<span class="badge">52</span></a>
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档<span class="badge">53</span></a>
 
   </li>
 
@@ -527,7 +527,7 @@
 <p>现在 k8s 最新的 lb 方案是基于 ipvs 的，我在 <a href="https://ggaaooppeenngg.github.io/zh-CN/2018/09/10/kube-proxy-%E5%88%86%E6%9E%90/">kube-proxy 分析</a> 里面有提到过，已经比原来的 iptables 提高很多了，现在有了 eBPF 加 XDP 的硬件加速可以实现更高的提升，facebook 的 <a href="https://github.com/facebookincubator/katran" target="_blank" rel="noopener">katran</a> L4 负载均衡器的实现也是类似的。</p>
 <p>cilium 在我看来基本上是 k8s 网络的一个大方向吧，只不过包括 eBPF 和 XDP 对硬件和内核版本都要比较新，是一个要持续关注的更新。</p>
 <h4 id="性能调优"><a href="#性能调优" class="headerlink" title="性能调优"></a>性能调优</h4><p>在<a href="https://www.youtube.com/watch?v=bj3qdEDbCD4" target="_blank" rel="noopener">Velocity 2017: Performance Analysis Superpowers with Linux eBPF</a>里，<a href="https://www.youtube.com/channel/UCxzogoHFu8-1H9u522wVQpQ" target="_blank" rel="noopener">Brendan Gregg</a> (Netflix 的性能调优专家) 提到，性能调优也是 eBPF 的一个大头。用于网络监控其实只是 hook 在了协议栈的函数上，如果 hook 在别的地方可以有更多的统计维度。比如 bcc 官方的例子就是统计 IO Size 的大小的分布，更多关于基于 eBPF 的性能调优可以参考他的 <a href="http://www.brendangregg.com/linuxperf.html" target="_blank" rel="noopener">blog</a>，他给出了更详细的关于 eBPF 的解释，里面有一些列 Linux 性能调优的内容。</p>
-<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#</span> ./bitehist.py</span><br><span class="line">Tracing... Hit Ctrl-C to end.</span><br><span class="line">^C</span><br><span class="line">     kbytes          : count     distribution</span><br><span class="line">       0 -&gt; 1        : 3        |                                      |</span><br><span class="line">       2 -&gt; 3        : 0        |                                      |</span><br><span class="line">       4 -&gt; 7        : 211      |**********                            |</span><br><span class="line">       8 -&gt; 15       : 0        |                                      |</span><br><span class="line">      16 -&gt; 31       : 0        |                                      |</span><br><span class="line">      32 -&gt; 63       : 0        |                                      |</span><br><span class="line">      64 -&gt; 127      : 1        |                                      |</span><br><span class="line">     128 -&gt; 255      : 800      |**************************************|</span><br></pre></td></tr></table></figure>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash"> ./bitehist.py</span></span><br><span class="line">Tracing... Hit Ctrl-C to end.</span><br><span class="line">^C</span><br><span class="line">     kbytes          : count     distribution</span><br><span class="line">       0 -&gt; 1        : 3        |                                      |</span><br><span class="line">       2 -&gt; 3        : 0        |                                      |</span><br><span class="line">       4 -&gt; 7        : 211      |**********                            |</span><br><span class="line">       8 -&gt; 15       : 0        |                                      |</span><br><span class="line">      16 -&gt; 31       : 0        |                                      |</span><br><span class="line">      32 -&gt; 63       : 0        |                                      |</span><br><span class="line">      64 -&gt; 127      : 1        |                                      |</span><br><span class="line">     128 -&gt; 255      : 800      |**************************************|</span><br></pre></td></tr></table></figure>
 
 <h4 id="安全"><a href="#安全" class="headerlink" title="安全"></a>安全</h4><p>在安全方面有 seccomp，可以实现限制 Linux 的系统调用，而 <a href="https://blog.yadutaf.fr/2014/05/29/introduction-to-seccomp-bpf-linux-syscall-filter/" target="_blank" rel="noopener">seccompe-bpf</a> 则是通过 bpf 支持更强大的过滤和匹配功能，k8s pod 里面的 SecurityContext 就有 seccomp 实现的部分。</p>
 <h4 id="cgroup"><a href="#cgroup" class="headerlink" title="cgroup"></a>cgroup</h4><p>在 cgroup 上有一个小原型，<a href="https://github.com/kinvolk/cgnet" target="_blank" rel="noopener">cgnet</a> 获取 cgroup 的网络统计信息到 prometheus，也是基于 eBPF 的。</p>
@@ -602,9 +602,9 @@
         
         <div class="post-tags">
           
-            <a href="/tags/kubernetes/" rel="tag"># kubernetes</a>
-          
             <a href="/tags/网络/" rel="tag"># 网络</a>
+          
+            <a href="/tags/kubernetes/" rel="tag"># kubernetes</a>
           
             <a href="/tags/eBPF/" rel="tag"># eBPF</a>
           
@@ -708,7 +708,7 @@
         
           <a href="/archives/">
         
-          <span class="site-state-item-count">52</span>
+          <span class="site-state-item-count">53</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -938,7 +938,15 @@
         
           
         
-        <span class="site-state-item-count">82</span>
+          
+        
+          
+        
+          
+        
+          
+        
+        <span class="site-state-item-count">86</span>
         <span class="site-state-item-name">标签</span>
         </a>
       </div>
