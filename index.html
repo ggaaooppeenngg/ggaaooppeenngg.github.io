@@ -206,7 +206,7 @@
               <span class="post-meta-item-text">发表于</span>
               
 
-              <time title="创建时间：2021-07-19 14:14:54 / 修改时间：14:16:02" itemprop="dateCreated datePublished" datetime="2021-07-19T14:14:54+08:00">2021-07-19</time>
+              <time title="创建时间：2021-07-19 14:14:54 / 修改时间：18:11:10" itemprop="dateCreated datePublished" datetime="2021-07-19T14:14:54+08:00">2021-07-19</time>
             </span>
 
           
@@ -235,7 +235,7 @@
 
       
           <p>目前实现的版本是参照<a target="_blank" rel="noopener" href="https://github.com/golang/go/blob/96824000ed89d13665f6f24ddc10b3bf812e7f47/src/runtime/proc.c">go0.x</a>的一个实现也就是只有一个m，在m上调度g，对应的是我们只用一个goroutine然后在goroutine上调度多个gogoroutine。在实现gogoroutine之前需要介绍一下go的调用惯例，这个<a target="_blank" rel="noopener" href="https://dr-knz.net/go-calling-convention-x86-64-2020.html">文章</a>讲的比较清楚。目前Golang在传递参数和返回值的时候是通过栈传递的。gcc会使用寄存器传递参数，golang有一个使用寄存器传递参数的<a target="_blank" rel="noopener" href="https://go.googlesource.com/proposal/+/refs/changes/78/248178/1/design/40724-register-calling.md">提案</a>。如果要实现一个goroutine上的协程可以利用这么一个调用惯例。</p>
-<h2 id="上下文切换"><a href="#上下文切换" class="headerlink" title="上下文切换"></a>上下文切换</h2><p>Go的上下文切换其实和操作系统的上下文切换比较类似，go的实现也是类似的，但相对来说比较简单，因为Go的调用惯例其他的寄存器在函数调用的时候是没有被使用的，主要是保存栈指针和一个指令寄存器PC就可以。Golang的抢占一开始是协作式的，入口是在函数调用的时候。在引入了异步抢占也就是让信号处理函数去切换到调度逻辑（这个切换的过程也类似后面讲到的gogo和gosave）实现抢占以后就可以实现非协作的抢占了。</p>
+<h2 id="上下文切换"><a href="#上下文切换" class="headerlink" title="上下文切换"></a>上下文切换</h2><p>Go的上下文切换其实和操作系统的上下文切换比较类似，go的实现也是类似的，但相对来说比较简单，因为Go的调用惯例其他的寄存器在函数调用的时候是没有被使用的，主要是保存栈指针和一个指令寄存器PC就可以。Golang的抢占一开始是协作式的，入口是在函数调用的时候。在引入了异步抢占也就是让信号处理函数去切换到调度逻辑（这个切换的过程也类似后面讲到的gogo和gosave，但是他的入口是任何一个指令的地方都会发送所以要保存所有的寄存器）实现抢占以后就可以实现非协作的抢占了。</p>
 <p>现在实现的是相对简单的协作式抢占。</p>
 <p>0.x的代码是C写的，其中两个汇编函数实现的上下文的保存和切换。这里简单先补充一下Go中汇编的一些知识点。</p>
 <p>函数定义:</p>
