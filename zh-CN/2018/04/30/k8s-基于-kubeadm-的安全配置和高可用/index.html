@@ -1,157 +1,74 @@
 <!DOCTYPE html>
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-<html class="theme-next mist use-motion" lang="zh-CN">
-<head><meta name="generator" content="Hexo 3.9.0">
+<html lang="zh-CN">
+<head>
   <meta charset="UTF-8">
-<meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
 <meta name="theme-color" content="#222">
-
-
-
-
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
   <meta name="google-site-verification" content="_85tctgPWrqH2EPVuuD5IT6KE-tW8nH0hTISJDMnShg">
-
-
-
-
-
-
-
   <meta name="baidu-site-verification" content="bb16c5b1fd3302c18e0015bef11eea42">
 
+<link rel="stylesheet" href="/css/main.css">
 
 
-  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=7.2.0">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
 
-
-  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=7.2.0">
-
-
-  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=7.2.0">
-
-
-  <link rel="mask-icon" href="/images/logo.svg?v=7.2.0" color="#222">
-
-
-
-
-
-
-<link rel="stylesheet" href="/css/main.css?v=7.2.0">
-
-
-
-
-
-
-<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.7.0">
-
-
-
-
-
-
-
-
-<script id="hexo.configurations">
-  var NexT = window.NexT || {};
-  var CONFIG = {
-    root: '/',
-    scheme: 'Mist',
-    version: '7.2.0',
-    sidebar: {"position":"right","display":"post","offset":12,"onmobile":false},
-    back2top: {"enable":true,"sidebar":true,"scrollpercent":true},
-    copycode: {"enable":false,"show_result":false,"style":null},
-    fancybox: false,
-    mediumzoom: false,
-    lazyload: false,
-    pangu: false,
-    tabs: true,
-    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
-    algolia: {
-      applicationID: '',
-      apiKey: '',
-      indexName: '',
-      hits: {"per_page":10},
-      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
-    },
-    translation: {
-      copy_button: '复制',
-      copy_success: '复制成功',
-      copy_failure: '复制失败'
-    }
-  };
-</script>
-
-  <meta name="description" content="最新的 kubeadm 的设计文档在这里，如果把里面设计大概看一遍就能够理解里面的流程了，可以说设计的还是很缜密的，并且大大简化了 k8s 的运维工作。 kubeadm 安全设施主要解释 kubeadm init 和 kubeadm join 的过程和实现 kubeadm init 首先进行 preflight-checks ，检查系统是否满足初始化的状态。 创建自签名的 CA，并且生成和签发各个">
-<meta name="keywords" content="kubernetes,k8s,https,安全">
-<meta property="og:type" content="article">
-<meta property="og:title" content="k8s 基于 kubeadm 的安全配置和高可用">
-<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2018/04/30/k8s-基于-kubeadm-的安全配置和高可用/index.html">
-<meta property="og:site_name" content="ggaaooppeenngg">
-<meta property="og:description" content="最新的 kubeadm 的设计文档在这里，如果把里面设计大概看一遍就能够理解里面的流程了，可以说设计的还是很缜密的，并且大大简化了 k8s 的运维工作。 kubeadm 安全设施主要解释 kubeadm init 和 kubeadm join 的过程和实现 kubeadm init 首先进行 preflight-checks ，检查系统是否满足初始化的状态。 创建自签名的 CA，并且生成和签发各个">
-<meta property="og:locale" content="zh-CN">
-<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2018/04/30/k8s-基于-kubeadm-的安全配置和高可用/ca-pic.png">
-<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2018/04/30/k8s-基于-kubeadm-的安全配置和高可用/api-crt.png">
-<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2018/04/30/k8s-基于-kubeadm-的安全配置和高可用/bootstrap-conf.png">
-<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2018/04/30/k8s-基于-kubeadm-的安全配置和高可用/kubelet-crt.png">
-<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2018/04/30/k8s-基于-kubeadm-的安全配置和高可用/kubelet-https-crt.png">
-<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2018/04/30/k8s-基于-kubeadm-的安全配置和高可用/etcd-csr.png">
-<meta property="og:updated_time" content="2019-07-23T15:24:30.441Z">
-<meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="k8s 基于 kubeadm 的安全配置和高可用">
-<meta name="twitter:description" content="最新的 kubeadm 的设计文档在这里，如果把里面设计大概看一遍就能够理解里面的流程了，可以说设计的还是很缜密的，并且大大简化了 k8s 的运维工作。 kubeadm 安全设施主要解释 kubeadm init 和 kubeadm join 的过程和实现 kubeadm init 首先进行 preflight-checks ，检查系统是否满足初始化的状态。 创建自签名的 CA，并且生成和签发各个">
-<meta name="twitter:image" content="https://ggaaooppeenngg.github.io/zh-CN/2018/04/30/k8s-基于-kubeadm-的安全配置和高可用/ca-pic.png">
-
-
-
-
-
-  
-  
-  <link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2018/04/30/k8s-基于-kubeadm-的安全配置和高可用/">
-
-
-
-<script id="page.configurations">
-  CONFIG.page = {
-    sidebar: "",
-  };
-</script>
-
-  
-  <title>k8s 基于 kubeadm 的安全配置和高可用 | ggaaooppeenngg</title>
-  
-
-
-
-
-  <script async src="https://www.googletagmanager.com/gtag/js?id=UA-62096626-1"></script>
-  <script>
-    var host = window.location.hostname;
-    if (host !== "localhost" || !true) {
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-      gtag('config', 'UA-62096626-1');
-    }
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"ggaaooppeenngg.github.io","root":"/","scheme":"Mist","version":"7.8.0","exturl":false,"sidebar":{"position":"right","display":"post","offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":true,"scrollpercent":true},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
   </script>
 
+  <meta name="description" content="最新的 kubeadm 的设计文档在这里，如果把里面设计大概看一遍就能够理解里面的流程了，可以说设计的还是很缜密的，并且大大简化了 k8s 的运维工作。 kubeadm 安全设施主要解释 kubeadm init 和 kubeadm join 的过程和实现 kubeadm init 首先进行 preflight-checks ，检查系统是否满足初始化的状态。 创建自签名的 CA，并且生成和签发各个">
+<meta property="og:type" content="article">
+<meta property="og:title" content="k8s 基于 kubeadm 的安全配置和高可用">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2018/04/30/k8s-%E5%9F%BA%E4%BA%8E-kubeadm-%E7%9A%84%E5%AE%89%E5%85%A8%E9%85%8D%E7%BD%AE%E5%92%8C%E9%AB%98%E5%8F%AF%E7%94%A8/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="最新的 kubeadm 的设计文档在这里，如果把里面设计大概看一遍就能够理解里面的流程了，可以说设计的还是很缜密的，并且大大简化了 k8s 的运维工作。 kubeadm 安全设施主要解释 kubeadm init 和 kubeadm join 的过程和实现 kubeadm init 首先进行 preflight-checks ，检查系统是否满足初始化的状态。 创建自签名的 CA，并且生成和签发各个">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2018/04/30/k8s-%E5%9F%BA%E4%BA%8E-kubeadm-%E7%9A%84%E5%AE%89%E5%85%A8%E9%85%8D%E7%BD%AE%E5%92%8C%E9%AB%98%E5%8F%AF%E7%94%A8/ca-pic.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2018/04/30/k8s-%E5%9F%BA%E4%BA%8E-kubeadm-%E7%9A%84%E5%AE%89%E5%85%A8%E9%85%8D%E7%BD%AE%E5%92%8C%E9%AB%98%E5%8F%AF%E7%94%A8/api-crt.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2018/04/30/k8s-%E5%9F%BA%E4%BA%8E-kubeadm-%E7%9A%84%E5%AE%89%E5%85%A8%E9%85%8D%E7%BD%AE%E5%92%8C%E9%AB%98%E5%8F%AF%E7%94%A8/bootstrap-conf.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2018/04/30/k8s-%E5%9F%BA%E4%BA%8E-kubeadm-%E7%9A%84%E5%AE%89%E5%85%A8%E9%85%8D%E7%BD%AE%E5%92%8C%E9%AB%98%E5%8F%AF%E7%94%A8/kubelet-crt.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2018/04/30/k8s-%E5%9F%BA%E4%BA%8E-kubeadm-%E7%9A%84%E5%AE%89%E5%85%A8%E9%85%8D%E7%BD%AE%E5%92%8C%E9%AB%98%E5%8F%AF%E7%94%A8/kubelet-https-crt.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2018/04/30/k8s-%E5%9F%BA%E4%BA%8E-kubeadm-%E7%9A%84%E5%AE%89%E5%85%A8%E9%85%8D%E7%BD%AE%E5%92%8C%E9%AB%98%E5%8F%AF%E7%94%A8/etcd-csr.png">
+<meta property="article:published_time" content="2018-04-30T08:03:08.000Z">
+<meta property="article:modified_time" content="2019-07-23T15:24:30.441Z">
+<meta property="article:author" content="ggaaooppeenngg">
+<meta property="article:tag" content="kubernetes">
+<meta property="article:tag" content="k8s">
+<meta property="article:tag" content="https">
+<meta property="article:tag" content="安全">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://ggaaooppeenngg.github.io/zh-CN/2018/04/30/k8s-%E5%9F%BA%E4%BA%8E-kubeadm-%E7%9A%84%E5%AE%89%E5%85%A8%E9%85%8D%E7%BD%AE%E5%92%8C%E9%AB%98%E5%8F%AF%E7%94%A8/ca-pic.png">
+
+<link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2018/04/30/k8s-%E5%9F%BA%E4%BA%8E-kubeadm-%E7%9A%84%E5%AE%89%E5%85%A8%E9%85%8D%E7%BD%AE%E5%92%8C%E9%AB%98%E5%8F%AF%E7%94%A8/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>k8s 基于 kubeadm 的安全配置和高可用 | ggaaooppeenngg</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-62096626-1"></script>
+    <script>
+      if (CONFIG.hostname === location.hostname) {
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'UA-62096626-1');
+      }
+    </script>
 
 
   <script>
@@ -167,12 +84,8 @@
 
 
 
-
-
-
   <noscript>
   <style>
-  .use-motion .motion-element,
   .use-motion .brand,
   .use-motion .menu-item,
   .sidebar-inner,
@@ -181,9 +94,8 @@
   .use-motion .comments,
   .use-motion .post-header,
   .use-motion .post-body,
-  .use-motion .collection-title { opacity: initial; }
+  .use-motion .collection-header { opacity: initial; }
 
-  .use-motion .logo,
   .use-motion .site-title,
   .use-motion .site-subtitle {
     opacity: initial;
@@ -197,154 +109,69 @@
 
 </head>
 
-<body itemscope itemtype="http://schema.org/WebPage" lang="zh-CN">
-
-  
-  
-    
-  
-
-  <div class="container sidebar-position-right page-post-detail">
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
     <div class="headband"></div>
 
-    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
-      <div class="header-inner"><div class="site-brand-wrapper">
-  <div class="site-meta">
-    
-
-    <div class="custom-logo-site-title">
-      <a href="/" class="brand" rel="start">
-        <span class="logo-line-before"><i></i></span>
-        <span class="site-title">ggaaooppeenngg</span>
-        <span class="logo-line-after"><i></i></span>
-      </a>
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
     </div>
-    
-      
-        <h1 class="site-subtitle" itemprop="description">为什么计算机科学是无限的但生命是有限的</h1>
-      
-    
-    
   </div>
 
-  <div class="site-nav-toggle">
-    <button aria-label="切换导航栏">
-      <span class="btn-bar"></span>
-      <span class="btn-bar"></span>
-      <span class="btn-bar"></span>
-    </button>
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">ggaaooppeenngg</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">为什么计算机科学是无限的但生命是有限的</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
   </div>
 </div>
 
 
 
+
 <nav class="site-nav">
-  
-    <ul id="menu" class="menu">
-      
-        
-        
-        
-          
-          <li class="menu-item menu-item-home">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
 
-    
-    
-      
-    
-
-    
-      
-    
-
-    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>首页</a>
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
 
   </li>
-        
-        
-        
-          
-          <li class="menu-item menu-item-about">
+        <li class="menu-item menu-item-about">
 
-    
-    
-      
-    
-
-    
-      
-    
-
-    <a href="/about/" rel="section"><i class="menu-item-icon fa fa-fw fa-user"></i> <br>关于</a>
+    <a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a>
 
   </li>
-        
-        
-        
-          
-          <li class="menu-item menu-item-tags">
+        <li class="menu-item menu-item-tags">
 
-    
-    
-      
-    
-
-    
-      
-    
-
-    <a href="/tags/" rel="section"><i class="menu-item-icon fa fa-fw fa-tags"></i> <br>标签<span class="badge">92</span></a>
+    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">91</span></a>
 
   </li>
-        
-        
-        
-          
-          <li class="menu-item menu-item-categories">
+        <li class="menu-item menu-item-categories">
 
-    
-    
-      
-    
-
-    
-      
-    
-
-    <a href="/categories/" rel="section"><i class="menu-item-icon fa fa-fw fa-th"></i> <br>分类<span class="badge">14</span></a>
+    <a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">14</span></a>
 
   </li>
-        
-        
-        
-          
-          <li class="menu-item menu-item-archives">
+        <li class="menu-item menu-item-archives">
 
-    
-    
-      
-    
-
-    
-      
-    
-
-    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档<span class="badge">54</span></a>
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">55</span></a>
 
   </li>
-
-      
-      
-    </ul>
-  
-
-  
-    
-
-  
-
-  
+  </ul>
 </nav>
+
 
 
 
@@ -354,128 +181,69 @@
     
 
 
-    <main id="main" class="main">
+    <main class="main">
       <div class="main-inner">
         <div class="content-wrap">
           
-          <div id="content" class="content">
+
+          <div class="content post posts-expand">
             
 
-  <div id="posts" class="posts-expand">
     
-
-  
-
   
   
-  
-
-  
-
-  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
-  
-  
-  
-  <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2018/04/30/k8s-基于-kubeadm-的安全配置和高可用/">
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2018/04/30/k8s-%E5%9F%BA%E4%BA%8E-kubeadm-%E7%9A%84%E5%AE%89%E5%85%A8%E9%85%8D%E7%BD%AE%E5%92%8C%E9%AB%98%E5%8F%AF%E7%94%A8/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
       <meta itemprop="name" content="ggaaooppeenngg">
       <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
-      <meta itemprop="image" content="/images/avatar.gif">
     </span>
 
     <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
       <meta itemprop="name" content="ggaaooppeenngg">
     </span>
-
-    
       <header class="post-header">
-
-        
-        
-          <h2 class="post-title" itemprop="name headline">k8s 基于 kubeadm 的安全配置和高可用
-
-              
-            
-          </h2>
-        
+        <h1 class="post-title" itemprop="name headline">
+          k8s 基于 kubeadm 的安全配置和高可用
+        </h1>
 
         <div class="post-meta">
-
-          
-          
-          
-
-          
             <span class="post-meta-item">
               <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
+                <i class="far fa-calendar"></i>
               </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-
-              
-                
-              
+              <span class="post-meta-item-text">发表于</span>
 
               <time title="创建时间：2018-04-30 16:03:08" itemprop="dateCreated datePublished" datetime="2018-04-30T16:03:08+08:00">2018-04-30</time>
             </span>
-          
-
-          
-            
-
-            
               <span class="post-meta-item">
                 <span class="post-meta-item-icon">
-                  <i class="fa fa-calendar-check-o"></i>
+                  <i class="far fa-calendar-check"></i>
                 </span>
-                
-                  <span class="post-meta-item-text">更新于</span>
-                
+                <span class="post-meta-item-text">更新于</span>
                 <time title="修改时间：2019-07-23 23:24:30" itemprop="dateModified" datetime="2019-07-23T23:24:30+08:00">2019-07-23</time>
               </span>
-            
-          
 
           
-
-          
-            
-            
-              
-              <span class="post-meta-item">
-                <span class="post-meta-item-icon">
-                  <i class="fa fa-comment-o"></i>
-                </span>
-            
-                <span class="post-meta-item-text">评论数：</span>
-                <a href="/zh-CN/2018/04/30/k8s-基于-kubeadm-的安全配置和高可用/#comments" itemprop="discussionUrl">
-                  <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2018/04/30/k8s-基于-kubeadm-的安全配置和高可用/" itemprop="commentCount"></span>
-                </a>
-              </span>
-            
-          
-
-          
-          
-
-          
-
-          
-
-          <br>
-          
-
-          
-
-          
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2018/04/30/k8s-%E5%9F%BA%E4%BA%8E-kubeadm-%E7%9A%84%E5%AE%89%E5%85%A8%E9%85%8D%E7%BD%AE%E5%92%8C%E9%AB%98%E5%8F%AF%E7%94%A8/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2018/04/30/k8s-基于-kubeadm-的安全配置和高可用/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
 
         </div>
       </header>
-    
 
     
     
@@ -483,10 +251,7 @@
     <div class="post-body" itemprop="articleBody">
 
       
-      
-
-      
-        <p>最新的 kubeadm 的设计文档在<a href="https://github.com/kubernetes/website/blob/master/docs/reference/setup-tools/kubeadm/kubeadm.md" target="_blank" rel="noopener">这里</a>，如果把里面设计大概看一遍就能够理解里面的流程了，可以说设计的还是很缜密的，并且大大简化了 k8s 的运维工作。</p>
+        <p>最新的 kubeadm 的设计文档在<a target="_blank" rel="noopener" href="https://github.com/kubernetes/website/blob/master/docs/reference/setup-tools/kubeadm/kubeadm.md">这里</a>，如果把里面设计大概看一遍就能够理解里面的流程了，可以说设计的还是很缜密的，并且大大简化了 k8s 的运维工作。</p>
 <h2 id="kubeadm-安全设施"><a href="#kubeadm-安全设施" class="headerlink" title="kubeadm 安全设施"></a>kubeadm 安全设施</h2><p>主要解释 kubeadm init 和 kubeadm join 的过程和实现</p>
 <h3 id="kubeadm-init"><a href="#kubeadm-init" class="headerlink" title="kubeadm init"></a>kubeadm init</h3><ol>
 <li>首先进行 preflight-checks ，检查系统是否满足初始化的状态。</li>
@@ -501,24 +266,24 @@
 <li>检查 self-hosting，如果设置了，就把 static pod 转成 daemonset</li>
 </ol>
 <p>是否使用外部 CA 的条件是，目录下有 CA 证书，但是没有 CA 私钥。</p>
-<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> res, _ := certsphase.UsingExternalCA(i.cfg); !res &#123;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// PHASE 1: Generate certificates</span></span><br><span class="line">        <span class="keyword">if</span> err := certsphase.CreatePKIAssets(i.cfg); err != <span class="literal">nil</span> &#123;</span><br><span class="line">                <span class="keyword">return</span> err</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// PHASE 2: Generate kubeconfig files for the admin and the kubelet</span></span><br><span class="line">        <span class="keyword">if</span> err := kubeconfigphase.CreateInitKubeConfigFiles(kubeConfigDir, i.cfg); err != <span class="literal">nil</span> &#123;</span><br><span class="line">                <span class="keyword">return</span> err</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        fmt.Println(<span class="string">"[externalca] The file 'ca.key' was not found, yet all other certificates are present. Using external CA mode - certificates or kubeconfig will not be generated."</span>)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> res, _ := certsphase.UsingExternalCA(i.cfg); !res &#123;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// PHASE 1: Generate certificates</span></span><br><span class="line">        <span class="keyword">if</span> err := certsphase.CreatePKIAssets(i.cfg); err != <span class="literal">nil</span> &#123;</span><br><span class="line">                <span class="keyword">return</span> err</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// PHASE 2: Generate kubeconfig files for the admin and the kubelet</span></span><br><span class="line">        <span class="keyword">if</span> err := kubeconfigphase.CreateInitKubeConfigFiles(kubeConfigDir, i.cfg); err != <span class="literal">nil</span> &#123;</span><br><span class="line">                <span class="keyword">return</span> err</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        fmt.Println(<span class="string">&quot;[externalca] The file &#x27;ca.key&#x27; was not found, yet all other certificates are present. Using external CA mode - certificates or kubeconfig will not be generated.&quot;</span>)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <p>具体的生成 PKI 相关的配置的过程</p>
-<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// CreatePKIAssets will create and write to disk all PKI assets necessary to establish the control plane.</span></span><br><span class="line"><span class="comment">// If the PKI assets already exists in the target folder, they are used only if evaluated equal; otherwise an error is returned.</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">CreatePKIAssets</span><span class="params">(cfg *kubeadmapi.MasterConfiguration)</span> <span class="title">error</span></span> &#123;</span><br><span class="line"></span><br><span class="line">        certActions := []<span class="function"><span class="keyword">func</span><span class="params">(cfg *kubeadmapi.MasterConfiguration)</span> <span class="title">error</span></span>&#123;</span><br><span class="line">                CreateCACertAndKeyFiles,</span><br><span class="line">                CreateAPIServerCertAndKeyFiles,</span><br><span class="line">                CreateAPIServerKubeletClientCertAndKeyFiles,</span><br><span class="line">                CreateEtcdCACertAndKeyFiles,</span><br><span class="line">                CreateEtcdServerCertAndKeyFiles,</span><br><span class="line">                CreateEtcdPeerCertAndKeyFiles,</span><br><span class="line">                CreateEtcdHealthcheckClientCertAndKeyFiles,</span><br><span class="line">                CreateAPIServerEtcdClientCertAndKeyFiles,</span><br><span class="line">                CreateServiceAccountKeyAndPublicKeyFiles,</span><br><span class="line">                CreateFrontProxyCACertAndKeyFiles,</span><br><span class="line">                CreateFrontProxyClientCertAndKeyFiles,</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">for</span> _, action := <span class="keyword">range</span> certActions &#123;</span><br><span class="line">                err := action(cfg)</span><br><span class="line">                <span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">                        <span class="keyword">return</span> err</span><br><span class="line">                &#125;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        fmt.Printf(<span class="string">"[certificates] Valid certificates and keys now exist in %q\n"</span>, cfg.CertificatesDir)</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// CreatePKIAssets will create and write to disk all PKI assets necessary to establish the control plane.</span></span><br><span class="line"><span class="comment">// If the PKI assets already exists in the target folder, they are used only if evaluated equal; otherwise an error is returned.</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">CreatePKIAssets</span><span class="params">(cfg *kubeadmapi.MasterConfiguration)</span> <span class="title">error</span></span> &#123;</span><br><span class="line"></span><br><span class="line">        certActions := []<span class="function"><span class="keyword">func</span><span class="params">(cfg *kubeadmapi.MasterConfiguration)</span> <span class="title">error</span></span>&#123;</span><br><span class="line">                CreateCACertAndKeyFiles,</span><br><span class="line">                CreateAPIServerCertAndKeyFiles,</span><br><span class="line">                CreateAPIServerKubeletClientCertAndKeyFiles,</span><br><span class="line">                CreateEtcdCACertAndKeyFiles,</span><br><span class="line">                CreateEtcdServerCertAndKeyFiles,</span><br><span class="line">                CreateEtcdPeerCertAndKeyFiles,</span><br><span class="line">                CreateEtcdHealthcheckClientCertAndKeyFiles,</span><br><span class="line">                CreateAPIServerEtcdClientCertAndKeyFiles,</span><br><span class="line">                CreateServiceAccountKeyAndPublicKeyFiles,</span><br><span class="line">                CreateFrontProxyCACertAndKeyFiles,</span><br><span class="line">                CreateFrontProxyClientCertAndKeyFiles,</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">for</span> _, action := <span class="keyword">range</span> certActions &#123;</span><br><span class="line">                err := action(cfg)</span><br><span class="line">                <span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">                        <span class="keyword">return</span> err</span><br><span class="line">                &#125;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        fmt.Printf(<span class="string">&quot;[certificates] Valid certificates and keys now exist in %q\n&quot;</span>, cfg.CertificatesDir)</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
-<p>列表中的函数都是用来生成所有证书和私钥的，主要依靠 <code>k8s.io/kubernetes/cmd/kubeadm/app/phases/certs/pkiutil</code> 来完成。私钥很容易生成，没什么需要特别配置的，主要看 CA 的证书里面配了啥，因为这个跟 k8s 的鉴权有关系。</p>
+<p>列表中的函数都是用来生成所有证书和私钥的，主要依靠 <code>k8s.io/kubernetes/cmd/kubeadm/app/phases/certs/pkiutil </code> 来完成。私钥很容易生成，没什么需要特别配置的，主要看 CA 的证书里面配了啥，因为这个跟 k8s 的鉴权有关系。</p>
 <figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// NewSelfSignedCACert creates a CA certificate</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">NewSelfSignedCACert</span><span class="params">(cfg Config, key *rsa.PrivateKey)</span> <span class="params">(*x509.Certificate, error)</span></span> &#123;</span><br><span class="line">        now := time.Now()</span><br><span class="line">        tmpl := x509.Certificate&#123;</span><br><span class="line">                SerialNumber: <span class="built_in">new</span>(big.Int).SetInt64(<span class="number">0</span>),</span><br><span class="line">                Subject: pkix.Name&#123;</span><br><span class="line">                        CommonName:   cfg.CommonName,</span><br><span class="line">                        Organization: cfg.Organization,</span><br><span class="line">                &#125;,</span><br><span class="line">                NotBefore:             now.UTC(),</span><br><span class="line">                NotAfter:              now.Add(duration365d * <span class="number">10</span>).UTC(),</span><br><span class="line">                KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,</span><br><span class="line">                BasicConstraintsValid: <span class="literal">true</span>,</span><br><span class="line">                IsCA: <span class="literal">true</span>,</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        certDERBytes, err := x509.CreateCertificate(cryptorand.Reader, &amp;tmpl, &amp;tmpl, key.Public(), key)</span><br><span class="line">        <span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">                <span class="keyword">return</span> <span class="literal">nil</span>, err</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> x509.ParseCertificate(certDERBytes)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <p>用 <code>openssl x509 -in /etc/kubernetes/pki/ca.crt -text -noout</code> 可以查看 ca 证书里面的内容，和我们看到的配置是一致的。</p>
-<img src="/zh-CN/2018/04/30/k8s-基于-kubeadm-的安全配置和高可用/ca-pic.png" title="[ca]">
+<img src="/zh-CN/2018/04/30/k8s-%E5%9F%BA%E4%BA%8E-kubeadm-%E7%9A%84%E5%AE%89%E5%85%A8%E9%85%8D%E7%BD%AE%E5%92%8C%E9%AB%98%E5%8F%AF%E7%94%A8/ca-pic.png" class="" title="[ca]">
 
 <p>然后我们再看一下 apiserver 的私钥和证书是怎么签的，首先把生成的 CA 证书和私钥加载进来，然后生成私钥并且签出自己的证书。</p>
 <figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">CreateAPIServerCertAndKeyFiles</span><span class="params">(cfg *kubeadmapi.MasterConfiguration)</span> <span class="title">error</span></span> &#123;</span><br><span class="line"></span><br><span class="line">        caCert, caKey, err := loadCertificateAuthority(cfg.CertificatesDir, kubeadmconstants.CACertAndKeyBaseName)</span><br><span class="line">        <span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">                <span class="keyword">return</span> err</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        apiCert, apiKey, err := NewAPIServerCertAndKey(cfg, caCert, caKey)</span><br><span class="line">        <span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">                <span class="keyword">return</span> err</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> writeCertificateFilesIfNotExist(</span><br><span class="line">                cfg.CertificatesDir,</span><br><span class="line">                kubeadmconstants.APIServerCertAndKeyBaseName,</span><br><span class="line">                caCert,</span><br><span class="line">                apiCert,</span><br><span class="line">                apiKey,</span><br><span class="line">        )</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <p>这里比较重要，因为 SAN 这个是用来匹配域名的，如果这里没写好，HTTPS 是拒绝访问的。</p>
-<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// NewAPIServerCertAndKey generate certificate for apiserver, signed by the given CA.</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">NewAPIServerCertAndKey</span><span class="params">(cfg *kubeadmapi.MasterConfiguration, caCert *x509.Certificate, caKey *rsa.PrivateKey)</span> <span class="params">(*x509.Certificate, *rsa.PrivateKey, error)</span></span> &#123;</span><br><span class="line"></span><br><span class="line">        altNames, err := pkiutil.GetAPIServerAltNames(cfg)</span><br><span class="line">        <span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">                <span class="keyword">return</span> <span class="literal">nil</span>, <span class="literal">nil</span>, fmt.Errorf(<span class="string">"failure while composing altnames for API server: %v"</span>, err)</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        config := certutil.Config&#123;</span><br><span class="line">                CommonName: kubeadmconstants.APIServerCertCommonName,</span><br><span class="line">                AltNames:   *altNames,</span><br><span class="line">                Usages:     []x509.ExtKeyUsage&#123;x509.ExtKeyUsageServerAuth&#125;,</span><br><span class="line">        &#125;</span><br><span class="line">        apiCert, apiKey, err := pkiutil.NewCertAndKey(caCert, caKey, config)</span><br><span class="line">        <span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">                <span class="keyword">return</span> <span class="literal">nil</span>, <span class="literal">nil</span>, fmt.Errorf(<span class="string">"failure while creating API server key and certificate: %v"</span>, err)</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> apiCert, apiKey, <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// NewAPIServerCertAndKey generate certificate for apiserver, signed by the given CA.</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">NewAPIServerCertAndKey</span><span class="params">(cfg *kubeadmapi.MasterConfiguration, caCert *x509.Certificate, caKey *rsa.PrivateKey)</span> <span class="params">(*x509.Certificate, *rsa.PrivateKey, error)</span></span> &#123;</span><br><span class="line"></span><br><span class="line">        altNames, err := pkiutil.GetAPIServerAltNames(cfg)</span><br><span class="line">        <span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">                <span class="keyword">return</span> <span class="literal">nil</span>, <span class="literal">nil</span>, fmt.Errorf(<span class="string">&quot;failure while composing altnames for API server: %v&quot;</span>, err)</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        config := certutil.Config&#123;</span><br><span class="line">                CommonName: kubeadmconstants.APIServerCertCommonName,</span><br><span class="line">                AltNames:   *altNames,</span><br><span class="line">                Usages:     []x509.ExtKeyUsage&#123;x509.ExtKeyUsageServerAuth&#125;,</span><br><span class="line">        &#125;</span><br><span class="line">        apiCert, apiKey, err := pkiutil.NewCertAndKey(caCert, caKey, config)</span><br><span class="line">        <span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">                <span class="keyword">return</span> <span class="literal">nil</span>, <span class="literal">nil</span>, fmt.Errorf(<span class="string">&quot;failure while creating API server key and certificate: %v&quot;</span>, err)</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> apiCert, apiKey, <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
-<img src="/zh-CN/2018/04/30/k8s-基于-kubeadm-的安全配置和高可用/api-crt.png" title="[apiserver crt]">
+<img src="/zh-CN/2018/04/30/k8s-%E5%9F%BA%E4%BA%8E-kubeadm-%E7%9A%84%E5%AE%89%E5%85%A8%E9%85%8D%E7%BD%AE%E5%92%8C%E9%AB%98%E5%8F%AF%E7%94%A8/api-crt.png" class="" title="[apiserver crt]">
 
 <p>apiserver 的证书也是对的，马赛克的部分是我自己配的一些 IP 和 域名，和 kubeadm 配的一些 kube-dns 用的 overlay 网络上的 master 域名，其他 master 上的 components 也是类似的，在配高可用的时候要把每个 master 节点上的域名和 IP 都配上。kubelet 的证书也要配对，就在 join 里面介绍了，这个会用来鉴权 node 的身份。</p>
 <p>其他部分的代码和设计文档的描述是一致的，所以没什么好看的，感觉一个好的设计文档是非常重要的，代码只是设计的实现，如果设计本身就可读性很强，阅读代码只是辅助理解一些细节和找 BUG 用的而已。</p>
@@ -528,577 +293,234 @@
 <li>TLS 初始化，首先用 token 鉴权的方式把自己的 CSR 发给 apiserver，然后签发自己的证书，这个证书要用来检查 node 的身份的。</li>
 <li>配置 kubelet 和 server 开始建立连接。</li>
 </ol>
-<p>新版本的 kubelet 有些变动，支持把一些 featuregate 配置写到文件里面，比如这个<a href="https://github.com/kubernetes/kubernetes/issues/43783" target="_blank" rel="noopener">阻止 fork bomb</a> 的配置，新版本只能用配置文件写了，不能通过参数配置。</p>
+<p>新版本的 kubelet 有些变动，支持把一些 featuregate 配置写到文件里面，比如这个<a target="_blank" rel="noopener" href="https://github.com/kubernetes/kubernetes/issues/43783">阻止 fork bomb</a> 的配置，新版本只能用配置文件写了，不能通过参数配置。</p>
 <p>kubeadm 的详细过程如下：</p>
-<p>首先会把 flags 传入<code>NodeConfiguration</code> 中，开始 <code>AddJoinConfigFlags(cmd.PersistentFlags()</code>，如果没有 <code>nodeNamecfg</code> 默认用 host 的 name 并且小写化通过 <code>GetHostname</code>获得，和在宿主机上执行 <code>hostname</code> 是一致的。在初始化之前先 尝试启动 <code>TryStartKubelet</code> 过程，然后把 token 和 server 写入（证书 data 是怎么生成的？），先配置kubelet-bootstrap-config</p>
-<p> 整体流程如下，token 验证是基于 JWT 的，所以 token 的格式是 <code>&quot;^([a-z0-9]{6})\\.([a-z0-9]{16})$&quot;</code>，分两部分，<code>tokenID.tokenSecret</code>，</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">discovery.For</span><br><span class="line">-&gt;GetValidatedClusterInfoObject 这个是获取 CA 证书的过程</span><br><span class="line">     -&gt;token.RetrieveValidatedClusterInfo 这一步是 JWT 验证</span><br><span class="line">         -&gt;tokenutil.ParseToken   得到 tokenID 和 tokenSecret</span><br><span class="line">         -&gt;pubKeyPins.Allow 加载用于检验 CA 证书的 HASH 值</span><br><span class="line">         -&gt;buildInsecureBootstrapKubeConfig （用 token-bootstrap-client 身份)获取信息</span><br><span class="line">            -&gt; 从kube-public 获取 configmap (和 kubectl describe configmap cluster-info -n kube-public 中的信息是一致的）这个configmap 里面包含 JWS 签名和 master 的 CA 证书，获取对应 tokenID 的 jws token，验证 token 成功，并且验证 CA 的证书 hash，如果通过说明这个 master 是可信的，然后拿到 CA 证书以后开始构建自己的证书，建立 secure config。</span><br><span class="line">         -&gt;</span><br></pre></td></tr></table></figure>
+<p>首先会把 flags 传入<code> NodeConfiguration</code> 中，开始 <code>AddJoinConfigFlags(cmd.PersistentFlags()</code>，如果没有 <code>nodeNamecfg</code> 默认用 host 的 name 并且小写化通过 <code>GetHostname</code>获得，和在宿主机上执行 <code>hostname</code> 是一致的。在初始化之前先 尝试启动 <code>TryStartKubelet</code> 过程，然后把 token 和 server 写入（证书 data 是怎么生成的？），先配置kubelet-bootstrap-config</p>
+<p> 整体流程如下，token 验证是基于 JWT 的，所以 token 的格式是 <code>&quot;^([a-z0-9]&#123;6&#125;)\\.([a-z0-9]&#123;16&#125;)$&quot;</code>，分两部分，<code>tokenID.tokenSecret</code>，</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">discovery.For</span><br><span class="line">-&gt;GetValidatedClusterInfoObject 这个是获取 CA 证书的过程</span><br><span class="line">     -&gt;token.RetrieveValidatedClusterInfo 这一步是 JWT 验证</span><br><span class="line">         -&gt;tokenutil.ParseToken   得到 tokenID 和 tokenSecret</span><br><span class="line">         -&gt;pubKeyPins.Allow 加载用于检验 CA 证书的 HASH 值</span><br><span class="line">         -&gt;buildInsecureBootstrapKubeConfig （用 token-bootstrap-client 身份)获取信息</span><br><span class="line">            -&gt; 从kube-public 获取 configmap (和 kubectl describe configmap cluster-info -n kube-public 中的信息是一致的）这个configmap 里面包含 JWS 签名和 master 的 CA 证书，获取对应 tokenID 的 jws token，验证 token 成功，并且验证 CA 的证书 hash，如果通过说明这个 master 是可信的，然后拿到 CA 证书以后开始构建自己的证书，建立 secure config。</span><br><span class="line">         -&gt;</span><br></pre></td></tr></table></figure>
 
 <p>kubeconfigutil.WriteToDisk 会把 <code>bootstrap-kubelet.conf</code> 写入到配置目录中，kubeadm 的任务就完成了，之前的 kubeadm 会代替 kubelet 生成 kubelet.conf（其中用的是公钥鉴权），现在移走了，kubelet 启动的时候会尝试使用这个配置文件建立 HTTPS 的鉴权配置文件。</p>
-<img src="/zh-CN/2018/04/30/k8s-基于-kubeadm-的安全配置和高可用/bootstrap-conf.png" title="[boostrap conf]">
+<img src="/zh-CN/2018/04/30/k8s-%E5%9F%BA%E4%BA%8E-kubeadm-%E7%9A%84%E5%AE%89%E5%85%A8%E9%85%8D%E7%BD%AE%E5%92%8C%E9%AB%98%E5%8F%AF%E7%94%A8/bootstrap-conf.png" class="" title="[boostrap conf]">
 
 <p>可以看一下 kubelet 用这个配置给 master 发 CSR 以后得到了什么，可以看到是生成了自己的证书的。</p>
-<img src="/zh-CN/2018/04/30/k8s-基于-kubeadm-的安全配置和高可用/kubelet-crt.png" title="[kubelet bootstrap conf]">
+<img src="/zh-CN/2018/04/30/k8s-%E5%9F%BA%E4%BA%8E-kubeadm-%E7%9A%84%E5%AE%89%E5%85%A8%E9%85%8D%E7%BD%AE%E5%92%8C%E9%AB%98%E5%8F%AF%E7%94%A8/kubelet-crt.png" class="" title="[kubelet bootstrap conf]">
 
 <p>并且这个证书里面的 SAN 也是用来进行 Node 鉴权的身份确认的信息。用 <code>openssl x509 -in /var/lib/kubelet/pki/kubelet-client.crt  -text -noout</code>查看信息。</p>
-<img src="/zh-CN/2018/04/30/k8s-基于-kubeadm-的安全配置和高可用/kubelet-https-crt.png" title="[kubelet conf]">
+<img src="/zh-CN/2018/04/30/k8s-%E5%9F%BA%E4%BA%8E-kubeadm-%E7%9A%84%E5%AE%89%E5%85%A8%E9%85%8D%E7%BD%AE%E5%92%8C%E9%AB%98%E5%8F%AF%E7%94%A8/kubelet-https-crt.png" class="" title="[kubelet conf]">
 
 <p>红线部分就是 Node 鉴权的信息，基于这个确认 node 的身份。另外一个是 Role Based Access Control，那个主要是配给 pod，限制 pod 行为用的，类似于 linux 的 <code>chmod</code>。</p>
-<h2 id="kubeadm-高可用配置"><a href="#kubeadm-高可用配置" class="headerlink" title="kubeadm 高可用配置"></a>kubeadm 高可用配置</h2><p>如果没有安全配置，其实高可用挺好配置的，现在加入了安全配置，虽然麻烦，但是还是能理解 k8s 的良苦用心的，理解了整个鉴权的过程以后就可以做，现在支持配置文件初始化其实更好配置了。可以基于<a href="https://kubernetes.io/docs/setup/independent/high-availability/" target="_blank" rel="noopener">这个文档配置</a>，算了我还是不总结了，看懂上面的，照着配置就好了。主要是自己生成 CA，他们用的 <code>cfssl</code> 和 <code>cfssljson</code>，这个工具比 openssl 好用一点，比较容易配置。生成 ca 证书和私钥以后，就可以构建 HTTPS 的 etcd。</p>
+<h2 id="kubeadm-高可用配置"><a href="#kubeadm-高可用配置" class="headerlink" title="kubeadm 高可用配置"></a>kubeadm 高可用配置</h2><p>如果没有安全配置，其实高可用挺好配置的，现在加入了安全配置，虽然麻烦，但是还是能理解 k8s 的良苦用心的，理解了整个鉴权的过程以后就可以做，现在支持配置文件初始化其实更好配置了。可以基于<a target="_blank" rel="noopener" href="https://kubernetes.io/docs/setup/independent/high-availability/">这个文档配置</a>，算了我还是不总结了，看懂上面的，照着配置就好了。主要是自己生成 CA，他们用的 <code>cfssl</code> 和 <code>cfssljson</code>，这个工具比 openssl 好用一点，比较容易配置。生成 ca 证书和私钥以后，就可以构建 HTTPS 的 etcd。</p>
 <p>先创建 ca 的配置文件 <code>ca-config.json</code>。</p>
-<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">    <span class="attr">"signing"</span>: &#123;</span><br><span class="line">        <span class="attr">"default"</span>: &#123;</span><br><span class="line">            <span class="attr">"expiry"</span>: <span class="string">"43800h"</span></span><br><span class="line">        &#125;,</span><br><span class="line">        <span class="attr">"profiles"</span>: &#123;</span><br><span class="line">            <span class="attr">"server"</span>: &#123;</span><br><span class="line">                <span class="attr">"expiry"</span>: <span class="string">"43800h"</span>,</span><br><span class="line">                <span class="attr">"usages"</span>: [</span><br><span class="line">                    <span class="string">"signing"</span>,</span><br><span class="line">                    <span class="string">"key encipherment"</span>,</span><br><span class="line">                    <span class="string">"server auth"</span>,</span><br><span class="line">                    <span class="string">"client auth"</span></span><br><span class="line">                ]</span><br><span class="line">            &#125;,</span><br><span class="line">            <span class="attr">"client"</span>: &#123;</span><br><span class="line">                <span class="attr">"expiry"</span>: <span class="string">"43800h"</span>,</span><br><span class="line">                <span class="attr">"usages"</span>: [</span><br><span class="line">                    <span class="string">"signing"</span>,</span><br><span class="line">                    <span class="string">"key encipherment"</span>,</span><br><span class="line">                    <span class="string">"client auth"</span></span><br><span class="line">                ]</span><br><span class="line">            &#125;,</span><br><span class="line">            <span class="attr">"peer"</span>: &#123;</span><br><span class="line">                <span class="attr">"expiry"</span>: <span class="string">"43800h"</span>,</span><br><span class="line">                <span class="attr">"usages"</span>: [</span><br><span class="line">                    <span class="string">"signing"</span>,</span><br><span class="line">                    <span class="string">"key encipherment"</span>,</span><br><span class="line">                    <span class="string">"server auth"</span>,</span><br><span class="line">                    <span class="string">"client auth"</span></span><br><span class="line">                ]</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">    <span class="attr">&quot;signing&quot;</span>: &#123;</span><br><span class="line">        <span class="attr">&quot;default&quot;</span>: &#123;</span><br><span class="line">            <span class="attr">&quot;expiry&quot;</span>: <span class="string">&quot;43800h&quot;</span></span><br><span class="line">        &#125;,</span><br><span class="line">        <span class="attr">&quot;profiles&quot;</span>: &#123;</span><br><span class="line">            <span class="attr">&quot;server&quot;</span>: &#123;</span><br><span class="line">                <span class="attr">&quot;expiry&quot;</span>: <span class="string">&quot;43800h&quot;</span>,</span><br><span class="line">                <span class="attr">&quot;usages&quot;</span>: [</span><br><span class="line">                    <span class="string">&quot;signing&quot;</span>,</span><br><span class="line">                    <span class="string">&quot;key encipherment&quot;</span>,</span><br><span class="line">                    <span class="string">&quot;server auth&quot;</span>,</span><br><span class="line">                    <span class="string">&quot;client auth&quot;</span></span><br><span class="line">                ]</span><br><span class="line">            &#125;,</span><br><span class="line">            <span class="attr">&quot;client&quot;</span>: &#123;</span><br><span class="line">                <span class="attr">&quot;expiry&quot;</span>: <span class="string">&quot;43800h&quot;</span>,</span><br><span class="line">                <span class="attr">&quot;usages&quot;</span>: [</span><br><span class="line">                    <span class="string">&quot;signing&quot;</span>,</span><br><span class="line">                    <span class="string">&quot;key encipherment&quot;</span>,</span><br><span class="line">                    <span class="string">&quot;client auth&quot;</span></span><br><span class="line">                ]</span><br><span class="line">            &#125;,</span><br><span class="line">            <span class="attr">&quot;peer&quot;</span>: &#123;</span><br><span class="line">                <span class="attr">&quot;expiry&quot;</span>: <span class="string">&quot;43800h&quot;</span>,</span><br><span class="line">                <span class="attr">&quot;usages&quot;</span>: [</span><br><span class="line">                    <span class="string">&quot;signing&quot;</span>,</span><br><span class="line">                    <span class="string">&quot;key encipherment&quot;</span>,</span><br><span class="line">                    <span class="string">&quot;server auth&quot;</span>,</span><br><span class="line">                    <span class="string">&quot;client auth&quot;</span></span><br><span class="line">                ]</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <p>然后生成用于自签名的 csr 的配置文件 <code>ca-csr.json</code>，用于签发自签名的 CA 证书。</p>
-<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">    <span class="attr">"CN"</span>: <span class="string">"etcd"</span>,</span><br><span class="line">    <span class="attr">"key"</span>: &#123;</span><br><span class="line">        <span class="attr">"algo"</span>: <span class="string">"rsa"</span>,</span><br><span class="line">        <span class="attr">"size"</span>: <span class="number">2048</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">    <span class="attr">&quot;CN&quot;</span>: <span class="string">&quot;etcd&quot;</span>,</span><br><span class="line">    <span class="attr">&quot;key&quot;</span>: &#123;</span><br><span class="line">        <span class="attr">&quot;algo&quot;</span>: <span class="string">&quot;rsa&quot;</span>,</span><br><span class="line">        <span class="attr">&quot;size&quot;</span>: <span class="number">2048</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <p>结果就是目录下面生成了，<code>ca-key.pem</code> 和 <code>ca.pem</code>，这个命令不太按规则，对应的叫 <code>ca.key</code> 和 <code>ca.crt</code>，<code>pem</code> 是密钥保存的格式。</p>
 <p>接下来用 <code>client.json</code> 获得自己的私钥和通过 ca 签的证书。</p>
-<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">    <span class="attr">"CN"</span>: <span class="string">"client"</span>,</span><br><span class="line">    <span class="attr">"key"</span>: &#123;</span><br><span class="line">        <span class="attr">"algo"</span>: <span class="string">"ecdsa"</span>,</span><br><span class="line">        <span class="attr">"size"</span>: <span class="number">256</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">    <span class="attr">&quot;CN&quot;</span>: <span class="string">&quot;client&quot;</span>,</span><br><span class="line">    <span class="attr">&quot;key&quot;</span>: &#123;</span><br><span class="line">        <span class="attr">&quot;algo&quot;</span>: <span class="string">&quot;ecdsa&quot;</span>,</span><br><span class="line">        <span class="attr">&quot;size&quot;</span>: <span class="number">256</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <p>执行 <code>cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=client client.json | cfssljson -bare client</code>，生成了 <code>client-key.pem</code>,<code>client.pem</code>，分别是私钥和证书，把文件 <code>ca.pem</code>,<code>ca-key.pem</code>, <code>client.pem</code>,<code>client-key.pem</code>,<code>ca-config.json</code>, 拷贝到每台 master 机器上面，一般放到 <code>/etc/kubernetes/pki/</code> 下面。</p>
 <p>然后</p>
-<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">cfssl print-defaults csr &gt; config.json</span><br><span class="line">sed -i '0,/CN/&#123;s/example\.net/'"$PEER_NAME"'/&#125;' config.json</span><br><span class="line">sed -i 's/www\.example\.net/'"$PRIVATE_IP"'/' config.json</span><br><span class="line">sed -i 's/example\.net/'"$PEER_NAME"'/' config.json</span><br><span class="line"></span><br><span class="line">cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=server config.json | cfssljson -bare server</span><br><span class="line">cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=peer config.json | cfssljson -bare peer</span><br></pre></td></tr></table></figure>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">cfssl print-defaults csr &gt; config.json</span><br><span class="line">sed -i &#x27;0,/CN/&#123;s/example\.net/&#x27;&quot;$PEER_NAME&quot;&#x27;/&#125;&#x27; config.json</span><br><span class="line">sed -i &#x27;s/www\.example\.net/&#x27;&quot;$PRIVATE_IP&quot;&#x27;/&#x27; config.json</span><br><span class="line">sed -i &#x27;s/example\.net/&#x27;&quot;$PEER_NAME&quot;&#x27;/&#x27; config.json</span><br><span class="line"></span><br><span class="line">cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=server config.json | cfssljson -bare server</span><br><span class="line">cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=peer config.json | cfssljson -bare peer</span><br></pre></td></tr></table></figure>
 
 <p>签出出两对密钥和证书，把每台的机器的 域名 和 IP 替换掉示例的 example 配置，就是这些地方可以改成自己的域名和地址，这个会被用来 check。</p>
-<img src="/zh-CN/2018/04/30/k8s-基于-kubeadm-的安全配置和高可用/etcd-csr.png" title="[etcd csr ]">
+<img src="/zh-CN/2018/04/30/k8s-%E5%9F%BA%E4%BA%8E-kubeadm-%E7%9A%84%E5%AE%89%E5%85%A8%E9%85%8D%E7%BD%AE%E5%92%8C%E9%AB%98%E5%8F%AF%E7%94%A8/etcd-csr.png" class="" title="[etcd csr ]">
 
 <p>可以放到 kubelet 的 static pod 里面，启动 etcd，两个证书分别是用作 server 验证和 client 验证的，server 让别人访问的时候相信你，peer 是你访问别人的时候让别人相信你。</p>
-<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br></pre></td><td class="code"><pre><span class="line"><span class="string">cat</span> <span class="string">&gt;/etc/kubernetes/manifests/etcd.yaml</span> <span class="string">&lt;&lt;EOF</span></span><br><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Pod</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line"><span class="attr">labels:</span></span><br><span class="line"><span class="attr">    component:</span> <span class="string">etcd</span></span><br><span class="line"><span class="attr">    tier:</span> <span class="string">control-plane</span></span><br><span class="line"><span class="attr">name:</span> <span class="string">&lt;podname&gt;</span></span><br><span class="line"><span class="attr">namespace:</span> <span class="string">kube-system</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line"><span class="attr">containers:</span></span><br><span class="line"><span class="attr">- command:</span></span><br><span class="line"><span class="bullet">    -</span> <span class="string">etcd</span> <span class="bullet">--name</span> <span class="string">$&#123;PEER_NAME&#125;</span> <span class="string">\</span></span><br><span class="line"><span class="bullet">    -</span> <span class="bullet">--data-dir</span> <span class="string">/var/lib/etcd</span> <span class="string">\</span></span><br><span class="line"><span class="bullet">    -</span> <span class="bullet">--listen-client-urls</span> <span class="attr">https://$&#123;PRIVATE_IP&#125;:2379</span> <span class="string">\</span></span><br><span class="line"><span class="bullet">    -</span> <span class="bullet">--advertise-client-urls</span> <span class="attr">https://$&#123;PRIVATE_IP&#125;:2379</span> <span class="string">\</span></span><br><span class="line"><span class="bullet">    -</span> <span class="bullet">--listen-peer-urls</span> <span class="attr">https://$&#123;PRIVATE_IP&#125;:2380</span> <span class="string">\</span></span><br><span class="line"><span class="bullet">    -</span> <span class="bullet">--initial-advertise-peer-urls</span> <span class="attr">https://$&#123;PRIVATE_IP&#125;:2380</span> <span class="string">\</span></span><br><span class="line"><span class="bullet">    -</span> <span class="bullet">--cert-file=/certs/server.pem</span> <span class="string">\</span></span><br><span class="line"><span class="bullet">    -</span> <span class="bullet">--key-file=/certs/server-key.pem</span> <span class="string">\</span></span><br><span class="line"><span class="bullet">    -</span> <span class="bullet">--client-cert-auth</span> <span class="string">\</span></span><br><span class="line"><span class="bullet">    -</span> <span class="bullet">--trusted-ca-file=/certs/ca.pem</span> <span class="string">\</span></span><br><span class="line"><span class="bullet">    -</span> <span class="bullet">--peer-cert-file=/certs/peer.pem</span> <span class="string">\</span></span><br><span class="line"><span class="bullet">    -</span> <span class="bullet">--peer-key-file=/certs/peer-key.pem</span> <span class="string">\</span></span><br><span class="line"><span class="bullet">    -</span> <span class="bullet">--peer-client-cert-auth</span> <span class="string">\</span></span><br><span class="line"><span class="bullet">    -</span> <span class="bullet">--peer-trusted-ca-file=/certs/ca.pem</span> <span class="string">\</span></span><br><span class="line"><span class="bullet">    -</span> <span class="bullet">--initial-cluster</span> <span class="string">etcd0=https://&lt;etcd0-ip-address&gt;:2380,etcd1=https://&lt;etcd1-ip-address&gt;:2380,etcd2=https://&lt;etcd2-ip-address&gt;:2380</span> <span class="string">\</span></span><br><span class="line"><span class="bullet">    -</span> <span class="bullet">--initial-cluster-token</span> <span class="string">my-etcd-token</span> <span class="string">\</span></span><br><span class="line"><span class="bullet">    -</span> <span class="bullet">--initial-cluster-state</span> <span class="string">new</span></span><br><span class="line"><span class="attr">    image:</span> <span class="string">k8s.gcr.io/etcd-amd64:3.1.10</span></span><br><span class="line"><span class="attr">    livenessProbe:</span></span><br><span class="line"><span class="attr">    httpGet:</span></span><br><span class="line"><span class="attr">        path:</span> <span class="string">/health</span></span><br><span class="line"><span class="attr">        port:</span> <span class="number">2379</span></span><br><span class="line"><span class="attr">        scheme:</span> <span class="string">HTTP</span></span><br><span class="line"><span class="attr">    initialDelaySeconds:</span> <span class="number">15</span></span><br><span class="line"><span class="attr">    timeoutSeconds:</span> <span class="number">15</span></span><br><span class="line"><span class="attr">    name:</span> <span class="string">etcd</span></span><br><span class="line"><span class="attr">    env:</span></span><br><span class="line"><span class="attr">    - name:</span> <span class="string">PUBLIC_IP</span></span><br><span class="line"><span class="attr">    valueFrom:</span></span><br><span class="line"><span class="attr">        fieldRef:</span></span><br><span class="line"><span class="attr">        fieldPath:</span> <span class="string">status.hostIP</span></span><br><span class="line"><span class="attr">    - name:</span> <span class="string">PRIVATE_IP</span></span><br><span class="line"><span class="attr">    valueFrom:</span></span><br><span class="line"><span class="attr">        fieldRef:</span></span><br><span class="line"><span class="attr">        fieldPath:</span> <span class="string">status.podIP</span></span><br><span class="line"><span class="attr">    - name:</span> <span class="string">PEER_NAME</span></span><br><span class="line"><span class="attr">    valueFrom:</span></span><br><span class="line"><span class="attr">        fieldRef:</span></span><br><span class="line"><span class="attr">        fieldPath:</span> <span class="string">metadata.name</span></span><br><span class="line"><span class="attr">    volumeMounts:</span></span><br><span class="line"><span class="attr">    - mountPath:</span> <span class="string">/var/lib/etcd</span></span><br><span class="line"><span class="attr">    name:</span> <span class="string">etcd</span></span><br><span class="line"><span class="attr">    - mountPath:</span> <span class="string">/certs</span></span><br><span class="line"><span class="attr">    name:</span> <span class="string">certs</span></span><br><span class="line"><span class="attr">hostNetwork:</span> <span class="literal">true</span></span><br><span class="line"><span class="attr">volumes:</span></span><br><span class="line"><span class="attr">- hostPath:</span></span><br><span class="line"><span class="attr">    path:</span> <span class="string">/var/lib/etcd</span></span><br><span class="line"><span class="attr">    type:</span> <span class="string">DirectoryOrCreate</span></span><br><span class="line"><span class="attr">    name:</span> <span class="string">etcd</span></span><br><span class="line"><span class="attr">- hostPath:</span></span><br><span class="line"><span class="attr">    path:</span> <span class="string">/etc/kubernetes/pki/etcd</span></span><br><span class="line"><span class="attr">    name:</span> <span class="string">certs</span></span><br><span class="line"><span class="string">EOF</span></span><br></pre></td></tr></table></figure>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br></pre></td><td class="code"><pre><span class="line"><span class="string">cat</span> <span class="string">&gt;/etc/kubernetes/manifests/etcd.yaml</span> <span class="string">&lt;&lt;EOF</span></span><br><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Pod</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line"><span class="attr">labels:</span></span><br><span class="line">    <span class="attr">component:</span> <span class="string">etcd</span></span><br><span class="line">    <span class="attr">tier:</span> <span class="string">control-plane</span></span><br><span class="line"><span class="attr">name:</span> <span class="string">&lt;podname&gt;</span></span><br><span class="line"><span class="attr">namespace:</span> <span class="string">kube-system</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line"><span class="attr">containers:</span></span><br><span class="line"><span class="bullet">-</span> <span class="attr">command:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">etcd</span> <span class="string">--name</span> <span class="string">$&#123;PEER_NAME&#125;</span> <span class="string">\</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">--data-dir</span> <span class="string">/var/lib/etcd</span> <span class="string">\</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">--listen-client-urls</span> <span class="string">https://$&#123;PRIVATE_IP&#125;:2379</span> <span class="string">\</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">--advertise-client-urls</span> <span class="string">https://$&#123;PRIVATE_IP&#125;:2379</span> <span class="string">\</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">--listen-peer-urls</span> <span class="string">https://$&#123;PRIVATE_IP&#125;:2380</span> <span class="string">\</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">--initial-advertise-peer-urls</span> <span class="string">https://$&#123;PRIVATE_IP&#125;:2380</span> <span class="string">\</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">--cert-file=/certs/server.pem</span> <span class="string">\</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">--key-file=/certs/server-key.pem</span> <span class="string">\</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">--client-cert-auth</span> <span class="string">\</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">--trusted-ca-file=/certs/ca.pem</span> <span class="string">\</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">--peer-cert-file=/certs/peer.pem</span> <span class="string">\</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">--peer-key-file=/certs/peer-key.pem</span> <span class="string">\</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">--peer-client-cert-auth</span> <span class="string">\</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">--peer-trusted-ca-file=/certs/ca.pem</span> <span class="string">\</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">--initial-cluster</span> <span class="string">etcd0=https://&lt;etcd0-ip-address&gt;:2380,etcd1=https://&lt;etcd1-ip-address&gt;:2380,etcd2=https://&lt;etcd2-ip-address&gt;:2380</span> <span class="string">\</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">--initial-cluster-token</span> <span class="string">my-etcd-token</span> <span class="string">\</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">--initial-cluster-state</span> <span class="string">new</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">k8s.gcr.io/etcd-amd64:3.1.10</span></span><br><span class="line">    <span class="attr">livenessProbe:</span></span><br><span class="line">    <span class="attr">httpGet:</span></span><br><span class="line">        <span class="attr">path:</span> <span class="string">/health</span></span><br><span class="line">        <span class="attr">port:</span> <span class="number">2379</span></span><br><span class="line">        <span class="attr">scheme:</span> <span class="string">HTTP</span></span><br><span class="line">    <span class="attr">initialDelaySeconds:</span> <span class="number">15</span></span><br><span class="line">    <span class="attr">timeoutSeconds:</span> <span class="number">15</span></span><br><span class="line">    <span class="attr">name:</span> <span class="string">etcd</span></span><br><span class="line">    <span class="attr">env:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">PUBLIC_IP</span></span><br><span class="line">    <span class="attr">valueFrom:</span></span><br><span class="line">        <span class="attr">fieldRef:</span></span><br><span class="line">        <span class="attr">fieldPath:</span> <span class="string">status.hostIP</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">PRIVATE_IP</span></span><br><span class="line">    <span class="attr">valueFrom:</span></span><br><span class="line">        <span class="attr">fieldRef:</span></span><br><span class="line">        <span class="attr">fieldPath:</span> <span class="string">status.podIP</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">PEER_NAME</span></span><br><span class="line">    <span class="attr">valueFrom:</span></span><br><span class="line">        <span class="attr">fieldRef:</span></span><br><span class="line">        <span class="attr">fieldPath:</span> <span class="string">metadata.name</span></span><br><span class="line">    <span class="attr">volumeMounts:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">mountPath:</span> <span class="string">/var/lib/etcd</span></span><br><span class="line">    <span class="attr">name:</span> <span class="string">etcd</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">mountPath:</span> <span class="string">/certs</span></span><br><span class="line">    <span class="attr">name:</span> <span class="string">certs</span></span><br><span class="line"><span class="attr">hostNetwork:</span> <span class="literal">true</span></span><br><span class="line"><span class="attr">volumes:</span></span><br><span class="line"><span class="bullet">-</span> <span class="attr">hostPath:</span></span><br><span class="line">    <span class="attr">path:</span> <span class="string">/var/lib/etcd</span></span><br><span class="line">    <span class="attr">type:</span> <span class="string">DirectoryOrCreate</span></span><br><span class="line">    <span class="attr">name:</span> <span class="string">etcd</span></span><br><span class="line"><span class="bullet">-</span> <span class="attr">hostPath:</span></span><br><span class="line">    <span class="attr">path:</span> <span class="string">/etc/kubernetes/pki/etcd</span></span><br><span class="line">    <span class="attr">name:</span> <span class="string">certs</span></span><br><span class="line"><span class="string">EOF</span></span><br></pre></td></tr></table></figure>
 
 <p>然后每个节点的 master init 的配置文件按照下面这个配置，client.pem 是用来让 etcd 相信 apiserver 的。<code>private-ip</code> 和 <code>load-balancer-ip</code> 都是要写到证书的  SAN 里面的，不然用这些 ip 是访问不了 apiserver 的。</p>
-<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">kubeadm.k8s.io/v1alpha1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">MasterConfiguration</span></span><br><span class="line"><span class="attr">api:</span></span><br><span class="line"><span class="attr">  advertiseAddress:</span> <span class="string">&lt;private-ip&gt;</span></span><br><span class="line"><span class="attr">etcd:</span></span><br><span class="line"><span class="attr">  endpoints:</span></span><br><span class="line"><span class="attr">  - https:</span><span class="string">//&lt;etcd0-ip-address&gt;:2379</span></span><br><span class="line"><span class="attr">  - https:</span><span class="string">//&lt;etcd1-ip-address&gt;:2379</span></span><br><span class="line"><span class="attr">  - https:</span><span class="string">//&lt;etcd2-ip-address&gt;:2379</span></span><br><span class="line"><span class="attr">  caFile:</span> <span class="string">/etc/kubernetes/pki/etcd/ca.pem</span></span><br><span class="line"><span class="attr">  certFile:</span> <span class="string">/etc/kubernetes/pki/etcd/client.pem</span></span><br><span class="line"><span class="attr">  keyFile:</span> <span class="string">/etc/kubernetes/pki/etcd/client-key.pem</span></span><br><span class="line"><span class="attr">networking:</span></span><br><span class="line"><span class="attr">  podSubnet:</span> <span class="string">&lt;podCIDR&gt;</span></span><br><span class="line"><span class="attr">apiServerCertSANs:</span></span><br><span class="line"><span class="bullet">-</span> <span class="string">&lt;load-balancer-ip&gt;</span></span><br><span class="line"><span class="attr">apiServerExtraArgs:</span></span><br><span class="line"><span class="attr">  apiserver-count:</span> <span class="string">"3"</span></span><br><span class="line"><span class="string">EOF</span></span><br></pre></td></tr></table></figure>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">kubeadm.k8s.io/v1alpha1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">MasterConfiguration</span></span><br><span class="line"><span class="attr">api:</span></span><br><span class="line">  <span class="attr">advertiseAddress:</span> <span class="string">&lt;private-ip&gt;</span></span><br><span class="line"><span class="attr">etcd:</span></span><br><span class="line">  <span class="attr">endpoints:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">https://&lt;etcd0-ip-address&gt;:2379</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">https://&lt;etcd1-ip-address&gt;:2379</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">https://&lt;etcd2-ip-address&gt;:2379</span></span><br><span class="line">  <span class="attr">caFile:</span> <span class="string">/etc/kubernetes/pki/etcd/ca.pem</span></span><br><span class="line">  <span class="attr">certFile:</span> <span class="string">/etc/kubernetes/pki/etcd/client.pem</span></span><br><span class="line">  <span class="attr">keyFile:</span> <span class="string">/etc/kubernetes/pki/etcd/client-key.pem</span></span><br><span class="line"><span class="attr">networking:</span></span><br><span class="line">  <span class="attr">podSubnet:</span> <span class="string">&lt;podCIDR&gt;</span></span><br><span class="line"><span class="attr">apiServerCertSANs:</span></span><br><span class="line"><span class="bullet">-</span> <span class="string">&lt;load-balancer-ip&gt;</span></span><br><span class="line"><span class="attr">apiServerExtraArgs:</span></span><br><span class="line">  <span class="attr">apiserver-count:</span> <span class="string">&quot;3&quot;</span></span><br><span class="line"><span class="string">EOF</span></span><br></pre></td></tr></table></figure>
 
 <p>至于怎么做 loadbalance 可以用七层的也可以用四层的，七层把证书配到负载均衡服务上，四层的就不用，自己在裸机器上做可以用 vip + nginx 做一个四层的，也可以把证书放到 nginx 上做七层的，但是在云环境下，都不怎么支持自己配置 vip，需要用云厂商的 lb 服务，这个就看具体提供商的服务怎么配了。</p>
 
-      
     </div>
 
     
-
-    
-      
-    
-
     
     
-    
-
-    
-
-    
-      
-    
-    
-      <div>
-        <div id="reward-container">
+        <div class="reward-container">
   <div></div>
-  <button id="reward-button" disable="enable" onclick="var qr = document.getElementById(&quot;qr&quot;); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
     打赏
   </button>
   <div id="qr" style="display: none;">
-
-    
       
-      
-        
-      
-      <div style="display: inline-block">
+      <div style="display: inline-block;">
         <img src="/images/wechat.jpeg" alt="ggaaooppeenngg 微信支付">
         <p>微信支付</p>
       </div>
-    
       
-      
-        
-      
-      <div style="display: inline-block">
+      <div style="display: inline-block;">
         <img src="/images/alipay.jpeg" alt="ggaaooppeenngg 支付宝">
         <p>支付宝</p>
       </div>
-    
 
   </div>
 </div>
 
-      </div>
-    
 
-    
-
-    <footer class="post-footer">
-      
-        
-          
-        
-        <div class="post-tags">
-          
-            <a href="/tags/kubernetes/" rel="tag"># kubernetes</a>
-          
-            <a href="/tags/k8s/" rel="tag"># k8s</a>
-          
-            <a href="/tags/https/" rel="tag"># https</a>
-          
-            <a href="/tags/安全/" rel="tag"># 安全</a>
-          
-        </div>
-      
-
-      
-      
-      
-
-      
-        <div class="post-nav">
-          <div class="post-nav-next post-nav-item">
-            
-              <a href="/zh-CN/2018/04/26/HTTPS-的公钥体系/" rel="next" title="HTTPS 加密体系">
-                <i class="fa fa-chevron-left"></i> HTTPS 加密体系
-              </a>
-            
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/kubernetes/" rel="tag"># kubernetes</a>
+              <a href="/tags/k8s/" rel="tag"># k8s</a>
+              <a href="/tags/https/" rel="tag"># https</a>
+              <a href="/tags/%E5%AE%89%E5%85%A8/" rel="tag"># 安全</a>
           </div>
 
-          <span class="post-nav-divider"></span>
+        
 
-          <div class="post-nav-prev post-nav-item">
-            
-              <a href="/zh-CN/2018/05/20/paxos-总结/" rel="prev" title="Paxos 总结">
-                Paxos 总结 <i class="fa fa-chevron-right"></i>
-              </a>
-            
-          </div>
-        </div>
-      
 
-      
-      
-    </footer>
-  </div>
-  
-  
-  
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/zh-CN/2018/04/26/HTTPS-%E7%9A%84%E5%85%AC%E9%92%A5%E4%BD%93%E7%B3%BB/" rel="prev" title="HTTPS 加密体系">
+      <i class="fa fa-chevron-left"></i> HTTPS 加密体系
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/" rel="next" title="Paxos 总结">
+      Paxos 总结 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
   </article>
+  
+  
+  
 
-
-  </div>
 
 
           </div>
           
-
-  
-    <div class="comments" id="comments">
-      <div id="disqus_thread">
-        <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
-      </div>
-    </div>
-
-  
-
-
-
-        </div>
-        
-          
-  
-  <div class="sidebar-toggle">
-    <div class="sidebar-toggle-line-wrap">
-      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
-      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
-      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    
+  <div class="comments">
+    <div id="disqus_thread">
+      <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
     </div>
   </div>
+  
 
-  <aside id="sidebar" class="sidebar">
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
     <div class="sidebar-inner">
 
-      
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
 
-      
-        <ul class="sidebar-nav motion-element">
-          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
-            文章目录
-          </li>
-          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
-            站点概览
-          </li>
-        </ul>
-      
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#kubeadm-%E5%AE%89%E5%85%A8%E8%AE%BE%E6%96%BD"><span class="nav-number">1.</span> <span class="nav-text">kubeadm 安全设施</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#kubeadm-init"><span class="nav-number">1.1.</span> <span class="nav-text">kubeadm init</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#kubeadm-join"><span class="nav-number">1.2.</span> <span class="nav-text">kubeadm join</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#kubeadm-%E9%AB%98%E5%8F%AF%E7%94%A8%E9%85%8D%E7%BD%AE"><span class="nav-number">2.</span> <span class="nav-text">kubeadm 高可用配置</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
 
       <div class="site-overview-wrap sidebar-panel">
-        <div class="site-overview">
-
-          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
-  
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
   <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
-  <div class="site-description motion-element" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+  <div class="site-description" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
 </div>
-
-
-  <nav class="site-state motion-element">
-    
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
       <div class="site-state-item site-state-posts">
-        
           <a href="/archives/">
         
-          <span class="site-state-item-count">54</span>
+          <span class="site-state-item-count">55</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
-    
-
-    
-      
-      
       <div class="site-state-item site-state-categories">
-        
-          
             <a href="/categories/">
           
-        
-        
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
         <span class="site-state-item-count">14</span>
-        <span class="site-state-item-name">分类</span>
-        </a>
+        <span class="site-state-item-name">分类</span></a>
       </div>
-    
-
-    
-      
-      
       <div class="site-state-item site-state-tags">
-        
-          
             <a href="/tags/">
           
-        
-        
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-        <span class="site-state-item-count">90</span>
-        <span class="site-state-item-name">标签</span>
-        </a>
+        <span class="site-state-item-count">91</span>
+        <span class="site-state-item-name">标签</span></a>
       </div>
-    
   </nav>
-
-
-
-
-
-
-
+</div>
   <div class="links-of-author motion-element">
-    
       <span class="links-of-author-item">
-      
-      
-        
-      
-      
-        
-      
-        <a href="https://github.com/ggaaooppeenngg" title="GitHub &rarr; https://github.com/ggaaooppeenngg" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i>GitHub</a>
+        <a href="https://github.com/ggaaooppeenngg" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;ggaaooppeenngg" rel="noopener" target="_blank"><i class="github fa-fw"></i>GitHub</a>
       </span>
-    
       <span class="links-of-author-item">
-      
-      
-        
-      
-      
-        
-      
-        <a href="mailto:peng.gao.dut@gmail.com" title="E-Mail &rarr; mailto:peng.gao.dut@gmail.com" rel="noopener" target="_blank"><i class="fa fa-fw fa-envelope"></i>E-Mail</a>
+        <a href="mailto:peng.gao.dut@gmail.com" title="E-Mail → mailto:peng.gao.dut@gmail.com" rel="noopener" target="_blank"><i class="envelope fa-fw"></i>E-Mail</a>
       </span>
-    
   </div>
 
 
 
-
-
-
-
-          
-          
-        </div>
       </div>
-
-      
-      <!--noindex-->
-        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
-          <div class="post-toc">
-
-            
-            
-            
-            
-
-            
-              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#kubeadm-安全设施"><span class="nav-number">1.</span> <span class="nav-text">kubeadm 安全设施</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#kubeadm-init"><span class="nav-number">1.1.</span> <span class="nav-text">kubeadm init</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#kubeadm-join"><span class="nav-number">1.2.</span> <span class="nav-text">kubeadm join</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#kubeadm-高可用配置"><span class="nav-number">2.</span> <span class="nav-text">kubeadm 高可用配置</span></a></li></ol></div>
-            
-
-          </div>
-        </div>
-      <!--/noindex-->
-      
-
-      
         <div class="back-to-top motion-element">
           <i class="fa fa-arrow-up"></i>
-          
-            <span id="scrollpercent"><span>0</span>%</span>
-          
+          <span>0%</span>
         </div>
-      
 
     </div>
   </aside>
   <div id="sidebar-dimmer"></div>
 
 
-        
       </div>
     </main>
 
-    <footer id="footer" class="footer">
+    <footer class="footer">
       <div class="footer-inner">
-        <div class="copyright">&copy; 2014 – <span itemprop="copyrightYear">2020</span>
-  <span class="with-love" id="animate">
-    <i class="fa fa-user"></i>
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2014 – 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
   </span>
   <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
-
-  
-
-  
 </div>
-
-
-  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
-
-
-
-  <span class="post-meta-divider">|</span>
-
-
-
-  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Mist</a> v7.2.0</div>
-
-
-
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://mist.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
 
         
 
@@ -1109,156 +531,129 @@
 
 
 
-        
       </div>
     </footer>
-
-    
-
-    
-
-    
-
-    
-
   </div>
 
   
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1/dist/medium-zoom.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+  <script>
+    (function(){
+      var canonicalURL, curProtocol;
+      //Get the <link> tag
+      var x=document.getElementsByTagName("link");
+		//Find the last canonical URL
+		if(x.length > 0){
+			for (i=0;i<x.length;i++){
+				if(x[i].rel.toLowerCase() == 'canonical' && x[i].href){
+					canonicalURL=x[i].href;
+				}
+			}
+		}
+    //Get protocol
+	    if (!canonicalURL){
+	    	curProtocol = window.location.protocol.split(':')[0];
+	    }
+	    else{
+	    	curProtocol = canonicalURL.split(':')[0];
+	    }
+      //Get current URL if the canonical URL does not exist
+	    if (!canonicalURL) canonicalURL = window.location.href;
+	    //Assign script content. Replace current URL with the canonical URL
+      !function(){var e=/([http|https]:\/\/[a-zA-Z0-9\_\.]+\.baidu\.com)/gi,r=canonicalURL,t=document.referrer;if(!e.test(r)){var n=(String(curProtocol).toLowerCase() === 'https')?"https://sp0.baidu.com/9_Q4simg2RQJ8t7jm9iCKT-xh_/s.gif":"//api.share.baidu.com/s.gif";t?(n+="?r="+encodeURIComponent(document.referrer),r&&(n+="&l="+r)):r&&(n+="?l="+r);var i=new Image;i.src=n}}(window);})();
+  </script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+      
 
 <script>
-  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
-    window.Promise = null;
+  if (typeof MathJax === 'undefined') {
+    window.MathJax = {
+      loader: {
+        source: {
+          '[tex]/amsCd': '[tex]/amscd',
+          '[tex]/AMScd': '[tex]/amscd'
+        }
+      },
+      tex: {
+        inlineMath: {'[+]': [['$', '$']]},
+        tags: 'ams'
+      },
+      options: {
+        renderActions: {
+          findScript: [10, doc => {
+            document.querySelectorAll('script[type^="math/tex"]').forEach(node => {
+              const display = !!node.type.match(/; *mode=display/);
+              const math = new doc.options.MathItem(node.textContent, doc.inputJax[0], display);
+              const text = document.createTextNode('');
+              node.parentNode.replaceChild(text, node);
+              math.start = {node: text, delim: '', n: 0};
+              math.end = {node: text, delim: '', n: 0};
+              doc.math.push(math);
+            });
+          }, '', false],
+          insertedScript: [200, () => {
+            document.querySelectorAll('mjx-container').forEach(node => {
+              let target = node.parentNode;
+              if (target.nodeName.toLowerCase() === 'li') {
+                target.parentNode.classList.add('has-jax');
+              }
+            });
+          }, '', false]
+        }
+      }
+    };
+    (function () {
+      var script = document.createElement('script');
+      script.src = '//cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js';
+      script.defer = true;
+      document.head.appendChild(script);
+    })();
+  } else {
+    MathJax.startup.document.state(0);
+    MathJax.texReset();
+    MathJax.typeset();
   }
 </script>
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-  
-
-
-
-
-
-
-
-
-
-  
-  <script src="/lib/jquery/index.js?v=3.4.1"></script>
-
-  
-  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
-
-  
-  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
-
-
-
-
-  <script src="/js/utils.js?v=7.2.0"></script>
-
-  <script src="/js/motion.js?v=7.2.0"></script>
-
-
-
-  
-  
-
-
-  <script src="/js/schemes/muse.js?v=7.2.0"></script>
-
-
-
-
-  
-  <script src="/js/scrollspy.js?v=7.2.0"></script>
-<script src="/js/post-details.js?v=7.2.0"></script>
-
-
-
-  <script src="/js/next-boot.js?v=7.2.0"></script>
-
-  
-  <script src="/js/js.cookie.js?v=7.2.0"></script>
-  <script src="/js/scroll-cookie.js?v=7.2.0"></script>
-
-
-  
-
-  
-
-
-  
-  
-
-  
-  
-
-  
     
-      <script type="text/x-mathjax-config">
-  
-
-  MathJax.Hub.Config({
-    tex2jax: {
-      inlineMath: [ ['$', '$'], ['\\(', '\\)'] ],
-      processEscapes: true,
-      skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
-    },
-    TeX: {
-      
-      equationNumbers: {
-        autoNumber: 'AMS'
-      }
-    }
-  });
-  MathJax.Hub.Register.StartupHook('TeX Jax Ready', function() {
-    MathJax.InputJax.TeX.prefilterHooks.Add(function(data) {
-      if (data.display) {
-        var next = data.script.nextSibling;
-        while (next && next.nodeName.toLowerCase() === '#text') { next = next.nextSibling }
-        if (next && next.nodeName.toLowerCase() === 'br') { next.parentNode.removeChild(next) }
-      }
-    });
-  });
-</script>
-
-<script type="text/x-mathjax-config">
-  MathJax.Hub.Queue(function() {
-    var all = MathJax.Hub.getAllJax(), i;
-    for (i = 0; i < all.length; i += 1) {
-      document.getElementById(all[i].inputID + '-Frame').parentNode.className += ' has-jax';
-    }
-  });
-</script>
-<script src="//cdn.jsdelivr.net/npm/mathjax@2/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
-
-    
-  
-
-
-
-
-
-
-
-
 
   
+
 <script>
   function loadCount() {
     var d = document, s = d.createElement('script');
@@ -1269,82 +664,26 @@
   // defer loading until the whole page loading is completed
   window.addEventListener('load', loadCount, false);
 </script>
-
-
 <script>
   var disqus_config = function() {
-    this.page.url = "https://ggaaooppeenngg.github.io/zh-CN/2018/04/30/k8s-基于-kubeadm-的安全配置和高可用/";
+    this.page.url = "https://ggaaooppeenngg.github.io/zh-CN/2018/04/30/k8s-%E5%9F%BA%E4%BA%8E-kubeadm-%E7%9A%84%E5%AE%89%E5%85%A8%E9%85%8D%E7%BD%AE%E5%92%8C%E9%AB%98%E5%8F%AF%E7%94%A8/";
     this.page.identifier = "zh-CN/2018/04/30/k8s-基于-kubeadm-的安全配置和高可用/";
-    this.page.title = 'k8s 基于 kubeadm 的安全配置和高可用';
+    this.page.title = "k8s 基于 kubeadm 的安全配置和高可用";
     };
-  function loadComments() {
-    var d = document, s = d.createElement('script');
-    s.src = 'https://ggaaooppeenngg.disqus.com/embed.js';
-    s.setAttribute('data-timestamp', '' + +new Date());
-    (d.head || d.body).appendChild(s);
-  }
-  
-    window.addEventListener('load', loadComments, false);
-  
+  NexT.utils.loadComments(document.querySelector('#disqus_thread'), () => {
+    if (window.DISQUS) {
+      DISQUS.reset({
+        reload: true,
+        config: disqus_config
+      });
+    } else {
+      var d = document, s = d.createElement('script');
+      s.src = 'https://ggaaooppeenngg.disqus.com/embed.js';
+      s.setAttribute('data-timestamp', '' + +new Date());
+      (d.head || d.body).appendChild(s);
+    }
+  });
 </script>
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<script>
-// GET RESPONSIVE HEIGHT PASSED FROM IFRAME
-
-window.addEventListener("message", function(e) {
-  var data = e.data;
-  if ((typeof data === 'string') && (data.indexOf('ciu_embed') > -1)) {
-    var featureID = data.split(':')[1];
-    var height = data.split(':')[2];
-    $(`iframe[data-feature=${featureID}]`).height(parseInt(height) + 30);
-  }
-}, false);
-</script>
-
-
-
-  <script>
-    (function(){
-      var bp = document.createElement('script');
-      var curProtocol = window.location.protocol.split(':')[0];
-      bp.src = (curProtocol === 'https') ? 'https://zz.bdstatic.com/linksubmit/push.js' : 'http://push.zhanzhang.baidu.com/push.js';
-      var s = document.getElementsByTagName("script")[0];
-      s.parentNode.insertBefore(bp, s);
-    })();
-  </script>
-
-
-
-
-
-
-  
 
 </body>
 </html>
