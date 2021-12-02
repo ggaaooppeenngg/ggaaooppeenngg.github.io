@@ -151,7 +151,7 @@
   </li>
         <li class="menu-item menu-item-tags">
 
-    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">93</span></a>
+    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">95</span></a>
 
   </li>
         <li class="menu-item menu-item-categories">
@@ -161,7 +161,7 @@
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">56</span></a>
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">57</span></a>
 
   </li>
   </ul>
@@ -254,7 +254,7 @@
 <figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">$</span><span class="bash"> nvcc -arch sm_20 hello.cu -o hello</span></span><br><span class="line"><span class="meta">$</span><span class="bash"> ./hello</span></span><br><span class="line">Hello World! from CPU</span><br><span class="line">Hello world!</span><br><span class="line">Hello world!</span><br><span class="line">Hello world!</span><br><span class="line">Hello world!</span><br><span class="line">Hello world!</span><br><span class="line">Hello world!</span><br><span class="line">Hello world!</span><br><span class="line">Hello world!</span><br><span class="line">Hello world!</span><br><span class="line">Hello world!</span><br></pre></td></tr></table></figure>
 <h2 id="CUDA"><a href="#CUDA" class="headerlink" title="CUDA"></a>CUDA</h2><p>CUDA 全称 Compute Unified Device Architecure，用于定义 GPU 的架构标准。GPU 的工作方式主要依赖于多核心的并行计算，CUDA 提供了方便的模型进行这种模式的编程，下面就会简单介绍一下 CUDA 的架构以及基于 GPU 的编程。</p>
 <p>CUDA 一次启动的线程称为网格(grid)，网格中包含块，每个块包含新程，是一个二维的模式，这张图片就说明得很清晰，首先是由 Grid 组成，然后每个 Block 有 shared memory，同 block 的线程可以访问 shared memory，不同的 Block 的线程只能访问全局的内存，这种结构也方便设计和实现并行算法。</p>
-<p><img src="https://www.researchgate.net/profile/Marco_Nobile/publication/261069154/figure/fig1/AS:296718735298563@1447754667270/Schematization-of-CUDA-architecture-Schematic-representation-of-CUDA-threads-and-memory.png" alt="cuda-arch"></p>
+<p><img data-src="https://www.researchgate.net/profile/Marco_Nobile/publication/261069154/figure/fig1/AS:296718735298563@1447754667270/Schematization-of-CUDA-architecture-Schematic-representation-of-CUDA-threads-and-memory.png" alt="cuda-arch"></p>
 <p>CUDA 的编译器 nvcc 是 gcc 的一个扩展，支持编写运行在 GPU 上的函数，其中的，<code>&lt;&lt;x, y&gt;&gt;</code> 扩展就是用来指定 block 和 thread 的数量的。</p>
 <p>比如典型的俩个向量相加的例子：</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">sumArrayOnHost</span><span class="params">(<span class="keyword">float</span> *A, <span class="keyword">float</span> *B, <span class="keyword">float</span> *C, <span class="keyword">const</span> <span class="keyword">int</span> N)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; N; i++)</span><br><span class="line">        C[i] = A[i] + B[i]</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
@@ -270,7 +270,7 @@
 <h3 id="线程束分化"><a href="#线程束分化" class="headerlink" title="线程束分化"></a>线程束分化</h3><p>线程束 = warp</p>
 <p>CPU 有很强的分支预测的能力，会预加载指令，如果预测正确，执行代价就很小，但是 GPU 在这方面是很弱的，因为线程束当中如果执行分支出现不同，那出现分支的线程就会被禁止执行，这也是用 GPU 做并行编程的时候需要参考的一个很重要的因素，保证并行的线程出现线程束分化的情况尽量少。</p>
 <p>下面就是线程束分化的例子。</p>
-<p><img src="http://15418.courses.cs.cmu.edu/spring2013content/lectures/02_basicarch/images/slide_030.png"></p>
+<p><img data-src="http://15418.courses.cs.cmu.edu/spring2013content/lectures/02_basicarch/images/slide_030.png"></p>
 <h3 id="并行归约问题"><a href="#并行归约问题" class="headerlink" title="并行归约问题"></a>并行归约问题</h3><p>并行归约是指如何对并行问题进行归约，比如说相邻配对和交错配对。</p>
 <h2 id="设备管理"><a href="#设备管理" class="headerlink" title="设备管理"></a>设备管理</h2><p>管理 GPU 主要是通过 CUDA API 或者 <code>nvidia-smi</code> 命令来获取。</p>
 <h2 id="SM（流式多处理器）"><a href="#SM（流式多处理器）" class="headerlink" title="SM（流式多处理器）"></a>SM（流式多处理器）</h2><p>上面讲的是抽象上的分层，但是实际的物理层面承载 GPU 的是 SM。最早的 GPU 架构叫 Fermi，然后是 Kepler，然后才是 Tesla。一般说的 <code>cm_20</code>, <code>sm_20</code> 就指这种计算能力和架构，新款的 GPU 计算能力要更强一点。</p>
@@ -401,7 +401,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">56</span>
+          <span class="site-state-item-count">57</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -414,7 +414,7 @@
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">93</span>
+        <span class="site-state-item-count">95</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>

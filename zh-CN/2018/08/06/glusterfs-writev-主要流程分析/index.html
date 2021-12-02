@@ -153,7 +153,7 @@
   </li>
         <li class="menu-item menu-item-tags">
 
-    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">93</span></a>
+    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">95</span></a>
 
   </li>
         <li class="menu-item menu-item-categories">
@@ -163,7 +163,7 @@
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">56</span></a>
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">57</span></a>
 
   </li>
   </ul>
@@ -259,19 +259,19 @@
 <p>volfile 会配置在 <code>/var/lib/glusterd/vols/</code> 下面，对应的文件名是 volfile-id 选项指定的。<code>xlator_t</code> 定义在 <code>libglusterfs/src/xlator.h</code> 里面。下面这张图就可以看到各个 translator 的关系。</p>
 <p>glusterfsd 最开始是 <code>protocol/server</code> 最后是 <code>storage/posix</code> 两个 xlator 作为开头和结束。</p>
 <p>glusterfs (client) 是以<code>protocol/client</code> 结尾。</p>
-<img src="/zh-CN/2018/08/06/glusterfs-writev-%E4%B8%BB%E8%A6%81%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/translator.png" class="">
+<img data-src="/zh-CN/2018/08/06/glusterfs-writev-%E4%B8%BB%E8%A6%81%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/translator.png" class="">
 
 <blockquote>
 <p>那个 write-behind 应该对应的是缓存策略里面的 write back，异步写，而不是直写。</p>
 </blockquote>
 <p>这种设计的好处是方便扩展，你只要填补 <code>xlator</code> 的实现，编译成 .so ，放到链接目录下面，就可以加载进去，不用改整个 glusterfs 的代码。</p>
 <p>glusterfs 的整个应用的结构也可以看一下。</p>
-<img src="/zh-CN/2018/08/06/glusterfs-writev-%E4%B8%BB%E8%A6%81%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/overallprocess.png" class="">
+<img data-src="/zh-CN/2018/08/06/glusterfs-writev-%E4%B8%BB%E8%A6%81%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/overallprocess.png" class="">
 
 <p>用户态是 fuse 实现的文件系统，通过网络协议走到 server，server 本身用的是本地的文件系统，glusterfs 推荐使用 xfs。</p>
 <p>下面举个详细的例子。</p>
 <p>以 <code>writev</code> 举例，（write 的本质也是 writev，这里的 v 指的是内存向量，写的时候用链表表示的内存向量可以减少内存的拷贝，因为要分配一段连续的内存，然后拷到一起很没有效率，而且系统调用本身也支持这个系统调用，走到底层是硬件支持的，硬件不支持，也能 hook 帮你再拷贝到一起，但上层就不用管这些细节了），他们的调用关系通过 <code>STACK_WIND</code> 和 <code>STACK_UNWIND</code> 实现，对于所有的 xlator 的 op 都是这种调用关系，本身一层结束以后通过调用 <code>STACK_WIND</code> 调用下一层对应的 op，然后在调用完成之后通过 <code>STACK_UNWIND</code> 回调 op_cbk，并且这种调用关系是树状的。</p>
-<img src="/zh-CN/2018/08/06/glusterfs-writev-%E4%B8%BB%E8%A6%81%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/stack.png" class="">
+<img data-src="/zh-CN/2018/08/06/glusterfs-writev-%E4%B8%BB%E8%A6%81%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/stack.png" class="">
 
 <p>这张图解释挺好的，说明了 xlator 向下传递的过程，通过 <code>STACK_WIND</code> 调用下一层，通过 <code>STACK_UNWIND</code> 调用上一层的 cbk。</p>
 <p><code>glusterfsd</code> 每个 volume 都会起一个线程来处理。</p>
@@ -423,7 +423,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">56</span>
+          <span class="site-state-item-count">57</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -436,7 +436,7 @@
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">93</span>
+        <span class="site-state-item-count">95</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>

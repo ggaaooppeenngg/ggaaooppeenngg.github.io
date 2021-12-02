@@ -153,7 +153,7 @@
   </li>
         <li class="menu-item menu-item-tags">
 
-    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">93</span></a>
+    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">95</span></a>
 
   </li>
         <li class="menu-item menu-item-categories">
@@ -163,7 +163,7 @@
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">56</span></a>
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">57</span></a>
 
   </li>
   </ul>
@@ -250,7 +250,7 @@
       
         <p>flannel 是一个中心化的 overlay 容器网络，设计简单，容易理解，对于 k8s 来说，有一个假设：所有容器都可以和集群里任意其他容器或者节点通信，并且通信双方看到的对方的 IP 地址就是实际的地址，主要的好处就是不需要任何的端口映射和地址转换，拥有一张扁平的网络更容易管理，而且由于是基于 Etcd 的中心化的管理，所以对于一些 IP 变化异常频繁的场景来说，比一些去中心化的方案能够较及时同步网络拓扑关系。</p>
 <h2 id="IP-地址的管理"><a href="#IP-地址的管理" class="headerlink" title="IP 地址的管理"></a>IP 地址的管理</h2><p>flannel 的 IP 地址是通过 Etcd 管理的，在 k8s 初始化的时候指定 pod 大网的网段 <code>--pod-network-cidr=10.244.0.0/16</code>，flanneld 可以直接通过 Etcd 管理，如果启动的时候指定了 <code>--kube-subnet-mgr</code>，可以直接通过 k8s 的 apiserver 来获得一个小网段的租期，通过 <code>kubectl get &lt;NodeName&gt; -o jsonpath=&#39;&#123;.spec.podCIDR&#125;&#39;</code> 可以获取对应节点的 CIDR 表示的网段，flannel 是以节点为单元划分小网段的，每个节点上的 pod 在这个例子当中是划分一个 10.244.x.0/24 的网段，所以总共能分配 255 个节点，每个节点上可以分配 253 个 pod。结构如下图所示，每个节点上都会有一个 flanneld 用于管理自己网段的租期。</p>
-<img src="/zh-CN/2017/09/21/flannel-%E7%BD%91%E7%BB%9C%E6%9E%B6%E6%9E%84/flannel-02.png" class="">
+<img data-src="/zh-CN/2017/09/21/flannel-%E7%BD%91%E7%BB%9C%E6%9E%B6%E6%9E%84/flannel-02.png" class="">
 
 <p>可以通过在 host 上 <code>cat /run/flannel/subnet.env</code> 查看同步下来的信息，例如：</p>
 <figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">FLANNEL_NETWORK=10.244.0.0/16</span><br><span class="line">FLANNEL_SUBNET=10.244.0.1/24</span><br><span class="line">FLANNEL_MTU=8951</span><br><span class="line">FLANNEL_IPMASQ=true</span><br></pre></td></tr></table></figure>
@@ -261,7 +261,7 @@
 <figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">    <span class="attr">&quot;name&quot;</span> : <span class="string">&quot;cni0&quot;</span>,</span><br><span class="line">    <span class="attr">&quot;type&quot;</span> : <span class="string">&quot;bridge&quot;</span>,</span><br><span class="line">    <span class="attr">&quot;mtu&quot;</span> : <span class="number">8973</span>,</span><br><span class="line">    <span class="attr">&quot;ipMasq&quot;</span> : <span class="literal">true</span>,</span><br><span class="line">    <span class="attr">&quot;isGateway&quot;</span> : <span class="literal">true</span>,</span><br><span class="line">    <span class="attr">&quot;ipam&quot;</span> : &#123;</span><br><span class="line">        <span class="attr">&quot;type&quot;</span> : <span class="string">&quot;host-local&quot;</span>,</span><br><span class="line">        <span class="attr">&quot;subnet&quot;</span> : <span class="string">&quot;10.244.0.1/24&quot;</span>,</span><br><span class="line">         <span class="attr">&quot;routes&quot;</span> : [ &#123; <span class="attr">&quot;dst&quot;</span> : <span class="string">&quot;10.244.0.0/16&quot;</span> &#125; ]</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <p>具体的网络拓扑图如下，所用的网段开头是 10.1，但是划分是一致的，图里面的 docker0 应该是 cni0，flannel0 应该是 flannel.1，这个命名的区别主要是不带点的是 UDP 封装，带点的是 vxlan 封装，图片比较早。</p>
-<img src="/zh-CN/2017/09/21/flannel-%E7%BD%91%E7%BB%9C%E6%9E%B6%E6%9E%84/flannel-01.png" class="">
+<img data-src="/zh-CN/2017/09/21/flannel-%E7%BD%91%E7%BB%9C%E6%9E%B6%E6%9E%84/flannel-01.png" class="">
 
 <p>第一步，首先是从容器中(10.1.20.3)出来，走桥接去到 cni0 (10.1.20.1)，通过<code>brctl show</code> 可以看到 <code>cni0</code> 接了两个容器的 veth。</p>
 <p>第二步，然后根据路由规则，在宿主机上能够用<code>ip route</code>，找到一条走到大网段的路由。<code>10.15.0.0/16 dev flannel.1</code>，到达 <code>flannel.1</code>。</p>
@@ -402,7 +402,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">56</span>
+          <span class="site-state-item-count">57</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -415,7 +415,7 @@
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">93</span>
+        <span class="site-state-item-count">95</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>

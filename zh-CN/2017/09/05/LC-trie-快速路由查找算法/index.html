@@ -157,7 +157,7 @@
   </li>
         <li class="menu-item menu-item-tags">
 
-    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">93</span></a>
+    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">95</span></a>
 
   </li>
         <li class="menu-item menu-item-categories">
@@ -167,7 +167,7 @@
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">56</span></a>
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">57</span></a>
 
   </li>
   </ul>
@@ -253,26 +253,26 @@
 
       
         <p>一般来说我们把字典树称作 trie，这是一个用于查找字符串的数据结构，举个简单的例子。下面就是一个把 b，abc，abd，bcd，abcd，efg，hii 这 6 个单词构造成字典树的例子。</p>
-<img src="/zh-CN/2017/09/05/LC-trie-%E5%BF%AB%E9%80%9F%E8%B7%AF%E7%94%B1%E6%9F%A5%E6%89%BE%E7%AE%97%E6%B3%95/1.jpg" class="">
+<img data-src="/zh-CN/2017/09/05/LC-trie-%E5%BF%AB%E9%80%9F%E8%B7%AF%E7%94%B1%E6%9F%A5%E6%89%BE%E7%AE%97%E6%B3%95/1.jpg" class="">
 
 <p>在路由表中我们可以把子网看作一个二进制字符串，对于 IPv4 来说，字符串的长度就有 32 位。</p>
-<img src="/zh-CN/2017/09/05/LC-trie-%E5%BF%AB%E9%80%9F%E8%B7%AF%E7%94%B1%E6%9F%A5%E6%89%BE%E7%AE%97%E6%B3%95/2.jpg" class="">
+<img data-src="/zh-CN/2017/09/05/LC-trie-%E5%BF%AB%E9%80%9F%E8%B7%AF%E7%94%B1%E6%9F%A5%E6%89%BE%E7%AE%97%E6%B3%95/2.jpg" class="">
 
 <p>以上面这个为例子，有编号 0 到 14 这几个二进制的字符串（字符集和只有 0 和 1），右边是他们的具体字符串，这样的字典树有一点像二叉树。如果把它画出来是这样的。</p>
-<img src="/zh-CN/2017/09/05/LC-trie-%E5%BF%AB%E9%80%9F%E8%B7%AF%E7%94%B1%E6%9F%A5%E6%89%BE%E7%AE%97%E6%B3%95/3.jpg" class="">
+<img data-src="/zh-CN/2017/09/05/LC-trie-%E5%BF%AB%E9%80%9F%E8%B7%AF%E7%94%B1%E6%9F%A5%E6%89%BE%E7%AE%97%E6%B3%95/3.jpg" class="">
 
 <p>对这个树做压缩有一个办法就是把单节点作压缩，形成下面这个树，这个就是路径压缩，path compressed trie。</p>
-<img src="/zh-CN/2017/09/05/LC-trie-%E5%BF%AB%E9%80%9F%E8%B7%AF%E7%94%B1%E6%9F%A5%E6%89%BE%E7%AE%97%E6%B3%95/4.jpg" class="">
+<img data-src="/zh-CN/2017/09/05/LC-trie-%E5%BF%AB%E9%80%9F%E8%B7%AF%E7%94%B1%E6%9F%A5%E6%89%BE%E7%AE%97%E6%B3%95/4.jpg" class="">
 
 <p>我们需要在压缩的地方进行标记，比如 skip 4 那里把一段 1011 压缩掉了。而 LC-trie 指的是 Level Compressed trie，这个树会把层级进行压缩，因为我们得到的这个字典树实际上是一个稀疏树，高度并不是平衡的，所以为了达到平衡，需要做的一件事情是把高度进行压缩，压缩之后变成下面这个形式，这样整棵树就会更加扁平。</p>
-<img src="/zh-CN/2017/09/05/LC-trie-%E5%BF%AB%E9%80%9F%E8%B7%AF%E7%94%B1%E6%9F%A5%E6%89%BE%E7%AE%97%E6%B3%95/5.jpg" class="">
+<img data-src="/zh-CN/2017/09/05/LC-trie-%E5%BF%AB%E9%80%9F%E8%B7%AF%E7%94%B1%E6%9F%A5%E6%89%BE%E7%AE%97%E6%B3%95/5.jpg" class="">
 
 <p>这个树是有两种类型的节点，一种是 leaf，保存了路由具体的信息的叶子结点，一种是 trie node（tnode）保存了中间节点，子节点可能是 tnode 或者 leaf。trie 上有几个数据要存储，一个是 bits，这个表示的是子节点的选择度（这个怎么理解呢，就是我接下来的子节点是八叉了，因为我把原来的树压缩了，所以现在不需要二选一，现在直接来个八选一就可以），对于一个八叉的压缩来说，就要有一个 3 位的数字来存储，也就是 log(8)，当然也可以能是 7 叉，但是必须是 2 的指数。而 pos 表示的是从那个 bit 开始，它的作用和 skip 类似只不过不是一个相对值，而是一个累加值，表示我们要从哪开始（从字符串的起始位置开始数）。</p>
 <p>我们先看一下搜索的代码，其实很简单，就是不断匹配公共前缀直到直到找到叶子节点（ bits == 0）。匹配前缀的方式比较 tricky，用异或进行确认。</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/* rcu_read_lock needs to be hold by caller from readside */</span></span><br><span class="line"><span class="function"><span class="keyword">static</span> struct key_vector *<span class="title">fib_find_node</span><span class="params">(struct trie *t,</span></span></span><br><span class="line"><span class="params"><span class="function">					struct key_vector **tp, u32 key)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">key_vector</span> *<span class="title">pn</span>, *<span class="title">n</span> =</span> t-&gt;kv;</span><br><span class="line">	<span class="keyword">unsigned</span> <span class="keyword">long</span> index = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">do</span> &#123;</span><br><span class="line">		pn = n;</span><br><span class="line">		n = get_child_rcu(n, index);</span><br><span class="line"></span><br><span class="line">		<span class="keyword">if</span> (!n)</span><br><span class="line">			<span class="keyword">break</span>;</span><br><span class="line"></span><br><span class="line">		index = get_cindex(key, n);</span><br><span class="line"></span><br><span class="line">		<span class="comment">/* This bit of code is a bit tricky but it combines multiple</span></span><br><span class="line"><span class="comment">		 * checks into a single check.  The prefix consists of the</span></span><br><span class="line"><span class="comment">		 * prefix plus zeros for the bits in the cindex. The index</span></span><br><span class="line"><span class="comment">		 * is the difference between the key and this value.  From</span></span><br><span class="line"><span class="comment">		 * this we can actually derive several pieces of data.</span></span><br><span class="line"><span class="comment">		 *   if (index &gt;= (1ul &lt;&lt; bits))</span></span><br><span class="line"><span class="comment">		 *     we have a mismatch in skip bits and failed</span></span><br><span class="line"><span class="comment">		 *   else</span></span><br><span class="line"><span class="comment">		 *     we know the value is cindex</span></span><br><span class="line"><span class="comment">		 *</span></span><br><span class="line"><span class="comment">		 * This check is safe even if bits == KEYLENGTH due to the</span></span><br><span class="line"><span class="comment">		 * fact that we can only allocate a node with 32 bits if a</span></span><br><span class="line"><span class="comment">		 * long is greater than 32 bits.</span></span><br><span class="line"><span class="comment">		 */</span></span><br><span class="line">		<span class="keyword">if</span> (index &gt;= (<span class="number">1ul</span> &lt;&lt; n-&gt;bits)) &#123;</span><br><span class="line">			n = <span class="literal">NULL</span>;</span><br><span class="line">			<span class="keyword">break</span>;</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		<span class="comment">/* keep searching until we find a perfect match leaf or NULL */</span></span><br><span class="line">	&#125; <span class="keyword">while</span> (IS_TNODE(n));</span><br><span class="line"></span><br><span class="line">	*tp = pn;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> n;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <p>具体看一下 <code>get_cindex</code> 匹配的方式，<code>#define get_cindex(key, kv) (((key) ^ (kv)-&gt;key) &gt;&gt; (kv)-&gt;pos)</code>，对 tnode 和 被比较的 key 做异或，这个怎么理解呢，看下面的图的例子这是正确匹配以后的结果，灰色代表 0，蓝色代表 1，两个值进行异或的话，首先 pos 会被右移掉，然后 bits 的部分会原样保留，因为 tnode 的这部分都是 0。然后亲址的部分如果完全匹配的话结果就都是 0 ，但是如果不完全匹配的话，结果就会比 index 还要大，因为高位还有 1，所以这就是为什么 <code>index &gt;= (1ul &lt;&lt; n-&gt;bits</code> 能判断是否匹配的前缀的原因。</p>
-<img src="/zh-CN/2017/09/05/LC-trie-%E5%BF%AB%E9%80%9F%E8%B7%AF%E7%94%B1%E6%9F%A5%E6%89%BE%E7%AE%97%E6%B3%95/6.jpg" class="">
+<img data-src="/zh-CN/2017/09/05/LC-trie-%E5%BF%AB%E9%80%9F%E8%B7%AF%E7%94%B1%E6%9F%A5%E6%89%BE%E7%AE%97%E6%B3%95/6.jpg" class="">
 
 <p>然后我们再看一下插入的流程。首先算出匹配到当前节点的子节点（有可能有，有可能没有）。</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">static</span> <span class="keyword">int</span> <span class="title">fib_insert_node</span><span class="params">(struct trie *t, struct key_vector *tp,</span></span></span><br><span class="line"><span class="params"><span class="function">			   struct fib_alias *<span class="keyword">new</span>, t_key key)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">key_vector</span> *<span class="title">n</span>, *<span class="title">l</span>;</span></span><br><span class="line"></span><br><span class="line">	l = leaf_new(key, <span class="keyword">new</span>);</span><br><span class="line">	<span class="keyword">if</span> (!l)</span><br><span class="line">		<span class="keyword">goto</span> noleaf;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* retrieve child from parent node */</span></span><br><span class="line">	n = get_child(tp, get_index(key, tp));</span><br></pre></td></tr></table></figure>
@@ -431,7 +431,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">56</span>
+          <span class="site-state-item-count">57</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -444,7 +444,7 @@
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">93</span>
+        <span class="site-state-item-count">95</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>

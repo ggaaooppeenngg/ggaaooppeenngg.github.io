@@ -145,7 +145,7 @@
   </li>
         <li class="menu-item menu-item-tags">
 
-    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">93</span></a>
+    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">95</span></a>
 
   </li>
         <li class="menu-item menu-item-categories">
@@ -155,7 +155,7 @@
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">56</span></a>
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">57</span></a>
 
   </li>
   </ul>
@@ -177,6 +177,111 @@
 
           <div class="content index posts-expand">
             
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2021/12/02/Knative-%E6%9E%B6%E6%9E%84%E5%88%86%E6%9E%90/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            <a href="/zh-CN/2021/12/02/Knative-%E6%9E%B6%E6%9E%84%E5%88%86%E6%9E%90/" class="post-title-link" itemprop="url">Knative 架构分析</a>
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-12-02 14:25:51" itemprop="dateCreated datePublished" datetime="2021-12-02T14:25:51+08:00">2021-12-02</time>
+            </span>
+
+          
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2021/12/02/Knative-%E6%9E%B6%E6%9E%84%E5%88%86%E6%9E%90/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2021/12/02/Knative-架构分析/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <p>Knative主要有两个重要的部分，一个是自动扩展一个是流量切换，并且目前的设计已经和istio是相对独立的了。</p>
+<p>Knative的service和k8s的service容易混淆，所以用sks指代knative的service，然后service本身是指k8s本身的service。</p>
+<p>sks的revision创建的时候会有两个service，一个是 public service，一个是 private service，如果用istio的话会看到一个和ingressgateway关联的有externalname的service，这个service是和ingress实现相关的。主要的实现还是public和private两个service，实现和具体的ingress的实现是独立的。</p>
+<p>Private service 对应的是真实的pod的endpoints，public service 有两种模式一个serve模式，一个是proxy模式。当public service出于proxy模式时，其endpoints指向的是activator，当处于serve模式时endpoints指向的是private service所指向的后端endpoints。</p>
+<p>在scale从0到1的过程中，会先阻塞在activator上，当有pod启动以后，还是会保持proxy模式，直到超过burst才会切换到private service的endpoints上。在从1到0的过程中会再切换回activator，直到有新的请求到来再触发pod的启动。</p>
+<h2 id="activator"><a href="#activator" class="headerlink" title="activator"></a>activator</h2><p>Throttler</p>
+<blockquote>
+<p>Throttler is the interface that Handler calls to Try to proxy the user request</p>
+</blockquote>
+<p>Health Handler 注册用于 kubelet 做 readiness 和 health probe 的接口，返回statSink的状态，收到 signal term 的时候就开始返回500。</p>
+<p>Network probe handler<br>knative组件用来 probe 的接口，在header里面会有区分。</p>
+<p>Context handler<br>把header中的revision的name和namespace注入的context当中</p>
+<p>Metric Handler<br>收集request的qps等metrics的信息。</p>
+<p>Log Handler<br>请求日志</p>
+<p>Tracing Handler<br>Trace spans</p>
+<p>Cocurrency report Handler</p>
+<p>记录请求信息，这些信息会被reporter上报</p>
+<p>Activator handler</p>
+<p>过一层 throttler 进行proxy，如果没受限制就会proxy request。</p>
+<p>Throttler 会根据revID创建一个throttler，revision如果存在的话就会创建throttler。（revision肯定是一直在的哪怕没有起pod）如果超过revision的并发数就会退出。</p>
+<p>Throttler 会try对应的revisionThrottler的pods然后转发过去。</p>
+<h2 id="controller"><a href="#controller" class="headerlink" title="controller"></a>controller</h2><p>Controller 主要是对用户使用的几个CRD的同步：Service、Route、Revision、Configuration。</p>
+<h2 id="net-istio"><a href="#net-istio" class="headerlink" title="net-istio"></a>net-istio</h2><p>Ingress 的一种实现</p>
+<p>internal 的 ingress创建一个 ingress virtualservice 并且将gate指定为isito-gateway，其他的ingress实现其实类似，只是目前没有traefik的支持。knative有没有istio现在是没啥区别了。</p>
+<h2 id="domain-mappings"><a href="#domain-mappings" class="headerlink" title="domain mappings"></a>domain mappings</h2><p>一个用于扩展域名的CRD DomainClaim，会根据domainclaim创建一个ingress。</p>
+<h2 id="queue-proxy"><a href="#queue-proxy" class="headerlink" title="queue-proxy"></a>queue-proxy</h2><p>tracing metrics breaker 都是正常操作。本质是个sidecar层面的反向代理。</p>
+<p>Metrcis</p>
+<p>Admin</p>
+<p>有一个给cocurrency endpoint发 paused 和 resumed 的回调。</p>
+<p>Main</p>
+<p>Proxy handler 收集 request in 和 request out。</p>
+<h2 id="自定义默认域名的问题"><a href="#自定义默认域名的问题" class="headerlink" title="自定义默认域名的问题"></a>自定义默认域名的问题</h2><p>kubectl get  cm config-network -n knative-serving -o yaml 可以看到默认的模板去修改他</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">domain-template: &quot;&#123;&#123;.Name&#125;&#125;.&#123;&#123;.Namespace&#125;&#125;.&#123;&#123;.Domain&#125;&#125;&quot;</span><br></pre></td></tr></table></figure>
+
+
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
       
   
   
@@ -438,26 +543,26 @@
       
           <p>大规模的并发并行计算考虑的问题主要关于数据、计算的吞吐量还有容错。不管是设计者还是使用者，关心的是在期望上（因为可能会失败）运行任务的效率，从设计者的角度来讲要提供一个可靠高效的环境，从使用者的角度来讲这个东西需要足够的简单，简单意味着编程效率也保证了可靠性。大数据的整套技术栈在解决一些吞吐量大的批处理问题时得心应手，但是到了深度学习的场景，计算吞吐的要求反而提高了，比较现实点的情况是很多时候我们考虑的是能处理多大的数据量的日志，和多快能把一个ImageNet ResNet50训练完。这个区别在于 Spark 或者 Hadoop 的 MapReduce 的设计和 Tensorflow 以及 PyTorch 的设计理念不同以及对应的计算场景的不同。到了强化学习的场景又是一个大融合，强化学习的场景不光有迭代式的反向误差传播的计算，同时也包含了大规模的仿真环境的计算，Ray主要是在这方面提供了一个一站式的解决框架。分布式系统的问题某种程度上和操作系统的问题其实很类似，都是要考量如何从整个系统的角度充分利用物理资源，从错误中恢复，满足效率。这篇文章主要是比较一下几种主流的计算引擎或者框架或者说是算法的异同。</p>
 <h1 id="Spark-MapReduce"><a href="#Spark-MapReduce" class="headerlink" title="Spark(MapReduce)"></a>Spark(MapReduce)</h1><p>我把Spark和MapReduce都归于大数据栈这一类，RDD(Resillient Distributed Dataset) 和 MapReduce<br>这两者的区别没有和MPI/PS的区别大那么多。</p>
-<img src="/zh-CN/2020/05/13/Spark-Ray-PS-MPI%E7%AD%89%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E%E5%92%8C%E6%A1%86%E6%9E%B6%E7%9A%84%E6%80%BB%E7%BB%93/spark.png" class="">
+<img data-src="/zh-CN/2020/05/13/Spark-Ray-PS-MPI%E7%AD%89%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E%E5%92%8C%E6%A1%86%E6%9E%B6%E7%9A%84%E6%80%BB%E7%BB%93/spark.png" class="">
 
 <p>MapReduce 有 JobTracker，Spark 有 Driver</p>
 <p>MapReduce 有 TaskTracker，Spark 有 Executor</p>
 <p>MapReduce 中间结果是基于 HDFS，会落盘，Spark 中间结果是基于内存的，也可以落盘，主要是利用内存做缓存</p>
 <p>MapReduce 计算抽象由Map和Reduce构成，Spark 的 RDD 有一系列的Transform和Action，封装程度更高</p>
 <p>MapReduce 的错误处理比较简单，把失败的Map重试就好了，重试是一种非常好理解的错误处理。<br>Spark 的重试是根据 RDD 的有向无环图中的血缘关系计算的，可以理解为从失败的拓扑序上重新计算，也可以有中间的checkpoint。</p>
-<img src="/zh-CN/2020/05/13/Spark-Ray-PS-MPI%E7%AD%89%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E%E5%92%8C%E6%A1%86%E6%9E%B6%E7%9A%84%E6%80%BB%E7%BB%93/rdd.png" class="">
+<img data-src="/zh-CN/2020/05/13/Spark-Ray-PS-MPI%E7%AD%89%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E%E5%92%8C%E6%A1%86%E6%9E%B6%E7%9A%84%E6%80%BB%E7%BB%93/rdd.png" class="">
 
 <p>RDD 的特性是只读的，在机器学习场景下参数不大的时候 MLLib 通过把参数存到 Driver 上来计算，当参数比较大特别是深度网络的参数大得吓人 Driver 存不下的时候,<br>只能通过新增 RDD，对于要频繁更新的模型参数要生成非常多的 RDD，这是 Spark 在深度学习上设计的缺陷。<br>一般来说一些简单的机器学习任务通过 sklearn 就能完成，当数据量比较大的时候就需要通过 Spark 的MLLib来处理。<br>当然 MLLib 现在也在开始从RDD-based转向SparkSQL用的Dataframe-based，从大的角度上讲两者互相融合是可行的，可能需要一些时间。<br>上 Spark 用 Yarn 调度 Tensorflow，还是用 Kuberenetes 调度 Spark 和 Tensorflow，我个人支持后者，而且这种分层是我比较喜欢的一种分层。</p>
 <h1 id="Ray"><a href="#Ray" class="headerlink" title="Ray"></a>Ray</h1><p>Ray 的基本抽象就是 Remote 或者 Actor，一个是分布式调用函数，一个式分布式调用类。Ray 和 Ray 的 RLlib 主要面对的问题是强化学习有大量的 simulating 的环境，比如仿真一局Dota，涉及到模拟一局Dota，反馈Agent的神经网络，是并行计算和神经网络训练的结合。当然 Ray 本身的抽象就是个分布式 goroutine，所以某种程度上可以完成的事情不光是强化学习一种任务，比如HypterTunning等一些并行计算的模型也是试用的。</p>
-<img src="/zh-CN/2020/05/13/Spark-Ray-PS-MPI%E7%AD%89%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E%E5%92%8C%E6%A1%86%E6%9E%B6%E7%9A%84%E6%80%BB%E7%BB%93/ray.png" class="">
+<img data-src="/zh-CN/2020/05/13/Spark-Ray-PS-MPI%E7%AD%89%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E%E5%92%8C%E6%A1%86%E6%9E%B6%E7%9A%84%E6%80%BB%E7%BB%93/ray.png" class="">
 
 <p>反过来想，如果没有 Ray 的话，如何做这个系统呢，要构建大批量的仿真计算环境，然后能根据仿真的反馈训练神经网络。<br>这两个任务的调度控制就是一个问题，当然放到 k8s 的调度器里做似乎也可以，然后涉及这些分布式任务的同步问题，<br>需要构建这些任务的关系和信息传输，似乎用一些 DAG （比如 argo）的 workflow 也能解决，但他们之间通信的高效性似乎会是一个问题，需要<br>选择一种高效的远程调用传输方式，肯能gRPC也可以，还有他们的元数据管理用什么呢，自己搞个Redis似乎也行。<br>Ray 从这些方面综合考虑了这些问题提供了一个一站式的RL训练平台。</p>
 <h1 id="PS和MPI"><a href="#PS和MPI" class="headerlink" title="PS和MPI"></a>PS和MPI</h1><p>MPI和PS的介绍有很多，我也不需要费篇幅唠叨。</p>
 <p>PS和MPI是比较常用的分布式深度学习的训练方式，两者的主要区别在于Paramater Server，在PS的场景下参数统一走一个或者shard多个PS更新。</p>
-<img src="/zh-CN/2020/05/13/Spark-Ray-PS-MPI%E7%AD%89%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E%E5%92%8C%E6%A1%86%E6%9E%B6%E7%9A%84%E6%80%BB%E7%BB%93/ps_worker_arch.png" class="">
+<img data-src="/zh-CN/2020/05/13/Spark-Ray-PS-MPI%E7%AD%89%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E%E5%92%8C%E6%A1%86%E6%9E%B6%E7%9A%84%E6%80%BB%E7%BB%93/ps_worker_arch.png" class="">
 
 <p>在MPI的场景下每个Worker是对等的（或者分层级对等，比如主机上的四张卡走NVLink，主机之间走万兆网卡）工作节点，使用AllReduce参数的同步在Worker之间进行。</p>
-<img src="/zh-CN/2020/05/13/Spark-Ray-PS-MPI%E7%AD%89%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E%E5%92%8C%E6%A1%86%E6%9E%B6%E7%9A%84%E6%80%BB%E7%BB%93/mpi.png" class="">
+<img data-src="/zh-CN/2020/05/13/Spark-Ray-PS-MPI%E7%AD%89%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E%E5%92%8C%E6%A1%86%E6%9E%B6%E7%9A%84%E6%80%BB%E7%BB%93/mpi.png" class="">
 
 <h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>MPI在我出生前应该就有了，但是MapReduce之所以能火起来主要还是在 fault-tolerance 上，MPI的抽象比较基础，但是MapReduce和Spark在廉价大集群上的表现非常亮眼，对于没那么并行化理想的场景能够tolerate，时间到了深度学习的场景这玩意儿又冒出来了，一方面是深度学习的计算资源好得不得了，因为配备GPU的机器和传统的机器比起来好很多，对于这种纯粹的并行计算框架来说非常友好，错误处理的问题就没那么严重，即使是这样也慢慢开始有人着手优化MPI/PS的fault tolerance，在一些并行化退化的场景下能够把训练并行度降级不至于完全失败的工作。</p>
 <p>从长远来看 Ray 还会有很多进化的空间，Spark 也会更好地适配深度学习场景，深度学习本身在System上的优化也层出不穷，大家对于大规模的并发并行计算系统的方方面面的要求都会越来越高。</p>
@@ -541,7 +646,7 @@
 </blockquote>
 <p>贝叶斯优化主要是要两个部分，一个是统计模型比如高斯过程(GP)，一个是采样函数(AC)决定下一个样本从拿里获取。</p>
 <h2 id="高斯过程-GP"><a href="#高斯过程-GP" class="headerlink" title="高斯过程(GP)"></a>高斯过程(GP)</h2><p>高斯过程是贝叶斯优化中的一种统计模型，先抛开具体的数学问题，简单讲一下就是，假设我在一个变量空间（比如多个超参数）采样了一个目标函数（我们训练结果的 evaluation），然后我们会得到一个后验分布，这就类似条件概率里面，我们知道了某个事情发生以后，如果随机变量是相关的，我们有更大的概率确定其他变量的分布。例如下图，绿色是我们的分布空间，每次采样以后，分布的空间就会缩小，进而接近我们的曲线。</p>
-<img src="/zh-CN/2019/10/14/%E8%B4%9D%E5%8F%B6%E6%96%AF%E4%BC%98%E5%8C%96%E4%B9%8B%E9%AB%98%E6%96%AF%E8%BF%87%E7%A8%8B%E5%92%8C%E5%BA%94%E7%94%A8/GP.gif" class="">
+<img data-src="/zh-CN/2019/10/14/%E8%B4%9D%E5%8F%B6%E6%96%AF%E4%BC%98%E5%8C%96%E4%B9%8B%E9%AB%98%E6%96%AF%E8%BF%87%E7%A8%8B%E5%92%8C%E5%BA%94%E7%94%A8/GP.gif" class="">
 
 <p>从数学上描述这件事情就需要高斯分布和高斯过程了。高斯分布我相信大家都耳熟能详，他由平均值 $\mu$ 还有标准差 $\sigma$ 决定分布。高斯过程的本质是一个多元高斯分布，只不过他是无限空间上的，定义高斯过程需要一个核函数定义他的协方差矩阵，也就是一个矩阵定义多个随机变量的相关性。当然了，有限的离散点用协方差矩阵可以，如果取值是连续的就需要核函数描述这个“无限”的协方差矩阵了。</p>
 <p>协方差的核函数就很多选项，<a target="_blank" rel="noopener" href="https://distill.pub/2019/visual-exploration-gaussian-processes/">A Visual Exploration of Gaussian Processes</a> 提供了一个非常 intuitive 的可视化来解释 GP 和各种描述协方差矩阵的核函数。</p>
@@ -564,7 +669,7 @@
 <p>The above definition of the EI function assumes that the objective function is observed free of noise. In many types of experiments, such as those found in A/B testing and reinforcement learning, the observations are typically noisy. For these cases, BoTorch implements an efficient variant of EI, called Noisy EI, which allow for optimization of highly noisy outcomes, along with any number of constraints (i.e., ensuring that auxiliary outcomes do not increase or decrease too much). For more on Noisy EI, see our <a target="_blank" rel="noopener" href="https://research.fb.com/efficient-tuning-of-online-systems-using-bayesian-optimization/">blog post</a>.</p>
 </blockquote>
 <p>这是采样的过程的一个示例：</p>
-<img src="/zh-CN/2019/10/14/%E8%B4%9D%E5%8F%B6%E6%96%AF%E4%BC%98%E5%8C%96%E4%B9%8B%E9%AB%98%E6%96%AF%E8%BF%87%E7%A8%8B%E5%92%8C%E5%BA%94%E7%94%A8/bo_1d_opt.gif" class="">
+<img data-src="/zh-CN/2019/10/14/%E8%B4%9D%E5%8F%B6%E6%96%AF%E4%BC%98%E5%8C%96%E4%B9%8B%E9%AB%98%E6%96%AF%E8%BF%87%E7%A8%8B%E5%92%8C%E5%BA%94%E7%94%A8/bo_1d_opt.gif" class="">
 
 
 <h2 id="应用"><a href="#应用" class="headerlink" title="应用"></a>应用</h2><p>高斯过程本身可以用来回归和分类，使用高斯过程的贝叶斯优化有很多具体的应用场景，除了超参数优化之外，对于网络结果（层数，数据并行度）等等也是可以使用的。<br>除此之外像 horovod 也使用了贝叶斯优化，在这个目录<a target="_blank" rel="noopener" href="https://github.com/horovod/horovod/tree/master/horovod/common/optim">下面</a>。</p>
@@ -664,9 +769,9 @@
 </blockquote>
 <p>就是说把一个大的集合“缩减”成了小的集合，这里要注意的是这种缩减的计算是要满足交换律的，也就是减法或者除法是不行的，因为在并行计算当中不太好去控制计算的顺序。Reduce 就是这个意思，具体到 MPI_Reduce 就是把不同节点的数字“缩减”到一个节点上，支持的计算方式有加法乘法和取大小值等。</p>
 <p>教程中给出的 Reduce 是求和。</p>
-<img src="/zh-CN/2019/08/30/horovod-%E5%AE%9E%E7%8E%B0%E5%88%86%E6%9E%90/mpi_reduce_1.png" class="">
+<img data-src="/zh-CN/2019/08/30/horovod-%E5%AE%9E%E7%8E%B0%E5%88%86%E6%9E%90/mpi_reduce_1.png" class="">
 <p>AllReduce 就是在每个节点都获得 Reduce 的结果</p>
-<img src="/zh-CN/2019/08/30/horovod-%E5%AE%9E%E7%8E%B0%E5%88%86%E6%9E%90/mpi_allreduce_1.png" class="">
+<img data-src="/zh-CN/2019/08/30/horovod-%E5%AE%9E%E7%8E%B0%E5%88%86%E6%9E%90/mpi_allreduce_1.png" class="">
 <p>基于这个标准就有很多的 All-Reduce 的实现，比如 Ring-Reduce，这个实现分两部分，一部分是 Scatter-Reduce 另一部分是 All-Gather。最早是在<a target="_blank" rel="noopener" href="http://andrew.gibiansky.com/">这篇 post</a>里提到的。这个算法的好处是可以摆脱之前 PS 非常依赖 Parameter-Server 的带宽，Parameter-Server 的带宽会成为计算瓶颈的问题，而 AllReduce 可以让每个节点在带宽传输中的位置是对等的，并且减少传输次数。具体的算法可以看文章的解释，scatter-reduce 就是让每个节点有 K/N 的一个 reduce(也就是 sum)，然后把自己的一个 K/N 的 reduce 再传递给其他节点，每个节点只和自己相邻的节点通信。</p>
 <blockquote>
 <p>In the system we described, each of the N GPUs will send and receive values N-1 times for the scatter-reduce, and N-1 times for the allgather. Each time, the GPUs will send K / N values, where K is the total number of values in array being summed across the different GPUs. Therefore, the total amount of data transferred to and from every GPU is</p>
@@ -722,9 +827,9 @@
 <h3 id="算子实现层"><a href="#算子实现层" class="headerlink" title="算子实现层"></a>算子实现层</h3><p>具体的 op 在 <a target="_blank" rel="noopener" href="https://github.com/horovod/horovod/tree/master/horovod/common/ops">common/op</a> 可以看到有 NCCL/Gloo/MPI 等等的，这些由 op_manager 管理，他会根据优先级找到可以用来计算的 op 进行计算，比如 MPI 用的就是 MPI_Allreduce，具体 scatter-gather 和 all-gather openMPI 有现成的实现，NCCL 就直接调用 <code>ncclAllReduce</code>，比较新的 nccl 也支持跨节点的 allreduce 了，不用自己再套一层。</p>
 <p>除了 allreduce 之外，还有两个比较重要的算子。</p>
 <p>allgather 主要是比 allreduce 少一层 reduce，所有数据被发送到所有进程就可以。allreduce 的第二步就是把每个进程的 scatter-reduce 的 reduce 结果发送到所有进程。</p>
-<img src="/zh-CN/2019/08/30/horovod-%E5%AE%9E%E7%8E%B0%E5%88%86%E6%9E%90/mpi_allgather_1.png" class="">
+<img data-src="/zh-CN/2019/08/30/horovod-%E5%AE%9E%E7%8E%B0%E5%88%86%E6%9E%90/mpi_allgather_1.png" class="">
 <p>broadcast 的作用是一对多的广播，主要是把初始化的参数同步给其他进程的时候使用。</p>
-<img src="/zh-CN/2019/08/30/horovod-%E5%AE%9E%E7%8E%B0%E5%88%86%E6%9E%90/mpi_broadcast_1.png" class="">
+<img data-src="/zh-CN/2019/08/30/horovod-%E5%AE%9E%E7%8E%B0%E5%88%86%E6%9E%90/mpi_broadcast_1.png" class="">
 
 
 
@@ -802,7 +907,7 @@
       
           <p>总结一下 SysML 2019 的一些论文。</p>
 <h2 id="TICTAC"><a href="#TICTAC" class="headerlink" title="TICTAC"></a>TICTAC</h2><p>问题背景是解决分布式训练的 scale 问题。<br>如图，网络带宽和传输的顺序是关键因素，网络带宽很好理解，如果 Best 要提高只能加带宽，同时传输顺序如图会影响计算时间。</p>
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/tictac.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/tictac.png" class="">
 
 <p>Communication to Computation Ratio 传输计算比，如果比值大说明效率高</p>
 <ol>
@@ -811,89 +916,89 @@
 <li><p> Overlay Coeffiecient 提供传输和计算的重合率，是 TicTac 的优化方向。</p>
 </li>
 </ol>
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/overlap.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/overlap.png" class="">
 
 <p>计算最优传输依赖，这是个 NP 问题，需要找近似解。recv op 是图的 root，可行的拓扑排序有很多种，解决方案就是找到近似优化排序。（原问题是 NP 问题）</p>
 <p>几种符号</p>
 <p>op.P 直接 Op 执行计算时间<br>op.M Op传输时间<br>op.M+ 触发计算 op 的最小传输时间</p>
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic1.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic1.png" class="">
 
 <h3 id="Tic"><a href="#Tic" class="headerlink" title="Tic"></a>Tic</h3><p>设 Communication Time 对于每个 recv op 来说都相等，从直觉上解释就是计算执行 recv op 的优先度。<br>如图计算对应的值</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">case 1</span><br><span class="line">A.M = B.M = 1</span><br><span class="line">case 2</span><br><span class="line">A.M = B.M = 1</span><br><span class="line">C.M = 1+1</span><br><span class="line">D.M = 1+1+1</span><br></pre></td></tr></table></figure>
 <p>越小优先级越高，这个可以在 DAG 中静态算出</p>
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic2.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic2.png" class="">
 
-<h3 id="Tac"><a href="#Tac" class="headerlink" title="Tac"></a>Tac</h3><img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic4.png" class="">
+<h3 id="Tac"><a href="#Tac" class="headerlink" title="Tac"></a>Tac</h3><img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic4.png" class="">
 
 <p>Communication Time 对于每个 recv op 来说有对应的时间，对应的算法。</p>
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic3.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic3.png" class="">
 
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic5.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic5.png" class="">
 
 <h3 id="系统设计"><a href="#系统设计" class="headerlink" title="系统设计"></a>系统设计</h3><p>Time Oracle: Tensorflow metrics 计算 op time</p>
 <p>Ordering Wizard: 计算静态依赖优先级</p>
 <p>Enforcing: 修改 Tensorflow gRPC 子模块</p>
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic6.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic6.png" class="">
 
 <h2 id="P3"><a href="#P3" class="headerlink" title="P3"></a>P3</h2><p>PRIORITY-BASED PARAMETER PROPAGATION FOR DISTRIBUTED DNN TRAINING</p>
 <p>和上一篇论文类似，也是基于传输优化的思路，因为网络带宽基本上就是一个硬件问题。一些优化手段是用了有损压缩或者降低收敛时准确率的方式。还是通过提高 overlap 来实现。<br>直观的现象是如图 L4 的一次正向传播和反向传播之间的间隔很大。</p>
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic7.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic7.png" class="">
 
 <h3 id="解决方法：带优先级的参数切分"><a href="#解决方法：带优先级的参数切分" class="headerlink" title="解决方法：带优先级的参数切分"></a>解决方法：带优先级的参数切分</h3><p>在 MXNet 里面，worker 算完当层的梯度<br>就会提一个 pull request 当其他 work 同步了这个梯度。<br>问题在于发送的顺序和反向传播的顺序一致，并且颗粒度<br>是以 layer 为单位的。</p>
 <p>根据领域知识将大 layer 分片成小 slice。<br>对每个 slice 进行权重排序，优先传输权重高的 slice。<br>被称为 Priority-Based Parameter Propagation</p>
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic8.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic8.png" class="">
 
 <p>如图如果参数传输有优先级能够被中断就能减少 delay</p>
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic9.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic9.png" class="">
 
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic10.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic10.png" class="">
 
 <p>大部分模型每层的参数是不平衡的，特别是全连接的参数非常大。</p>
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic11.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic11.png" class="">
 
 <p>对每一层切分以后利用 TCP 的全双工可以达到流水线的效果。</p>
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic12.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic12.png" class="">
 
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic13.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic13.png" class="">
 
 <h3 id="P3-的设计"><a href="#P3-的设计" class="headerlink" title="P3 的设计"></a>P3 的设计</h3><p>参数切片：根据领域知识和实验选择大小(50000)<br>参数优先级：下一层先需要的先发送，可以抢占低优先级的</p>
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic14.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic14.png" class="">
 
 <p>我个人觉得简单，这个比上一个更好理解也简单。</p>
 <h2 id="BlueConnect"><a href="#BlueConnect" class="headerlink" title="BlueConnect"></a>BlueConnect</h2><p>主要是一个对分层（原本的一层或者两层）的 All-Reduce 的泛化算法。<br>首先使用递归的方法可以减少 all-gather 的传输次数。</p>
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic15.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic15.png" class="">
 
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic16.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic16.png" class="">
 
 <p>这个只要三次 logp</p>
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic17.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic17.png" class="">
 <p>ring reduce 要7次 (p-1)</p>
 <h3 id="问题背景"><a href="#问题背景" class="headerlink" title="问题背景"></a>问题背景</h3><p>多卡之间的带宽很高 32GB/s，不同网络拓扑下，最慢的会成为瓶颈。<br>分两层可以解决网络和总线的带宽差异。</p>
 <p>对于二层的一个泛化，</p>
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic18.png" class="">
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic20.png" class="">
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic19.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic18.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic20.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic19.png" class="">
 <p>三层的 reduce-scatter 的例子，reduce-gather 是反的。</p>
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic21.png" class="">
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic22.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic21.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic22.png" class="">
 
 <h2 id="BEYOND-DATA-AND-MODEL-PARALLELISM-FOR-DEEP-NEURAL-NETWORKS"><a href="#BEYOND-DATA-AND-MODEL-PARALLELISM-FOR-DEEP-NEURAL-NETWORKS" class="headerlink" title="BEYOND DATA AND MODEL PARALLELISM FOR DEEP NEURAL NETWORKS"></a>BEYOND DATA AND MODEL PARALLELISM FOR DEEP NEURAL NETWORKS</h2><p>这个主要是提到了并行程度除了数据和模型之外可以更细粒度到参数和属性，也就是模型的小划分和样本的小划分。<br>SOAP= Sample Attribute Operator Parameter</p>
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic23.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic23.png" class="">
 
 <p>全连接层有大量的参数，造成传输瓶颈。<br>领域特定的优化：RNN 和 CNN 用 data 并行，最后全连接用 model 并行。</p>
-<h3 id="搜索策略"><a href="#搜索策略" class="headerlink" title="搜索策略"></a>搜索策略</h3><img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic25.png" class="">
+<h3 id="搜索策略"><a href="#搜索策略" class="headerlink" title="搜索策略"></a>搜索策略</h3><img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic25.png" class="">
 
 <p>找到最优并行策略是 NP 问题。<br>Execution Optimizer 通过找到最小 cost 的<br>并行策略寻找较优解。<br>Cost = tensor size/ bandwidth</p>
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic28.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic28.png" class="">
 
 <p>随机从搜索空间选取策略，依据 MCMC<br>最够贪心，又不会太局部贪心。</p>
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic23.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic23.png" class="">
 
 <p>总的来有点和 AutoML 类似，在一个搜索空间选择一个策略使得 cost 最低，一个是原本的 cost 函数，这个是<br>计算本身执行的时间。目前主流框架也不支持 SOAP 级别的并行划分，没手调的好，但很接近。</p>
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic26.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic26.png" class="">
 
 <p>可以看到搜索出来的结果全连接基本上是单卡算的</p>
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic27.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic27.png" class="">
 
       
     </div>
@@ -972,7 +1077,7 @@
     <div class="post-body" itemprop="articleBody">
 
       
-          <img src="/zh-CN/2019/07/21/N-Body-%E9%97%AE%E9%A2%98%E4%B9%8B-CUDA-%E8%AE%A1%E7%AE%97/2-body.gif" class="">
+          <img data-src="/zh-CN/2019/07/21/N-Body-%E9%97%AE%E9%A2%98%E4%B9%8B-CUDA-%E8%AE%A1%E7%AE%97/2-body.gif" class="">
 
 <p>行星运动我们都是按万有引力定律算的，实际上按照爱因斯坦的说法，万有引力不是惯性力是时空弯曲的效果，但是按照爱因斯坦的公式算起来特别复杂，所以现在航天轨道的设计还是按万有引力定律在算。</p>
 <h2 id="牛顿万有引力定律"><a href="#牛顿万有引力定律" class="headerlink" title="牛顿万有引力定律"></a>牛顿万有引力定律</h2><p>牛顿万有引力定律：任意两个质点由通过连心线方向上的力相互吸引。该吸引力的大小与它们的质量乘积成正比，与它们距离的平方成反比，G 是万有引力常数。</p>
@@ -988,7 +1093,7 @@
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> math</span><br><span class="line"> </span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Vector</span>:</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__init__</span>(<span class="params">self, x, y, z</span>):</span></span><br><span class="line">        self.x = x</span><br><span class="line">        self.y = y</span><br><span class="line">        self.z = z</span><br><span class="line"> </span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__add__</span>(<span class="params">self, other</span>):</span></span><br><span class="line">        <span class="keyword">return</span> Vector(self.x + other.x, self.y + other.y, self.z + other.z)</span><br><span class="line"> </span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__sub__</span>(<span class="params">self, other</span>):</span></span><br><span class="line">        <span class="keyword">return</span> Vector(self.x - other.x, self.y - other.y, self.z - other.z)</span><br><span class="line"> </span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__mul__</span>(<span class="params">self, other</span>):</span></span><br><span class="line">        <span class="keyword">return</span> Vector(self.x * other, self.y * other, self.z * other)</span><br><span class="line"> </span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__div__</span>(<span class="params">self, other</span>):</span></span><br><span class="line">        <span class="keyword">return</span> Vector(self.x / other, self.y / other, self.z / other)</span><br><span class="line"> </span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__eq__</span>(<span class="params">self, other</span>):</span></span><br><span class="line">        <span class="keyword">if</span> <span class="built_in">isinstance</span>(other, Vector):</span><br><span class="line">            <span class="keyword">return</span> self.x == other.x <span class="keyword">and</span> self.y == other.y <span class="keyword">and</span> self.z == other.z</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">False</span></span><br><span class="line"> </span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__ne__</span>(<span class="params">self, other</span>):</span></span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">not</span> self.__eq__(other)</span><br><span class="line"> </span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__str__</span>(<span class="params">self</span>):</span></span><br><span class="line">        <span class="keyword">return</span> <span class="string">&#x27;(&#123;x&#125;, &#123;y&#125;, &#123;z&#125;)&#x27;</span>.<span class="built_in">format</span>(x=self.x, y=self.y, z=self.z)</span><br><span class="line"> </span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">abs</span>(<span class="params">self</span>):</span></span><br><span class="line">        <span class="keyword">return</span> math.sqrt(self.x*self.x + self.y*self.y + self.z*self.z)</span><br><span class="line"> </span><br><span class="line">origin = Vector(<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>)</span><br><span class="line"> </span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">NBody</span>:</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__init__</span>(<span class="params">self, fileName</span>):</span></span><br><span class="line">        <span class="keyword">with</span> <span class="built_in">open</span>(fileName, <span class="string">&quot;r&quot;</span>) <span class="keyword">as</span> fh:</span><br><span class="line">            lines = fh.readlines()</span><br><span class="line">            gbt = lines[<span class="number">0</span>].split()</span><br><span class="line">            self.gc = <span class="built_in">float</span>(gbt[<span class="number">0</span>])</span><br><span class="line">            self.bodies = <span class="built_in">int</span>(gbt[<span class="number">1</span>])</span><br><span class="line">            self.timeSteps = <span class="built_in">int</span>(gbt[<span class="number">2</span>])</span><br><span class="line">            self.masses = [<span class="number">0.0</span> <span class="keyword">for</span> i <span class="keyword">in</span> <span class="built_in">range</span>(self.bodies)]</span><br><span class="line">            self.positions = [origin <span class="keyword">for</span> i <span class="keyword">in</span> <span class="built_in">range</span>(self.bodies)]</span><br><span class="line">            self.velocities = [origin <span class="keyword">for</span> i <span class="keyword">in</span> <span class="built_in">range</span>(self.bodies)]</span><br><span class="line">            self.accelerations = [origin <span class="keyword">for</span> i <span class="keyword">in</span> <span class="built_in">range</span>(self.bodies)]</span><br><span class="line">            <span class="keyword">for</span> i <span class="keyword">in</span> <span class="built_in">range</span>(self.bodies):</span><br><span class="line">                self.masses[i] = <span class="built_in">float</span>(lines[i*<span class="number">3</span> + <span class="number">1</span>])</span><br><span class="line">                self.positions[i] = self.__decompose(lines[i*<span class="number">3</span> + <span class="number">2</span>])</span><br><span class="line">                self.velocities[i] = self.__decompose(lines[i*<span class="number">3</span> + <span class="number">3</span>])</span><br><span class="line"> </span><br><span class="line">            <span class="built_in">print</span>(<span class="string">&quot;Contents of&quot;</span>, fileName)</span><br><span class="line">            <span class="keyword">for</span> line <span class="keyword">in</span> lines:</span><br><span class="line">                <span class="built_in">print</span>(line.rstrip())</span><br><span class="line">            <span class="built_in">print</span></span><br><span class="line">            <span class="built_in">print</span>(<span class="string">&quot;Body   :      x          y          z    |&quot;</span>)</span><br><span class="line">            <span class="built_in">print</span>(<span class="string">&quot;     vx         vy         vz&quot;</span>)</span><br><span class="line"> </span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__decompose</span>(<span class="params">self, line</span>):</span></span><br><span class="line">        xyz = line.split()</span><br><span class="line">        x = <span class="built_in">float</span>(xyz[<span class="number">0</span>])</span><br><span class="line">        y = <span class="built_in">float</span>(xyz[<span class="number">1</span>])</span><br><span class="line">        z = <span class="built_in">float</span>(xyz[<span class="number">2</span>])</span><br><span class="line">        <span class="keyword">return</span> Vector(x, y, z)</span><br><span class="line"> </span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__computeAccelerations</span>(<span class="params">self</span>):</span></span><br><span class="line">        <span class="keyword">for</span> i <span class="keyword">in</span> <span class="built_in">range</span>(self.bodies):</span><br><span class="line">            self.accelerations[i] = origin</span><br><span class="line">            <span class="keyword">for</span> j <span class="keyword">in</span> <span class="built_in">range</span>(self.bodies):</span><br><span class="line">                <span class="keyword">if</span> i != j:</span><br><span class="line">                    temp = self.gc * self.masses[j] / math.<span class="built_in">pow</span>((self.positions[i] - self.positions[j]).<span class="built_in">abs</span>(), <span class="number">3</span>)</span><br><span class="line">                    self.accelerations[i] += (self.positions[j] - self.positions[i]) * temp</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">None</span></span><br><span class="line"> </span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__computePositions</span>(<span class="params">self</span>):</span></span><br><span class="line">        <span class="keyword">for</span> i <span class="keyword">in</span> <span class="built_in">range</span>(self.bodies):</span><br><span class="line">            self.positions[i] += self.velocities[i] + self.accelerations[i] * <span class="number">0.5</span></span><br><span class="line">        <span class="keyword">return</span> <span class="literal">None</span></span><br><span class="line"> </span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__computeVelocities</span>(<span class="params">self</span>):</span></span><br><span class="line">        <span class="keyword">for</span> i <span class="keyword">in</span> <span class="built_in">range</span>(self.bodies):</span><br><span class="line">            self.velocities[i] += self.accelerations[i]</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">None</span></span><br><span class="line"> </span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__resolveCollisions</span>(<span class="params">self</span>):</span></span><br><span class="line">        <span class="keyword">for</span> i <span class="keyword">in</span> <span class="built_in">range</span>(self.bodies):</span><br><span class="line">            <span class="keyword">for</span> j <span class="keyword">in</span> <span class="built_in">range</span>(self.bodies):</span><br><span class="line">                <span class="keyword">if</span> self.positions[i] == self.positions[j]:</span><br><span class="line">                    (self.velocities[i], self.velocities[j]) = (self.velocities[j], self.velocities[i])</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">None</span></span><br><span class="line"> </span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">simulate</span>(<span class="params">self</span>):</span></span><br><span class="line">        self.__computeAccelerations()</span><br><span class="line">        self.__computePositions()</span><br><span class="line">        self.__computeVelocities()</span><br><span class="line">        self.__resolveCollisions()</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">None</span></span><br><span class="line"> </span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">printResults</span>(<span class="params">self</span>):</span></span><br><span class="line">        fmt = <span class="string">&quot;Body %d : % 8.6f  % 8.6f  % 8.6f | % 8.6f  % 8.6f  % 8.6f&quot;</span></span><br><span class="line">        <span class="keyword">for</span> i <span class="keyword">in</span> <span class="built_in">range</span>(self.bodies):</span><br><span class="line">            <span class="built_in">print</span>(fmt % (i+<span class="number">1</span>, self.positions[i].x, self.positions[i].y, self.positions[i].z, self.velocities[i].x, self.velocities[i].y, self.velocities[i].z))</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">None</span></span><br><span class="line"> </span><br><span class="line">nb = NBody(<span class="string">&quot;nbody.txt&quot;</span>)</span><br><span class="line"><span class="keyword">for</span> i <span class="keyword">in</span> <span class="built_in">range</span>(nb.timeSteps):</span><br><span class="line">    <span class="built_in">print</span>(<span class="string">&quot;\nCycle %d&quot;</span> % (i + <span class="number">1</span>))</span><br><span class="line">    nb.simulate()</span><br><span class="line">    nb.printResults()</span><br></pre></td></tr></table></figure>
 
 <h3 id="CUDA-并行计算"><a href="#CUDA-并行计算" class="headerlink" title="CUDA 并行计算"></a>CUDA 并行计算</h3><p>在 CUDA 中并行化首先要理解 CUDA 的层次结构，CUDA 有 grid 和 block 对线程做划分。首先设计一个 computation tile，相当于一个 block 的计算。</p>
-<img src="/zh-CN/2019/07/21/N-Body-%E9%97%AE%E9%A2%98%E4%B9%8B-CUDA-%E8%AE%A1%E7%AE%97/cuda-tile.png" class="">
+<img data-src="/zh-CN/2019/07/21/N-Body-%E9%97%AE%E9%A2%98%E4%B9%8B-CUDA-%E8%AE%A1%E7%AE%97/cuda-tile.png" class="">
 
 <p>左侧表示一个 block 中的 p 个 body 执行 p 次，最后就能更新所有 body 的加速度，这里的内存占用是 O(p) 的不是 O(p^2)，浅绿色表示的是串行执行的流，官方的文档没有更新，对应 CUDA 10 的例子里是这样的，vec3 存的是 x/y/z 轴的加速度，vec4 存的是坐标加质量，就是计算 i 受到 j 的加速度，这里没有并行设计是串行的。</p>
 <figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line">__device__ <span class="keyword">typename</span> vec3&lt;T&gt;::<span class="function">Type</span></span><br><span class="line"><span class="function"><span class="title">bodyBodyInteraction</span><span class="params">(<span class="keyword">typename</span> vec3&lt;T&gt;::Type ai,</span></span></span><br><span class="line"><span class="params"><span class="function">                    <span class="keyword">typename</span> vec4&lt;T&gt;::Type bi,</span></span></span><br><span class="line"><span class="params"><span class="function">                    <span class="keyword">typename</span> vec4&lt;T&gt;::Type bj)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">typename</span> vec3&lt;T&gt;::Type r;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// r_ij  [3 FLOPS]</span></span><br><span class="line">    r.x = bj.x - bi.x;</span><br><span class="line">    r.y = bj.y - bi.y;</span><br><span class="line">    r.z = bj.z - bi.z;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// distSqr = dot(r_ij, r_ij) + EPS^2  [6 FLOPS]</span></span><br><span class="line">    T distSqr = r.x * r.x + r.y * r.y + r.z * r.z;</span><br><span class="line">    distSqr += getSofteningSquared&lt;T&gt;();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// invDistCube =1/distSqr^(3/2)  [4 FLOPS (2 mul, 1 sqrt, 1 inv)]</span></span><br><span class="line">    T invDist = <span class="built_in">rsqrt_T</span>(distSqr);</span><br><span class="line">    T invDistCube =  invDist * invDist * invDist;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// s = m_j * invDistCube [1 FLOP]</span></span><br><span class="line">    T s = bj.w * invDistCube;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// a_i =  a_i + s * r_ij [6 FLOPS]</span></span><br><span class="line">    ai.x += r.x * s;</span><br><span class="line">    ai.y += r.y * s;</span><br><span class="line">    ai.z += r.z * s;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> ai;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
@@ -997,10 +1102,10 @@
 <figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">for</span> (<span class="keyword">unsigned</span> <span class="keyword">int</span> counter = <span class="number">0</span>; counter &lt; blockDim.x; counter++)</span><br><span class="line">&#123;</span><br><span class="line">    acc = bodyBodyInteraction&lt;T&gt;(acc, bodyPos, sharedPos[counter]);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <p>每次计算完了以后要对线程做共享内存的同步</p>
-<img src="/zh-CN/2019/07/21/N-Body-%E9%97%AE%E9%A2%98%E4%B9%8B-CUDA-%E8%AE%A1%E7%AE%97/sync-title.png" class="">
+<img data-src="/zh-CN/2019/07/21/N-Body-%E9%97%AE%E9%A2%98%E4%B9%8B-CUDA-%E8%AE%A1%E7%AE%97/sync-title.png" class="">
 
 <p>黑实线就是一次  block 共享内存同步的边界，也就是一次 tile compuation，图中是 p 个 body 按时间串行执行的流程，超出 p 的时间计算的不是 p 中的 body，看下面这张图。</p>
-<img src="/zh-CN/2019/07/21/N-Body-%E9%97%AE%E9%A2%98%E4%B9%8B-CUDA-%E8%AE%A1%E7%AE%97/global-sync.png" class="">
+<img data-src="/zh-CN/2019/07/21/N-Body-%E9%97%AE%E9%A2%98%E4%B9%8B-CUDA-%E8%AE%A1%E7%AE%97/global-sync.png" class="">
 
 <p>也就是按照时间串行的计算每个 body 对一个 body 的加速度，然后 N/p 个 block 并行，每个 block 有 p 个线程并行，没 p 次计算每个 block 要同步一次，但是多个 block 之间不需要同步，所以每个并行线程的主体是这样的要在 tile computation 之间包一层同步的调用 cg::sync(ca)，同步一次 block 中线程的共享内存。</p>
 <figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line">__device__ <span class="keyword">typename</span> vec3&lt;T&gt;::<span class="function">Type</span></span><br><span class="line"><span class="function"><span class="title">computeBodyAccel</span><span class="params">(<span class="keyword">typename</span> vec4&lt;T&gt;::Type bodyPos,</span></span></span><br><span class="line"><span class="params"><span class="function">                 <span class="keyword">typename</span> vec4&lt;T&gt;::Type *positions,</span></span></span><br><span class="line"><span class="params"><span class="function">                 <span class="keyword">int</span> numTiles, cg::thread_block cta)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">typename</span> vec4&lt;T&gt;::Type *sharedPos = SharedMemory&lt;<span class="keyword">typename</span> vec4&lt;T&gt;::Type&gt;();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">typename</span> vec3&lt;T&gt;::Type acc = &#123;<span class="number">0.0f</span>, <span class="number">0.0f</span>, <span class="number">0.0f</span>&#125;;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">int</span> tile = <span class="number">0</span>; tile &lt; numTiles; tile++)</span><br><span class="line">    &#123;</span><br><span class="line">        sharedPos[threadIdx.x] = positions[tile * blockDim.x + threadIdx.x];</span><br><span class="line"></span><br><span class="line">        cg::<span class="built_in">sync</span>(cta);</span><br><span class="line">        <span class="comment">// This is the &quot;tile_calculation&quot; from the GPUG3 article.</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">pragma</span> unroll 128</span></span><br><span class="line"></span><br><span class="line">        <span class="keyword">for</span> (<span class="keyword">unsigned</span> <span class="keyword">int</span> counter = <span class="number">0</span>; counter &lt; blockDim.x; counter++)</span><br><span class="line">        &#123;</span><br><span class="line">            acc = bodyBodyInteraction&lt;T&gt;(acc, bodyPos, sharedPos[counter]);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        cg::<span class="built_in">sync</span>(cta);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> acc;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
@@ -1230,142 +1335,6 @@
   
   
 
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2018/11/10/K8S-%E4%B8%AD%E7%9A%84-eBPF/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="ggaaooppeenngg">
-      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="ggaaooppeenngg">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/zh-CN/2018/11/10/K8S-%E4%B8%AD%E7%9A%84-eBPF/" class="post-title-link" itemprop="url">K8S 中的 eBPF</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-
-              <time title="创建时间：2018-11-10 18:36:25" itemprop="dateCreated datePublished" datetime="2018-11-10T18:36:25+08:00">2018-11-10</time>
-            </span>
-              <span class="post-meta-item">
-                <span class="post-meta-item-icon">
-                  <i class="far fa-calendar-check"></i>
-                </span>
-                <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2019-07-23 23:24:30" itemprop="dateModified" datetime="2019-07-23T23:24:30+08:00">2019-07-23</time>
-              </span>
-
-          
-  
-  <span class="post-meta-item">
-    
-      <span class="post-meta-item-icon">
-        <i class="far fa-comment"></i>
-      </span>
-      <span class="post-meta-item-text">Disqus：</span>
-    
-    <a title="disqus" href="/zh-CN/2018/11/10/K8S-%E4%B8%AD%E7%9A%84-eBPF/#disqus_thread" itemprop="discussionUrl">
-      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2018/11/10/K8S-中的-eBPF/" itemprop="commentCount"></span>
-    </a>
-  </span>
-  
-  
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <h2 id="BPF"><a href="#BPF" class="headerlink" title="BPF"></a>BPF</h2><p>BPF (Berkeley Packet Filter) 最早是用在 <code>tcpdump</code> 里面的，比如 <code>tcpdump tcp and dst port 80</code>  这样的过滤规则会单独复制 tcp 协议并且目的端口是 80 的包到用户态。整个实现是基于内核中的一个虚拟机来实现的，通过翻译 BPF 规则到字节码运行到内核中的虚拟机当中。最早的论文是<a target="_blank" rel="noopener" href="https://www.tcpdump.org/papers/bpf-usenix93.pdf">这篇</a>，这篇论文我大概翻了一下，主要讲的是原本的基于栈的过滤太重了，而 BPF 是一套能充分利用 CPU 寄存器，动态注册 filter 的虚拟机实现，相对于基于内存的实现更高效，不过那个时候的内存比较小才几十兆。bpf 会从链路层复制 pakcet 并根据 filter 的规则选择抛弃或者复制，字节码是这样的，具体语法就不介绍了，一般也不会去直接写这些字节码，然后通过内核中实现的一个虚拟机翻译这些字节码，注册过滤规则，这样不修改内核的虚拟机也能实现很多功能。</p>
-<p>在 Linux 中对应的 API 是</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">socket(SOCK_RAW)</span><br><span class="line">bind(iface)</span><br><span class="line">setsockopt(SO_ATTACH_FILTER)</span><br></pre></td></tr></table></figure>
-
-<p>下面是一个低层级的 demo，首先 ethernet header 的十二个字节记录了 ip 的协议，ip 的第9个字节记录 tcp 的协议，如果协议编号不匹配都跳到最后 reject，然后在到 tcp 的第二个字节是 port 看看是不是 80，都满足的话就 accept。</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdio.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;string.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;sys/types.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;sys/socket.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;net/if.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;net/ethernet.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;netinet/in.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;netinet/ip.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;arpa/inet.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;netpacket/packet.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;linux/filter.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> OP_LDH (BPF_LD  | BPF_H   | BPF_ABS)</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> OP_LDB (BPF_LD  | BPF_B   | BPF_ABS)</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> OP_JEQ (BPF_JMP | BPF_JEQ | BPF_K)</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> OP_RET (BPF_RET | BPF_K)</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// Filter TCP segments to port 80</span></span><br><span class="line"><span class="keyword">static</span> <span class="class"><span class="keyword">struct</span> <span class="title">sock_filter</span> <span class="title">bpfcode</span>[8] =</span> &#123;</span><br><span class="line">        &#123; OP_LDH, <span class="number">0</span>, <span class="number">0</span>, <span class="number">12</span>          &#125;,  <span class="comment">// ldh [12]                                                                                                                                                                                                                         </span></span><br><span class="line">        &#123; OP_JEQ, <span class="number">0</span>, <span class="number">5</span>, ETH_P_IP    &#125;,  <span class="comment">// jeq #0x800, L2, L8                                                                                                                                                                                                               </span></span><br><span class="line">        &#123; OP_LDB, <span class="number">0</span>, <span class="number">0</span>, <span class="number">23</span>          &#125;,  <span class="comment">// ldb [23]           # 14 bytes of ethernet header + 9 bytes in IP header until the protocol                                                                                                                                       </span></span><br><span class="line">        &#123; OP_JEQ, <span class="number">0</span>, <span class="number">3</span>, IPPROTO_TCP &#125;,  <span class="comment">// jeq #0x6, L4, L8                                                                                                                                                                                                                 </span></span><br><span class="line">        &#123; OP_LDH, <span class="number">0</span>, <span class="number">0</span>, <span class="number">36</span>          &#125;,  <span class="comment">// ldh [36]           # 14 bytes of ethernet header + 20 bytes of IP header (we assume no options) + 2 bytes of offset until the port                                                                                               </span></span><br><span class="line">        &#123; OP_JEQ, <span class="number">0</span>, <span class="number">1</span>, <span class="number">80</span>          &#125;,  <span class="comment">// jeq #0x50, L6, L8                                                                                                                                                                                                                </span></span><br><span class="line">        &#123; OP_RET, <span class="number">0</span>, <span class="number">0</span>, <span class="number">-1</span>,         &#125;,  <span class="comment">// ret #0xffffffff    # (accept)                                                                                                                                                                                                    </span></span><br><span class="line">        &#123; OP_RET, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>           &#125;,  <span class="comment">// ret #0x0           # (reject)                                                                                                                                                                                                    </span></span><br><span class="line"></span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">(<span class="keyword">int</span> argc, <span class="keyword">char</span> **argv)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="keyword">int</span> sock;</span><br><span class="line">	<span class="keyword">int</span> n;</span><br><span class="line">	<span class="keyword">char</span> buf[<span class="number">2000</span>];</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">sockaddr_ll</span> <span class="title">addr</span>;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">packet_mreq</span> <span class="title">mreq</span>;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">iphdr</span> *<span class="title">ip</span>;</span></span><br><span class="line">	<span class="keyword">char</span> saddr_str[INET_ADDRSTRLEN], daddr_str[INET_ADDRSTRLEN];</span><br><span class="line">	<span class="keyword">char</span> *proto_str;</span><br><span class="line">	<span class="keyword">char</span> *name;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">sock_fprog</span> <span class="title">bpf</span> =</span> &#123; <span class="number">8</span>, bpfcode &#125;;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (argc != <span class="number">2</span>) &#123;</span><br><span class="line">		<span class="built_in">printf</span>(<span class="string">&quot;Usage: %s ifname\n&quot;</span>, argv[<span class="number">0</span>]);</span><br><span class="line">		<span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	name = argv[<span class="number">1</span>];</span><br><span class="line"></span><br><span class="line">	sock = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));</span><br><span class="line">	<span class="keyword">if</span> (sock &lt; <span class="number">0</span>) &#123;</span><br><span class="line">		perror(<span class="string">&quot;socket&quot;</span>);</span><br><span class="line">		<span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="built_in">memset</span>(&amp;addr, <span class="number">0</span>, <span class="keyword">sizeof</span>(addr));</span><br><span class="line">	addr.sll_ifindex = if_nametoindex(name);</span><br><span class="line">	addr.sll_family = AF_PACKET;</span><br><span class="line">	addr.sll_protocol = htons(ETH_P_ALL);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (bind(sock, (struct sockaddr *) &amp;addr, <span class="keyword">sizeof</span>(addr))) &#123;</span><br><span class="line">		perror(<span class="string">&quot;bind&quot;</span>);</span><br><span class="line">		<span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (setsockopt(sock, SOL_SOCKET, SO_ATTACH_FILTER, &amp;bpf, <span class="keyword">sizeof</span>(bpf))) &#123;</span><br><span class="line">		perror(<span class="string">&quot;setsockopt ATTACH_FILTER&quot;</span>);</span><br><span class="line">		<span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="built_in">memset</span>(&amp;mreq, <span class="number">0</span>, <span class="keyword">sizeof</span>(mreq));</span><br><span class="line">	mreq.mr_type = PACKET_MR_PROMISC;</span><br><span class="line">	mreq.mr_ifindex = if_nametoindex(name);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (setsockopt(sock, SOL_PACKET,</span><br><span class="line">				PACKET_ADD_MEMBERSHIP, (<span class="keyword">char</span> *)&amp;mreq, <span class="keyword">sizeof</span>(mreq))) &#123;</span><br><span class="line">		perror(<span class="string">&quot;setsockopt MR_PROMISC&quot;</span>);</span><br><span class="line">		<span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">for</span> (;;) &#123;</span><br><span class="line">		n = recv(sock, buf, <span class="keyword">sizeof</span>(buf), <span class="number">0</span>);</span><br><span class="line">		<span class="keyword">if</span> (n &lt; <span class="number">1</span>) &#123;</span><br><span class="line">			perror(<span class="string">&quot;recv&quot;</span>);</span><br><span class="line">			<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		ip = (struct iphdr *)(buf + <span class="keyword">sizeof</span>(struct ether_header));</span><br><span class="line"></span><br><span class="line">		inet_ntop(AF_INET, &amp;ip-&gt;saddr, saddr_str, <span class="keyword">sizeof</span>(saddr_str));</span><br><span class="line">		inet_ntop(AF_INET, &amp;ip-&gt;daddr, daddr_str, <span class="keyword">sizeof</span>(daddr_str));</span><br><span class="line"></span><br><span class="line">		<span class="keyword">switch</span> (ip-&gt;protocol) &#123;</span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> PTOSTR(_p,_str) \</span></span><br><span class="line"><span class="meta">			case _p: proto_str = _str; break</span></span><br><span class="line"></span><br><span class="line">		PTOSTR(IPPROTO_ICMP, <span class="string">&quot;icmp&quot;</span>);</span><br><span class="line">		PTOSTR(IPPROTO_TCP, <span class="string">&quot;tcp&quot;</span>);</span><br><span class="line">		PTOSTR(IPPROTO_UDP, <span class="string">&quot;udp&quot;</span>);</span><br><span class="line">		<span class="keyword">default</span>:</span><br><span class="line">			proto_str = <span class="string">&quot;&quot;</span>;</span><br><span class="line">			<span class="keyword">break</span>;</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		<span class="built_in">printf</span>(<span class="string">&quot;IPv%d proto=%d(%s) src=%s dst=%s\n&quot;</span>,</span><br><span class="line">				ip-&gt;version, ip-&gt;protocol, proto_str, saddr_str, daddr_str);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>执行 <code>curl &quot;http://www.baidu.com&quot;</code>，结果如下：</p>
-<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">sudo ./filter ens3</span><br><span class="line">IPv4 proto=6(tcp) src=172.31.3.210 dst=220.181.112.244</span><br><span class="line">IPv4 proto=6(tcp) src=172.31.3.210 dst=220.181.112.244</span><br><span class="line">IPv4 proto=6(tcp) src=172.31.3.210 dst=220.181.112.244</span><br><span class="line">IPv4 proto=6(tcp) src=172.31.3.210 dst=220.181.112.244</span><br><span class="line">IPv4 proto=6(tcp) src=172.31.3.210 dst=220.181.112.244</span><br><span class="line">IPv4 proto=6(tcp) src=172.31.3.210 dst=220.181.112.244</span><br><span class="line">IPv4 proto=6(tcp) src=172.31.3.210 dst=220.181.112.244</span><br></pre></td></tr></table></figure>
-
-<p>这些低级别的操作都封装在了 libpcap 里面，一般不太会自己这么写。</p>
-<h2 id="eBPF"><a href="#eBPF" class="headerlink" title="eBPF"></a>eBPF</h2><p>eBPF 是 extended BPF 具有更强大的功能。老的 BPF 现在叫 cBPF (classic BPF)。</p>
-<p>首先是字节码的指令集更加丰富了，并且现在有了 64 位的寄存器（相较于上古时期的 32 位的CPU），有了 JIT mapping 技术和 LLVM 的后端。JIT 指的的是 Just In Time，实时编译。</p>
-<p>一般的 ePBF 的工作流是编写一个 C 的子集（比如没有循环），通过 LLVM 编译到字节码，然成生成 ELF 文件，然后 JIT 编译进内核。</p>
-<p>eBPF 一个最重要的功能是可以做到动态跟踪（dynamic tracing），可以不修改程序直接监控一个正在运行的进程。</p>
-<h3 id="在-eBPF-之前"><a href="#在-eBPF-之前" class="headerlink" title="在 eBPF 之前"></a>在 eBPF 之前</h3><p>在 ebpf 之前，为了实现同样的功能，要在执行的指令中嵌入 hook，并且支持跳到 inspect 函数，然后再恢复执行，这个流程和 debugger 非常相似，这是用 kprobe 来实现，kprobe 是 2007 年引入内核的。比如下面的例子，把 Instruction 3 改成跳转指令，然后再执行 Instruction 3，然后再跳转回去。</p>
-<img src="/zh-CN/2018/11/10/K8S-%E4%B8%AD%E7%9A%84-eBPF/image-20181110153643535.png" class="">
-
-<p>使用 kprobe 需要通过编译 kernel module 注册到内核当中，非常麻烦，等于是直接动内核的代码很容易引起内核 panic，而且每个内核版本都不一样，函数符号和位移是有区别的，对每个版本的内核都要编译一个对应的版本的 module。为了解决这个问题引入了一些静态的稳定的 trace point，不会因为版本而改变的地方可以插入 kprobe，但这样就限制了 kprobe 可以探测的范围。</p>
-<h3 id="有了-eBPF"><a href="#有了-eBPF" class="headerlink" title="有了 eBPF"></a>有了 eBPF</h3><p>有了 eBPF，就可以将用户态的程序插入到内核中，不用编写内核模块了，但是问题并没有改善，内核版本带来的问题还是没有解决。</p>
-<p>eBPF 的 kprobe 一种方式时候 mapping，映射 kprobe 的数据到用户态程序，比如发包数，然后用户态程序定期检查这个映射进行统计。</p>
-<p>另一种方式是 event (perf_events)，如果 kprobe 向用户态程序发送事件来进行统计，这样不同轮询，直接异步计算就可以。</p>
-<p>低级别的 API，这个只有 Linux 有</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">bpf() 系统调用</span><br><span class="line">BPF_PROG_LOAD 加载 BPF 字节码</span><br><span class="line">  BPF_PROG_TYPE_SOCKET_FILTER</span><br><span class="line">  BPF_PROG_TYPE_KPROBE</span><br><span class="line">BPF_MAP_* map 映射到 BPF 当中</span><br></pre></td></tr></table></figure>
-
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">perf_event_open() + ioctl(PERF_EVENT_IOC_SET_BPF)</span><br></pre></td></tr></table></figure>
-
-<p>高级别的接口是 bcc（BPFcompiler collection），转换 c 到 LLVM-epbf 后端，并且前端是 python 的。可以实现动态加载 eBPF 字节码到内核中。</p>
-<p><a target="_blank" rel="noopener" href="https://github.com/weaveworks/scope">weave scope</a> 就是用 bcc 实现的 <a target="_blank" rel="noopener" href="https://github.com/weaveworks-plugins/scope-http-statistics">HTTP stats</a> 的统计。</p>
-<p>在<a target="_blank" rel="noopener" href="https://github.com/weaveworks-plugins/scope-http-statistics/blob/master/ebpf-http-statistics.c#L25">这里</a>可以看到程序的主体，这里 hook 了内核函数 <code>skb_copy_datagram_iter</code>，这个函数有一个 tracepoint <code>trace_skb_copy_datagram_iovec</code>。在内核代码里面对应的是下面这段。</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> *      skb_copy_datagram_iter - Copy a datagram to an iovec iterator.</span></span><br><span class="line"><span class="comment"> *      @skb: buffer to copy</span></span><br><span class="line"><span class="comment"> *      @offset: offset in the buffer to start copying from</span></span><br><span class="line"><span class="comment"> *      @to: iovec iterator to copy to</span></span><br><span class="line"><span class="comment"> *      @len: amount of data to copy from buffer to iovec</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">skb_copy_datagram_iter</span><span class="params">(<span class="keyword">const</span> struct sk_buff *skb, <span class="keyword">int</span> offset,</span></span></span><br><span class="line"><span class="params"><span class="function">                           struct iov_iter *to, <span class="keyword">int</span> len)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">        <span class="keyword">int</span> start = skb_headlen(skb);</span><br><span class="line">        <span class="keyword">int</span> i, copy = start - offset, start_off = offset, n;</span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">sk_buff</span> *<span class="title">frag_iter</span>;</span></span><br><span class="line"></span><br><span class="line">        trace_skb_copy_datagram_iovec(skb, len);</span><br></pre></td></tr></table></figure>
-
-<p>这里对这个 hook 注册了程序，具体的代码就不展示了，主要是根据协议统计这个 HTTP 的大小，方法等信息。</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">/* skb_copy_datagram_iter() (Kernels &gt;= 3.19) is in charge of copying socket</span></span><br><span class="line"><span class="comment"> * buffers from kernel to userspace.</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * skb_copy_datagram_iter() has an associated tracepoint</span></span><br><span class="line"><span class="comment"> * (trace_skb_copy_datagram_iovec), which would be more stable than a kprobe but</span></span><br><span class="line"><span class="comment"> * it lacks the offset argument.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">kprobe__skb_copy_datagram_iter</span><span class="params">(struct pt_regs *ctx, <span class="keyword">const</span> struct sk_buff *skb, <span class="keyword">int</span> offset, <span class="keyword">void</span> *unused_iovec, <span class="keyword">int</span> len)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br></pre></td></tr></table></figure>
-
-<p>比如判断 method 是不是 DELETE 的是实现就比较蠢，是因为 eBPF 不支持循环，只能这么实现才能把 c 代码翻译成字节码。</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">case</span> <span class="string">&#x27;D&#x27;</span>:</span><br><span class="line">	<span class="keyword">if</span> ((data[<span class="number">1</span>] != <span class="string">&#x27;E&#x27;</span>) || (data[<span class="number">2</span>] != <span class="string">&#x27;L&#x27;</span>) || (data[<span class="number">3</span>] != <span class="string">&#x27;E&#x27;</span>) || (data[<span class="number">4</span>] != <span class="string">&#x27;T&#x27;</span>) || (data[<span class="number">5</span>] != <span class="string">&#x27;E&#x27;</span>) || (data[<span class="number">6</span>] != <span class="string">&#x27; &#x27;</span>)) &#123;</span><br><span class="line">		<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">break</span>;</span><br></pre></td></tr></table></figure>
-
-<p>除了 bcc 之外，waeve 使用了 <a target="_blank" rel="noopener" href="https://github.com/iovisor/gobpf">gobpf</a>，一个 bpf 的 go binding，并且通过建立 tcp 连接来猜测内核的数据结构，以达到内核版本无关，这个项目 <a target="_blank" rel="noopener" href="https://github.com/weaveworks/tcptracer-bpf">tcptracer-bpf</a> 还在开发中。</p>
-<h3 id="eBPF-的其他应用"><a href="#eBPF-的其他应用" class="headerlink" title="eBPF 的其他应用"></a>eBPF 的其他应用</h3><p>还有一个比较大头的基于 eBPF 的是 <a target="_blank" rel="noopener" href="https://github.com/cilium/cilium">cilium</a>，一套比较完整的网络解决方案，用 eBPF 实现了 NAT，L3/L4 负载均衡，连接记录等等功能。比如访问控制，一般的 iptables 都是 drop 或者 rst，要过整个协议栈，但是 eBPF 可以在 connect 的时候就拦截然后返回 EACCESS，这样就不用过协议栈了。cilium 一个优化就是通过 <a target="_blank" rel="noopener" href="https://github.com/iovisor/bpf-docs/blob/master/Express_Data_Path.pdf">XDP</a> ，利用类似 DPDK 的加速方案，hook 到驱动层中，让 eBPF 可以直接使用 DMA 的缓冲，优化负载均衡。</p>
-<blockquote>
-<p>BPF/XDP allows for a 10x improvement in load balancing over IPVS for L3/L4 traffic.</p>
-</blockquote>
-<p>现在 k8s 最新的 lb 方案是基于 ipvs 的，我在 <a href="https://ggaaooppeenngg.github.io/zh-CN/2018/09/10/kube-proxy-%E5%88%86%E6%9E%90/">kube-proxy 分析</a> 里面有提到过，已经比原来的 iptables 提高很多了，现在有了 eBPF 加 XDP 的硬件加速可以实现更高的提升，facebook 的 <a target="_blank" rel="noopener" href="https://github.com/facebookincubator/katran">katran</a> L4 负载均衡器的实现也是类似的。</p>
-<p>cilium 在我看来基本上是 k8s 网络的一个大方向吧，只不过包括 eBPF 和 XDP 对硬件和内核版本都要比较新，是一个要持续关注的更新。</p>
-<h4 id="性能调优"><a href="#性能调优" class="headerlink" title="性能调优"></a>性能调优</h4><p>在<a target="_blank" rel="noopener" href="https://www.youtube.com/watch?v=bj3qdEDbCD4">Velocity 2017: Performance Analysis Superpowers with Linux eBPF</a>里，<a target="_blank" rel="noopener" href="https://www.youtube.com/channel/UCxzogoHFu8-1H9u522wVQpQ">Brendan Gregg</a> (Netflix 的性能调优专家) 提到，性能调优也是 eBPF 的一个大头。用于网络监控其实只是 hook 在了协议栈的函数上，如果 hook 在别的地方可以有更多的统计维度。比如 bcc 官方的例子就是统计 IO Size 的大小的分布，更多关于基于 eBPF 的性能调优可以参考他的 <a target="_blank" rel="noopener" href="http://www.brendangregg.com/linuxperf.html">blog</a>，他给出了更详细的关于 eBPF 的解释，里面有一些列 Linux 性能调优的内容。</p>
-<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash"> ./bitehist.py</span></span><br><span class="line">Tracing... Hit Ctrl-C to end.</span><br><span class="line">^C</span><br><span class="line">     kbytes          : count     distribution</span><br><span class="line">       0 -&gt; 1        : 3        |                                      |</span><br><span class="line">       2 -&gt; 3        : 0        |                                      |</span><br><span class="line">       4 -&gt; 7        : 211      |**********                            |</span><br><span class="line">       8 -&gt; 15       : 0        |                                      |</span><br><span class="line">      16 -&gt; 31       : 0        |                                      |</span><br><span class="line">      32 -&gt; 63       : 0        |                                      |</span><br><span class="line">      64 -&gt; 127      : 1        |                                      |</span><br><span class="line">     128 -&gt; 255      : 800      |**************************************|</span><br></pre></td></tr></table></figure>
-
-<h4 id="安全"><a href="#安全" class="headerlink" title="安全"></a>安全</h4><p>在安全方面有 seccomp，可以实现限制 Linux 的系统调用，而 <a target="_blank" rel="noopener" href="https://blog.yadutaf.fr/2014/05/29/introduction-to-seccomp-bpf-linux-syscall-filter/">seccompe-bpf</a> 则是通过 bpf 支持更强大的过滤和匹配功能，k8s pod 里面的 SecurityContext 就有 seccomp 实现的部分。</p>
-<h4 id="cgroup"><a href="#cgroup" class="headerlink" title="cgroup"></a>cgroup</h4><p>在 cgroup 上有一个小原型，<a target="_blank" rel="noopener" href="https://github.com/kinvolk/cgnet">cgnet</a> 获取 cgroup 的网络统计信息到 prometheus，也是基于 eBPF 的。</p>
-<h2 id="参考"><a href="#参考" class="headerlink" title="参考:"></a>参考:</h2><ol>
-<li><p><a target="_blank" rel="noopener" href="https://www.youtube.com/watch?v=k4jqTLtdrxQ">Infrastructure 2017 - Alfonso Acosta - High-performance Linux monitoring with eBPF</a></p>
-</li>
-<li><p><a target="_blank" rel="noopener" href="https://media.ccc.de/v/ASG2017-134-using_bpf_in_kubernetes#t=355">Using bpf in kubernetes</a></p>
-</li>
-<li><p><a target="_blank" rel="noopener" href="https://opensource.googleblog.com/2016/11/cilium-networking-and-security.html">Cilium: Networking and security for containers with BPF and XDP</a></p>
-</li>
-</ol>
-
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
 
   
   <nav class="pagination">
@@ -1435,7 +1404,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">56</span>
+          <span class="site-state-item-count">57</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -1448,7 +1417,7 @@
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">93</span>
+        <span class="site-state-item-count">95</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>

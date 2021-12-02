@@ -151,7 +151,7 @@
   </li>
         <li class="menu-item menu-item-tags">
 
-    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">93</span></a>
+    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">95</span></a>
 
   </li>
         <li class="menu-item menu-item-categories">
@@ -161,7 +161,7 @@
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">56</span></a>
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">57</span></a>
 
   </li>
   </ul>
@@ -277,7 +277,7 @@
 <p>这个函数的主体就是把<code>&amp;sd-&gt;input_pkt_queue</code>交给<code>&amp;sd-&gt;process_queue</code>然后从<code>&amp;sd-&gt;process_queue</code>当中取出<code>sk_buff</code>，再调用<code>__netif_receive_skb</code>，进一步处理.我想老是把<code>&amp;sd-&gt;input_pkt_queue</code>拷贝并且清空应该是因为希望不因为锁独占这个队列太久的原因.</p>
 <p><code>__netif_receive_skb</code>的内容主要是根据<code>skb-&gt;protocol</code>，遍历<code>&amp;skb-&gt;dev-&gt;ptype_all</code>然后将frame交给L3的<code>ptype-&gt;func</code>处理，还有一些在这一层需要处理的特性，比如bridging.</p>
 <p>目前说描述的东西就是整个传输路径的这部分，完整的图在<a target="_blank" rel="noopener" href="https://wiki.linuxfoundation.org/images/1/1c/Network_data_flow_through_kernel.png">这里</a></p>
-<img src="/zh-CN/2016/11/21/kernel-%E5%8D%8F%E8%AE%AE%E6%A0%88%E9%93%BE%E8%B7%AF%E5%B1%82%E5%88%86%E6%9E%90/l2_recv.png" class="">
+<img data-src="/zh-CN/2016/11/21/kernel-%E5%8D%8F%E8%AE%AE%E6%A0%88%E9%93%BE%E8%B7%AF%E5%B1%82%E5%88%86%E6%9E%90/l2_recv.png" class="">
 
 <h2 id="frame的发送"><a href="#frame的发送" class="headerlink" title="frame的发送"></a>frame的发送</h2><p>在frame的发送路径，主要包含几个任务，开关设备的发送功能，调度设备进行发送，选择在设备发送队列的frame进行发送，还要传输过程的本身.而且发送的例程也是类似接收的过程，有对应的softirq(<code>NET_TX_SOFTIRQ</code>)和对应的handler，<code>net_tx_action</code>。和<code>poll_list</code>对应的是<code>output_queue</code>，也是一个等待发送的设备列表。<br><code>__LINK_STATE_START</code> 和 <code>__LINK_ STATE_XOFF</code>，<code>__LINK_STATE_RX_SCHED</code>和<code>__LINK_STATE_SCHED</code>也是对应的.回顾开头中断的代码</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">if (status &amp; TxAvailable) &#123; // 中断表示可以传输的时候</span><br><span class="line">	if (vortex_debug &gt; 5)</span><br><span class="line">		pr_debug(&quot;	TX room bit was handled.\n&quot;);</span><br><span class="line">	/* There&#x27;s room in the FIFO for a full-sized packet. */</span><br><span class="line">	iowrite16(AckIntr | TxAvailable, ioaddr + EL3_CMD);</span><br><span class="line">	netif_wake_queue (dev);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
@@ -428,7 +428,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">56</span>
+          <span class="site-state-item-count">57</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -441,7 +441,7 @@
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">93</span>
+        <span class="site-state-item-count">95</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>

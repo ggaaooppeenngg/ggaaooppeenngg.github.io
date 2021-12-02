@@ -153,7 +153,7 @@
   </li>
         <li class="menu-item menu-item-tags">
 
-    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">93</span></a>
+    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">95</span></a>
 
   </li>
         <li class="menu-item menu-item-categories">
@@ -163,7 +163,7 @@
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">56</span></a>
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">57</span></a>
 
   </li>
   </ul>
@@ -257,11 +257,11 @@
 <p><code>struct neigh_ops</code>  邻居对应的一些操作函数。</p>
 <p><code>struct hh_cache</code> 缓存 L2 的头部，不是所有的设备都支持头部缓存。</p>
 <p><code>struct rttable</code> 和 <code>struct dst_enry</code>， IPv4 的路由缓存信息是通过 <code>struct rttable</code> 缓存的。</p>
-<img src="/zh-CN/2017/08/07/neighboring-subsystem-%E6%B5%85%E6%9E%90/p1.jpg" class="">
+<img data-src="/zh-CN/2017/08/07/neighboring-subsystem-%E6%B5%85%E6%9E%90/p1.jpg" class="">
 
 <p>这是 <code>dst_entry</code>, <code>hh_cache</code> 和 <code>neighbour</code> 之间的关系。</p>
 <p>neighbor 结构是用 hash 存储的，key 是 L3 地址加设备（对应的 device 结构体）加一个随机值。hash 表通过 <code>neigh_hash_alloc</code> 和 <code>neigh_hash_free</code> 来分配和释放。<code>neigh_lookup</code> 就是通过 key 从 hash table 中找到对应的 neighbour 结构体，实现都不复杂，这里理解就可以了。</p>
-<img src="/zh-CN/2017/08/07/neighboring-subsystem-%E6%B5%85%E6%9E%90/p2.jpg" class="">
+<img data-src="/zh-CN/2017/08/07/neighboring-subsystem-%E6%B5%85%E6%9E%90/p2.jpg" class="">
 
 
 <p>一般邻居子系统的缓存流程是这样的，如果 L3 的请求到达，地址解析缓存没有命中，把 L3 packet 入队，开始neighbor solicitation 等收到 neighbor advertisement 之后再出队并且发送。</p>
@@ -325,7 +325,7 @@
 <p>当然还有一个缓存项是 L2 header 的缓存这里就简单略过了。</p>
 <h2 id="ARP"><a href="#ARP" class="headerlink" title="ARP"></a>ARP</h2><p>接下来说一下 ARP 相关的内容，ARP 本身的格式其实很简单。</p>
 <p>邻居子系统有一个比较关键的协议就是 ARP，这里简单介绍一下 ARP 协议，我们来看一下 ARP 的格式。</p>
-<img src="/zh-CN/2017/08/07/neighboring-subsystem-%E6%B5%85%E6%9E%90/p3.jpg" class="">
+<img data-src="/zh-CN/2017/08/07/neighboring-subsystem-%E6%B5%85%E6%9E%90/p3.jpg" class="">
 
 <p>先是两个字节的 L2 类型，然后是两个字节的 L3 类型。一般 L2 是 1 (以太网)，L3 是 0x0800 (IPV4)，接着跟着的是 L2 类型的长度和 L3 类型的长度，这里 Ethernet 的 MAC 地址是 6 个字节，IPV4 的 IP 地址是 4 个字节，接着是两个字节的操作，1 表示请求，2 表示回复，然后是发送端 L2 的地址，L3 的地址，接着是接收端 L2 和 L3 的地址。整个翻译过来就是『我（MAC 是 0a:00:27:00:00:00 IP 是 192.168.56.1）广而告之（MAC 广播地址），问一下谁知道 192.168.56.102 的地址』。</p>
 <h3 id="gARP-gratuitous-ARP"><a href="#gARP-gratuitous-ARP" class="headerlink" title="gARP (gratuitous ARP)"></a>gARP (gratuitous ARP)</h3><p>听起来像是一个无理由的 ARP 请求，实际上是一种主动通知的 ARP 请求。gARP 本身不是一个查询请求，而是一个通知请求，主要运用于主动通知 L2 地址改变，重复地址发现（请求解析自己的地址，如果收到回复说明有地址重复）。</p>
@@ -461,7 +461,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">56</span>
+          <span class="site-state-item-count">57</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -474,7 +474,7 @@
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">93</span>
+        <span class="site-state-item-count">95</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>

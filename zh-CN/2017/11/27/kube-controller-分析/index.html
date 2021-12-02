@@ -150,7 +150,7 @@
   </li>
         <li class="menu-item menu-item-tags">
 
-    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">93</span></a>
+    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">95</span></a>
 
   </li>
         <li class="menu-item menu-item-categories">
@@ -160,7 +160,7 @@
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">56</span></a>
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">57</span></a>
 
   </li>
   </ul>
@@ -247,7 +247,7 @@
       
         <p>kube-controller-manager 可以认为是一个守护进程用于监视 apiserver 暴露的集群状态，并且不断地尝试把当前状态向集群的目标状态迁移。为了避免频繁查询 apiserver，apiserver 提供了 watch 接口用于监视资源的增加删除和更新，client-go 对此作了抽象，封装一层 informer 来表示本地 apiserver 状态的 cache。<a target="_blank" rel="noopener" href="https://v.qq.com/x/page/c03641vzw2m.html?start=7">这个视频</a> 有一个 Google 工程师讲解的 client-go 的详细内容，<a target="_blank" rel="noopener" href="https://www.kubernetes.org.cn/2693.html">这篇</a> 七牛前同事的文章介绍了 informer 的整体结构，写得也很好。</p>
 <h3 id="client-当中的-controller"><a href="#client-当中的-controller" class="headerlink" title="client 当中的 controller"></a>client 当中的 controller</h3><p>处理事件的 controller 由几部分构成，首先是 Config 当中的可配置部分，下图是 controller 的关系，controller 实现了 Controller 接口。</p>
-<img src="/zh-CN/2017/11/27/kube-controller-%E5%88%86%E6%9E%90/controller.png" class="">
+<img data-src="/zh-CN/2017/11/27/kube-controller-%E5%88%86%E6%9E%90/controller.png" class="">
 
 <p>controller 从 Queue 当中通过 Pop 获取对象交给 Process 回调处理，DeltaFIFO 和 FIFO 是类似的，只是 DeltaFIFO 可以处理删除事件，一般都用 DeltaFIFO。ListerWatcher 就是用客户端构造出来的，针对对应资源的 List Watch 方法的集合，List 用于获取最开始的对象获取，Watch 用于监控之后的变化，所有最开始的时候现有的对象会通过 List 传给 Add 回调，同步了当前状态以后再不断接受新的变化，但是 Watch 本身是有超时机制的，不能永久监听，所以再超时之后还会通过 List 方法，先同步一次再进行删除操作。Resync Period 表示把 cache 中的对象重新入队给回调函数处理，这种情况一般是可能你可能漏掉了更细操作，或者是之前的一些失败了。大部分情况用不到这个选项，可以非常相信 etcd 的功能。</p>
 <p>调用路径</p>
@@ -270,7 +270,7 @@
 <figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// Run starts an asynchronous loop that monitors the status of cluster nodes.</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(nc *Controller)</span> <span class="title">Run</span><span class="params">(stopCh &lt;-<span class="keyword">chan</span> <span class="keyword">struct</span>&#123;&#125;)</span></span> &#123;</span><br><span class="line">        <span class="keyword">defer</span> utilruntime.HandleCrash()</span><br><span class="line"></span><br><span class="line">        glog.Infof(<span class="string">&quot;Starting node controller&quot;</span>)</span><br><span class="line">        <span class="keyword">defer</span> glog.Infof(<span class="string">&quot;Shutting down node controller&quot;</span>)</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> !controller.WaitForCacheSync(<span class="string">&quot;node&quot;</span>, stopCh, nc.nodeInformerSynced, nc.podInformerSynced, nc.daemonSetInformerSynced) &#123;</span><br><span class="line">                <span class="keyword">return</span></span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// Incorporate the results of node status pushed from kubelet to master.</span></span><br><span class="line">        <span class="keyword">go</span> wait.Until(<span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;</span><br><span class="line">                <span class="keyword">if</span> err := nc.monitorNodeStatus(); err != <span class="literal">nil</span> &#123;</span><br><span class="line">                        glog.Errorf(<span class="string">&quot;Error monitoring node status: %v&quot;</span>, err)</span><br><span class="line">                &#125;</span><br><span class="line">        &#125;, nc.nodeMonitorPeriod, wait.NeverStop)</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> nc.runTaintManager &#123;</span><br><span class="line">                <span class="keyword">go</span> nc.taintManager.Run(wait.NeverStop)</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> nc.useTaintBasedEvictions &#123;</span><br><span class="line">                <span class="comment">// Handling taint based evictions. Because we don&#x27;t want a dedicated logic in TaintManager for NC-originated</span></span><br><span class="line">                <span class="comment">// taints and we normally don&#x27;t rate limit evictions caused by taints, we need to rate limit adding taints.</span></span><br><span class="line">                <span class="keyword">go</span> wait.Until(nc.doNoExecuteTaintingPass, scheduler.NodeEvictionPeriod, wait.NeverStop)</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                <span class="comment">// Managing eviction of nodes:</span></span><br><span class="line">                <span class="comment">// When we delete pods off a node, if the node was not empty at the time we then</span></span><br><span class="line">                <span class="comment">// queue an eviction watcher. If we hit an error, retry deletion.</span></span><br><span class="line">                <span class="keyword">go</span> wait.Until(nc.doEvictionPass, scheduler.NodeEvictionPeriod, wait.NeverStop)</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        &lt;-stopCh</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <p>现在看一下运行的时候是如何做的，首先要调用 <code>controller.WaitForCacheSync</code> 等待 node，pod，daemonSet 的 inofrmer 同步，这是因为在 kube-controller-manager 当中使用的子 controller 使用的 informer 都是共享型的，也就是多个 controller 之间共享一个 informer  的 cache，所以在开始的时候需要保证所有的 sharedInformerFactory 创建的 informers 之间的 cache 先等待一次一致。controller 的读基本上是从 cache 读的，只要写才会打到 etcd 里面，然后等待 cache 的更新回调。</p>
-<img src="/zh-CN/2017/11/27/kube-controller-%E5%88%86%E6%9E%90/monitor_node_status.png" class="">
+<img data-src="/zh-CN/2017/11/27/kube-controller-%E5%88%86%E6%9E%90/monitor_node_status.png" class="">
 
 <p>nodeController 主要分成两部分，一部分是 <code>monitorNodeStatus</code> , 它首先从 informer 的 cache 当中 list 新添加的节点和删除的节点，和 newZoneRepresentations。node 是分 zone 的，这在单可用区的 cluster 当中是个空字符串，但是如果 labels 中有 <code>failure-domain.beta.kubernetes.io/zone</code> 和 <code>failure-domain.beta.kubernetes.io/region</code> 就会构成不同的可用区的划分, 这个适用于仅仅在一家云厂商分不同可用区的时候可以用到。<a target="_blank" rel="noopener" href="https://kubernetes.io/docs/admin/multiple-zones/">这篇文档</a> 描述了多 zone 的 cluster 的内容，没有 zone 有相应的可用状态，如果某个 zone 变成不可用需要把 pod 从这个 zone 当中剔除，所以 pod 的 failover 是以 zone 为单位的。</p>
 <p>处理 node 比较啰嗦，<code>tryUpdateNodeStatus</code> 尝试获取当前的 conditions 更新并且获取 conditions。处理 node 过程主要是标记 node 为不可用的 node，或者把不可用的状态恢复过来。</p>
@@ -407,7 +407,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">56</span>
+          <span class="site-state-item-count">57</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -420,7 +420,7 @@
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">93</span>
+        <span class="site-state-item-count">95</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>

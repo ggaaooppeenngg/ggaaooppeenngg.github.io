@@ -161,7 +161,7 @@
   </li>
         <li class="menu-item menu-item-tags">
 
-    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">93</span></a>
+    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">95</span></a>
 
   </li>
         <li class="menu-item menu-item-categories">
@@ -171,7 +171,7 @@
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">56</span></a>
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">57</span></a>
 
   </li>
   </ul>
@@ -265,17 +265,17 @@
 <p>Paxos 论文里面描述的算法，其实不是很清晰，一般人看了都会有疑问，所以后来很多人对这个算法做了补充和解释，包括作者本人。</p>
 <h2 id="基本需求"><a href="#基本需求" class="headerlink" title="基本需求"></a>基本需求</h2><p>第一个是安全性，就是只有一个值会被选择，并且节点对这个值不会主动知道，而是在值被选择以后被动学习知道这个值被选择的（这个原文有点难懂我换成了自己的话解释了一下）。<br>第二个是活性，也就是值最终会被选择，并且所有节点会最终学习到这个值被选择了。</p>
 <h2 id="解决方案"><a href="#解决方案" class="headerlink" title="解决方案"></a>解决方案</h2><p>首先单点可以排除，因为单点虽然是最容易解决一致性问题的，但是如果单点挂了，整个就不可用了，所以显然不能依靠单点。</p>
-<img src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/quorum-base.png" class="" title="[single point]">
+<img data-src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/quorum-base.png" class="" title="[single point]">
 
 <p>那如果每个节点就接受自己接受到的第一个值，也会有平票问题(split votes)。<code>red</code> 和 <code>blue</code> 对等的，那到底谁被选择了呢，所以来了就接受的策略并不可行。</p>
-<img src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/split-votes.png" class="" title="[split votes]">
+<img data-src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/split-votes.png" class="" title="[split votes]">
 
 <p>Paxos 是 quorum based 的，表示的一致性协议是少数服从多数的，在大多数节点都接受了这个值以后，这个值就被选择了。为了让节点可以接受多个值，多个值之间需要区分，所以就有了提交号，这个号码是单增的，拒绝掉小号的提交，并且当一个值已经被选择，那么之后的提交都要提交这个值，这样做的目的是让提交者知道这个值被学习了，是大家认可的一个值。有了少数服从多数原则，就会碰到冲突的问题。</p>
 <p>这种情况就是下面这样，从时间上来讲，<code>red</code> 已经被选择了，如果 <code>S3</code> 能够拒绝 <code>red</code> 的提交，那么 <code>S3</code>,<code>S4</code>,<code>S5</code>就可以拿着 <code>red</code> 重试，并且知道 <code>red</code> 已经被大多数人接受了，而知道冲突的 <code>S3</code> 就会决绝这次请求，这个点上就处理了两个值（接受了一个拒绝了一个）。</p>
-<img src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/conflict.png" class="" title="[conflict 1]">
+<img data-src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/conflict.png" class="" title="[conflict 1]">
 
 <p>序列号可以帮助我们区分优先关系，这样因为网络问题延迟的请求就可以被处理。下面这种情况，<code>red</code> 虽然先提交，但是并不是先被大多数接受的（存在网络延迟），这个时候<code>blue</code>已经被选择了（被大多数人接受），我们需要提交 <code>red</code> 的提交意识到自己已经太“老”了，而触发这就是接受了 <code>blue</code> 的 <code>S3</code>。</p>
-<img src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/conflict-1.png" class="" title="[conflict 2]">
+<img data-src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/conflict-1.png" class="" title="[conflict 2]">
 
 <p>所以你会发现，矛盾的点其实就是这个 S3，也就是少数服从多数原则，能保证任意的大多数都是有交集的。交集中的点会发现矛盾和之前接受的值有矛盾选择拒绝。</p>
 <blockquote>
@@ -287,27 +287,27 @@
 <p>下一阶段就是 accept(value,n)，如果接受者发现自己目前收到的n，没有比accpet给的n大，就接受这个值，并且更新自己的n，否则就拒绝（这里就保证提交者能够发现自己变老了或者被拒绝了）。<br>如果接受者发现提交号大于自己当前的最大提交号，就接受这个值，不然就拒绝。当提交者从大多数人那里接受到返回以后发现有拒绝的情况，就进行重试拿一个新的n开始，否则这个值就被接受了。</p>
 <p>Basic Paxos value 就是设置一次，不存在再设次一次的情况。</p>
 <p>总结起来就是如图：</p>
-<img src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/basic-paxos.png" class="" title="[basic paxos]">
+<img data-src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/basic-paxos.png" class="" title="[basic paxos]">
 
 <p>那这样的一个二阶段提交，看看能不能解决前面的问题，主要有三种可能。<br>注意，这里的例子是原文里的例子，一个变量的取值是<code>X</code>或者<code>Y</code>，然后<code>3.1</code> 表示 <code>S1</code>提交的提交号为 <code>3</code> 的提交，这是我们定义的 message ID。</p>
 <p>第一种值被选择了，后者意识到了<code>X</code>，放弃<code> Y</code> 用 <code>X </code>提交，也就意味着提交者学习到了这个值已经被选择了。</p>
-<img src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/paxos-p1.png" class="" title="[situation 1]">
+<img data-src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/paxos-p1.png" class="" title="[situation 1]">
 
 <p>第二种情况，值没有被选择，但是交集的部分看到了一个被选择的值，也会选择放弃<code>Y</code>用<code>X</code>提交，虽然<code>X</code>暂时没有被选择（被大多数人接受），但是可以保证两个提交都成功。</p>
-<img src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/paxos-conflict-2.png" class="" title="[situation 2]">
+<img data-src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/paxos-conflict-2.png" class="" title="[situation 2]">
 
 <p>第三种情况，值没有被选择，同时交集的部分也没有发现被选择的值，如果已经做了 promies 这个时候就会拒绝老的提交。比如下面在 S3 accept(X) 的时候就会放弃提交并且进行重试(S1 S2 也会一起重试）, 并且在重试的时候覆盖掉原先接受的x)。</p>
-<img src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/paxos-conflict3.png" class="" title="[situation 3]">
+<img data-src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/paxos-conflict3.png" class="" title="[situation 3]">
 
 <p>看起来所有的问题都解决了，但是活性问题无法保证。这个情况发生在提交之间相互阻塞的情况，<code>S3</code> <code>S4</code> <code>S5</code> 拿着更高的提交号导致 <code>S1</code> <code>S2</code> <code>S3</code> 的 accept 被拒绝重新进行提交，又把 <code>S3</code> <code>S4</code> <code>S5</code> 给拒绝了。</p>
-<img src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/paxos-liveness.png" class="" title="[liveness]">
+<img data-src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/paxos-liveness.png" class="" title="[liveness]">
 
 <p>解决这个问题的办法就是把重试时间进行一些随机化，减少这种巧合发生，或者把重试的时间指数增长等等。</p>
 <h2 id="Multi-Paxos"><a href="#Multi-Paxos" class="headerlink" title="Multi-Paxos"></a>Multi-Paxos</h2><p>到此 classic Paxos 算是告一段落。那 Paxos 有什么问题呢。首先是活性的问题，这个在后面可以通过选主的方式解决。其次是学习是通过 propose 获知值的，不然无法知道一个值是否被接受了，要走一遍整套的 Paxos 协议。</p>
 <p>Multi-Paxos 新增的问题是如何选择 log entry，并且用选主的方式减少冲突，以及减少 prepare 的请求。</p>
 <p>以下图为例。深色框表示这个 log 已经被选择（怎么确定选择后面会提到）。寻找 log entry 的方式就是寻找第一个没有被选择的 log，尝试执行 basic Paxos，如果有值被选择会尝试用这个 log 提交帮助这个 log 被选择，这个过程和 basic paxos 是一致的，但是在此之后就要继续寻找下一个 log 尝试进行我们的尝试。</p>
 <p>下图中（只看 S1 和 S2 这两行），第一次会找到最后一个没有没学习的 log，也就是 index=3 的 log，但是发现了 <code>s1</code> 的 <code>cmp</code>，就会服从这个 <code>cmp</code>，然后到 <code>index=4</code> 发现了 <code>s2</code> 的 <code>sub</code>，也选择服从，并且学习到了 index=4 的 log 应该是 <code>sub</code>，最后到了 index=5 才进行插入。</p>
-<img src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/multi-paxos-log.png" class="" title="[multi-paxos]">
+<img data-src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/multi-paxos-log.png" class="" title="[multi-paxos]">
 
 <p>这样的情况下，Paxos 可以接受并发的请求，而 Raft 却规定了对 log 只能 append，不能 3 4 5 都能同时处理，简化了实现。反正只要保证了 log 的顺序一致，状态机的最终状态都是一致的。 </p>
 <p>接下来的是对于性能的一些提升，一个是选主避免大面积冲突，另一个是优化二阶段提交的次数。解决方法是选出一个主，保证一次只有一个提交者。另外对于 prepare 是对整个 log 进行 prepare，而不是单个 log entry，这样大多数情况下，大部分 log 都可以一次性就被选择。</p>
@@ -316,11 +316,11 @@
 <p>我们可以改变提交号的意义，让他代表整个 log，也就是所有 log entry 都用一个提交号，这样接受者可以通过返回 <code>noMoreAccepted</code> 让提交者意识到在当前 log entry 之后的 log 都没有 accpeted 是可以被“锁”住的，然后如果大多数节点返回 <code>noMoreAccepted</code>，就可以跳过之后的 prepare 直到 accept 被拒绝。这样后续的 accept 操作就可以不用 prepare 在一趟之内解决，所以二阶段提交的第一阶段的 promise 落在了整个 log 上。这个情况下 发起者的 accept 一直顺序进行就可以，问题发生在有其他主（之前说到的会临时有多主的情况），又提交了 prepare，然后这个提交号更高，把后一段锁住了，accept 就会发现冲突学习新的值。</p>
 <p>补充 1 持续发送 accept 请求，让所有的节点都同步这个 log。<br>补充 2 让 proposer 带上 firstUnchosenIndex 让 acceptor 知道大多数可以确认被选择的 log。</p>
 <p>但是还有问题，例如下面这张图，对于所有小于 firstUnchosenIndex 的 i 来说，如果 accpetedProposal[i] 的提交号和 request 的 proposal 一样的话，就可以确认 log[i] 是被选择了的，并且标记 acceptedProposal[i] = 无限。但是 2.5 确实来自之前的 leader 的，貌似无法被标记为选择了。这需要我们进一步修改这个协议。</p>
-<img src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/multi-paxos-index.png" class="" title="[multi paxos index]">
+<img data-src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/multi-paxos-index.png" class="" title="[multi paxos index]">
 
 <p>这个时候需要在 accept 返回的时候带上自己的 firtUnchosenIndex，如果 proposer 的比这个大，可以把 acceptor 直接补齐。用 success 命令，让 acceptor 直接更改index 的这个值, 并且继续返回 firtUnchosenIndex，让 proposer 弥补。</p>
 <p>最后一部分是配置改变，degree of replication，也就是要保证同时只有一个 conf 生效，可以用 a 个之前的 log 做 conf，这样在使用这个 conf 之前，conf 已经发生了改变。但是同时限制住了并发度（只能为a）。直觉上讲就是约定一个 index 在某个时间点一次性切换。</p>
-<img src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/multi-paxos-conf.png" class="" title="[multi paxos conf]">
+<img data-src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/multi-paxos-conf.png" class="" title="[multi paxos conf]">
 
 <p>参考文献</p>
 <ul>
@@ -453,7 +453,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">56</span>
+          <span class="site-state-item-count">57</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -466,7 +466,7 @@
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">93</span>
+        <span class="site-state-item-count">95</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>

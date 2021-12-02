@@ -156,7 +156,7 @@
   </li>
         <li class="menu-item menu-item-tags">
 
-    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">93</span></a>
+    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">95</span></a>
 
   </li>
         <li class="menu-item menu-item-categories">
@@ -166,7 +166,7 @@
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">56</span></a>
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">57</span></a>
 
   </li>
   </ul>
@@ -252,25 +252,25 @@
 
       
         <h1 id="VFIO——将设备暴露到用户态"><a href="#VFIO——将设备暴露到用户态" class="headerlink" title="VFIO——将设备暴露到用户态"></a>VFIO——将设备暴露到用户态</h1><p>在开始之前我们先要说一个东西就是 DMA，直接让设备访问内存，可以不通过 CPU 搬运数据。</p>
-<img src="/zh-CN/2017/06/05/VFIO-%E2%80%94%E2%80%94%E5%B0%86-DMA-%E6%98%A0%E5%B0%84%E6%9A%B4%E9%9C%B2%E7%BB%99%E7%94%A8%E6%88%B7%E6%80%81/p1.jpg" class="">
+<img data-src="/zh-CN/2017/06/05/VFIO-%E2%80%94%E2%80%94%E5%B0%86-DMA-%E6%98%A0%E5%B0%84%E6%9A%B4%E9%9C%B2%E7%BB%99%E7%94%A8%E6%88%B7%E6%80%81/p1.jpg" class="">
 
 <p>这是一个比较简单的体系结构图，设备 和 CPU 通过存储控制器访问存储器。一个简单的 case 是 CPU 向存储器写数据，然后设备从存储器读数据。这么快来一切都很正常。但是实际上 CPU 是有一层缓存的，例如下面这样的。</p>
-<img src="/zh-CN/2017/06/05/VFIO-%E2%80%94%E2%80%94%E5%B0%86-DMA-%E6%98%A0%E5%B0%84%E6%9A%B4%E9%9C%B2%E7%BB%99%E7%94%A8%E6%88%B7%E6%80%81/p2.jpg" class="">
+<img data-src="/zh-CN/2017/06/05/VFIO-%E2%80%94%E2%80%94%E5%B0%86-DMA-%E6%98%A0%E5%B0%84%E6%9A%B4%E9%9C%B2%E7%BB%99%E7%94%A8%E6%88%B7%E6%80%81/p2.jpg" class="">
 
 <p>CPU 想内存写数据，但是先要清空到不一致的缓存，然后设备再去读数据，不然设备读到的数据和 CPU 实际的数据会不一致（因为缓存里的数据可能和存储器的不一致），而且实际上缓存也不只是一层，所以需要一个中间层来保证 从 CPU 的角度和从设备的角度内存都是一致的，所以就有了下面这个结构。</p>
-<img src="/zh-CN/2017/06/05/VFIO-%E2%80%94%E2%80%94%E5%B0%86-DMA-%E6%98%A0%E5%B0%84%E6%9A%B4%E9%9C%B2%E7%BB%99%E7%94%A8%E6%88%B7%E6%80%81/p3.jpg" class="">
+<img data-src="/zh-CN/2017/06/05/VFIO-%E2%80%94%E2%80%94%E5%B0%86-DMA-%E6%98%A0%E5%B0%84%E6%9A%B4%E9%9C%B2%E7%BB%99%E7%94%A8%E6%88%B7%E6%80%81/p3.jpg" class="">
 
 <p>CPU 和 设备都会走缓存验证一遍以后，再落到存储器上，这样带上缓存以后大家的一致性都是一样的了。所以从设备的角度，设备也拥有了缓存，实际上这个和 IOMMU 关系不是很大，接下来设备其实也可以和 CPU 一样有一层 MMU，也就是地址到存储器物理地址的转换。注意，这里我用了地址，因为对 CPU 来说是虚拟地址，但是对设备来说是一个总线域的地址。<strong>这里要明确区分一下，一个是总线地址，是从设备的角度来看的，一个是 CPU 的虚拟地址，这是从 CPU 角度来看的，两个是不同的东西。将总线域地址转换成存储器物理地址的设备就叫 IOMMU。</strong></p>
-<img src="/zh-CN/2017/06/05/VFIO-%E2%80%94%E2%80%94%E5%B0%86-DMA-%E6%98%A0%E5%B0%84%E6%9A%B4%E9%9C%B2%E7%BB%99%E7%94%A8%E6%88%B7%E6%80%81/p4.jpg" class="">
+<img data-src="/zh-CN/2017/06/05/VFIO-%E2%80%94%E2%80%94%E5%B0%86-DMA-%E6%98%A0%E5%B0%84%E6%9A%B4%E9%9C%B2%E7%BB%99%E7%94%A8%E6%88%B7%E6%80%81/p4.jpg" class="">
 
 
 <p>如果没有 IOMMU，DMA 也能照常工作，IOMMU 的主要作用就是保护功能，防止使用 DMA 的设备访问任意存储器的物理地址。</p>
 <p>IOMMU 在不同架构上名字不太一样，AMD 叫 AMD-Vi，最开始针对的设备只是显卡，Intel 叫 VT-d，arm 叫 SMMU，具体对应的手册也不太一样，但是主要解决的问题是一致的。在 VTd 中，dmar (DMA remapping) 就是那个 IOMMU 设备，通过中断的方式实现类似 page fault 一样的内存分配行为。DMA 传输是由 CPU 发起的：CPU 会告诉 DMA 控制器，帮忙将 xxx 地方的数据搬到 xxx 地方。CPU 发完指令之后，就当甩手掌柜了。IOMMU 有点像 MMU 是一个将设备地址翻译到内存地址的页表体系，也会有对应的页表，这个东西在虚拟化中也非常有用，可以将原本有软件模拟的设备，用直接的硬件替代，而原本的隔离通过 IOMMU 来完成。如下图所示，原本需要通过软件模拟的驱动设备可以通过 IOMMU 以__安全__的方式来直接把硬件设备分配个用户态的 Guest OS。</p>
-<img src="/zh-CN/2017/06/05/VFIO-%E2%80%94%E2%80%94%E5%B0%86-DMA-%E6%98%A0%E5%B0%84%E6%9A%B4%E9%9C%B2%E7%BB%99%E7%94%A8%E6%88%B7%E6%80%81/p5.jpg" class="">
+<img data-src="/zh-CN/2017/06/05/VFIO-%E2%80%94%E2%80%94%E5%B0%86-DMA-%E6%98%A0%E5%B0%84%E6%9A%B4%E9%9C%B2%E7%BB%99%E7%94%A8%E6%88%B7%E6%80%81/p5.jpg" class="">
 
 <p>理论上讲没有 IOMMU 实际上是可以工作的，但是硬件的角度，设备就拥有了整个存储器的全局视图，这是无论如何都非常不合理的事情，不应该让设备拥有访问任意物理内存的能力。</p>
 <p>这里要提的另外一个功能就是对中断的隔离，类似于下面的通过在中断请求中添加标识来重定向中断到对应的中断回调上。</p>
-<img src="/zh-CN/2017/06/05/VFIO-%E2%80%94%E2%80%94%E5%B0%86-DMA-%E6%98%A0%E5%B0%84%E6%9A%B4%E9%9C%B2%E7%BB%99%E7%94%A8%E6%88%B7%E6%80%81/p6.jpg" class="">
+<img data-src="/zh-CN/2017/06/05/VFIO-%E2%80%94%E2%80%94%E5%B0%86-DMA-%E6%98%A0%E5%B0%84%E6%9A%B4%E9%9C%B2%E7%BB%99%E7%94%A8%E6%88%B7%E6%80%81/p6.jpg" class="">
 
 <p>VFIO 的作用就是通过 IOMMU 以安全的方式来将设备的访问直接暴露到用户空间，而不用专门完成某个驱动等待合并到上游或者使用之前的对 IOMMU 没有感知的 UIO 的框架。通过 VFIO 向用户态开放 IOMMU 的功能，编写用户态的驱动。</p>
 <p>对于 IOMMU 来说，隔离的级别不一定是单个设备，比如一个后面有几个设备的 PCI 桥，从 PCI 桥角度来说，都是来自 PCI 桥的总线事务。所以 IOMMU 有一个 <code>iommu_group</code>的概念，代表一组与其他设备隔离的设备的集合。</p>
@@ -442,7 +442,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">56</span>
+          <span class="site-state-item-count">57</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -455,7 +455,7 @@
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">93</span>
+        <span class="site-state-item-count">95</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>

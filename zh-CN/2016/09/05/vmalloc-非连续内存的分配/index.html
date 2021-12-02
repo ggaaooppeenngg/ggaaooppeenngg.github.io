@@ -153,7 +153,7 @@
   </li>
         <li class="menu-item menu-item-tags">
 
-    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">93</span></a>
+    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">95</span></a>
 
   </li>
         <li class="menu-item menu-item-categories">
@@ -163,7 +163,7 @@
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">56</span></a>
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">57</span></a>
 
   </li>
   </ul>
@@ -260,7 +260,7 @@
 <p><code>vm_struct</code>的组织是通过链表实现的,<br>其中<code>next</code>指向下一个<code>vm_struct</code>, <code>addr</code>指向的是虚拟地址, <code>size</code>对应分配的内存的大小,在有guard page(也就是flag的<code>VM_NO_GUARD</code>没有设置的话)的时候会多出一个PAGE_SIZE的大小(但没有映射内存), <code>pages</code>是页的地址, <code>nr_pages</code>是页的数量, <code>phy_addr</code>这个字段一般为0,当用于ioremap的时候会用到, <code>caller</code>是调用者的地址.</p>
 <p>上面说了, 每个<code>vm_struct</code>代表的区间之间会有一PAGE_SIZE大小的分隔,也是为了能够方便检查非法越界的情况.</p>
 <p>这是32位的一张分布图, 整体结构没变, 就是64位的区间变大了.</p>
-<img src="/zh-CN/2016/09/05/vmalloc-%E9%9D%9E%E8%BF%9E%E7%BB%AD%E5%86%85%E5%AD%98%E7%9A%84%E5%88%86%E9%85%8D/memory.jpeg" class=""> 
+<img data-src="/zh-CN/2016/09/05/vmalloc-%E9%9D%9E%E8%BF%9E%E7%BB%AD%E5%86%85%E5%AD%98%E7%9A%84%E5%88%86%E9%85%8D/memory.jpeg" class=""> 
 
 <p><code>vmap_area</code>用于代表虚拟地址的区间, 和vm_struct是有对应关系的.<br>list 是按地址排序存的线性链表节点.<br>rb_node 是按地址存的红黑树节点.<br>这两个值都是在插入的时候修改的.<br>也就是为了方便搜索,它既存在红黑树上也存在链表里面.</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">struct vmap_area &#123;</span><br><span class="line">	unsigned long va_start;</span><br><span class="line">	unsigned long va_end;</span><br><span class="line">	unsigned long flags;</span><br><span class="line">	struct rb_node rb_node;         /* address sorted rbtree */</span><br><span class="line">	struct list_head list;          /* address sorted list */</span><br><span class="line">	struct llist_node purge_list;    /* &quot;lazy purge&quot; list */</span><br><span class="line">	struct vm_struct *vm;</span><br><span class="line">	struct rcu_head rcu_head;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
@@ -276,10 +276,10 @@
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line">/*</span><br><span class="line"> *</span><br><span class="line"> * Set up page tables in kva (addr, end). The ptes shall have prot &quot;prot&quot;, and</span><br><span class="line"> * will have pfns corresponding to the &quot;pages&quot; array.</span><br><span class="line"> * 这里的kva指的是kernel virtual address.</span><br><span class="line"> * Ie. pte at addr+N*PAGE_SIZE shall point to pfn corresponding to pages[N]</span><br><span class="line"> */</span><br><span class="line">static int vmap_page_range_noflush(unsigned long start, unsigned long end,</span><br><span class="line">				   pgprot_t prot, struct page **pages)</span><br><span class="line">&#123;</span><br><span class="line">	pgd_t *pgd;</span><br><span class="line">	unsigned long next;</span><br><span class="line">	unsigned long addr = start;</span><br><span class="line">	int err = 0;</span><br><span class="line">	int nr = 0;</span><br><span class="line"></span><br><span class="line">	BUG_ON(addr &gt;= end);</span><br><span class="line">	pgd = pgd_offset_k(addr); /* 把虚拟地址hash到pgd */</span><br><span class="line">	do &#123;</span><br><span class="line">		next = pgd_addr_end(addr, end); /* 获取下一个pgd */</span><br><span class="line">		err = vmap_pud_range(pgd, addr, next, prot, pages, &amp;nr); /* 再去初始化 pud pmd pte */</span><br><span class="line">		if (err)</span><br><span class="line">			return err;</span><br><span class="line">	&#125; while (pgd++, addr = next, addr != end);</span><br><span class="line"></span><br><span class="line">	return nr;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
 
 <p>对应的调用关系如图.</p>
-<img src="/zh-CN/2016/09/05/vmalloc-%E9%9D%9E%E8%BF%9E%E7%BB%AD%E5%86%85%E5%AD%98%E7%9A%84%E5%88%86%E9%85%8D/vmalloc-callgraph.png" class="">
+<img data-src="/zh-CN/2016/09/05/vmalloc-%E9%9D%9E%E8%BF%9E%E7%BB%AD%E5%86%85%E5%AD%98%E7%9A%84%E5%88%86%E9%85%8D/vmalloc-callgraph.png" class="">
 
 <h2 id="释放"><a href="#释放" class="headerlink" title="释放"></a>释放</h2><p>释放的入口是<code>vfree</code>, 这个函数首先通过<code>in_interrupt</code>检查是否在中断上下文, 如果是正处于中断中则使用<code>workqueue</code>传入<code>vfree_deferred</code>用workqueue进行释放, 不然就直接调用<code>__vunmap</code>来释放, 它会调用<code>remove_vm_area</code>, 最终调用用<code>unmap_vmap_area</code>重置页表, 然后用<code>free_vmap_area_noflush</code>把<code>vmp_area</code>加入到<code>vmap_purge_list</code>这个链表当中, 放入这个链表之后只有链表长度超过阈值才会尝试调用<code>try_purge_vmap_area_lazy</code>真正释放掉<code>vmap_area</code>,释放过程主要是从红黑树中移除, 然后把自己也给free掉, 这是一个延迟的释放过程, 最后把把<code>vm_struct</code>自己和它管理的物理页全部释放. 调用图如图所示.</p>
-<img src="/zh-CN/2016/09/05/vmalloc-%E9%9D%9E%E8%BF%9E%E7%BB%AD%E5%86%85%E5%AD%98%E7%9A%84%E5%88%86%E9%85%8D/vfree-callgraph.png" class="">
+<img data-src="/zh-CN/2016/09/05/vmalloc-%E9%9D%9E%E8%BF%9E%E7%BB%AD%E5%86%85%E5%AD%98%E7%9A%84%E5%88%86%E9%85%8D/vfree-callgraph.png" class="">
 
 
 <h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>vmalloc主要是针对连续地址分配的需求, 涉及两个部分, 一个是虚拟地址的管理以及到物理地址的映射. 其中虚拟地址的管理比较麻烦一点, 用链表红黑树保存了每个<code>vmap_area</code>并且寻找合适的<code>空洞</code>用于分配虚拟地址. 而物理地址的分配之前我的博客已经讲过了, 建立映射只要设置对应的页表项就OK了.</p>
@@ -417,7 +417,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">56</span>
+          <span class="site-state-item-count">57</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -430,7 +430,7 @@
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">93</span>
+        <span class="site-state-item-count">95</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>

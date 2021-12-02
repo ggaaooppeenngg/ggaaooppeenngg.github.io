@@ -152,7 +152,7 @@
   </li>
         <li class="menu-item menu-item-tags">
 
-    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">93</span></a>
+    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">95</span></a>
 
   </li>
         <li class="menu-item menu-item-categories">
@@ -162,7 +162,7 @@
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">56</span></a>
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">57</span></a>
 
   </li>
   </ul>
@@ -253,13 +253,13 @@
 <p>另外租约的存在（不知道算不算在 multi raft 算法内），也可以缓解集中化的压力，通过获得授权的租约旁路一些“可以本地化”的请求（比如只对一个 replica 的操作以及一些能保证数据不变的一段时间的读请求），来缓解主的压力，这个最早我记得在 GFS 里面看到过是这么设计的。</p>
 <p>另外 gossip 的协议有点像交换机的生成树协议，是通过互相传播自己的负载和位置信心来传播信息的，没有中心化的决策节点，这样的好处就是无中心化，不会依靠一个中心的节点来做负载均衡，而且整个系统就需要一个二进制文件不依赖任何的其他服务。</p>
 <p>如图是一个 range 在三节点上的三副本的一个 raft group 之间有网路通信。</p>
-<img src="/zh-CN/2017/04/07/MultiRaft-%E8%A7%A3%E6%9E%90/raft1.png" class="">
+<img data-src="/zh-CN/2017/04/07/MultiRaft-%E8%A7%A3%E6%9E%90/raft1.png" class="">
 
 <p>但是如果 range 变多的话，就会很复杂，如下图，是四个节点之间大概 8 个 （如果我没看错颜色的话） range 的 raft group 之间通信。</p>
-<img src="/zh-CN/2017/04/07/MultiRaft-%E8%A7%A3%E6%9E%90/raft2.png" class="">
+<img data-src="/zh-CN/2017/04/07/MultiRaft-%E8%A7%A3%E6%9E%90/raft2.png" class="">
 
 <p>很明显网络 RoundTrip 太多了。针对这个的优化就是 MultiRaft 了，说白了就是把网络请求 batch up，变成下面的形式。</p>
-<img src="/zh-CN/2017/04/07/MultiRaft-%E8%A7%A3%E6%9E%90/multiraft.png" class="">
+<img data-src="/zh-CN/2017/04/07/MultiRaft-%E8%A7%A3%E6%9E%90/multiraft.png" class="">
 
 <p>这样网络压力就会小很多。针对这个的优化和应用本身的实现是耦合的，作者也尝试把这个优化加到 etcd/raft 当中，但是最后的决定是增加 RawNode 这样的无线程安全的接口给应用层实用，方便对心跳等请求的合并，所以你会看到有个非线程安全的 RawNode 的实现。</p>
 <p>具体到 cockroach 的实现是可以找到相应的代码的，省略无关代码就如下。</p>
@@ -393,7 +393,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">56</span>
+          <span class="site-state-item-count">57</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -406,7 +406,7 @@
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">93</span>
+        <span class="site-state-item-count">95</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>

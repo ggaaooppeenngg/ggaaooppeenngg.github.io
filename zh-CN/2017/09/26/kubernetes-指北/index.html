@@ -155,7 +155,7 @@
   </li>
         <li class="menu-item menu-item-tags">
 
-    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">93</span></a>
+    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">95</span></a>
 
   </li>
         <li class="menu-item menu-item-categories">
@@ -165,7 +165,7 @@
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">56</span></a>
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">57</span></a>
 
   </li>
   </ul>
@@ -251,7 +251,7 @@
 
       
         <p>最近因为 k8s 的默认调度器功能太丰富，太“高级”了，一些屌丝特性没有满足，所以前段时间自己魔改了一下满足了一些屌丝特性，暂时叫做乞丐调度器，顺便把默认的调度器代码翻了一下，这里对默认的代码做一下总结。</p>
-<h2 id="CreateScheduler"><a href="#CreateScheduler" class="headerlink" title="CreateScheduler"></a>CreateScheduler</h2><img src="/zh-CN/2017/09/26/kubernetes-%E6%8C%87%E5%8C%97/CreateScheduler.png" class="">
+<h2 id="CreateScheduler"><a href="#CreateScheduler" class="headerlink" title="CreateScheduler"></a>CreateScheduler</h2><img data-src="/zh-CN/2017/09/26/kubernetes-%E6%8C%87%E5%8C%97/CreateScheduler.png" class="">
 
 <p>CreateScheduler 会从 policy file 当中获取算法的配置信息。接口<code>k8s.io/kubernetes/plugin/pkg/scheduler.Configurator</code> 定义了构造一个 scheduler 的配置信息。<code>k8s.io/kubernetes/plugin/pkg/scheduler/factor.ConfigFactory</code> 是这个接口的一个实现。<code>c.Create</code> 会把 <code>AlgorithmProvider</code> 配置的 <code>Predicate</code> 和 <code>Priority</code> 的 key 当作参数传给，<code>f.CreateFromKeys</code> 这样主要对应的 key 注册了的话就会有对应的算法绑定到 scheduler 上面。目前有两种 Provider，一种是用默认 predicate 和 默认 priority 的 AlgorithmProvider，另一种是把 <code>LeastRequestedPriority</code> 换成 <code>MostRequestedPriority</code> 的自动伸缩友好的 AlgorithmProvider。</p>
 <figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// Registers algorithm providers. By default we use &#x27;DefaultProvider&#x27;, but user can specify one to be used</span></span><br><span class="line"><span class="comment">// by specifying flag.</span></span><br><span class="line">factory.RegisterAlgorithmProvider(factory.DefaultProvider, defaultPredicates(), defaultPriorities())</span><br><span class="line"><span class="comment">// Cluster autoscaler friendly scheduling algorithm.</span></span><br><span class="line">factory.RegisterAlgorithmProvider(ClusterAutoscalerProvider, defaultPredicates(),</span><br><span class="line">	copyAndReplace(defaultPriorities(), <span class="string">&quot;LeastRequestedPriority&quot;</span>, <span class="string">&quot;MostRequestedPriority&quot;</span>))</span><br></pre></td></tr></table></figure>
@@ -263,10 +263,10 @@
 <li> Kubeconfig k8s 配置文件的路径</li>
 </ol>
 <p><code>func Run(s *options.SchedulerServer) error</code> 会根据 <code>Sechduler Server</code> 来运行。<code>EventBroadcaster</code> 接受事件，并且把事件发送给事件处理者（ EventSink watcher, log)，<code>startHTTP</code> 主要是是 profiling 接口，心跳检测接口和 prometheus 的 instrumenting 接口。<code>informerFactory</code>，看起来是一个异步同步信息的 cache，平时调度是直接走 cache，更新的时候才会走 API。最后配置了选主的话会从 Etcd 拿到锁，并且拿到 Master 的锁。</p>
-<img src="/zh-CN/2017/09/26/kubernetes-%E6%8C%87%E5%8C%97/scheduler-init.png" class="">
+<img data-src="/zh-CN/2017/09/26/kubernetes-%E6%8C%87%E5%8C%97/scheduler-init.png" class="">
 
 <h2 id="k8s-io-kubernetes-plugin-pkg-scheduler-Scheduler-Run"><a href="#k8s-io-kubernetes-plugin-pkg-scheduler-Scheduler-Run" class="headerlink" title="k8s.io/kubernetes/plugin/pkg/scheduler.Scheduler.Run"></a>k8s.io/kubernetes/plugin/pkg/scheduler.Scheduler.Run</h2><p>初始化以后，Run 对应的是一个 0 秒循环的大 loop（相当于每次 loop 等于主动调用一次 Go runtime.Sched())，在每次循环当中都会调用 <code>sched.scheduleOne</code>，首先 <code>NextPod</code> 会同步等待一个 pod 变成 available 的状态，并且跳过正在被删除的 pod，然后调用 <code>sched.schedule</code> 走到具体的调度算法当中，整个过程是串行，没有批量调度 pod 的操作。在进行具体的调度算法之后，会得到一个可行的 node，如果调度失败的话会，并且调度失败的原因是找不到合适的 node 的话，就尝试 <code>sched.preempt</code>，这个的作用就是尝试在替换现有 pod 的情况下能够获得调度机会的策略，那么就抢占已经被调度的 pod，标记目标 pod 的 Annotation 然后踢出权重最低的那个 pod。如果成果获得一个可调度的节点，就通过把本地 cache 先更新到已经调度之后的状态，标记 pod 已经在要调度的 node 上，也就是调用 <code>sched.assume</code> 假设 pod 已经调度到了节点上，再异步的通过 ApiServer 的接口，<code>sched.bind</code> 让 pod 正在运行到 node 上。</p>
-<img src="/zh-CN/2017/09/26/kubernetes-%E6%8C%87%E5%8C%97/scheduleOne.png" class="">
+<img data-src="/zh-CN/2017/09/26/kubernetes-%E6%8C%87%E5%8C%97/scheduleOne.png" class="">
 
 <h2 id="sched-schedule"><a href="#sched-schedule" class="headerlink" title="sched.schedule"></a>sched.schedule</h2><p>schedule 调用 <em>algorithm/scheduler_interface.go</em>下面定义的调度器的接口 <code>Schedule</code>。对应的实现在 <em>core/generic_scheduler.go</em> 下面。</p>
 <figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// ScheduleAlgorithm is an interface implemented by things that know how to schedule pods</span></span><br><span class="line"><span class="comment">// onto machines.</span></span><br><span class="line"><span class="keyword">type</span> ScheduleAlgorithm <span class="keyword">interface</span> &#123;</span><br><span class="line">	Schedule(*v1.Pod, NodeLister) (selectedMachine <span class="keyword">string</span>, err error)</span><br><span class="line">	<span class="comment">// Preempt receives scheduling errors for a pod and tries to create room for</span></span><br><span class="line">	<span class="comment">// the pod by preempting lower priority pods if possible.</span></span><br><span class="line">	<span class="comment">// It returns the node where preemption happened, a list of preempted pods, and error if any.</span></span><br><span class="line">	Preempt(*v1.Pod, NodeLister, error) (selectedNode *v1.Node, preemptedPods []*v1.Pod, err error)</span><br><span class="line">	<span class="comment">// Predicates() returns a pointer to a map of predicate functions. This is</span></span><br><span class="line">	<span class="comment">// exposed for testing.</span></span><br><span class="line">	Predicates() <span class="keyword">map</span>[<span class="keyword">string</span>]FitPredicate</span><br><span class="line">	<span class="comment">// Prioritizers returns a slice of priority config. This is exposed for</span></span><br><span class="line">	<span class="comment">// testing.</span></span><br><span class="line">	Prioritizers() []PriorityConfig</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
@@ -274,14 +274,14 @@
 <p><code>Schedule</code> 会根据调度算法得到一个合适的节点，而 <code>Preempt</code> 则是尝试抢占一个 pod 以获得调度到节点上的机会。<code>Predicates</code> 和 <code>Priorities</code> 则是两个重要的部分，<code>Predicates</code> 类似一个过滤器，对节点进行筛选，而 <code>Priorities</code> 则是对筛选出来的节点进行权重的排序，最后得到一个合适的调度节点。</p>
 <h3 id="算法工厂"><a href="#算法工厂" class="headerlink" title="算法工厂"></a>算法工厂</h3><p>算法工厂就是注册 <code>Preciate</code> 和 <code>Priority</code> 的地方，之前已经说了可以通过 <code>AlgorithmProvider</code> 获得一组 <code>Predicate</code> 和 <code>Priority</code>，比如 DefaultProvider 提供了默认的一套，如果不用 Provider，需要在 <a target="_blank" rel="noopener" href="https://github.com/kubernetes/examples/blob/master/staging/scheduler-policy-config.json">policy file</a> 当中另外指定要使用的 <code>Predicate</code> 和 <code>Priority</code>，不过目前好像没有用这种方式，还是通过 Provider 指定了一套要使用的算法 。注册 <code>AlgorithmProvider  </code>是通过<code>factory.RegisterAlgorithmProvider</code>，然后调用 <code>NewGenericScheduler</code> (在 <em>k8s.io/kubernetes/plugin/pkg/scheduler/core/generic_scheduler.go</em> 当中)，初始化要用到的 predicates 和 priorities。</p>
 <h3 id="调度过程"><a href="#调度过程" class="headerlink" title="调度过程"></a>调度过程</h3><p><code>Schedule</code> 其实很简单，就是通过 <code>findNodesThatFit</code>，先根据 <code>Predicate</code> 过滤出合适的 Node，然后调用 <code>PrioritizeNodes</code>，用 <code>Priorities</code> 对 Node 根据算法的权重进行排序，因为每个 node 要走的流程是一样的并且最终结果相互没有影响，所以这个过程是并发的，<a target="_blank" rel="noopener" href="http://blog.csdn.net/waltonwang/article/details/54409917">这篇文章</a>的图画的很好，示意很明显。</p>
-<img src="/zh-CN/2017/09/26/kubernetes-%E6%8C%87%E5%8C%97/Schedule.jpeg" class="">
+<img data-src="/zh-CN/2017/09/26/kubernetes-%E6%8C%87%E5%8C%97/Schedule.jpeg" class="">
 
 <p>最后会得到一个最理想的节点，再通过 bing 告诉 API server 这个节点被选中了。</p>
 <h2 id="sched-preempt"><a href="#sched-preempt" class="headerlink" title="sched.preempt"></a>sched.preempt</h2><p>抢占过程是在 pod 没有找到合适的节点情况下，如果能在踢出一个 pod 获得调度机会的情况下进行抢占。抢占算是一个比较新的特性，在 1.8 里面都是默认关掉的，要打开的话需要指定<code>kube-scheduler</code> 的 <code>--feature-gates=PodPriority=true</code> 还有 apiserver 的 <code>--runtime-config=scheduling.k8s.io/v1alpha1=true</code>。可以通过添加 <code>PriorityClass</code> 把 pod 分权重，现在这个特性算是给 pod 也加上的权重。</p>
 <figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">PriorityClass</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">high-priority</span></span><br><span class="line"><span class="attr">value:</span> <span class="number">1000000</span></span><br><span class="line"><span class="attr">globalDefault:</span> <span class="literal">false</span></span><br><span class="line"><span class="attr">description:</span> <span class="string">&quot;This priority class should be used for XYZ service pods only.&quot;</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
 
 <p>然后可以在<code>spec</code>当中指定 <code>priorityClassName: high-priority</code>，这样这么大的权重，这个 pod 就很难被抢占了，具体流程如下图。</p>
-<img src="/zh-CN/2017/09/26/kubernetes-%E6%8C%87%E5%8C%97/schedule-preempt.png" class="">
+<img data-src="/zh-CN/2017/09/26/kubernetes-%E6%8C%87%E5%8C%97/schedule-preempt.png" class="">
 
 <p><code>podEligibleToPreemptOthers</code> 主要判断如果 目标 pod 被标记为（通过 pod 的 annotation 标记）已经要抢占其他 pod，并且有一个优先级小于 目标 pod 的 pod 即将被删除 (<code>p.DeletionTimestamp != nil </code>)，就直接退出，因为这个时候这个被删除的 pod 其实在为目标 pod 腾出空间了，在下次调度的时候就会获得调度机会。<code>nodesWherePreemptionMightHelp</code>，类似于 schedule 的时候的 predicate 阶段，只不过多了一步是通过尝试移除 pod 跑一遍 predicates 看看这个节点能不能被通过。 <code>selectNodesForPreemption</code> 则和 priority 的阶段类似，把删除 pod 之后的可以通过的节点进行排序选出一个排名最高的节点。再通过 <code>selectVictimsOnNode</code> 把节点上的 pod 按照节点的 priority 排序选出“受害者”，越高越难被抢占。可以在 spec 里面设置这个值，选出了节点上的受害者以后，通过<code>pickOneNodeForPreemption</code>，主要的依据是拥有最低的最高 pod 权重的节点先被选出来，比如 node1 上 pod 的最高权重是 10，node2 上 pod 的最高权重是 8，那么 node2 被选中，如果有平局的话，最少的“受害者”先选，如果还平局，随机选一个。最后得到一个要被抢占的节点。</p>
 <h2 id="自定义调度器的方式"><a href="#自定义调度器的方式" class="headerlink" title="自定义调度器的方式"></a>自定义调度器的方式</h2><p>自定义调度器有三种方法。</p>
@@ -415,7 +415,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">56</span>
+          <span class="site-state-item-count">57</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -428,7 +428,7 @@
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">93</span>
+        <span class="site-state-item-count">95</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>

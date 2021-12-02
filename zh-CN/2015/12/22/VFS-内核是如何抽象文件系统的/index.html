@@ -151,7 +151,7 @@
   </li>
         <li class="menu-item menu-item-tags">
 
-    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">93</span></a>
+    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">95</span></a>
 
   </li>
         <li class="menu-item menu-item-categories">
@@ -161,7 +161,7 @@
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">56</span></a>
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">57</span></a>
 
   </li>
   </ul>
@@ -271,14 +271,14 @@
 <p>首先是 <code>filesystem_type</code> 和 <code>super_block</code>，这两者的关系有点类似于软件中的 <code>class</code> 和 <code>object</code> 的关系。在内核当中有一个全局的<code>file_systems</code>链表串接了所有的文件系统类型的代表<code>filesystem_type</code>，对于文件系统的注册和删除就是在链表当中增加和删除对应的节点。而<code>super_block</code>就是一个文件系统的实例。本身也是通过全局链表串连起来的。<code>filesystem_type</code>本身非常简单，定义了获取和删除<code>super_block</code>的接口，和一些共同的相关信息。</p>
 <p>对于<code>super_block</code>来说超级块定义了文件系统的具体信息和对应文件系统的接口，比如<code>write_super</code>,<code>alloc_inode</code>,<code>sync_fs</code>等，这些都是有具体的文件系统实现的。所有的<code>inode</code>都链接到了<code>super_block</code>。</p>
 <p>对于文件系统来说挂载点是个很有意思的点，在内核当中挂载点用<code>vfsmount</code>表示，挂载点是文件系统之间的衔接部分，如果要添加一个新的文件系统势必要将文件系统挂载在某个目录下面使得文件系统生效，<code>vfsmount</code>就是这样一个接口。当文件系统挂载以后原目录将不可见。<code>vfsmount</code>的主要内容是<code>vfsmount</code>的拓扑关系以及指向的目录和<code>super_block</code>。所以从宏观的角度来说，整个文件系统的组织是如图这样的。</p>
-<p><img src="fs.png" alt="fs.png"></p>
+<p><img data-src="fs.png" alt="fs.png"></p>
 <p>这是文件系统本身这个结构在操作系统里的组织结构，接下来分析文件系统满足 VFS 要包含哪些内容。</p>
 <p>第一个要说的就是 dentry，dentry 表现的是文件在文件系统中的树状关系，dentry 也要实现相应的接口，包括 <code>d_delete</code>，<code>d_release</code>，<code>d_compare</code>等接口。<br>dentry 代表的是目录结构中的一个文件，而文件其实就是没有子目录的文件。dentry 链接到了超级快和父 dentry 和子 dentry 以及对应的 inode。</p>
 <p>接下来是 inode, inode 本身代表的一个文件，保存的信息很多，包括文件的大小，创建时间，文件的块大小等参数，以及文件的读写缓存等信息，还要定义对应的针对文件的函数接口，包括增删改查等等。没有文件名，因为它代表的是文件的原信息，具体的路径的表示依赖<code>dentry</code>。</p>
 <p>dentry 和 inode 的关系是多对一的，即多个 dentry 可以指向同一个文件，这和 linux 当中的文件链接有关。</p>
 <p>接下来就是 file，file 虽然叫 file 但是对应的却不像 inode 一样，它对应的是一个进程所打开的文件。例如两个不同的进程打开了磁盘上的同一个文件，那么他们对应的 inode 是相同的，这也是 inode 意义。但是不同进程之间的 file 不是同一个引用，file 本身的结构还是和文件操作有关的。</p>
 <p>整个关系如图所示。</p>
-<p><img src="file.png" alt="file.png"></p>
+<p><img data-src="file.png" alt="file.png"></p>
 <p>对应的文件目录如下</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">.</span><br><span class="line">├── a</span><br><span class="line">│   └── ab</span><br><span class="line">└── b</span><br><span class="line">    ├── bc -&gt; ../a/ab</span><br><span class="line">    └── bd</span><br></pre></td></tr></table></figure>
 
@@ -414,7 +414,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">56</span>
+          <span class="site-state-item-count">57</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -427,7 +427,7 @@
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">93</span>
+        <span class="site-state-item-count">95</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>

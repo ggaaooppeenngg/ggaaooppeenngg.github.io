@@ -180,7 +180,7 @@
   </li>
         <li class="menu-item menu-item-tags">
 
-    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">93</span></a>
+    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">95</span></a>
 
   </li>
         <li class="menu-item menu-item-categories">
@@ -190,7 +190,7 @@
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">56</span></a>
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">57</span></a>
 
   </li>
   </ul>
@@ -271,7 +271,7 @@
       
         <p>总结一下 SysML 2019 的一些论文。</p>
 <h2 id="TICTAC"><a href="#TICTAC" class="headerlink" title="TICTAC"></a>TICTAC</h2><p>问题背景是解决分布式训练的 scale 问题。<br>如图，网络带宽和传输的顺序是关键因素，网络带宽很好理解，如果 Best 要提高只能加带宽，同时传输顺序如图会影响计算时间。</p>
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/tictac.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/tictac.png" class="">
 
 <p>Communication to Computation Ratio 传输计算比，如果比值大说明效率高</p>
 <ol>
@@ -280,89 +280,89 @@
 <li><p> Overlay Coeffiecient 提供传输和计算的重合率，是 TicTac 的优化方向。</p>
 </li>
 </ol>
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/overlap.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/overlap.png" class="">
 
 <p>计算最优传输依赖，这是个 NP 问题，需要找近似解。recv op 是图的 root，可行的拓扑排序有很多种，解决方案就是找到近似优化排序。（原问题是 NP 问题）</p>
 <p>几种符号</p>
 <p>op.P 直接 Op 执行计算时间<br>op.M Op传输时间<br>op.M+ 触发计算 op 的最小传输时间</p>
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic1.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic1.png" class="">
 
 <h3 id="Tic"><a href="#Tic" class="headerlink" title="Tic"></a>Tic</h3><p>设 Communication Time 对于每个 recv op 来说都相等，从直觉上解释就是计算执行 recv op 的优先度。<br>如图计算对应的值</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">case 1</span><br><span class="line">A.M = B.M = 1</span><br><span class="line">case 2</span><br><span class="line">A.M = B.M = 1</span><br><span class="line">C.M = 1+1</span><br><span class="line">D.M = 1+1+1</span><br></pre></td></tr></table></figure>
 <p>越小优先级越高，这个可以在 DAG 中静态算出</p>
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic2.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic2.png" class="">
 
-<h3 id="Tac"><a href="#Tac" class="headerlink" title="Tac"></a>Tac</h3><img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic4.png" class="">
+<h3 id="Tac"><a href="#Tac" class="headerlink" title="Tac"></a>Tac</h3><img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic4.png" class="">
 
 <p>Communication Time 对于每个 recv op 来说有对应的时间，对应的算法。</p>
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic3.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic3.png" class="">
 
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic5.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic5.png" class="">
 
 <h3 id="系统设计"><a href="#系统设计" class="headerlink" title="系统设计"></a>系统设计</h3><p>Time Oracle: Tensorflow metrics 计算 op time</p>
 <p>Ordering Wizard: 计算静态依赖优先级</p>
 <p>Enforcing: 修改 Tensorflow gRPC 子模块</p>
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic6.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic6.png" class="">
 
 <h2 id="P3"><a href="#P3" class="headerlink" title="P3"></a>P3</h2><p>PRIORITY-BASED PARAMETER PROPAGATION FOR DISTRIBUTED DNN TRAINING</p>
 <p>和上一篇论文类似，也是基于传输优化的思路，因为网络带宽基本上就是一个硬件问题。一些优化手段是用了有损压缩或者降低收敛时准确率的方式。还是通过提高 overlap 来实现。<br>直观的现象是如图 L4 的一次正向传播和反向传播之间的间隔很大。</p>
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic7.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic7.png" class="">
 
 <h3 id="解决方法：带优先级的参数切分"><a href="#解决方法：带优先级的参数切分" class="headerlink" title="解决方法：带优先级的参数切分"></a>解决方法：带优先级的参数切分</h3><p>在 MXNet 里面，worker 算完当层的梯度<br>就会提一个 pull request 当其他 work 同步了这个梯度。<br>问题在于发送的顺序和反向传播的顺序一致，并且颗粒度<br>是以 layer 为单位的。</p>
 <p>根据领域知识将大 layer 分片成小 slice。<br>对每个 slice 进行权重排序，优先传输权重高的 slice。<br>被称为 Priority-Based Parameter Propagation</p>
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic8.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic8.png" class="">
 
 <p>如图如果参数传输有优先级能够被中断就能减少 delay</p>
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic9.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic9.png" class="">
 
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic10.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic10.png" class="">
 
 <p>大部分模型每层的参数是不平衡的，特别是全连接的参数非常大。</p>
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic11.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic11.png" class="">
 
 <p>对每一层切分以后利用 TCP 的全双工可以达到流水线的效果。</p>
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic12.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic12.png" class="">
 
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic13.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic13.png" class="">
 
 <h3 id="P3-的设计"><a href="#P3-的设计" class="headerlink" title="P3 的设计"></a>P3 的设计</h3><p>参数切片：根据领域知识和实验选择大小(50000)<br>参数优先级：下一层先需要的先发送，可以抢占低优先级的</p>
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic14.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic14.png" class="">
 
 <p>我个人觉得简单，这个比上一个更好理解也简单。</p>
 <h2 id="BlueConnect"><a href="#BlueConnect" class="headerlink" title="BlueConnect"></a>BlueConnect</h2><p>主要是一个对分层（原本的一层或者两层）的 All-Reduce 的泛化算法。<br>首先使用递归的方法可以减少 all-gather 的传输次数。</p>
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic15.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic15.png" class="">
 
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic16.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic16.png" class="">
 
 <p>这个只要三次 logp</p>
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic17.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic17.png" class="">
 <p>ring reduce 要7次 (p-1)</p>
 <h3 id="问题背景"><a href="#问题背景" class="headerlink" title="问题背景"></a>问题背景</h3><p>多卡之间的带宽很高 32GB/s，不同网络拓扑下，最慢的会成为瓶颈。<br>分两层可以解决网络和总线的带宽差异。</p>
 <p>对于二层的一个泛化，</p>
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic18.png" class="">
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic20.png" class="">
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic19.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic18.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic20.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic19.png" class="">
 <p>三层的 reduce-scatter 的例子，reduce-gather 是反的。</p>
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic21.png" class="">
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic22.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic21.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic22.png" class="">
 
 <h2 id="BEYOND-DATA-AND-MODEL-PARALLELISM-FOR-DEEP-NEURAL-NETWORKS"><a href="#BEYOND-DATA-AND-MODEL-PARALLELISM-FOR-DEEP-NEURAL-NETWORKS" class="headerlink" title="BEYOND DATA AND MODEL PARALLELISM FOR DEEP NEURAL NETWORKS"></a>BEYOND DATA AND MODEL PARALLELISM FOR DEEP NEURAL NETWORKS</h2><p>这个主要是提到了并行程度除了数据和模型之外可以更细粒度到参数和属性，也就是模型的小划分和样本的小划分。<br>SOAP= Sample Attribute Operator Parameter</p>
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic23.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic23.png" class="">
 
 <p>全连接层有大量的参数，造成传输瓶颈。<br>领域特定的优化：RNN 和 CNN 用 data 并行，最后全连接用 model 并行。</p>
-<h3 id="搜索策略"><a href="#搜索策略" class="headerlink" title="搜索策略"></a>搜索策略</h3><img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic25.png" class="">
+<h3 id="搜索策略"><a href="#搜索策略" class="headerlink" title="搜索策略"></a>搜索策略</h3><img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic25.png" class="">
 
 <p>找到最优并行策略是 NP 问题。<br>Execution Optimizer 通过找到最小 cost 的<br>并行策略寻找较优解。<br>Cost = tensor size/ bandwidth</p>
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic28.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic28.png" class="">
 
 <p>随机从搜索空间选取策略，依据 MCMC<br>最够贪心，又不会太局部贪心。</p>
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic23.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic23.png" class="">
 
 <p>总的来有点和 AutoML 类似，在一个搜索空间选择一个策略使得 cost 最低，一个是原本的 cost 函数，这个是<br>计算本身执行的时间。目前主流框架也不支持 SOAP 级别的并行划分，没手调的好，但很接近。</p>
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic26.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic26.png" class="">
 
 <p>可以看到搜索出来的结果全连接基本上是单卡算的</p>
-<img src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic27.png" class="">
+<img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic27.png" class="">
 
     </div>
 
@@ -489,7 +489,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">56</span>
+          <span class="site-state-item-count">57</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -502,7 +502,7 @@
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">93</span>
+        <span class="site-state-item-count">95</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>

@@ -153,7 +153,7 @@
   </li>
         <li class="menu-item menu-item-tags">
 
-    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">93</span></a>
+    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">95</span></a>
 
   </li>
         <li class="menu-item menu-item-categories">
@@ -163,7 +163,7 @@
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">56</span></a>
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">57</span></a>
 
   </li>
   </ul>
@@ -249,7 +249,7 @@
 
       
         <p>kube-dns 是 kubernetes 基于 DNS 的服务发现模块，主要由三个容器组成，分别是 dnsmasq, kube-dns, sidecar，整体的结构如图。</p>
-<img src="/zh-CN/2017/12/19/kube-dns-service/kube-dns-infra.png" class="">
+<img data-src="/zh-CN/2017/12/19/kube-dns-service/kube-dns-infra.png" class="">
 
 <h2 id="sidecar"><a href="#sidecar" class="headerlink" title="sidecar"></a>sidecar</h2><p>sidecar 是一个监控健康模块，同时向外暴露metrics 记录，但是为啥叫三蹦子不知道。</p>
 <p>接受的探测参数是</p>
@@ -258,7 +258,7 @@
 <p><code>--probe=dnsmasq,127.0.0.1:53,kubernetes.default.svc.cluster.local,5,A</code></p>
 <p>等于是每隔 5s 向127.0.0.1:53 进行 DNS 查询 kubernetes.default.svc.cluster.local 的 A 记录</p>
 <p>对应的结构体是</p>
-<img src="/zh-CN/2017/12/19/kube-dns-service/dns-probe-option.png" class="">
+<img data-src="/zh-CN/2017/12/19/kube-dns-service/dns-probe-option.png" class="">
 
 <h2 id="dnsmasq"><a href="#dnsmasq" class="headerlink" title="dnsmasq"></a>dnsmasq</h2><p>dnsmasq-nanny 是 dnsmasq 的保姆进程，<a target="_blank" rel="noopener" href="http://www.thekelleys.org.uk/dnsmasq/doc.html">dnsmasq</a> 是一个简易的 DNS server。</p>
 <p>dnsmasq-nanny “–” 后面是 dnsmasq 的参数，比如下面这个参数表示的是把 <code>server=/cluster.local/127.0.0.1#10053</code> 当作 dnsmasq 的配置，10053 是 kube-dns 的地址，也就是把 cluster.local 的域名拦截转到 kube-dns 进行解析，剩下的通过正常的域名解析流程。</p>
@@ -267,12 +267,12 @@
 <h2 id="kube-dns"><a href="#kube-dns" class="headerlink" title="kube-dns"></a>kube-dns</h2><p>kube-dns 主要基于 <a target="_blank" rel="noopener" href="https://github.com/skynetservices/skydns">skydns</a> 来实现。</p>
 <p>在 <code>k8s.io/dns/pkg/dns/dns.go</code>  的 <code>KubeDNS.Start</code> 下面有 endpoints 和 services 的 controllers，会把 service 注册到 kube-dns 的 cache 当中 (k8s.io/dns/pkg/dns/treecache)，这里有 k8s 域名命名<a target="_blank" rel="noopener" href="https://github.com/kubernetes/dns/blob/master/docs/specification.md">规范</a></p>
 <p>主要的实现方式是 skydns 接受一个后端实现。</p>
-<img src="/zh-CN/2017/12/19/kube-dns-service/skydns-backend.png" class="">
+<img data-src="/zh-CN/2017/12/19/kube-dns-service/skydns-backend.png" class="">
 
 
 
 <p><code>KubeDNS.Records</code> <code>KubeDNS.ReverseRecord</code> 基于 TreeCache 实现 DNS 记录存储的后端，从而使得 skydns 提供 DNS 服务。</p>
-<img src="/zh-CN/2017/12/19/kube-dns-service/kube-dns.png" class="">
+<img data-src="/zh-CN/2017/12/19/kube-dns-service/kube-dns.png" class="">
 
 <h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>整体来说 kube-dns 还是一个比较简单的模块，基于 kube-apiserver 的一个控制器，提供中心化的 DNS 查询。</p>
 
@@ -400,7 +400,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">56</span>
+          <span class="site-state-item-count">57</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -413,7 +413,7 @@
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">93</span>
+        <span class="site-state-item-count">95</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>

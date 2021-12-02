@@ -35,8 +35,8 @@
 <meta property="article:published_time" content="2017-01-21T17:14:50.000Z">
 <meta property="article:modified_time" content="2019-07-23T15:24:30.441Z">
 <meta property="article:author" content="ggaaooppeenngg">
-<meta property="article:tag" content="编译">
 <meta property="article:tag" content="Go">
+<meta property="article:tag" content="编译">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/01/22/SSA%E6%98%AF%E4%BB%80%E4%B9%88/example_1.jpg">
 
@@ -151,7 +151,7 @@
   </li>
         <li class="menu-item menu-item-tags">
 
-    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">93</span></a>
+    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">95</span></a>
 
   </li>
         <li class="menu-item menu-item-categories">
@@ -161,7 +161,7 @@
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">56</span></a>
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">57</span></a>
 
   </li>
   </ul>
@@ -271,13 +271,13 @@
 <p>用遍历的方式确定 dominance frontier 的伪代码。</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">for each node b</span><br><span class="line">    if the number of immediate predecessors of b ≥ 2</span><br><span class="line">        for each p in immediate predecessors of b</span><br><span class="line">            runner := p</span><br><span class="line">            while runner ≠ idom(b)</span><br><span class="line">                add b to runner’s dominance frontier set</span><br><span class="line">                runner := idom(runner)</span><br></pre></td></tr></table></figure>
 <p>idom(b) 代表相邻的strictly dominate b的结点。这样的点只有一个，因为相邻的点有两个的话就不会是必经之路了。</p>
-<img src="/zh-CN/2017/01/22/SSA%E6%98%AF%E4%BB%80%E4%B9%88/example_1.jpg" class="">
+<img data-src="/zh-CN/2017/01/22/SSA%E6%98%AF%E4%BB%80%E4%B9%88/example_1.jpg" class="">
 
 <p>如图是一个例子，2的前驱是1和7，7没有sd(strictly dominate) 2，所以把2加入到7的DF(dominate frontiers)当中。3是7的相邻sd，然后3不是2的sd所以2加入到3的DF当中，接着2是3相邻的sd，然后2不是2的sd所以把2加入到2的DF中，最后遍历到7，5和6不是7的sd所以把7加入到5和6的df当中。</p>
 <p>df(A)可以认为是可以通过A到达的，但不是必经之路的点的集合。</p>
 <p>有了这个定义以后就可以插入Φ函数了和重命名了。如果X中有定义a那么所有df(X)都需要a的Φ函数。并且Φ函数本身也是一个定义。</p>
 <p>比如还是同一个例子。</p>
-<img src="/zh-CN/2017/01/22/SSA%E6%98%AF%E4%BB%80%E4%B9%88/example_2.jpg" class="">
+<img data-src="/zh-CN/2017/01/22/SSA%E6%98%AF%E4%BB%80%E4%B9%88/example_2.jpg" class="">
 
 <p>1当中有j的定义，但是df(1)是空的，5当中有j的定义，并且5的df有7所以7当中要插入一个φ(j, j)。j现在在7中定义了(通过φ函数）所以df(7)中的2也要有φ(j, j)，6也有j的定义但是7已经有了φ函数了，2的df有2，但是2已经有φ函数了。类似的方式可以应用到i和k。接着对定义重命名就可以完成SSA的转换了。</p>
 <h2 id="SSA的应用"><a href="#SSA的应用" class="headerlink" title="SSA的应用"></a>SSA的应用</h2><p>上面只是通俗的解释了一下SSA，没有给出更多详细的理论和算法以及证明，因为证明实在难看懂，下面说一下SSA的应用。</p>
@@ -320,8 +320,8 @@
 
       <footer class="post-footer">
           <div class="post-tags">
-              <a href="/tags/%E7%BC%96%E8%AF%91/" rel="tag"># 编译</a>
               <a href="/tags/Go/" rel="tag"># Go</a>
+              <a href="/tags/%E7%BC%96%E8%AF%91/" rel="tag"># 编译</a>
           </div>
 
         
@@ -416,7 +416,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">56</span>
+          <span class="site-state-item-count">57</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -429,7 +429,7 @@
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">93</span>
+        <span class="site-state-item-count">95</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>

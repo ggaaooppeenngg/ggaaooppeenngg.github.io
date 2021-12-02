@@ -153,7 +153,7 @@
   </li>
         <li class="menu-item menu-item-tags">
 
-    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">93</span></a>
+    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">95</span></a>
 
   </li>
         <li class="menu-item menu-item-categories">
@@ -163,7 +163,7 @@
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">56</span></a>
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">57</span></a>
 
   </li>
   </ul>
@@ -255,9 +255,9 @@
 </blockquote>
 <p>就是说把一个大的集合“缩减”成了小的集合，这里要注意的是这种缩减的计算是要满足交换律的，也就是减法或者除法是不行的，因为在并行计算当中不太好去控制计算的顺序。Reduce 就是这个意思，具体到 MPI_Reduce 就是把不同节点的数字“缩减”到一个节点上，支持的计算方式有加法乘法和取大小值等。</p>
 <p>教程中给出的 Reduce 是求和。</p>
-<img src="/zh-CN/2019/08/30/horovod-%E5%AE%9E%E7%8E%B0%E5%88%86%E6%9E%90/mpi_reduce_1.png" class="">
+<img data-src="/zh-CN/2019/08/30/horovod-%E5%AE%9E%E7%8E%B0%E5%88%86%E6%9E%90/mpi_reduce_1.png" class="">
 <p>AllReduce 就是在每个节点都获得 Reduce 的结果</p>
-<img src="/zh-CN/2019/08/30/horovod-%E5%AE%9E%E7%8E%B0%E5%88%86%E6%9E%90/mpi_allreduce_1.png" class="">
+<img data-src="/zh-CN/2019/08/30/horovod-%E5%AE%9E%E7%8E%B0%E5%88%86%E6%9E%90/mpi_allreduce_1.png" class="">
 <p>基于这个标准就有很多的 All-Reduce 的实现，比如 Ring-Reduce，这个实现分两部分，一部分是 Scatter-Reduce 另一部分是 All-Gather。最早是在<a target="_blank" rel="noopener" href="http://andrew.gibiansky.com/">这篇 post</a>里提到的。这个算法的好处是可以摆脱之前 PS 非常依赖 Parameter-Server 的带宽，Parameter-Server 的带宽会成为计算瓶颈的问题，而 AllReduce 可以让每个节点在带宽传输中的位置是对等的，并且减少传输次数。具体的算法可以看文章的解释，scatter-reduce 就是让每个节点有 K/N 的一个 reduce(也就是 sum)，然后把自己的一个 K/N 的 reduce 再传递给其他节点，每个节点只和自己相邻的节点通信。</p>
 <blockquote>
 <p>In the system we described, each of the N GPUs will send and receive values N-1 times for the scatter-reduce, and N-1 times for the allgather. Each time, the GPUs will send K / N values, where K is the total number of values in array being summed across the different GPUs. Therefore, the total amount of data transferred to and from every GPU is</p>
@@ -313,9 +313,9 @@
 <h3 id="算子实现层"><a href="#算子实现层" class="headerlink" title="算子实现层"></a>算子实现层</h3><p>具体的 op 在 <a target="_blank" rel="noopener" href="https://github.com/horovod/horovod/tree/master/horovod/common/ops">common/op</a> 可以看到有 NCCL/Gloo/MPI 等等的，这些由 op_manager 管理，他会根据优先级找到可以用来计算的 op 进行计算，比如 MPI 用的就是 MPI_Allreduce，具体 scatter-gather 和 all-gather openMPI 有现成的实现，NCCL 就直接调用 <code>ncclAllReduce</code>，比较新的 nccl 也支持跨节点的 allreduce 了，不用自己再套一层。</p>
 <p>除了 allreduce 之外，还有两个比较重要的算子。</p>
 <p>allgather 主要是比 allreduce 少一层 reduce，所有数据被发送到所有进程就可以。allreduce 的第二步就是把每个进程的 scatter-reduce 的 reduce 结果发送到所有进程。</p>
-<img src="/zh-CN/2019/08/30/horovod-%E5%AE%9E%E7%8E%B0%E5%88%86%E6%9E%90/mpi_allgather_1.png" class="">
+<img data-src="/zh-CN/2019/08/30/horovod-%E5%AE%9E%E7%8E%B0%E5%88%86%E6%9E%90/mpi_allgather_1.png" class="">
 <p>broadcast 的作用是一对多的广播，主要是把初始化的参数同步给其他进程的时候使用。</p>
-<img src="/zh-CN/2019/08/30/horovod-%E5%AE%9E%E7%8E%B0%E5%88%86%E6%9E%90/mpi_broadcast_1.png" class="">
+<img data-src="/zh-CN/2019/08/30/horovod-%E5%AE%9E%E7%8E%B0%E5%88%86%E6%9E%90/mpi_broadcast_1.png" class="">
 
 
 
@@ -444,7 +444,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">56</span>
+          <span class="site-state-item-count">57</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -457,7 +457,7 @@
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">93</span>
+        <span class="site-state-item-count">95</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>

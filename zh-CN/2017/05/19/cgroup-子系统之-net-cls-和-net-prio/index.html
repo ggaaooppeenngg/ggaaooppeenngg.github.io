@@ -164,7 +164,7 @@
   </li>
         <li class="menu-item menu-item-tags">
 
-    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">93</span></a>
+    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">95</span></a>
 
   </li>
         <li class="menu-item menu-item-categories">
@@ -174,7 +174,7 @@
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">56</span></a>
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">57</span></a>
 
   </li>
   </ul>
@@ -272,10 +272,10 @@
 <li>“bulk”</li>
 </ol>
 <p>先消费 0 队列再消费 1 队列，依次类推，一般的<code>packet</code>都是属于 1。</p>
-<p><img src="http://linux-ip.net/articles/Traffic-Control-HOWTO/images/pfifo_fast-qdisc.png" alt="pfifo"></p>
+<p><img data-src="http://linux-ip.net/articles/Traffic-Control-HOWTO/images/pfifo_fast-qdisc.png" alt="pfifo"></p>
 <p>用 IP 的 ToS 可以映射到这些队列，对应的关系如图。</p>
-<p><img src="http://www.cisco.com/c/dam/en/us/support/docs/quality-of-service-qos/qos-link-efficiency-mechanisms/24906-152-n.gif" alt="tos"></p>
-<img src="/zh-CN/2017/05/19/cgroup-%E5%AD%90%E7%B3%BB%E7%BB%9F%E4%B9%8B-net-cls-%E5%92%8C-net-prio/map.jpg" class="">
+<p><img data-src="http://www.cisco.com/c/dam/en/us/support/docs/quality-of-service-qos/qos-link-efficiency-mechanisms/24906-152-n.gif" alt="tos"></p>
+<img data-src="/zh-CN/2017/05/19/cgroup-%E5%AD%90%E7%B3%BB%E7%BB%9F%E4%B9%8B-net-cls-%E5%92%8C-net-prio/map.jpg" class="">
 
 <p>他的实现依赖下面这个结构，bands 一般是 3 个，代表三个不同优先级的队列，然后<code>filter_list</code>是他的过滤器列表，最后<code>prio2band</code>就是上图的<code>ToS To Queue</code> 的映射中的<code>Linux priority 到 Band</code>的那部分，<code>queues</code>保存的是三个<code>fifo</code>的<code>qdisc</code>，也就是三个最简单的队列。</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">struct prio_sched_data &#123;</span><br><span class="line">	int bands;</span><br><span class="line">	struct tcf_proto __rcu *filter_list;</span><br><span class="line">	u8  prio2band[TC_PRIO_MAX+1];</span><br><span class="line">	struct Qdisc *queues[TCQ_PRIO_BANDS];</span><br><span class="line">&#125;;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
@@ -302,19 +302,19 @@
 
 <p>如果没有父节点的话，Bc 就是 0。这样算出来代表的意义是什么呢，就是说先服务优先级更高的节点，并且按照量子的大小在同优先级的节点中分配速率。</p>
 <p>然后我们具体看一下 HTB 调度器是如何工作的。</p>
-<p><img src="http://luxik.cdi.cz/~devik/qos/htb/manual/feed1.gif" alt="htb_sch_1"></p>
-<p><img src="http://luxik.cdi.cz/~devik/qos/htb/manual/feed2.gif" alt="htb_sch_2"></p>
+<p><img data-src="http://luxik.cdi.cz/~devik/qos/htb/manual/feed1.gif" alt="htb_sch_1"></p>
+<p><img data-src="http://luxik.cdi.cz/~devik/qos/htb/manual/feed2.gif" alt="htb_sch_2"></p>
 <p>每个 class 有个 slot 包含不同的 prio 级别，指向 yellow 的子节点，然后每个层级包含一个 slot 也有不同的 prio 级别指向这一层中 green 的节点，上图展示了的是有两个 prio 的 slot，右边的 self slot 有个白色的是用于 yellow red 的 wait list。</p>
 <p>假设当前如图 1 的状态，所有节点都是绿的没有 packet 到来，现在有有两个包到达 C 和 D，然后激活它们，并且它们现在都是绿的，所以 self slot 指向他们，然后因为 D 的优先级更高，所以先把 D 出队。所以你可以发现，出队的顺序很简答，就是按照优先级从 self slot 里面把绿色的包按顺序取出来就可以。</p>
-<p><img src="http://luxik.cdi.cz/~devik/qos/htb/manual/feed3.gif" alt="feed3"></p>
-<p><img src="http://luxik.cdi.cz/~devik/qos/htb/manual/feed4.gif" alt="feed4"></p>
+<p><img data-src="http://luxik.cdi.cz/~devik/qos/htb/manual/feed3.gif" alt="feed3"></p>
+<p><img data-src="http://luxik.cdi.cz/~devik/qos/htb/manual/feed4.gif" alt="feed4"></p>
 <p>然后我们看一下更复杂的情况，在图 3 中，我们从 D 中出队一个 packet(<code>htb_dequeue</code>)，然后<code>htb_charge_class</code>会增加 D 的速率，导致 D 变成 yellow，离开 self slot （通过<code>htb_deactivate_prios</code>和<code>htb_remove_class_from_row</code>)，然后添加到 B 的 slot 里面 (<code>htb_activate_prios</code>)，并且递归向上添加<code>htb_add_class_to_row</code>，D 会在一段时间后进入 self slot 的白色等待区，然后 D 又会变回绿色。现在如果选择的话，就会从 C 出队，因为虽然 C 的优先级低但是 C 不需要借别人的速率。</p>
 <p>在图 4，假设 C 已经完全消耗了速率达到了最大限速，这个时候 D 就会开始工作然后把 B 消耗完，B 被消耗了以后就会去消耗 A，从这里就可以看到一个借取的过程。</p>
-<p><img src="http://luxik.cdi.cz/~devik/qos/htb/manual/feed5.gif" alt="htb_sch_5"></p>
-<p><img src="http://luxik.cdi.cz/~devik/qos/htb/manual/feed6.gif" alt="htb_sch_6"></p>
+<p><img data-src="http://luxik.cdi.cz/~devik/qos/htb/manual/feed5.gif" alt="htb_sch_5"></p>
+<p><img data-src="http://luxik.cdi.cz/~devik/qos/htb/manual/feed6.gif" alt="htb_sch_6"></p>
 <p>现在说一个更复杂一点的例子，在图 5 中，A 已经被消耗光了，E 开始工作，然后 C 也能开始工作，变成图 6 的样子。注意即使 D 没有被使用但是他的优先级还会被 class slot 维持，也就是红线。但是 C 和 E 都是同一个优先级，这样的话，就要使用 DRR 算法（也就是在 RR 算法上给每个变量加一个权重，也就是之前的那个量子 quantom)。然后也可以发现一个 class 可以对不同的优先级（红色和蓝色）保持 active。</p>
 <p>下面是一个 HTB 的全貌图，抽象的可以理解成一个从父 class 中根据优先级带权重的分享令牌的一个算法。</p>
-<p><img src="http://linux-ip.net/articles/Traffic-Control-HOWTO/images/htb-class.png" alt="htb arch"></p>
+<p><img data-src="http://linux-ip.net/articles/Traffic-Control-HOWTO/images/htb-class.png" alt="htb arch"></p>
 <p>下面三个值对应的就是三种颜色。</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">/* used internaly to keep status of single class */</span><br><span class="line">enum htb_cmode &#123;</span><br><span class="line">	HTB_CANT_SEND,		/* class can&#x27;t send and can&#x27;t borrow */</span><br><span class="line">	HTB_MAY_BORROW,		/* class can&#x27;t send but may borrow */</span><br><span class="line">	HTB_CAN_SEND		/* class can send */</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
 
@@ -337,10 +337,10 @@
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">dev_queue_xmit -&gt;</span><br><span class="line">	__dev_queue_xmit -&gt;</span><br><span class="line">    	__dev_xmit_skb -&gt;</span><br><span class="line">    		qdisc-&gt;enqueue</span><br><span class="line">    		__qdisc_run -&gt;</span><br><span class="line">    		  qdisc_restart -&gt;</span><br><span class="line">    		    qdisc-&gt;dequeue -&gt;</span><br><span class="line">    		      sch_direct_xmit</span><br></pre></td></tr></table></figure>
 
 <p>在<code>enqueue</code>的时候会主动唤起<code>dequeue</code>也可能是硬件发送就绪会唤醒发送软中断来<code>dequeue</code>，描述的整个过程大概是图中的这部分。</p>
-<img src="/zh-CN/2017/05/19/cgroup-%E5%AD%90%E7%B3%BB%E7%BB%9F%E4%B9%8B-net-cls-%E5%92%8C-net-prio/qdisc.jpeg" class="">
+<img data-src="/zh-CN/2017/05/19/cgroup-%E5%AD%90%E7%B3%BB%E7%BB%9F%E4%B9%8B-net-cls-%E5%92%8C-net-prio/qdisc.jpeg" class="">
 
 <h2 id="补充"><a href="#补充" class="headerlink" title="补充"></a>补充</h2><h3 id="netfilter"><a href="#netfilter" class="headerlink" title="netfilter"></a>netfilter</h3><p>netfilter 在数据包传输中有一些 hook 可以在其中注册回调函数。</p>
-<p><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/3/37/Netfilter-packet-flow.svg/1600px-Netfilter-packet-flow.svg.png" alt="netfilter"></p>
+<p><img data-src="https://upload.wikimedia.org/wikipedia/commons/thumb/3/37/Netfilter-packet-flow.svg/1600px-Netfilter-packet-flow.svg.png" alt="netfilter"></p>
 <h3 id="iptables"><a href="#iptables" class="headerlink" title="iptables"></a>iptables</h3><p>主要是四表五链，是 netfilter 的用户态工具。</p>
 <p><a target="_blank" rel="noopener" href="https://www.digitalocean.com/community/tutorials/a-deep-dive-into-iptables-and-netfilter-architecture">deep dive</a></p>
 <h2 id="cgroup-子系统-net-cls-Network-classifier-cgroup"><a href="#cgroup-子系统-net-cls-Network-classifier-cgroup" class="headerlink" title="cgroup 子系统 net_cls (Network classifier cgroup)"></a>cgroup 子系统 net_cls (Network classifier cgroup)</h2><p>net_cls 可以给 packet 打上 classid 的标签，用于过滤分类，有了上面的详细解释，这个 classid 的作用也非常明显了，就是用于标记<code>skb</code>所属的 qdisc class 的。</p>
@@ -499,7 +499,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">56</span>
+          <span class="site-state-item-count">57</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -512,7 +512,7 @@
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">93</span>
+        <span class="site-state-item-count">95</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>

@@ -34,8 +34,8 @@
 <meta property="article:published_time" content="2016-04-23T08:03:47.000Z">
 <meta property="article:modified_time" content="2019-07-23T15:24:30.441Z">
 <meta property="article:author" content="ggaaooppeenngg">
-<meta property="article:tag" content="编译">
 <meta property="article:tag" content="Go">
+<meta property="article:tag" content="编译">
 <meta property="article:tag" content="compiler">
 <meta property="article:tag" content="go">
 <meta property="article:tag" content="golang">
@@ -154,7 +154,7 @@
   </li>
         <li class="menu-item menu-item-tags">
 
-    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">93</span></a>
+    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">95</span></a>
 
   </li>
         <li class="menu-item menu-item-categories">
@@ -164,7 +164,7 @@
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">56</span></a>
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">57</span></a>
 
   </li>
   </ul>
@@ -256,7 +256,7 @@
 
 <p>所以<code>term1</code>表示乘性运算,相似的<code>term2</code>表示加性运算,<code>term3</code>表示逻辑运算,<code>term4</code>表示与,expr表示表达式.<br>这里有一个特点就是优先级越高的运算在语法上写在了越前面,这是有原因的.</p>
 <p>由上向下的递归推导可以看做是把输入的记号流转化成一颗语法树,从根节点按先序遍历进行.所以对应的也是寻找一个最左推导的过程.<br>递归方式的遍历也是一种实现,比如说如果我要匹配<code>1+2</code>那么就会构建一颗树形结构如下图的第一个.但是如果要匹配<code>1+2*3</code>这样的表达式就有可能出现问题,既可以是图中的第二种情况也可以是第三种情况.这里就关系到优先级的问题.因为递归向下的解析过程是深度优先的也就是意味着如果最先选择匹配,就能先形成语法结构,比如说,当输入是<code>1+2*3</code>时,如果先匹配加法,那么前三个token就是<code>1+2</code>就会构成一个结点,之后3就只能作为<code>*</code>的右边的因数加入到语法树中,但是如果乘法在语法顺序中靠前,那么匹配到<code>1+</code>的时候,就会去匹配<code>term1</code>这个语法,然后<code>term1</code>就会把乘法匹配完,这样就能构成下图中第三个语法树.这种优先级可以推而广之,同级优先的运算作为一个语法,高优先级的语法排在较前即可.</p>
-<p><img src="tree.png" alt="语法树"></p>
+<p><img data-src="tree.png" alt="语法树"></p>
 <p>下面语句的部分:</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br></pre></td><td class="code"><pre><span class="line">sexpr = expr (</span><br><span class="line">        &#x27;=&#x27;/tovar! expr/assign |</span><br><span class="line">        &#x27;,&#x27;/tovar! expr/tovar % &#x27;,&#x27;/ARITY &#x27;=&#x27; expr % &#x27;,&#x27;/ARITY /massign |</span><br><span class="line">        &quot;++&quot;/tovar/inc | &quot;--&quot;/tovar/dec |</span><br><span class="line">        &quot;+=&quot;/tovar! expr/adda | &quot;-=&quot;/tovar! expr/suba |</span><br><span class="line">        &quot;*=&quot;/tovar! expr/mula | &quot;/=&quot;/tovar! expr/quoa | &quot;%=&quot;/tovar! expr/moda | 1/pop)</span><br><span class="line"></span><br><span class="line">s = &quot;if&quot;/_mute! expr/_code body *(&quot;elif&quot; expr/_code body)/_ARITY ?(&quot;else&quot; body)/_ARITY/_unmute/if |</span><br><span class="line">        &quot;switch&quot;/_mute! ?(~&#x27;&#123;&#x27; expr)/_code &#x27;&#123;&#x27; swbody &#x27;&#125;&#x27;/_unmute/switch |</span><br><span class="line">        &quot;for&quot;/_mute/_urange! fhead body/_unmute/for |</span><br><span class="line">        &quot;return&quot;! expr %= &#x27;,&#x27;/ARITY /return |</span><br><span class="line">        &quot;break&quot; /brk |</span><br><span class="line">        &quot;continue&quot; /cont |</span><br><span class="line">        &quot;include&quot;! STRING/include |</span><br><span class="line">        &quot;import&quot;! (STRING ?(&quot;as&quot; IDENT/name)/ARITY)/import |</span><br><span class="line">        &quot;export&quot;! IDENT/name % &#x27;,&#x27;/ARITY /export |</span><br><span class="line">        &quot;defer&quot;/_mute! expr/_code/_unmute/defer |</span><br><span class="line">        &quot;go&quot;/_mute! expr/_code/_unmute/go |</span><br><span class="line">        sexpr</span><br><span class="line"></span><br><span class="line">doc = ?s *(&#x27;;&#x27; ?s)</span><br><span class="line"></span><br><span class="line">body = &#x27;&#123;&#x27; doc/_code &#x27;&#125;&#x27;</span><br><span class="line"></span><br><span class="line">fhead = (~&#x27;&#123;&#x27; s)/_code %= &#x27;;&#x27;/_ARITY</span><br><span class="line"></span><br><span class="line">frange = ?(IDENT/name % &#x27;,&#x27;/ARITY &#x27;=&#x27;)/ARITY &quot;range&quot; expr</span><br><span class="line"></span><br><span class="line">swbody = *(&quot;case&quot;! expr/_code &#x27;:&#x27; doc/_code)/_ARITY ?(&quot;default&quot;! &#x27;:&#x27; doc/_code)/_ARITY</span><br><span class="line"></span><br><span class="line">fnbody = &#x27;(&#x27; IDENT/name %= &#x27;,&#x27;/ARITY ?&quot;...&quot;/ARITY &#x27;)&#x27; &#x27;&#123;&#x27;/_mute doc/_code &#x27;&#125;&#x27;/_unmute</span><br><span class="line"></span><br><span class="line">afn = &#x27;&#123;&#x27;/_mute doc/_code &#x27;&#125;&#x27;/_unmute/afn</span><br><span class="line"></span><br><span class="line">clsname = &#x27;(&#x27; IDENT/ref &#x27;)&#x27; | IDENT/ref</span><br><span class="line"></span><br><span class="line">newargs = ?(&#x27;(&#x27; expr %= &#x27;,&#x27;/ARITY &#x27;)&#x27;)/ARITY</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
 
@@ -334,8 +334,8 @@
 
       <footer class="post-footer">
           <div class="post-tags">
-              <a href="/tags/%E7%BC%96%E8%AF%91/" rel="tag"># 编译</a>
               <a href="/tags/Go/" rel="tag"># Go</a>
+              <a href="/tags/%E7%BC%96%E8%AF%91/" rel="tag"># 编译</a>
               <a href="/tags/compiler/" rel="tag"># compiler</a>
               <a href="/tags/go/" rel="tag"># go</a>
               <a href="/tags/golang/" rel="tag"># golang</a>
@@ -433,7 +433,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">56</span>
+          <span class="site-state-item-count">57</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -446,7 +446,7 @@
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">93</span>
+        <span class="site-state-item-count">95</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>

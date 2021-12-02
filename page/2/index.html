@@ -145,7 +145,7 @@
   </li>
         <li class="menu-item menu-item-tags">
 
-    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">93</span></a>
+    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">95</span></a>
 
   </li>
         <li class="menu-item menu-item-categories">
@@ -155,7 +155,7 @@
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">56</span></a>
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">57</span></a>
 
   </li>
   </ul>
@@ -177,6 +177,142 @@
 
           <div class="content index posts-expand">
             
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2018/11/10/K8S-%E4%B8%AD%E7%9A%84-eBPF/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            <a href="/zh-CN/2018/11/10/K8S-%E4%B8%AD%E7%9A%84-eBPF/" class="post-title-link" itemprop="url">K8S 中的 eBPF</a>
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2018-11-10 18:36:25" itemprop="dateCreated datePublished" datetime="2018-11-10T18:36:25+08:00">2018-11-10</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2019-07-23 23:24:30" itemprop="dateModified" datetime="2019-07-23T23:24:30+08:00">2019-07-23</time>
+              </span>
+
+          
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2018/11/10/K8S-%E4%B8%AD%E7%9A%84-eBPF/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2018/11/10/K8S-中的-eBPF/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <h2 id="BPF"><a href="#BPF" class="headerlink" title="BPF"></a>BPF</h2><p>BPF (Berkeley Packet Filter) 最早是用在 <code>tcpdump</code> 里面的，比如 <code>tcpdump tcp and dst port 80</code>  这样的过滤规则会单独复制 tcp 协议并且目的端口是 80 的包到用户态。整个实现是基于内核中的一个虚拟机来实现的，通过翻译 BPF 规则到字节码运行到内核中的虚拟机当中。最早的论文是<a target="_blank" rel="noopener" href="https://www.tcpdump.org/papers/bpf-usenix93.pdf">这篇</a>，这篇论文我大概翻了一下，主要讲的是原本的基于栈的过滤太重了，而 BPF 是一套能充分利用 CPU 寄存器，动态注册 filter 的虚拟机实现，相对于基于内存的实现更高效，不过那个时候的内存比较小才几十兆。bpf 会从链路层复制 pakcet 并根据 filter 的规则选择抛弃或者复制，字节码是这样的，具体语法就不介绍了，一般也不会去直接写这些字节码，然后通过内核中实现的一个虚拟机翻译这些字节码，注册过滤规则，这样不修改内核的虚拟机也能实现很多功能。</p>
+<p>在 Linux 中对应的 API 是</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">socket(SOCK_RAW)</span><br><span class="line">bind(iface)</span><br><span class="line">setsockopt(SO_ATTACH_FILTER)</span><br></pre></td></tr></table></figure>
+
+<p>下面是一个低层级的 demo，首先 ethernet header 的十二个字节记录了 ip 的协议，ip 的第9个字节记录 tcp 的协议，如果协议编号不匹配都跳到最后 reject，然后在到 tcp 的第二个字节是 port 看看是不是 80，都满足的话就 accept。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdio.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;string.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;sys/types.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;sys/socket.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;net/if.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;net/ethernet.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;netinet/in.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;netinet/ip.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;arpa/inet.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;netpacket/packet.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;linux/filter.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> OP_LDH (BPF_LD  | BPF_H   | BPF_ABS)</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> OP_LDB (BPF_LD  | BPF_B   | BPF_ABS)</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> OP_JEQ (BPF_JMP | BPF_JEQ | BPF_K)</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> OP_RET (BPF_RET | BPF_K)</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// Filter TCP segments to port 80</span></span><br><span class="line"><span class="keyword">static</span> <span class="class"><span class="keyword">struct</span> <span class="title">sock_filter</span> <span class="title">bpfcode</span>[8] =</span> &#123;</span><br><span class="line">        &#123; OP_LDH, <span class="number">0</span>, <span class="number">0</span>, <span class="number">12</span>          &#125;,  <span class="comment">// ldh [12]                                                                                                                                                                                                                         </span></span><br><span class="line">        &#123; OP_JEQ, <span class="number">0</span>, <span class="number">5</span>, ETH_P_IP    &#125;,  <span class="comment">// jeq #0x800, L2, L8                                                                                                                                                                                                               </span></span><br><span class="line">        &#123; OP_LDB, <span class="number">0</span>, <span class="number">0</span>, <span class="number">23</span>          &#125;,  <span class="comment">// ldb [23]           # 14 bytes of ethernet header + 9 bytes in IP header until the protocol                                                                                                                                       </span></span><br><span class="line">        &#123; OP_JEQ, <span class="number">0</span>, <span class="number">3</span>, IPPROTO_TCP &#125;,  <span class="comment">// jeq #0x6, L4, L8                                                                                                                                                                                                                 </span></span><br><span class="line">        &#123; OP_LDH, <span class="number">0</span>, <span class="number">0</span>, <span class="number">36</span>          &#125;,  <span class="comment">// ldh [36]           # 14 bytes of ethernet header + 20 bytes of IP header (we assume no options) + 2 bytes of offset until the port                                                                                               </span></span><br><span class="line">        &#123; OP_JEQ, <span class="number">0</span>, <span class="number">1</span>, <span class="number">80</span>          &#125;,  <span class="comment">// jeq #0x50, L6, L8                                                                                                                                                                                                                </span></span><br><span class="line">        &#123; OP_RET, <span class="number">0</span>, <span class="number">0</span>, <span class="number">-1</span>,         &#125;,  <span class="comment">// ret #0xffffffff    # (accept)                                                                                                                                                                                                    </span></span><br><span class="line">        &#123; OP_RET, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>           &#125;,  <span class="comment">// ret #0x0           # (reject)                                                                                                                                                                                                    </span></span><br><span class="line"></span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">(<span class="keyword">int</span> argc, <span class="keyword">char</span> **argv)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="keyword">int</span> sock;</span><br><span class="line">	<span class="keyword">int</span> n;</span><br><span class="line">	<span class="keyword">char</span> buf[<span class="number">2000</span>];</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">sockaddr_ll</span> <span class="title">addr</span>;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">packet_mreq</span> <span class="title">mreq</span>;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">iphdr</span> *<span class="title">ip</span>;</span></span><br><span class="line">	<span class="keyword">char</span> saddr_str[INET_ADDRSTRLEN], daddr_str[INET_ADDRSTRLEN];</span><br><span class="line">	<span class="keyword">char</span> *proto_str;</span><br><span class="line">	<span class="keyword">char</span> *name;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">sock_fprog</span> <span class="title">bpf</span> =</span> &#123; <span class="number">8</span>, bpfcode &#125;;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (argc != <span class="number">2</span>) &#123;</span><br><span class="line">		<span class="built_in">printf</span>(<span class="string">&quot;Usage: %s ifname\n&quot;</span>, argv[<span class="number">0</span>]);</span><br><span class="line">		<span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	name = argv[<span class="number">1</span>];</span><br><span class="line"></span><br><span class="line">	sock = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));</span><br><span class="line">	<span class="keyword">if</span> (sock &lt; <span class="number">0</span>) &#123;</span><br><span class="line">		perror(<span class="string">&quot;socket&quot;</span>);</span><br><span class="line">		<span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="built_in">memset</span>(&amp;addr, <span class="number">0</span>, <span class="keyword">sizeof</span>(addr));</span><br><span class="line">	addr.sll_ifindex = if_nametoindex(name);</span><br><span class="line">	addr.sll_family = AF_PACKET;</span><br><span class="line">	addr.sll_protocol = htons(ETH_P_ALL);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (bind(sock, (struct sockaddr *) &amp;addr, <span class="keyword">sizeof</span>(addr))) &#123;</span><br><span class="line">		perror(<span class="string">&quot;bind&quot;</span>);</span><br><span class="line">		<span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (setsockopt(sock, SOL_SOCKET, SO_ATTACH_FILTER, &amp;bpf, <span class="keyword">sizeof</span>(bpf))) &#123;</span><br><span class="line">		perror(<span class="string">&quot;setsockopt ATTACH_FILTER&quot;</span>);</span><br><span class="line">		<span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="built_in">memset</span>(&amp;mreq, <span class="number">0</span>, <span class="keyword">sizeof</span>(mreq));</span><br><span class="line">	mreq.mr_type = PACKET_MR_PROMISC;</span><br><span class="line">	mreq.mr_ifindex = if_nametoindex(name);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (setsockopt(sock, SOL_PACKET,</span><br><span class="line">				PACKET_ADD_MEMBERSHIP, (<span class="keyword">char</span> *)&amp;mreq, <span class="keyword">sizeof</span>(mreq))) &#123;</span><br><span class="line">		perror(<span class="string">&quot;setsockopt MR_PROMISC&quot;</span>);</span><br><span class="line">		<span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">for</span> (;;) &#123;</span><br><span class="line">		n = recv(sock, buf, <span class="keyword">sizeof</span>(buf), <span class="number">0</span>);</span><br><span class="line">		<span class="keyword">if</span> (n &lt; <span class="number">1</span>) &#123;</span><br><span class="line">			perror(<span class="string">&quot;recv&quot;</span>);</span><br><span class="line">			<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		ip = (struct iphdr *)(buf + <span class="keyword">sizeof</span>(struct ether_header));</span><br><span class="line"></span><br><span class="line">		inet_ntop(AF_INET, &amp;ip-&gt;saddr, saddr_str, <span class="keyword">sizeof</span>(saddr_str));</span><br><span class="line">		inet_ntop(AF_INET, &amp;ip-&gt;daddr, daddr_str, <span class="keyword">sizeof</span>(daddr_str));</span><br><span class="line"></span><br><span class="line">		<span class="keyword">switch</span> (ip-&gt;protocol) &#123;</span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> PTOSTR(_p,_str) \</span></span><br><span class="line"><span class="meta">			case _p: proto_str = _str; break</span></span><br><span class="line"></span><br><span class="line">		PTOSTR(IPPROTO_ICMP, <span class="string">&quot;icmp&quot;</span>);</span><br><span class="line">		PTOSTR(IPPROTO_TCP, <span class="string">&quot;tcp&quot;</span>);</span><br><span class="line">		PTOSTR(IPPROTO_UDP, <span class="string">&quot;udp&quot;</span>);</span><br><span class="line">		<span class="keyword">default</span>:</span><br><span class="line">			proto_str = <span class="string">&quot;&quot;</span>;</span><br><span class="line">			<span class="keyword">break</span>;</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		<span class="built_in">printf</span>(<span class="string">&quot;IPv%d proto=%d(%s) src=%s dst=%s\n&quot;</span>,</span><br><span class="line">				ip-&gt;version, ip-&gt;protocol, proto_str, saddr_str, daddr_str);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>执行 <code>curl &quot;http://www.baidu.com&quot;</code>，结果如下：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">sudo ./filter ens3</span><br><span class="line">IPv4 proto=6(tcp) src=172.31.3.210 dst=220.181.112.244</span><br><span class="line">IPv4 proto=6(tcp) src=172.31.3.210 dst=220.181.112.244</span><br><span class="line">IPv4 proto=6(tcp) src=172.31.3.210 dst=220.181.112.244</span><br><span class="line">IPv4 proto=6(tcp) src=172.31.3.210 dst=220.181.112.244</span><br><span class="line">IPv4 proto=6(tcp) src=172.31.3.210 dst=220.181.112.244</span><br><span class="line">IPv4 proto=6(tcp) src=172.31.3.210 dst=220.181.112.244</span><br><span class="line">IPv4 proto=6(tcp) src=172.31.3.210 dst=220.181.112.244</span><br></pre></td></tr></table></figure>
+
+<p>这些低级别的操作都封装在了 libpcap 里面，一般不太会自己这么写。</p>
+<h2 id="eBPF"><a href="#eBPF" class="headerlink" title="eBPF"></a>eBPF</h2><p>eBPF 是 extended BPF 具有更强大的功能。老的 BPF 现在叫 cBPF (classic BPF)。</p>
+<p>首先是字节码的指令集更加丰富了，并且现在有了 64 位的寄存器（相较于上古时期的 32 位的CPU），有了 JIT mapping 技术和 LLVM 的后端。JIT 指的的是 Just In Time，实时编译。</p>
+<p>一般的 ePBF 的工作流是编写一个 C 的子集（比如没有循环），通过 LLVM 编译到字节码，然成生成 ELF 文件，然后 JIT 编译进内核。</p>
+<p>eBPF 一个最重要的功能是可以做到动态跟踪（dynamic tracing），可以不修改程序直接监控一个正在运行的进程。</p>
+<h3 id="在-eBPF-之前"><a href="#在-eBPF-之前" class="headerlink" title="在 eBPF 之前"></a>在 eBPF 之前</h3><p>在 ebpf 之前，为了实现同样的功能，要在执行的指令中嵌入 hook，并且支持跳到 inspect 函数，然后再恢复执行，这个流程和 debugger 非常相似，这是用 kprobe 来实现，kprobe 是 2007 年引入内核的。比如下面的例子，把 Instruction 3 改成跳转指令，然后再执行 Instruction 3，然后再跳转回去。</p>
+<img data-src="/zh-CN/2018/11/10/K8S-%E4%B8%AD%E7%9A%84-eBPF/image-20181110153643535.png" class="">
+
+<p>使用 kprobe 需要通过编译 kernel module 注册到内核当中，非常麻烦，等于是直接动内核的代码很容易引起内核 panic，而且每个内核版本都不一样，函数符号和位移是有区别的，对每个版本的内核都要编译一个对应的版本的 module。为了解决这个问题引入了一些静态的稳定的 trace point，不会因为版本而改变的地方可以插入 kprobe，但这样就限制了 kprobe 可以探测的范围。</p>
+<h3 id="有了-eBPF"><a href="#有了-eBPF" class="headerlink" title="有了 eBPF"></a>有了 eBPF</h3><p>有了 eBPF，就可以将用户态的程序插入到内核中，不用编写内核模块了，但是问题并没有改善，内核版本带来的问题还是没有解决。</p>
+<p>eBPF 的 kprobe 一种方式时候 mapping，映射 kprobe 的数据到用户态程序，比如发包数，然后用户态程序定期检查这个映射进行统计。</p>
+<p>另一种方式是 event (perf_events)，如果 kprobe 向用户态程序发送事件来进行统计，这样不同轮询，直接异步计算就可以。</p>
+<p>低级别的 API，这个只有 Linux 有</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">bpf() 系统调用</span><br><span class="line">BPF_PROG_LOAD 加载 BPF 字节码</span><br><span class="line">  BPF_PROG_TYPE_SOCKET_FILTER</span><br><span class="line">  BPF_PROG_TYPE_KPROBE</span><br><span class="line">BPF_MAP_* map 映射到 BPF 当中</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">perf_event_open() + ioctl(PERF_EVENT_IOC_SET_BPF)</span><br></pre></td></tr></table></figure>
+
+<p>高级别的接口是 bcc（BPFcompiler collection），转换 c 到 LLVM-epbf 后端，并且前端是 python 的。可以实现动态加载 eBPF 字节码到内核中。</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/weaveworks/scope">weave scope</a> 就是用 bcc 实现的 <a target="_blank" rel="noopener" href="https://github.com/weaveworks-plugins/scope-http-statistics">HTTP stats</a> 的统计。</p>
+<p>在<a target="_blank" rel="noopener" href="https://github.com/weaveworks-plugins/scope-http-statistics/blob/master/ebpf-http-statistics.c#L25">这里</a>可以看到程序的主体，这里 hook 了内核函数 <code>skb_copy_datagram_iter</code>，这个函数有一个 tracepoint <code>trace_skb_copy_datagram_iovec</code>。在内核代码里面对应的是下面这段。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> *      skb_copy_datagram_iter - Copy a datagram to an iovec iterator.</span></span><br><span class="line"><span class="comment"> *      @skb: buffer to copy</span></span><br><span class="line"><span class="comment"> *      @offset: offset in the buffer to start copying from</span></span><br><span class="line"><span class="comment"> *      @to: iovec iterator to copy to</span></span><br><span class="line"><span class="comment"> *      @len: amount of data to copy from buffer to iovec</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">skb_copy_datagram_iter</span><span class="params">(<span class="keyword">const</span> struct sk_buff *skb, <span class="keyword">int</span> offset,</span></span></span><br><span class="line"><span class="params"><span class="function">                           struct iov_iter *to, <span class="keyword">int</span> len)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">        <span class="keyword">int</span> start = skb_headlen(skb);</span><br><span class="line">        <span class="keyword">int</span> i, copy = start - offset, start_off = offset, n;</span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">sk_buff</span> *<span class="title">frag_iter</span>;</span></span><br><span class="line"></span><br><span class="line">        trace_skb_copy_datagram_iovec(skb, len);</span><br></pre></td></tr></table></figure>
+
+<p>这里对这个 hook 注册了程序，具体的代码就不展示了，主要是根据协议统计这个 HTTP 的大小，方法等信息。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">/* skb_copy_datagram_iter() (Kernels &gt;= 3.19) is in charge of copying socket</span></span><br><span class="line"><span class="comment"> * buffers from kernel to userspace.</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * skb_copy_datagram_iter() has an associated tracepoint</span></span><br><span class="line"><span class="comment"> * (trace_skb_copy_datagram_iovec), which would be more stable than a kprobe but</span></span><br><span class="line"><span class="comment"> * it lacks the offset argument.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">kprobe__skb_copy_datagram_iter</span><span class="params">(struct pt_regs *ctx, <span class="keyword">const</span> struct sk_buff *skb, <span class="keyword">int</span> offset, <span class="keyword">void</span> *unused_iovec, <span class="keyword">int</span> len)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br></pre></td></tr></table></figure>
+
+<p>比如判断 method 是不是 DELETE 的是实现就比较蠢，是因为 eBPF 不支持循环，只能这么实现才能把 c 代码翻译成字节码。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">case</span> <span class="string">&#x27;D&#x27;</span>:</span><br><span class="line">	<span class="keyword">if</span> ((data[<span class="number">1</span>] != <span class="string">&#x27;E&#x27;</span>) || (data[<span class="number">2</span>] != <span class="string">&#x27;L&#x27;</span>) || (data[<span class="number">3</span>] != <span class="string">&#x27;E&#x27;</span>) || (data[<span class="number">4</span>] != <span class="string">&#x27;T&#x27;</span>) || (data[<span class="number">5</span>] != <span class="string">&#x27;E&#x27;</span>) || (data[<span class="number">6</span>] != <span class="string">&#x27; &#x27;</span>)) &#123;</span><br><span class="line">		<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">break</span>;</span><br></pre></td></tr></table></figure>
+
+<p>除了 bcc 之外，waeve 使用了 <a target="_blank" rel="noopener" href="https://github.com/iovisor/gobpf">gobpf</a>，一个 bpf 的 go binding，并且通过建立 tcp 连接来猜测内核的数据结构，以达到内核版本无关，这个项目 <a target="_blank" rel="noopener" href="https://github.com/weaveworks/tcptracer-bpf">tcptracer-bpf</a> 还在开发中。</p>
+<h3 id="eBPF-的其他应用"><a href="#eBPF-的其他应用" class="headerlink" title="eBPF 的其他应用"></a>eBPF 的其他应用</h3><p>还有一个比较大头的基于 eBPF 的是 <a target="_blank" rel="noopener" href="https://github.com/cilium/cilium">cilium</a>，一套比较完整的网络解决方案，用 eBPF 实现了 NAT，L3/L4 负载均衡，连接记录等等功能。比如访问控制，一般的 iptables 都是 drop 或者 rst，要过整个协议栈，但是 eBPF 可以在 connect 的时候就拦截然后返回 EACCESS，这样就不用过协议栈了。cilium 一个优化就是通过 <a target="_blank" rel="noopener" href="https://github.com/iovisor/bpf-docs/blob/master/Express_Data_Path.pdf">XDP</a> ，利用类似 DPDK 的加速方案，hook 到驱动层中，让 eBPF 可以直接使用 DMA 的缓冲，优化负载均衡。</p>
+<blockquote>
+<p>BPF/XDP allows for a 10x improvement in load balancing over IPVS for L3/L4 traffic.</p>
+</blockquote>
+<p>现在 k8s 最新的 lb 方案是基于 ipvs 的，我在 <a href="https://ggaaooppeenngg.github.io/zh-CN/2018/09/10/kube-proxy-%E5%88%86%E6%9E%90/">kube-proxy 分析</a> 里面有提到过，已经比原来的 iptables 提高很多了，现在有了 eBPF 加 XDP 的硬件加速可以实现更高的提升，facebook 的 <a target="_blank" rel="noopener" href="https://github.com/facebookincubator/katran">katran</a> L4 负载均衡器的实现也是类似的。</p>
+<p>cilium 在我看来基本上是 k8s 网络的一个大方向吧，只不过包括 eBPF 和 XDP 对硬件和内核版本都要比较新，是一个要持续关注的更新。</p>
+<h4 id="性能调优"><a href="#性能调优" class="headerlink" title="性能调优"></a>性能调优</h4><p>在<a target="_blank" rel="noopener" href="https://www.youtube.com/watch?v=bj3qdEDbCD4">Velocity 2017: Performance Analysis Superpowers with Linux eBPF</a>里，<a target="_blank" rel="noopener" href="https://www.youtube.com/channel/UCxzogoHFu8-1H9u522wVQpQ">Brendan Gregg</a> (Netflix 的性能调优专家) 提到，性能调优也是 eBPF 的一个大头。用于网络监控其实只是 hook 在了协议栈的函数上，如果 hook 在别的地方可以有更多的统计维度。比如 bcc 官方的例子就是统计 IO Size 的大小的分布，更多关于基于 eBPF 的性能调优可以参考他的 <a target="_blank" rel="noopener" href="http://www.brendangregg.com/linuxperf.html">blog</a>，他给出了更详细的关于 eBPF 的解释，里面有一些列 Linux 性能调优的内容。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash"> ./bitehist.py</span></span><br><span class="line">Tracing... Hit Ctrl-C to end.</span><br><span class="line">^C</span><br><span class="line">     kbytes          : count     distribution</span><br><span class="line">       0 -&gt; 1        : 3        |                                      |</span><br><span class="line">       2 -&gt; 3        : 0        |                                      |</span><br><span class="line">       4 -&gt; 7        : 211      |**********                            |</span><br><span class="line">       8 -&gt; 15       : 0        |                                      |</span><br><span class="line">      16 -&gt; 31       : 0        |                                      |</span><br><span class="line">      32 -&gt; 63       : 0        |                                      |</span><br><span class="line">      64 -&gt; 127      : 1        |                                      |</span><br><span class="line">     128 -&gt; 255      : 800      |**************************************|</span><br></pre></td></tr></table></figure>
+
+<h4 id="安全"><a href="#安全" class="headerlink" title="安全"></a>安全</h4><p>在安全方面有 seccomp，可以实现限制 Linux 的系统调用，而 <a target="_blank" rel="noopener" href="https://blog.yadutaf.fr/2014/05/29/introduction-to-seccomp-bpf-linux-syscall-filter/">seccompe-bpf</a> 则是通过 bpf 支持更强大的过滤和匹配功能，k8s pod 里面的 SecurityContext 就有 seccomp 实现的部分。</p>
+<h4 id="cgroup"><a href="#cgroup" class="headerlink" title="cgroup"></a>cgroup</h4><p>在 cgroup 上有一个小原型，<a target="_blank" rel="noopener" href="https://github.com/kinvolk/cgnet">cgnet</a> 获取 cgroup 的网络统计信息到 prometheus，也是基于 eBPF 的。</p>
+<h2 id="参考"><a href="#参考" class="headerlink" title="参考:"></a>参考:</h2><ol>
+<li><p><a target="_blank" rel="noopener" href="https://www.youtube.com/watch?v=k4jqTLtdrxQ">Infrastructure 2017 - Alfonso Acosta - High-performance Linux monitoring with eBPF</a></p>
+</li>
+<li><p><a target="_blank" rel="noopener" href="https://media.ccc.de/v/ASG2017-134-using_bpf_in_kubernetes#t=355">Using bpf in kubernetes</a></p>
+</li>
+<li><p><a target="_blank" rel="noopener" href="https://opensource.googleblog.com/2016/11/cilium-networking-and-security.html">Cilium: Networking and security for containers with BPF and XDP</a></p>
+</li>
+</ol>
+
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
       
   
   
@@ -476,19 +612,19 @@
 <p>volfile 会配置在 <code>/var/lib/glusterd/vols/</code> 下面，对应的文件名是 volfile-id 选项指定的。<code>xlator_t</code> 定义在 <code>libglusterfs/src/xlator.h</code> 里面。下面这张图就可以看到各个 translator 的关系。</p>
 <p>glusterfsd 最开始是 <code>protocol/server</code> 最后是 <code>storage/posix</code> 两个 xlator 作为开头和结束。</p>
 <p>glusterfs (client) 是以<code>protocol/client</code> 结尾。</p>
-<img src="/zh-CN/2018/08/06/glusterfs-writev-%E4%B8%BB%E8%A6%81%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/translator.png" class="">
+<img data-src="/zh-CN/2018/08/06/glusterfs-writev-%E4%B8%BB%E8%A6%81%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/translator.png" class="">
 
 <blockquote>
 <p>那个 write-behind 应该对应的是缓存策略里面的 write back，异步写，而不是直写。</p>
 </blockquote>
 <p>这种设计的好处是方便扩展，你只要填补 <code>xlator</code> 的实现，编译成 .so ，放到链接目录下面，就可以加载进去，不用改整个 glusterfs 的代码。</p>
 <p>glusterfs 的整个应用的结构也可以看一下。</p>
-<img src="/zh-CN/2018/08/06/glusterfs-writev-%E4%B8%BB%E8%A6%81%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/overallprocess.png" class="">
+<img data-src="/zh-CN/2018/08/06/glusterfs-writev-%E4%B8%BB%E8%A6%81%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/overallprocess.png" class="">
 
 <p>用户态是 fuse 实现的文件系统，通过网络协议走到 server，server 本身用的是本地的文件系统，glusterfs 推荐使用 xfs。</p>
 <p>下面举个详细的例子。</p>
 <p>以 <code>writev</code> 举例，（write 的本质也是 writev，这里的 v 指的是内存向量，写的时候用链表表示的内存向量可以减少内存的拷贝，因为要分配一段连续的内存，然后拷到一起很没有效率，而且系统调用本身也支持这个系统调用，走到底层是硬件支持的，硬件不支持，也能 hook 帮你再拷贝到一起，但上层就不用管这些细节了），他们的调用关系通过 <code>STACK_WIND</code> 和 <code>STACK_UNWIND</code> 实现，对于所有的 xlator 的 op 都是这种调用关系，本身一层结束以后通过调用 <code>STACK_WIND</code> 调用下一层对应的 op，然后在调用完成之后通过 <code>STACK_UNWIND</code> 回调 op_cbk，并且这种调用关系是树状的。</p>
-<img src="/zh-CN/2018/08/06/glusterfs-writev-%E4%B8%BB%E8%A6%81%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/stack.png" class="">
+<img data-src="/zh-CN/2018/08/06/glusterfs-writev-%E4%B8%BB%E8%A6%81%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/stack.png" class="">
 
 <p>这张图解释挺好的，说明了 xlator 向下传递的过程，通过 <code>STACK_WIND</code> 调用下一层，通过 <code>STACK_UNWIND</code> 调用上一层的 cbk。</p>
 <p><code>glusterfsd</code> 每个 volume 都会起一个线程来处理。</p>
@@ -607,7 +743,7 @@
 <figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// Interface to access the raw ref-counted data buffer.</span></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">TensorBuffer</span> :</span> <span class="keyword">public</span> core::RefCounted &#123;</span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">  ~<span class="built_in">TensorBuffer</span>() <span class="keyword">override</span> &#123;&#125;</span><br><span class="line">  ...</span><br></pre></td></tr></table></figure>
 
 <p>他们的对应的关系如下。</p>
-<img src="/zh-CN/2018/05/29/Tensorflow-%E7%9A%84-Tensor-%E5%92%8C-OpKernel-%E5%88%86%E6%9E%90/class.png" class="" title="[Tensor]">
+<img data-src="/zh-CN/2018/05/29/Tensorflow-%E7%9A%84-Tensor-%E5%92%8C-OpKernel-%E5%88%86%E6%9E%90/class.png" class="" title="[Tensor]">
 
 <p>Tensor 从下往上看，其实就是一个带”形状“的内存，和 NumPy 的数组是差不多的。</p>
 <h2 id="OpKernel"><a href="#OpKernel" class="headerlink" title="OpKernel"></a>OpKernel</h2><p>对于一个线性回归来说，是最简单也最好理解的模型，方便分析底层的代码实现。</p>
@@ -723,27 +859,27 @@
       
           <p>Raft 的作者其实对 Paxos 研究得很深，毕竟 Paxos 基本上就是共识算法的代名词，建议在了解 Raft 之前先看看 Paxos，因为 Paxos 里面有一段从单点开始完整的推断共识算法的正确性和必要性的过程，方便建立一种对共识算法上直觉的认同。Raft 论文最好看作者的博士论文，那个比较完整。</p>
 <h2 id="leader-election"><a href="#leader-election" class="headerlink" title="leader election"></a>leader election</h2><p>Raft 有 Term 的概念，把时间每分成了一个个的任期，每个任期开始是选举过程。Raft server 有三种角色，Candidate 就是选举中的状态，Leader 是当选的状态，Follower 是服从并选择接受 Leader 的 Log 的状态。</p>
-<img src="/zh-CN/2018/05/27/raft-%E8%A7%A3%E8%AF%BB/raft-server-state.png" class="" title="[raft server state]">
+<img data-src="/zh-CN/2018/05/27/raft-%E8%A7%A3%E8%AF%BB/raft-server-state.png" class="" title="[raft server state]">
 
 <p>其实可以把选主看作一个 basic Paxos，大家对 leader=? 达成一致，触发的条件是超时和初始化的时候，term 就是类似于 Paxos 的 propose number，和 basic Paxos 不一样的是每个 term 只能投一个人，所以每个 term 不会有冲突，只有一个人会当选，但是会有平票的问题，大家用同一个 term 选举的情况下就会发生（比如说大家都投自己，谁都不接受谁），所以为了减少冲突，把重试的时间随机化，快速超时的人能拿到高 term，并且其他慢速超时的 candidate 会服从这个先拿到下一个 term 的 leader。成为 leader 的标志是收到了大部分人的服从(3/5 或者 2/3)。</p>
-<img src="/zh-CN/2018/05/27/raft-%E8%A7%A3%E8%AF%BB/raft-terms.png" class="" title="[raft terms]">
+<img data-src="/zh-CN/2018/05/27/raft-%E8%A7%A3%E8%AF%BB/raft-terms.png" class="" title="[raft terms]">
 
-<h2 id="log-replication"><a href="#log-replication" class="headerlink" title="log replication"></a>log replication</h2><img src="/zh-CN/2018/05/27/raft-%E8%A7%A3%E8%AF%BB/raft-log-conflict.png" class="" title="[raft log conflicts]">
+<h2 id="log-replication"><a href="#log-replication" class="headerlink" title="log replication"></a>log replication</h2><img data-src="/zh-CN/2018/05/27/raft-%E8%A7%A3%E8%AF%BB/raft-log-conflict.png" class="" title="[raft log conflicts]">
 
 <p>log 不一致的就以上几种情况，可能少了 entry，可能多了没 commited 的 entry，可能又少了 entry 还多了没 commited 的 entry，log 不一致的情况就这几种。index term 能唯一确定一个 entry，如果一个 entry  确定，之前的也确定了。基于上面的性质，如果 entry commited 之前的就是都 commited 了。这个通过 append 的 prev index prev term，来保证这个特性。解决方法是在 AppendRequest 里面带上新的 entry 前的 index 和 term（在 leader 那里存的前一个），如果这个 entry 不在 follower 里面的话，就拒绝追加新 entry，然后 leader 就要用前一个 index 尝试，直到开始出现 match 的点，有点像 git tree 里面开始产生分支的那个 base，这个过程一直减少自己保存的 follower 的 nextIndex，一直到获得和自己 match 的最后一个 index 开始追加复制自己的 log。也就是说这样会强迫所有的 follower 复制主节点的 log，这里有一个按 term 回溯 base 的方法，但是这个优化作者认为有点多此一举，毕竟错误发生的情况比较少。这里会有一个问题（啥问题），后面会通过选举的时候加上限制解决。</p>
 <p>这个问题就是，新的 leader 可能没有之前 commited 的 log，然后修改了其他 follower 的 log，导致每个 state machine 执行的命令是不一致的，所以要加一个约束，在投票的时候，新的 leader 必须包含之前 commited 的 log，这个保证就需要通过定义 entry 的 update-to-date，在投票的时候拒绝比自己老的 leader 当选。</p>
 <h2 id="safety"><a href="#safety" class="headerlink" title="safety"></a>safety</h2><p>这个问题被称作 <code>safety</code>，为了解决这个问题 update-to-date 怎么定义呢？比如下面这个例子，如果 S3 挂了，其实 index 5 已经 commited 了，但是没有办法确定 index 5 的这个 log 是否 commited 了。所以要选个最可能包含所有 log 的做 leader。</p>
-<img src="/zh-CN/2018/05/27/raft-%E8%A7%A3%E8%AF%BB/raft-not-commited.png" class="" title="[raft not commited]">
+<img data-src="/zh-CN/2018/05/27/raft-%E8%A7%A3%E8%AF%BB/raft-not-commited.png" class="" title="[raft not commited]">
 
 <p>先比 term，再比 log 数量，按顺序比，有点像字符串比较，这样可以确保 leader 有其他 follower 的 entry。没有大多数人的又新又全就无法成为 leader。</p>
 <h3 id="commit-from-previous-entry"><a href="#commit-from-previous-entry" class="headerlink" title="commit from previous entry"></a>commit from previous entry</h3><p>如果一个 leader 在 commit 之前 crash 了，并且新的 leader 没有已经在大多数节点上的 entry 可能会覆盖掉本该 commit 的 entry。</p>
 <p>比如这图，如果是 (d1) 的情况，3 就会把 2 盖掉，但是实际上 2 本该 commited 了，但是在 commit 之前 S5 可能在 term 5 成为了主（这个没有违背上面的 upda-to-date 因为 3 确实比 2 要新，并且可以从 S2, S3, S4 那里获得选票）。</p>
-<img src="/zh-CN/2018/05/27/raft-%E8%A7%A3%E8%AF%BB/raft-conflict-2.png" class="" title="[raft conflict 2]">
+<img data-src="/zh-CN/2018/05/27/raft-%E8%A7%A3%E8%AF%BB/raft-conflict-2.png" class="" title="[raft conflict 2]">
 
 <p>光看数量，没办法替之前 term 的 entry commit，因为 d1 的情况，可能就把 2 盖掉了。只有 term 4 的时候 4 commit 了（当前的 term 可以 commit）才能替之前 term 的 entry commit（实际上间接 commit 了，这个可以证明），这样 term 3 就不会成为主，就不可能盖掉 2。</p>
 <p><strong>总结一下，在 Raft 中 leader 不会 commit 之前 term 的 entry，只 commit 当前 term 的 entry。当前 term 的 entry commit 了，之前 term 的 entry 就间接 commit 了。</strong></p>
 <h3 id="持久化数据"><a href="#持久化数据" class="headerlink" title="持久化数据"></a>持久化数据</h3><p>当前的 term 和 vote 。</p>
-<h2 id="membership-change"><a href="#membership-change" class="headerlink" title="membership change"></a>membership change</h2><img src="/zh-CN/2018/05/27/raft-%E8%A7%A3%E8%AF%BB/raft-conf-change.png" class="" title="[raft conf change]">
+<h2 id="membership-change"><a href="#membership-change" class="headerlink" title="membership change"></a>membership change</h2><img data-src="/zh-CN/2018/05/27/raft-%E8%A7%A3%E8%AF%BB/raft-conf-change.png" class="" title="[raft conf change]">
 
 <p>raft conf change 有几个主要阶段，其中 C(old)+c(new) 的情况下，需要服从两个 conf 的大多数，并且，每次只能一个一个的增加 server 和 减少 server。</p>
 <p>参考文献</p>
@@ -837,17 +973,17 @@
 <p>Paxos 论文里面描述的算法，其实不是很清晰，一般人看了都会有疑问，所以后来很多人对这个算法做了补充和解释，包括作者本人。</p>
 <h2 id="基本需求"><a href="#基本需求" class="headerlink" title="基本需求"></a>基本需求</h2><p>第一个是安全性，就是只有一个值会被选择，并且节点对这个值不会主动知道，而是在值被选择以后被动学习知道这个值被选择的（这个原文有点难懂我换成了自己的话解释了一下）。<br>第二个是活性，也就是值最终会被选择，并且所有节点会最终学习到这个值被选择了。</p>
 <h2 id="解决方案"><a href="#解决方案" class="headerlink" title="解决方案"></a>解决方案</h2><p>首先单点可以排除，因为单点虽然是最容易解决一致性问题的，但是如果单点挂了，整个就不可用了，所以显然不能依靠单点。</p>
-<img src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/quorum-base.png" class="" title="[single point]">
+<img data-src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/quorum-base.png" class="" title="[single point]">
 
 <p>那如果每个节点就接受自己接受到的第一个值，也会有平票问题(split votes)。<code>red</code> 和 <code>blue</code> 对等的，那到底谁被选择了呢，所以来了就接受的策略并不可行。</p>
-<img src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/split-votes.png" class="" title="[split votes]">
+<img data-src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/split-votes.png" class="" title="[split votes]">
 
 <p>Paxos 是 quorum based 的，表示的一致性协议是少数服从多数的，在大多数节点都接受了这个值以后，这个值就被选择了。为了让节点可以接受多个值，多个值之间需要区分，所以就有了提交号，这个号码是单增的，拒绝掉小号的提交，并且当一个值已经被选择，那么之后的提交都要提交这个值，这样做的目的是让提交者知道这个值被学习了，是大家认可的一个值。有了少数服从多数原则，就会碰到冲突的问题。</p>
 <p>这种情况就是下面这样，从时间上来讲，<code>red</code> 已经被选择了，如果 <code>S3</code> 能够拒绝 <code>red</code> 的提交，那么 <code>S3</code>,<code>S4</code>,<code>S5</code>就可以拿着 <code>red</code> 重试，并且知道 <code>red</code> 已经被大多数人接受了，而知道冲突的 <code>S3</code> 就会决绝这次请求，这个点上就处理了两个值（接受了一个拒绝了一个）。</p>
-<img src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/conflict.png" class="" title="[conflict 1]">
+<img data-src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/conflict.png" class="" title="[conflict 1]">
 
 <p>序列号可以帮助我们区分优先关系，这样因为网络问题延迟的请求就可以被处理。下面这种情况，<code>red</code> 虽然先提交，但是并不是先被大多数接受的（存在网络延迟），这个时候<code>blue</code>已经被选择了（被大多数人接受），我们需要提交 <code>red</code> 的提交意识到自己已经太“老”了，而触发这就是接受了 <code>blue</code> 的 <code>S3</code>。</p>
-<img src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/conflict-1.png" class="" title="[conflict 2]">
+<img data-src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/conflict-1.png" class="" title="[conflict 2]">
 
 <p>所以你会发现，矛盾的点其实就是这个 S3，也就是少数服从多数原则，能保证任意的大多数都是有交集的。交集中的点会发现矛盾和之前接受的值有矛盾选择拒绝。</p>
 <blockquote>
@@ -859,27 +995,27 @@
 <p>下一阶段就是 accept(value,n)，如果接受者发现自己目前收到的n，没有比accpet给的n大，就接受这个值，并且更新自己的n，否则就拒绝（这里就保证提交者能够发现自己变老了或者被拒绝了）。<br>如果接受者发现提交号大于自己当前的最大提交号，就接受这个值，不然就拒绝。当提交者从大多数人那里接受到返回以后发现有拒绝的情况，就进行重试拿一个新的n开始，否则这个值就被接受了。</p>
 <p>Basic Paxos value 就是设置一次，不存在再设次一次的情况。</p>
 <p>总结起来就是如图：</p>
-<img src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/basic-paxos.png" class="" title="[basic paxos]">
+<img data-src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/basic-paxos.png" class="" title="[basic paxos]">
 
 <p>那这样的一个二阶段提交，看看能不能解决前面的问题，主要有三种可能。<br>注意，这里的例子是原文里的例子，一个变量的取值是<code>X</code>或者<code>Y</code>，然后<code>3.1</code> 表示 <code>S1</code>提交的提交号为 <code>3</code> 的提交，这是我们定义的 message ID。</p>
 <p>第一种值被选择了，后者意识到了<code>X</code>，放弃<code> Y</code> 用 <code>X </code>提交，也就意味着提交者学习到了这个值已经被选择了。</p>
-<img src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/paxos-p1.png" class="" title="[situation 1]">
+<img data-src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/paxos-p1.png" class="" title="[situation 1]">
 
 <p>第二种情况，值没有被选择，但是交集的部分看到了一个被选择的值，也会选择放弃<code>Y</code>用<code>X</code>提交，虽然<code>X</code>暂时没有被选择（被大多数人接受），但是可以保证两个提交都成功。</p>
-<img src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/paxos-conflict-2.png" class="" title="[situation 2]">
+<img data-src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/paxos-conflict-2.png" class="" title="[situation 2]">
 
 <p>第三种情况，值没有被选择，同时交集的部分也没有发现被选择的值，如果已经做了 promies 这个时候就会拒绝老的提交。比如下面在 S3 accept(X) 的时候就会放弃提交并且进行重试(S1 S2 也会一起重试）, 并且在重试的时候覆盖掉原先接受的x)。</p>
-<img src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/paxos-conflict3.png" class="" title="[situation 3]">
+<img data-src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/paxos-conflict3.png" class="" title="[situation 3]">
 
 <p>看起来所有的问题都解决了，但是活性问题无法保证。这个情况发生在提交之间相互阻塞的情况，<code>S3</code> <code>S4</code> <code>S5</code> 拿着更高的提交号导致 <code>S1</code> <code>S2</code> <code>S3</code> 的 accept 被拒绝重新进行提交，又把 <code>S3</code> <code>S4</code> <code>S5</code> 给拒绝了。</p>
-<img src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/paxos-liveness.png" class="" title="[liveness]">
+<img data-src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/paxos-liveness.png" class="" title="[liveness]">
 
 <p>解决这个问题的办法就是把重试时间进行一些随机化，减少这种巧合发生，或者把重试的时间指数增长等等。</p>
 <h2 id="Multi-Paxos"><a href="#Multi-Paxos" class="headerlink" title="Multi-Paxos"></a>Multi-Paxos</h2><p>到此 classic Paxos 算是告一段落。那 Paxos 有什么问题呢。首先是活性的问题，这个在后面可以通过选主的方式解决。其次是学习是通过 propose 获知值的，不然无法知道一个值是否被接受了，要走一遍整套的 Paxos 协议。</p>
 <p>Multi-Paxos 新增的问题是如何选择 log entry，并且用选主的方式减少冲突，以及减少 prepare 的请求。</p>
 <p>以下图为例。深色框表示这个 log 已经被选择（怎么确定选择后面会提到）。寻找 log entry 的方式就是寻找第一个没有被选择的 log，尝试执行 basic Paxos，如果有值被选择会尝试用这个 log 提交帮助这个 log 被选择，这个过程和 basic paxos 是一致的，但是在此之后就要继续寻找下一个 log 尝试进行我们的尝试。</p>
 <p>下图中（只看 S1 和 S2 这两行），第一次会找到最后一个没有没学习的 log，也就是 index=3 的 log，但是发现了 <code>s1</code> 的 <code>cmp</code>，就会服从这个 <code>cmp</code>，然后到 <code>index=4</code> 发现了 <code>s2</code> 的 <code>sub</code>，也选择服从，并且学习到了 index=4 的 log 应该是 <code>sub</code>，最后到了 index=5 才进行插入。</p>
-<img src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/multi-paxos-log.png" class="" title="[multi-paxos]">
+<img data-src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/multi-paxos-log.png" class="" title="[multi-paxos]">
 
 <p>这样的情况下，Paxos 可以接受并发的请求，而 Raft 却规定了对 log 只能 append，不能 3 4 5 都能同时处理，简化了实现。反正只要保证了 log 的顺序一致，状态机的最终状态都是一致的。 </p>
 <p>接下来的是对于性能的一些提升，一个是选主避免大面积冲突，另一个是优化二阶段提交的次数。解决方法是选出一个主，保证一次只有一个提交者。另外对于 prepare 是对整个 log 进行 prepare，而不是单个 log entry，这样大多数情况下，大部分 log 都可以一次性就被选择。</p>
@@ -888,11 +1024,11 @@
 <p>我们可以改变提交号的意义，让他代表整个 log，也就是所有 log entry 都用一个提交号，这样接受者可以通过返回 <code>noMoreAccepted</code> 让提交者意识到在当前 log entry 之后的 log 都没有 accpeted 是可以被“锁”住的，然后如果大多数节点返回 <code>noMoreAccepted</code>，就可以跳过之后的 prepare 直到 accept 被拒绝。这样后续的 accept 操作就可以不用 prepare 在一趟之内解决，所以二阶段提交的第一阶段的 promise 落在了整个 log 上。这个情况下 发起者的 accept 一直顺序进行就可以，问题发生在有其他主（之前说到的会临时有多主的情况），又提交了 prepare，然后这个提交号更高，把后一段锁住了，accept 就会发现冲突学习新的值。</p>
 <p>补充 1 持续发送 accept 请求，让所有的节点都同步这个 log。<br>补充 2 让 proposer 带上 firstUnchosenIndex 让 acceptor 知道大多数可以确认被选择的 log。</p>
 <p>但是还有问题，例如下面这张图，对于所有小于 firstUnchosenIndex 的 i 来说，如果 accpetedProposal[i] 的提交号和 request 的 proposal 一样的话，就可以确认 log[i] 是被选择了的，并且标记 acceptedProposal[i] = 无限。但是 2.5 确实来自之前的 leader 的，貌似无法被标记为选择了。这需要我们进一步修改这个协议。</p>
-<img src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/multi-paxos-index.png" class="" title="[multi paxos index]">
+<img data-src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/multi-paxos-index.png" class="" title="[multi paxos index]">
 
 <p>这个时候需要在 accept 返回的时候带上自己的 firtUnchosenIndex，如果 proposer 的比这个大，可以把 acceptor 直接补齐。用 success 命令，让 acceptor 直接更改index 的这个值, 并且继续返回 firtUnchosenIndex，让 proposer 弥补。</p>
 <p>最后一部分是配置改变，degree of replication，也就是要保证同时只有一个 conf 生效，可以用 a 个之前的 log 做 conf，这样在使用这个 conf 之前，conf 已经发生了改变。但是同时限制住了并发度（只能为a）。直觉上讲就是约定一个 index 在某个时间点一次性切换。</p>
-<img src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/multi-paxos-conf.png" class="" title="[multi paxos conf]">
+<img data-src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/multi-paxos-conf.png" class="" title="[multi paxos conf]">
 
 <p>参考文献</p>
 <ul>
@@ -1002,7 +1138,7 @@
 <figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// NewSelfSignedCACert creates a CA certificate</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">NewSelfSignedCACert</span><span class="params">(cfg Config, key *rsa.PrivateKey)</span> <span class="params">(*x509.Certificate, error)</span></span> &#123;</span><br><span class="line">        now := time.Now()</span><br><span class="line">        tmpl := x509.Certificate&#123;</span><br><span class="line">                SerialNumber: <span class="built_in">new</span>(big.Int).SetInt64(<span class="number">0</span>),</span><br><span class="line">                Subject: pkix.Name&#123;</span><br><span class="line">                        CommonName:   cfg.CommonName,</span><br><span class="line">                        Organization: cfg.Organization,</span><br><span class="line">                &#125;,</span><br><span class="line">                NotBefore:             now.UTC(),</span><br><span class="line">                NotAfter:              now.Add(duration365d * <span class="number">10</span>).UTC(),</span><br><span class="line">                KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,</span><br><span class="line">                BasicConstraintsValid: <span class="literal">true</span>,</span><br><span class="line">                IsCA: <span class="literal">true</span>,</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        certDERBytes, err := x509.CreateCertificate(cryptorand.Reader, &amp;tmpl, &amp;tmpl, key.Public(), key)</span><br><span class="line">        <span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">                <span class="keyword">return</span> <span class="literal">nil</span>, err</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> x509.ParseCertificate(certDERBytes)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <p>用 <code>openssl x509 -in /etc/kubernetes/pki/ca.crt -text -noout</code> 可以查看 ca 证书里面的内容，和我们看到的配置是一致的。</p>
-<img src="/zh-CN/2018/04/30/k8s-%E5%9F%BA%E4%BA%8E-kubeadm-%E7%9A%84%E5%AE%89%E5%85%A8%E9%85%8D%E7%BD%AE%E5%92%8C%E9%AB%98%E5%8F%AF%E7%94%A8/ca-pic.png" class="" title="[ca]">
+<img data-src="/zh-CN/2018/04/30/k8s-%E5%9F%BA%E4%BA%8E-kubeadm-%E7%9A%84%E5%AE%89%E5%85%A8%E9%85%8D%E7%BD%AE%E5%92%8C%E9%AB%98%E5%8F%AF%E7%94%A8/ca-pic.png" class="" title="[ca]">
 
 <p>然后我们再看一下 apiserver 的私钥和证书是怎么签的，首先把生成的 CA 证书和私钥加载进来，然后生成私钥并且签出自己的证书。</p>
 <figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">CreateAPIServerCertAndKeyFiles</span><span class="params">(cfg *kubeadmapi.MasterConfiguration)</span> <span class="title">error</span></span> &#123;</span><br><span class="line"></span><br><span class="line">        caCert, caKey, err := loadCertificateAuthority(cfg.CertificatesDir, kubeadmconstants.CACertAndKeyBaseName)</span><br><span class="line">        <span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">                <span class="keyword">return</span> err</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        apiCert, apiKey, err := NewAPIServerCertAndKey(cfg, caCert, caKey)</span><br><span class="line">        <span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">                <span class="keyword">return</span> err</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> writeCertificateFilesIfNotExist(</span><br><span class="line">                cfg.CertificatesDir,</span><br><span class="line">                kubeadmconstants.APIServerCertAndKeyBaseName,</span><br><span class="line">                caCert,</span><br><span class="line">                apiCert,</span><br><span class="line">                apiKey,</span><br><span class="line">        )</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
@@ -1010,7 +1146,7 @@
 <p>这里比较重要，因为 SAN 这个是用来匹配域名的，如果这里没写好，HTTPS 是拒绝访问的。</p>
 <figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// NewAPIServerCertAndKey generate certificate for apiserver, signed by the given CA.</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">NewAPIServerCertAndKey</span><span class="params">(cfg *kubeadmapi.MasterConfiguration, caCert *x509.Certificate, caKey *rsa.PrivateKey)</span> <span class="params">(*x509.Certificate, *rsa.PrivateKey, error)</span></span> &#123;</span><br><span class="line"></span><br><span class="line">        altNames, err := pkiutil.GetAPIServerAltNames(cfg)</span><br><span class="line">        <span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">                <span class="keyword">return</span> <span class="literal">nil</span>, <span class="literal">nil</span>, fmt.Errorf(<span class="string">&quot;failure while composing altnames for API server: %v&quot;</span>, err)</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        config := certutil.Config&#123;</span><br><span class="line">                CommonName: kubeadmconstants.APIServerCertCommonName,</span><br><span class="line">                AltNames:   *altNames,</span><br><span class="line">                Usages:     []x509.ExtKeyUsage&#123;x509.ExtKeyUsageServerAuth&#125;,</span><br><span class="line">        &#125;</span><br><span class="line">        apiCert, apiKey, err := pkiutil.NewCertAndKey(caCert, caKey, config)</span><br><span class="line">        <span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">                <span class="keyword">return</span> <span class="literal">nil</span>, <span class="literal">nil</span>, fmt.Errorf(<span class="string">&quot;failure while creating API server key and certificate: %v&quot;</span>, err)</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> apiCert, apiKey, <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
-<img src="/zh-CN/2018/04/30/k8s-%E5%9F%BA%E4%BA%8E-kubeadm-%E7%9A%84%E5%AE%89%E5%85%A8%E9%85%8D%E7%BD%AE%E5%92%8C%E9%AB%98%E5%8F%AF%E7%94%A8/api-crt.png" class="" title="[apiserver crt]">
+<img data-src="/zh-CN/2018/04/30/k8s-%E5%9F%BA%E4%BA%8E-kubeadm-%E7%9A%84%E5%AE%89%E5%85%A8%E9%85%8D%E7%BD%AE%E5%92%8C%E9%AB%98%E5%8F%AF%E7%94%A8/api-crt.png" class="" title="[apiserver crt]">
 
 <p>apiserver 的证书也是对的，马赛克的部分是我自己配的一些 IP 和 域名，和 kubeadm 配的一些 kube-dns 用的 overlay 网络上的 master 域名，其他 master 上的 components 也是类似的，在配高可用的时候要把每个 master 节点上的域名和 IP 都配上。kubelet 的证书也要配对，就在 join 里面介绍了，这个会用来鉴权 node 的身份。</p>
 <p>其他部分的代码和设计文档的描述是一致的，所以没什么好看的，感觉一个好的设计文档是非常重要的，代码只是设计的实现，如果设计本身就可读性很强，阅读代码只是辅助理解一些细节和找 BUG 用的而已。</p>
@@ -1027,13 +1163,13 @@
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">discovery.For</span><br><span class="line">-&gt;GetValidatedClusterInfoObject 这个是获取 CA 证书的过程</span><br><span class="line">     -&gt;token.RetrieveValidatedClusterInfo 这一步是 JWT 验证</span><br><span class="line">         -&gt;tokenutil.ParseToken   得到 tokenID 和 tokenSecret</span><br><span class="line">         -&gt;pubKeyPins.Allow 加载用于检验 CA 证书的 HASH 值</span><br><span class="line">         -&gt;buildInsecureBootstrapKubeConfig （用 token-bootstrap-client 身份)获取信息</span><br><span class="line">            -&gt; 从kube-public 获取 configmap (和 kubectl describe configmap cluster-info -n kube-public 中的信息是一致的）这个configmap 里面包含 JWS 签名和 master 的 CA 证书，获取对应 tokenID 的 jws token，验证 token 成功，并且验证 CA 的证书 hash，如果通过说明这个 master 是可信的，然后拿到 CA 证书以后开始构建自己的证书，建立 secure config。</span><br><span class="line">         -&gt;</span><br></pre></td></tr></table></figure>
 
 <p>kubeconfigutil.WriteToDisk 会把 <code>bootstrap-kubelet.conf</code> 写入到配置目录中，kubeadm 的任务就完成了，之前的 kubeadm 会代替 kubelet 生成 kubelet.conf（其中用的是公钥鉴权），现在移走了，kubelet 启动的时候会尝试使用这个配置文件建立 HTTPS 的鉴权配置文件。</p>
-<img src="/zh-CN/2018/04/30/k8s-%E5%9F%BA%E4%BA%8E-kubeadm-%E7%9A%84%E5%AE%89%E5%85%A8%E9%85%8D%E7%BD%AE%E5%92%8C%E9%AB%98%E5%8F%AF%E7%94%A8/bootstrap-conf.png" class="" title="[boostrap conf]">
+<img data-src="/zh-CN/2018/04/30/k8s-%E5%9F%BA%E4%BA%8E-kubeadm-%E7%9A%84%E5%AE%89%E5%85%A8%E9%85%8D%E7%BD%AE%E5%92%8C%E9%AB%98%E5%8F%AF%E7%94%A8/bootstrap-conf.png" class="" title="[boostrap conf]">
 
 <p>可以看一下 kubelet 用这个配置给 master 发 CSR 以后得到了什么，可以看到是生成了自己的证书的。</p>
-<img src="/zh-CN/2018/04/30/k8s-%E5%9F%BA%E4%BA%8E-kubeadm-%E7%9A%84%E5%AE%89%E5%85%A8%E9%85%8D%E7%BD%AE%E5%92%8C%E9%AB%98%E5%8F%AF%E7%94%A8/kubelet-crt.png" class="" title="[kubelet bootstrap conf]">
+<img data-src="/zh-CN/2018/04/30/k8s-%E5%9F%BA%E4%BA%8E-kubeadm-%E7%9A%84%E5%AE%89%E5%85%A8%E9%85%8D%E7%BD%AE%E5%92%8C%E9%AB%98%E5%8F%AF%E7%94%A8/kubelet-crt.png" class="" title="[kubelet bootstrap conf]">
 
 <p>并且这个证书里面的 SAN 也是用来进行 Node 鉴权的身份确认的信息。用 <code>openssl x509 -in /var/lib/kubelet/pki/kubelet-client.crt  -text -noout</code>查看信息。</p>
-<img src="/zh-CN/2018/04/30/k8s-%E5%9F%BA%E4%BA%8E-kubeadm-%E7%9A%84%E5%AE%89%E5%85%A8%E9%85%8D%E7%BD%AE%E5%92%8C%E9%AB%98%E5%8F%AF%E7%94%A8/kubelet-https-crt.png" class="" title="[kubelet conf]">
+<img data-src="/zh-CN/2018/04/30/k8s-%E5%9F%BA%E4%BA%8E-kubeadm-%E7%9A%84%E5%AE%89%E5%85%A8%E9%85%8D%E7%BD%AE%E5%92%8C%E9%AB%98%E5%8F%AF%E7%94%A8/kubelet-https-crt.png" class="" title="[kubelet conf]">
 
 <p>红线部分就是 Node 鉴权的信息，基于这个确认 node 的身份。另外一个是 Role Based Access Control，那个主要是配给 pod，限制 pod 行为用的，类似于 linux 的 <code>chmod</code>。</p>
 <h2 id="kubeadm-高可用配置"><a href="#kubeadm-高可用配置" class="headerlink" title="kubeadm 高可用配置"></a>kubeadm 高可用配置</h2><p>如果没有安全配置，其实高可用挺好配置的，现在加入了安全配置，虽然麻烦，但是还是能理解 k8s 的良苦用心的，理解了整个鉴权的过程以后就可以做，现在支持配置文件初始化其实更好配置了。可以基于<a target="_blank" rel="noopener" href="https://kubernetes.io/docs/setup/independent/high-availability/">这个文档配置</a>，算了我还是不总结了，看懂上面的，照着配置就好了。主要是自己生成 CA，他们用的 <code>cfssl</code> 和 <code>cfssljson</code>，这个工具比 openssl 好用一点，比较容易配置。生成 ca 证书和私钥以后，就可以构建 HTTPS 的 etcd。</p>
@@ -1052,7 +1188,7 @@
 <figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">cfssl print-defaults csr &gt; config.json</span><br><span class="line">sed -i &#x27;0,/CN/&#123;s/example\.net/&#x27;&quot;$PEER_NAME&quot;&#x27;/&#125;&#x27; config.json</span><br><span class="line">sed -i &#x27;s/www\.example\.net/&#x27;&quot;$PRIVATE_IP&quot;&#x27;/&#x27; config.json</span><br><span class="line">sed -i &#x27;s/example\.net/&#x27;&quot;$PEER_NAME&quot;&#x27;/&#x27; config.json</span><br><span class="line"></span><br><span class="line">cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=server config.json | cfssljson -bare server</span><br><span class="line">cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=peer config.json | cfssljson -bare peer</span><br></pre></td></tr></table></figure>
 
 <p>签出出两对密钥和证书，把每台的机器的 域名 和 IP 替换掉示例的 example 配置，就是这些地方可以改成自己的域名和地址，这个会被用来 check。</p>
-<img src="/zh-CN/2018/04/30/k8s-%E5%9F%BA%E4%BA%8E-kubeadm-%E7%9A%84%E5%AE%89%E5%85%A8%E9%85%8D%E7%BD%AE%E5%92%8C%E9%AB%98%E5%8F%AF%E7%94%A8/etcd-csr.png" class="" title="[etcd csr ]">
+<img data-src="/zh-CN/2018/04/30/k8s-%E5%9F%BA%E4%BA%8E-kubeadm-%E7%9A%84%E5%AE%89%E5%85%A8%E9%85%8D%E7%BD%AE%E5%92%8C%E9%AB%98%E5%8F%AF%E7%94%A8/etcd-csr.png" class="" title="[etcd csr ]">
 
 <p>可以放到 kubelet 的 static pod 里面，启动 etcd，两个证书分别是用作 server 验证和 client 验证的，server 让别人访问的时候相信你，peer 是你访问别人的时候让别人相信你。</p>
 <figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br></pre></td><td class="code"><pre><span class="line"><span class="string">cat</span> <span class="string">&gt;/etc/kubernetes/manifests/etcd.yaml</span> <span class="string">&lt;&lt;EOF</span></span><br><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Pod</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line"><span class="attr">labels:</span></span><br><span class="line">    <span class="attr">component:</span> <span class="string">etcd</span></span><br><span class="line">    <span class="attr">tier:</span> <span class="string">control-plane</span></span><br><span class="line"><span class="attr">name:</span> <span class="string">&lt;podname&gt;</span></span><br><span class="line"><span class="attr">namespace:</span> <span class="string">kube-system</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line"><span class="attr">containers:</span></span><br><span class="line"><span class="bullet">-</span> <span class="attr">command:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">etcd</span> <span class="string">--name</span> <span class="string">$&#123;PEER_NAME&#125;</span> <span class="string">\</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">--data-dir</span> <span class="string">/var/lib/etcd</span> <span class="string">\</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">--listen-client-urls</span> <span class="string">https://$&#123;PRIVATE_IP&#125;:2379</span> <span class="string">\</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">--advertise-client-urls</span> <span class="string">https://$&#123;PRIVATE_IP&#125;:2379</span> <span class="string">\</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">--listen-peer-urls</span> <span class="string">https://$&#123;PRIVATE_IP&#125;:2380</span> <span class="string">\</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">--initial-advertise-peer-urls</span> <span class="string">https://$&#123;PRIVATE_IP&#125;:2380</span> <span class="string">\</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">--cert-file=/certs/server.pem</span> <span class="string">\</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">--key-file=/certs/server-key.pem</span> <span class="string">\</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">--client-cert-auth</span> <span class="string">\</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">--trusted-ca-file=/certs/ca.pem</span> <span class="string">\</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">--peer-cert-file=/certs/peer.pem</span> <span class="string">\</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">--peer-key-file=/certs/peer-key.pem</span> <span class="string">\</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">--peer-client-cert-auth</span> <span class="string">\</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">--peer-trusted-ca-file=/certs/ca.pem</span> <span class="string">\</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">--initial-cluster</span> <span class="string">etcd0=https://&lt;etcd0-ip-address&gt;:2380,etcd1=https://&lt;etcd1-ip-address&gt;:2380,etcd2=https://&lt;etcd2-ip-address&gt;:2380</span> <span class="string">\</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">--initial-cluster-token</span> <span class="string">my-etcd-token</span> <span class="string">\</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">--initial-cluster-state</span> <span class="string">new</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">k8s.gcr.io/etcd-amd64:3.1.10</span></span><br><span class="line">    <span class="attr">livenessProbe:</span></span><br><span class="line">    <span class="attr">httpGet:</span></span><br><span class="line">        <span class="attr">path:</span> <span class="string">/health</span></span><br><span class="line">        <span class="attr">port:</span> <span class="number">2379</span></span><br><span class="line">        <span class="attr">scheme:</span> <span class="string">HTTP</span></span><br><span class="line">    <span class="attr">initialDelaySeconds:</span> <span class="number">15</span></span><br><span class="line">    <span class="attr">timeoutSeconds:</span> <span class="number">15</span></span><br><span class="line">    <span class="attr">name:</span> <span class="string">etcd</span></span><br><span class="line">    <span class="attr">env:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">PUBLIC_IP</span></span><br><span class="line">    <span class="attr">valueFrom:</span></span><br><span class="line">        <span class="attr">fieldRef:</span></span><br><span class="line">        <span class="attr">fieldPath:</span> <span class="string">status.hostIP</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">PRIVATE_IP</span></span><br><span class="line">    <span class="attr">valueFrom:</span></span><br><span class="line">        <span class="attr">fieldRef:</span></span><br><span class="line">        <span class="attr">fieldPath:</span> <span class="string">status.podIP</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">PEER_NAME</span></span><br><span class="line">    <span class="attr">valueFrom:</span></span><br><span class="line">        <span class="attr">fieldRef:</span></span><br><span class="line">        <span class="attr">fieldPath:</span> <span class="string">metadata.name</span></span><br><span class="line">    <span class="attr">volumeMounts:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">mountPath:</span> <span class="string">/var/lib/etcd</span></span><br><span class="line">    <span class="attr">name:</span> <span class="string">etcd</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">mountPath:</span> <span class="string">/certs</span></span><br><span class="line">    <span class="attr">name:</span> <span class="string">certs</span></span><br><span class="line"><span class="attr">hostNetwork:</span> <span class="literal">true</span></span><br><span class="line"><span class="attr">volumes:</span></span><br><span class="line"><span class="bullet">-</span> <span class="attr">hostPath:</span></span><br><span class="line">    <span class="attr">path:</span> <span class="string">/var/lib/etcd</span></span><br><span class="line">    <span class="attr">type:</span> <span class="string">DirectoryOrCreate</span></span><br><span class="line">    <span class="attr">name:</span> <span class="string">etcd</span></span><br><span class="line"><span class="bullet">-</span> <span class="attr">hostPath:</span></span><br><span class="line">    <span class="attr">path:</span> <span class="string">/etc/kubernetes/pki/etcd</span></span><br><span class="line">    <span class="attr">name:</span> <span class="string">certs</span></span><br><span class="line"><span class="string">EOF</span></span><br></pre></td></tr></table></figure>
@@ -1152,7 +1288,7 @@
 <p>HTTPS 是基于 SSL/TLS 的安全 HTTP 协议，其实 HTTPS 主要还是看安全套接字层，在这之上还是一个 HTTP 协议，这里主要总结一下我们现在主流用到的加密体系，比如我们经常看到的 <code>.pem</code>、<code>.crt</code>、<code>.key</code>、<code>.csr</code> 还有 <code>CA</code> 啊之类的是啥东西，并且这些东西都如何工作和应用的。</p>
 <p>在密码学里面，有几个角色，类似于中国的甲乙丙丁，一个是 Alice 和 Bob，这是正常通信的两个人，还有一个是 Eve，是信道上具备窃听能力的人，另外一个是 Mallory，这个人可以妨碍网络流量，主动攻击。</p>
 <h2 id="对称加密"><a href="#对称加密" class="headerlink" title="对称加密"></a>对称加密</h2><p>其实最简单的加密算法就是对称加密</p>
-<img src="/zh-CN/2018/04/26/HTTPS-%E7%9A%84%E5%85%AC%E9%92%A5%E4%BD%93%E7%B3%BB/symmetric-encryption.gif" class="" title="[symmetric encryption]">
+<img data-src="/zh-CN/2018/04/26/HTTPS-%E7%9A%84%E5%85%AC%E9%92%A5%E4%BD%93%E7%B3%BB/symmetric-encryption.gif" class="" title="[symmetric encryption]">
 
 <p>Alice 和 Bob 有一个共有的密码，也就是只有两个人拥有，相互传输的密文只能通过这个密钥解开。</p>
 <p>首先加密需要基于密钥，凯撒密码可不可以，可以是可以，但是被人知道算法以后，就可以被所有人破解，并且优秀的加密算法应该被人验证，如果不是公开的算法就没有办法验证，当然一些保守的加密方法会不公开，这样其实也很难解密，但是互联网的加密协议很显然是用在千家万户的，所以一定要是经得起推敲的加密算法。</p>
@@ -1161,7 +1297,7 @@
 <h2 id="哈希函数"><a href="#哈希函数" class="headerlink" title="哈希函数"></a>哈希函数</h2><p>哈希函数其实很熟悉了，解释一下 MAC。</p>
 <h3 id="MAC"><a href="#MAC" class="headerlink" title="MAC"></a>MAC</h3><p>MAC 是 message authetication code，是密钥的哈希函数，因为普通哈希函数，如果 Mallory 可以直接用假的数据用哈希算出结果发给 Bob，缺少身份验证，MAC 就是带密钥的哈希函数，HMAC 其实就是把密钥和消息组合在一起的协议。</p>
 <h2 id="非对称加密"><a href="#非对称加密" class="headerlink" title="非对称加密"></a>非对称加密</h2><p>非对称加密又叫做公钥加密，对称加密固然好，但是对称密钥在团体中使用的话，大家都要共享，密钥给来给去的很容易出问题。对称加密就没有这个问题，可以方便传播，对称密钥分私钥和公钥，一个用于加密一个用于解密，私钥加密的数据只能用公钥解密。公钥的出现使得密钥可以大范围传播。</p>
-<img src="/zh-CN/2018/04/26/HTTPS-%E7%9A%84%E5%85%AC%E9%92%A5%E4%BD%93%E7%B3%BB/asymmetric-encryption.gif" class="" title="[symmetric encryption]">
+<img data-src="/zh-CN/2018/04/26/HTTPS-%E7%9A%84%E5%85%AC%E9%92%A5%E4%BD%93%E7%B3%BB/asymmetric-encryption.gif" class="" title="[symmetric encryption]">
 
 <h2 id="数字签名"><a href="#数字签名" class="headerlink" title="数字签名"></a>数字签名</h2><p>数字签名主要验证消息的真实性，对消息进行验证。主要是对消息进行哈希，然后用私钥加密，追加到文档中做身份验证，这样用公钥解的开的话就能证明消息的发送者。</p>
 <h2 id="TLS-的具体协议"><a href="#TLS-的具体协议" class="headerlink" title="TLS 的具体协议"></a>TLS 的具体协议</h2><h2 id="PKI-公钥基础设施"><a href="#PKI-公钥基础设施" class="headerlink" title="PKI 公钥基础设施"></a>PKI 公钥基础设施</h2><p>PKI 主要是用来保证公钥的可信，通过中间的权威机构（CA）签发的公钥也就是证书才能被认可是合法的证书。</p>
@@ -1274,7 +1410,7 @@
 <figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">$</span><span class="bash"> nvcc -arch sm_20 hello.cu -o hello</span></span><br><span class="line"><span class="meta">$</span><span class="bash"> ./hello</span></span><br><span class="line">Hello World! from CPU</span><br><span class="line">Hello world!</span><br><span class="line">Hello world!</span><br><span class="line">Hello world!</span><br><span class="line">Hello world!</span><br><span class="line">Hello world!</span><br><span class="line">Hello world!</span><br><span class="line">Hello world!</span><br><span class="line">Hello world!</span><br><span class="line">Hello world!</span><br><span class="line">Hello world!</span><br></pre></td></tr></table></figure>
 <h2 id="CUDA"><a href="#CUDA" class="headerlink" title="CUDA"></a>CUDA</h2><p>CUDA 全称 Compute Unified Device Architecure，用于定义 GPU 的架构标准。GPU 的工作方式主要依赖于多核心的并行计算，CUDA 提供了方便的模型进行这种模式的编程，下面就会简单介绍一下 CUDA 的架构以及基于 GPU 的编程。</p>
 <p>CUDA 一次启动的线程称为网格(grid)，网格中包含块，每个块包含新程，是一个二维的模式，这张图片就说明得很清晰，首先是由 Grid 组成，然后每个 Block 有 shared memory，同 block 的线程可以访问 shared memory，不同的 Block 的线程只能访问全局的内存，这种结构也方便设计和实现并行算法。</p>
-<p><img src="https://www.researchgate.net/profile/Marco_Nobile/publication/261069154/figure/fig1/AS:296718735298563@1447754667270/Schematization-of-CUDA-architecture-Schematic-representation-of-CUDA-threads-and-memory.png" alt="cuda-arch"></p>
+<p><img data-src="https://www.researchgate.net/profile/Marco_Nobile/publication/261069154/figure/fig1/AS:296718735298563@1447754667270/Schematization-of-CUDA-architecture-Schematic-representation-of-CUDA-threads-and-memory.png" alt="cuda-arch"></p>
 <p>CUDA 的编译器 nvcc 是 gcc 的一个扩展，支持编写运行在 GPU 上的函数，其中的，<code>&lt;&lt;x, y&gt;&gt;</code> 扩展就是用来指定 block 和 thread 的数量的。</p>
 <p>比如典型的俩个向量相加的例子：</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">sumArrayOnHost</span><span class="params">(<span class="keyword">float</span> *A, <span class="keyword">float</span> *B, <span class="keyword">float</span> *C, <span class="keyword">const</span> <span class="keyword">int</span> N)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; N; i++)</span><br><span class="line">        C[i] = A[i] + B[i]</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
@@ -1290,91 +1426,12 @@
 <h3 id="线程束分化"><a href="#线程束分化" class="headerlink" title="线程束分化"></a>线程束分化</h3><p>线程束 = warp</p>
 <p>CPU 有很强的分支预测的能力，会预加载指令，如果预测正确，执行代价就很小，但是 GPU 在这方面是很弱的，因为线程束当中如果执行分支出现不同，那出现分支的线程就会被禁止执行，这也是用 GPU 做并行编程的时候需要参考的一个很重要的因素，保证并行的线程出现线程束分化的情况尽量少。</p>
 <p>下面就是线程束分化的例子。</p>
-<p><img src="http://15418.courses.cs.cmu.edu/spring2013content/lectures/02_basicarch/images/slide_030.png"></p>
+<p><img data-src="http://15418.courses.cs.cmu.edu/spring2013content/lectures/02_basicarch/images/slide_030.png"></p>
 <h3 id="并行归约问题"><a href="#并行归约问题" class="headerlink" title="并行归约问题"></a>并行归约问题</h3><p>并行归约是指如何对并行问题进行归约，比如说相邻配对和交错配对。</p>
 <h2 id="设备管理"><a href="#设备管理" class="headerlink" title="设备管理"></a>设备管理</h2><p>管理 GPU 主要是通过 CUDA API 或者 <code>nvidia-smi</code> 命令来获取。</p>
 <h2 id="SM（流式多处理器）"><a href="#SM（流式多处理器）" class="headerlink" title="SM（流式多处理器）"></a>SM（流式多处理器）</h2><p>上面讲的是抽象上的分层，但是实际的物理层面承载 GPU 的是 SM。最早的 GPU 架构叫 Fermi，然后是 Kepler，然后才是 Tesla。一般说的 <code>cm_20</code>, <code>sm_20</code> 就指这种计算能力和架构，新款的 GPU 计算能力要更强一点。</p>
 <h2 id="内存模型"><a href="#内存模型" class="headerlink" title="内存模型"></a>内存模型</h2><p>CUDA 的内存模型和 CPU 是类似的也是多级的结构。线程有局部内存，块之间有全局内存。GPU 和 CPU 都是主要采用 DRAM 来做主存，CPU 的一级缓存会用 SRAM 做。CPU 的多级缓存对用户来说不是很需要考虑，尽量屏蔽了其中的细节，但是 GPU 相对来说会把这种分级结构暴露给用户，这对编程来说也是一种新的挑战。</p>
 <h2 id="后面"><a href="#后面" class="headerlink" title="后面"></a>后面</h2><p>用 GPU 计算一些计算密集型的程序，速度是真快，比 CPU 块很多，所以这也是为什么大量深度学习的应用都要通过 GPU 加速的原因。</p>
-
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2018/01/03/%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E5%8F%8D%E5%90%91%E8%AF%AF%E5%B7%AE%E4%BC%A0%E6%92%AD/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="ggaaooppeenngg">
-      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="ggaaooppeenngg">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/zh-CN/2018/01/03/%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E5%8F%8D%E5%90%91%E8%AF%AF%E5%B7%AE%E4%BC%A0%E6%92%AD/" class="post-title-link" itemprop="url">裸写反向误差传播</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-
-              <time title="创建时间：2018-01-03 20:32:04" itemprop="dateCreated datePublished" datetime="2018-01-03T20:32:04+08:00">2018-01-03</time>
-            </span>
-              <span class="post-meta-item">
-                <span class="post-meta-item-icon">
-                  <i class="far fa-calendar-check"></i>
-                </span>
-                <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2019-07-23 23:24:30" itemprop="dateModified" datetime="2019-07-23T23:24:30+08:00">2019-07-23</time>
-              </span>
-
-          
-  
-  <span class="post-meta-item">
-    
-      <span class="post-meta-item-icon">
-        <i class="far fa-comment"></i>
-      </span>
-      <span class="post-meta-item-text">Disqus：</span>
-    
-    <a title="disqus" href="/zh-CN/2018/01/03/%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E5%8F%8D%E5%90%91%E8%AF%AF%E5%B7%AE%E4%BC%A0%E6%92%AD/#disqus_thread" itemprop="discussionUrl">
-      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2018/01/03/从零实现反向误差传播/" itemprop="commentCount"></span>
-    </a>
-  </span>
-  
-  
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <p>本文通过裸写神经网络的方法，帮助理解神经网络的工作方式，直接在 <a target="_blank" rel="noopener" href="https://www.kesci.com/apps/home/project/5a4a334225c4185a1b990d7e">klab</a> 上查看就可以。</p>
 
       
     </div>
@@ -1459,7 +1516,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">56</span>
+          <span class="site-state-item-count">57</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -1472,7 +1529,7 @@
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">93</span>
+        <span class="site-state-item-count">95</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>

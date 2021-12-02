@@ -155,7 +155,7 @@
   </li>
         <li class="menu-item menu-item-tags">
 
-    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">93</span></a>
+    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">95</span></a>
 
   </li>
         <li class="menu-item menu-item-categories">
@@ -165,7 +165,7 @@
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">56</span></a>
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">57</span></a>
 
   </li>
   </ul>
@@ -283,10 +283,10 @@
 <p>  通过循环触发Goroutine来实现np个子算组的并行运算,代码1显示了被省略的Go代码来计算Pi的积分:</p>
 <p>$$ \pi=\int_0^1 \frac{4}{1+x^2},dx $$</p>
 <p>  计算一个计算组是通过 <code>chunk(start,end int,c chan float64)</code>这个函数实现的,这个函数计算从<em>start</em>到<em>end</em>之间的矩形面积.<code>Channel c</code>则是用来在结束的时候进行同步,并且把计算组的结果送到main routine.</p>
-<img src="/zh-CN/2014/12/02/Multi-Core-Parallel-Programming-in-Go/figure2.png" class="">
+<img data-src="/zh-CN/2014/12/02/Multi-Core-Parallel-Programming-in-Go/figure2.png" class="">
 <p>图2:执行时间</p>
 <p>  主routine 通过建立运行时来开始所有在\(np\)个处理器上的Go routine,通过调用<code>rutime.GOMAXPROCS(np)</code>就可以实现.<code>make</code>语句构造了一个有np大小缓存的通道,第一个循环是通过chunk开始所有的routine,并且把通道传递进去.这些routine和main routine并发执行.</p>
-<img src="/zh-CN/2014/12/02/Multi-Core-Parallel-Programming-in-Go/figure3.png" class="">
+<img data-src="/zh-CN/2014/12/02/Multi-Core-Parallel-Programming-in-Go/figure3.png" class="">
 <p>图3:积分的加速度 </p>
 <p><code>pi+= &lt;-c</code>会执行np次,累加以获得pi的结果,在第一个<code>chunck()</code>调用的时候,通道为空,从空的通道读取会阻塞main routine.第二个循环在接受了所有routine的</p>
 <p>  结果之后终止,pi就会得到最终结果.</p>
@@ -304,24 +304,24 @@
 <p>$$ MST_{i,h} = \min_{i&lt;=r&lt;==j} (MST_{i,r-1} + MST_{r+1,h}) + \sum_{k=i}^jp_k $$</p>
 <p>  这个公式能够决定MST的最小子树的r对应的这棵树的根节点.</p>
 <p>  存储MST的结构是矩阵(n+1)X(n+1)的上三角部分,这个矩阵对应的是最小搜索时间MST的cost[n+1][n+1].特别地 MSTi,j 存储在cost[i-1][j].相似地,\(k_i,\cdots,k_j\)优化二叉搜索树的根节点存储在root[i-1][j],root是另外一个root[n+1][n+1]矩阵.时间的概率的分布存储在数组prob[n]中,\(p_i\)对应prob[i-1].</p>
-<img src="/zh-CN/2014/12/02/Multi-Core-Parallel-Programming-in-Go/figure5.png" class="">
+<img data-src="/zh-CN/2014/12/02/Multi-Core-Parallel-Programming-in-Go/figure5.png" class="">
 
 <p>图5:任务间的数据依赖.</p>
 <p>  寻找最优二叉搜索树的串行动态规划算法[7]的代码在 代码4 中展示.总得来说,这个算法计算cost[i][j](0 &lt;= i &lt;= j &lt;= n)时是需要递归使用cost[i][i],cost[i][i+1],…,cost[i][j-1]和cost[i+1][j],cost[i+2][j],…,cost[j][j]的值的.cost[i][j]的计算依赖于cost[i][j-1],cost[i+1][j]的依赖.<br>图5展示了用来计算cost[i][j]的数据结构.这是因为串行算法里面的嵌套循环从按照从下到上以及从左到右来计算cost[i][j]的,当并行化这个算法的时候,我们必须借助这个数据依赖.</p>
 <p>  原则上,我们可以构造(n+1)*(n+1)/2大小的矩阵,一个来记录cost,但是这个并行任务的粒度太小了,会使得调度和同步的代价过高,而挤占了并行计算的资源.为了能够控制并行计算的粒度,我们把任务空间切分成 vp(vp+1)/2 个块,并且把每个快分配给一个Goroutine作为一个运算单元.</p>
 <p>  在每个任务块内,Goroutine以自顶向下或者由下而上的顺序计算二维数组cost,root的一部分.为了能够实现数据块间的数据依赖,要使用channels进行同步.</p>
-<img src="/zh-CN/2014/12/02/Multi-Core-Parallel-Programming-in-Go/figure6.png" class="">
+<img data-src="/zh-CN/2014/12/02/Multi-Core-Parallel-Programming-in-Go/figure6.png" class="">
 
 <p>  图6展示了10个数据块,vp=4,数据规模n=11的一个用Gochannel同步的结果.每个点代表了数组cost的一个元素的计算称作point.任务块之间的箭头时Gochannel的同步.特别地,一个数据块左数据块和下数据块计算完毕才能够开始计算.每个任务块都有一个下标\((i,j)(0&lt;=i&lt;=j&lt;=vp-1)\).Channels能够通过发送给通道的任务块来识别.特别的,title(i,j)通过水平线上的channel \(h_{i,j}\)把信号传送给右边的title(i,j+1)(如果不是在最上面),或者通过水平的通道把信号发送到上面的title(i-1,j).在对角线上的title(i,j)(i==j)能够开始计算,因为他们没有依赖于任何其他的任务块的计算.最右上角的(vp-1,vp-1)时最后一个计算的.为了能够发送结束的信号,有另外一个finish通道用来告知main routine计算的结束.</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br></pre></td><td class="code"><pre><span class="line">var h,v [vp][vp] chan int</span><br><span class="line">var finish chan int</span><br><span class="line">..//declare other variables and constants</span><br><span class="line">func creatChan() &#123;</span><br><span class="line">	for i:=0; i &lt; vp; i++ &#123;</span><br><span class="line">		for j:=i; j &lt; vp; j++ &#123;</span><br><span class="line">			if j &lt; vp-1 &#123;h[i][j] = make(chan int, 1)&#125;</span><br><span class="line">			if i &gt; 0</span><br><span class="line">			&#123;v[i][j] = make(chan int, 1)&#125;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line">func mst(i,j int) &#123;</span><br><span class="line">	... // the same as in the sequetial code</span><br><span class="line">&#125;</span><br><span class="line">func chunk(i,j int) &#123;</span><br><span class="line">	var bb int</span><br><span class="line">	il := (i * (n+1))/vp</span><br><span class="line">	//block-low for i</span><br><span class="line">	ih := ((i+1) * (n+1))/vp - 1</span><br><span class="line">	//block-high for i</span><br><span class="line">	jl := (j * (n+1))/vp</span><br><span class="line">	//block-low for j</span><br><span class="line">	jh := ((j+1) * (n+1))/vp - 1</span><br><span class="line">	//block-high for j</span><br><span class="line">	if i &lt; j &#123;</span><br><span class="line">		// not a tile on the diagonal</span><br><span class="line">		&lt;-h[i][j-1] // receive from the left</span><br><span class="line">		&lt;-v[i+1][j] // receive from below</span><br><span class="line">	&#125;</span><br><span class="line">	for ii:=ih; ii &gt;= il; ii-- &#123;</span><br><span class="line">		if i==j &#123; bb = ii &#125; else &#123; bb = jl &#125;</span><br><span class="line">		for jj:=bb; jj &lt;= jh; jj++ &#123;</span><br><span class="line">			mst(ii,jj)</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">	if j &lt; vp-1 &#123;// not a tile on the right border</span><br><span class="line">		h[i][j] &lt;- 1</span><br><span class="line">	&#125;</span><br><span class="line">	if i &gt; 0 &#123;</span><br><span class="line">		// not a tile on the top border</span><br><span class="line">		v[i][j] &lt;- 1</span><br><span class="line">	&#125;</span><br><span class="line">	if i==0 &amp;&amp; j==vp-1 &#123;//the last tile</span><br><span class="line">		finish &lt;- 1</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line">func main() &#123;</span><br><span class="line">	...//read flags</span><br><span class="line">	runtime.GOMAXPROCS(np)</span><br><span class="line">	... //start timing</span><br><span class="line">	creatChan()</span><br><span class="line">	finish = make(chan int, 1)</span><br><span class="line">	for d:=0; d &lt; vp; d++ &#123;//sub-diagonal of j=i+d</span><br><span class="line">		for i:=0; i+d&lt;vp; i++ &#123;</span><br><span class="line">			go chunk(i, i+d)</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">	&lt;-finish</span><br><span class="line">	....//end timing</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <p>代码7 Go语言并行动态规划</p>
-<img src="/zh-CN/2014/12/02/Multi-Core-Parallel-Programming-in-Go/figure8.png" class="">
+<img data-src="/zh-CN/2014/12/02/Multi-Core-Parallel-Programming-in-Go/figure8.png" class="">
 
 <p>图8 规模2000的执行时间</p>
 <p>  我们选择设定问题规模为2000来进行实验,来保证足够大的精确测量.我们需要在八核AMD Opteron(tm)微处理器运行图7中的并行代码,改变每个维度的block的数量,从1,2,4,8,…,1024和2001.当vp越大的时候,粒度越小.vp=1对应了粒度最大的情况,没有并行,只有一个数据块.这种情况只有一个Goroutine调用,一个channel finish.<br>执行时间几乎就像串行结果一样的,不管多少处理器被利用.vp=2001的时候对应粒度最小的最大任务块,每个点都有一个.<br>图8展示了不同的vp和不同处理器np的情况下并行执行时间.对于每种vp和np的组合,我们运行5次,用单用户模式,计算平均值并放入图8中.<br>注意np=1的时候执行时间.我们能够观察到执行时间会递减,当vp从1增加到32,这是因为vp的增加创造了更多的任务块并且增加了缓存的命中率.<br>当vp从32增加到2001的时候,执行时间却反而增加了,这是因为缓存命中率降低并且过多的创建和调度Goroutine的结果导致的.<br>我们运行另一个去除所有的channel和routine调用的串行但是分块的代码(这段代码没有展示),它的执行时间近似于图8 ¨seq-tile¨ 的曲线,这个时间真正的体现了没有goroutine的时候的缓存命中率的效果.因此¨seq-tile¨和¨np=1¨之间的距离就是Go调度和调用的代价.<br>对于vp=2001,右2,003,001 个Goroutine的调用,¨np=1¨和¨seq-title¨时62.318429-43.351857=18.966572秒.因此,创建和调度Goroutin的代价对于每个处理器来说平均时\( \frac{18.966572}{2003001} = 9.46*10^{-6}\)秒,也就时9.46us.<br>np&gt;1时的多核并行执行时间是小于np=1时的运行时间.但是np=1时,有goroutine的调用和调度的开销,这在串行执行的时候并不是完全需要的.我们用分块的串行时间¨seq-time¨作为基础来计算并行计算加速度.特别的,np&gt;=1的处理器</p>
 <p>$$ S_{np}=\frac{T_{ts}}{T_{np}} $$</p>
-<img src="/zh-CN/2014/12/02/Multi-Core-Parallel-Programming-in-Go/figure9.png" class="">
+<img data-src="/zh-CN/2014/12/02/Multi-Core-Parallel-Programming-in-Go/figure9.png" class="">
 
 <p>  \(T_{ts}\)和\(T_{np}\)分别对应串行时间和使用np处理器的并行时间.图9 显示了不同任务块大小的并行运行时间和串行时间的比较.最好的加速度vp=128的时候.对于8个处理器的时候,加速度是7.70.当vp从128增加的时候,粒度减小而Goroutine调度和调用拖累了执行过程,降低了加速度.图9(a)当vp从128降低的时候,粒度增加而且没有足够的任务块,因此降低了并发度,也降低了加速度.图9(b)展示了降低了的加速度.</p>
 <p>##4 总结</p>
@@ -457,7 +457,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">56</span>
+          <span class="site-state-item-count">57</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -470,7 +470,7 @@
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">93</span>
+        <span class="site-state-item-count">95</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>

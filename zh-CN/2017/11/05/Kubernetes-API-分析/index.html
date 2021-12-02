@@ -153,7 +153,7 @@
   </li>
         <li class="menu-item menu-item-tags">
 
-    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">93</span></a>
+    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">95</span></a>
 
   </li>
         <li class="menu-item menu-item-categories">
@@ -163,7 +163,7 @@
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">56</span></a>
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">57</span></a>
 
   </li>
   </ul>
@@ -249,7 +249,7 @@
 
       
         <h2 id="kubernetes-概览"><a href="#kubernetes-概览" class="headerlink" title="kubernetes 概览"></a>kubernetes 概览</h2><p>以下是 k8s 的整体架构，在 master 节点上主要是 kube-apiserver（整合了 kube-aggregator），还有 kube-scheduler，以及 kube-controller-manager，包括后端存储 etcd。</p>
-<img src="/zh-CN/2017/11/05/Kubernetes-API-%E5%88%86%E6%9E%90/architecture.png" class="">
+<img data-src="/zh-CN/2017/11/05/Kubernetes-API-%E5%88%86%E6%9E%90/architecture.png" class="">
 
 <p>其中 kube-apiserver 是一个比较关键的部分，而且前期写得坑很多，导致这一部分虽然看起来是一个 API server 其实代码很复杂，特别冗余，而且目前对 kube-apiserver 还要做拆分，能够支持插入第三方的 apiserver，也就是又一个 aggregated apiserver 的 feature，也是和 kube-apiserver 和里面包的一层 genericserver 揉合在一起了，感觉一个大的系统 API server 越写越挫是一个通病，还好现在 k8s 迷途知返正在调整。</p>
 <h2 id="kube-apiserver"><a href="#kube-apiserver" class="headerlink" title="kube-apiserver"></a>kube-apiserver</h2><p>Kube-apiserver 可以是认为在 generic server 上封装的一层官方默认的 apiserver，有第三方需要的情况下，自己也可以在 generic server 上封装一层加入到集成模式中，这里主要介绍 kube-apiserver 的结构。</p>
@@ -260,10 +260,10 @@
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">Request Body: &#123;&quot;apiVersion&quot;:&quot;v1&quot;,&quot;kind&quot;:&quot;Pod&quot;,&quot;metadata&quot;:&#123;&quot;labels&quot;:&#123;&quot;name&quot;:&quot;ubuntu1&quot;&#125;,&quot;name&quot;:&quot;ubuntu1&quot;,&quot;namespace&quot;:&quot;default&quot;&#125;,&quot;spec&quot;:&#123;&quot;containers&quot;:[&#123;&quot;command&quot;:[&quot;sleep&quot;,&quot;1d&quot;],&quot;image&quot;:&quot;ubuntu&quot;,&quot;name&quot;:&quot;ubuntu1&quot;&#125;],&quot;schedulerName&quot;:&quot;default-scheduler&quot;&#125;&#125;</span><br><span class="line">curl -k -v -XPOST  -H &quot;Content-Type: application/json&quot; -H &quot;Accept: application/json&quot; -H &quot;User-Agent: kubectl/v1.7.5 (linux/amd64) kubernetes/17d7182&quot; https://localhost:6443/api/v1/namespaces/default/pods</span><br><span class="line">POST https://localhost:6443/api/v1/namespaces/default/pods 201 Created in 6 milliseconds</span><br><span class="line">Response Headers:</span><br><span class="line">    Content-Type: application/json</span><br><span class="line">    Content-Length: 1208</span><br><span class="line">    Date: Wed, 18 Oct 2017 15:04:17 GMT</span><br><span class="line">Response Body: &#123;&quot;kind&quot;:&quot;Pod&quot;,&quot;apiVersion&quot;:&quot;v1&quot;,&quot;metadata&quot;:&#123;&quot;name&quot;:&quot;ubuntu1&quot;,&quot;namespace&quot;:&quot;default&quot;,&quot;selfLink&quot;:&quot;/api/v1/namespaces/default/pods/ubuntu1&quot;,&quot;uid&quot;:&quot;9c9af581-b415-11e7-8033-024d1ba659e8&quot;,&quot;resourceVersion&quot;:&quot;486154&quot;,&quot;creationTimestamp&quot;:&quot;2017-10-18T15:04:17Z&quot;,&quot;labels&quot;:&#123;&quot;name&quot;:&quot;ubuntu1&quot;&#125;&#125;,&quot;spec&quot;:&#123;&quot;volumes&quot;:[&#123;&quot;name&quot;:&quot;default-token-p0980&quot;,&quot;secret&quot;:&#123;&quot;secretName&quot;:&quot;default-token-p0980&quot;,&quot;defaultMode&quot;:420&#125;&#125;],&quot;containers&quot;:[&#123;&quot;name&quot;:&quot;ubuntu1&quot;,&quot;image&quot;:&quot;ubuntu&quot;,&quot;command&quot;:[&quot;sleep&quot;,&quot;1d&quot;],&quot;resources&quot;:&#123;&#125;,&quot;volumeMounts&quot;:[&#123;&quot;name&quot;:&quot;default-token-p0980&quot;,&quot;readOnly&quot;:true,&quot;mountPath&quot;:&quot;/var/run/secrets/kubernetes.io/serviceaccount&quot;&#125;],&quot;terminationMessagePath&quot;:&quot;/dev/termination-log&quot;,&quot;terminationMessagePolicy&quot;:&quot;File&quot;,&quot;imagePullPolicy&quot;:&quot;Always&quot;&#125;],&quot;restartPolicy&quot;:&quot;Always&quot;,&quot;terminationGracePeriodSeconds&quot;:30,&quot;dnsPolicy&quot;:&quot;ClusterFirst&quot;,&quot;serviceAccountName&quot;:&quot;default&quot;,&quot;serviceAccount&quot;:&quot;default&quot;,&quot;securityContext&quot;:&#123;&#125;,&quot;schedulerName&quot;:&quot;default-scheduler&quot;,&quot;tolerations&quot;:[&#123;&quot;key&quot;:&quot;node.kubernetes.io/not-ready&quot;,&quot;operator&quot;:&quot;Exists&quot;,&quot;effect&quot;:&quot;NoExecute&quot;,&quot;tolerationSeconds&quot;:300&#125;,&#123;&quot;key&quot;:&quot;node.alpha.kubernetes.io/unreachable&quot;,&quot;operator&quot;:&quot;Exists&quot;,&quot;effect&quot;:&quot;NoExecute&quot;,&quot;tolerationSeconds&quot;:300&#125;]&#125;,&quot;status&quot;:&#123;&quot;phase&quot;:&quot;Pending&quot;,&quot;qosClass&quot;:&quot;BestEffort&quot;&#125;&#125;</span><br></pre></td></tr></table></figure>
 
 <p>从 url path 里面可以看到几个划分，path 的分类大概有下面这几种。</p>
-<img src="/zh-CN/2017/11/05/Kubernetes-API-%E5%88%86%E6%9E%90/api-path.png" class="">
+<img data-src="/zh-CN/2017/11/05/Kubernetes-API-%E5%88%86%E6%9E%90/api-path.png" class="">
 
 <p>路径上整体分成 group, version, resource, 作为核心 API group 的 core（包括 pod, node 之类的 resource)，不带 group，直接接在 /api/ 后面，其他的 api group 则接在 /apis 后面。以 pod 为例，pod 对应的数据类型如下，这个数据结构和 POST 请求中的结构的参数是一致的。</p>
-<img src="/zh-CN/2017/11/05/Kubernetes-API-%E5%88%86%E6%9E%90/pod.png" class="">
+<img data-src="/zh-CN/2017/11/05/Kubernetes-API-%E5%88%86%E6%9E%90/pod.png" class="">
 
 <p>如果是 job 的话则是在，<code>pkg/apis/batch/v2alpha1/types.go</code>，和 API 路径是对应的。例子当中 <code>kubectl</code> 加上 level 大于 8 的 log 就会打印请求和相应的 body，可以看到 request body 和上面的数据结构是一致的。这个请求会发送到 apiserver 进行处理并且返回存储之后的 pod。</p>
 <h3 id="重要结构体"><a href="#重要结构体" class="headerlink" title="重要结构体"></a>重要结构体</h3><h4 id="Config"><a href="#Config" class="headerlink" title="Config"></a>Config</h4><p>父结构，主要的配置内容，其中有一个结构 <code>RESTOptionsGetter genericregistry.RESTOptionsGetter</code> 是和 API 初始化相关的，这个接口的实现是在 <code>k8s.io/apiserver/pkg/server/options/etcd.go</code> 中的 <code>storageFactoryRestOptionsFactory</code> 实现的，对应的实现函数是</p>
@@ -271,7 +271,7 @@
 
 
 
-<h4 id="APIGroupInfo"><a href="#APIGroupInfo" class="headerlink" title="APIGroupInfo"></a>APIGroupInfo</h4><img src="/zh-CN/2017/11/05/Kubernetes-API-%E5%88%86%E6%9E%90/APIGroupInfo.png" class="">
+<h4 id="APIGroupInfo"><a href="#APIGroupInfo" class="headerlink" title="APIGroupInfo"></a>APIGroupInfo</h4><img data-src="/zh-CN/2017/11/05/Kubernetes-API-%E5%88%86%E6%9E%90/APIGroupInfo.png" class="">
 
 <p>APIGroupInfo 主要定义了一个 API 组的相关信息，观察一下 APIGroupInfo 是如何初始化的。</p>
 <p>在 <code>k8s.io/pkg/master/master.go</code> 当中，每个 Resource 都要提供自己的 Provider，比如说 <code>storagerest</code> 就在 <code>k8s.io/kubernetes/pkg/registry/storage/rest/storage_storage.go </code> 定义了 <code>NewRESTStorage</code> 方法。而默认的 resource 的 legacy provider 单独处理。</p>
@@ -309,7 +309,7 @@
 
 <p>handler 里面做的内容就是序列化，然后根据具体的要求（GET DELETE 等）到 etcd 中操作，当然本身还有一层缓存，这取决于 API 的 options 是希望更新还是直接读缓存（缓存会比 etcd 旧一些），比如对于 kubelet 会不断查询 node 信息，但是 kubelet 本身并不需要最新的信息，这个时候就会从缓存中读取。</p>
 <h3 id="性能调优"><a href="#性能调优" class="headerlink" title="性能调优"></a>性能调优</h3><p>开启代理 <code>kubectl proxy</code>，就可以通过 localhost 直接访问 kube-apiserver HTTP 服务。然后执行 <code>go tool pprof http://localhost:8001/debug/pprof/profile</code> 可以获得 profile 结果，下图红色的部分就是调用耗时最多的部分。</p>
-<img src="/zh-CN/2017/11/05/Kubernetes-API-%E5%88%86%E6%9E%90/prof.png" class="">
+<img data-src="/zh-CN/2017/11/05/Kubernetes-API-%E5%88%86%E6%9E%90/prof.png" class="">
 
 <p>除此之外，kube-apiserver 本身也暴露了很多 prometheus 的 metrics 但是往上现在没有现成的模板，只能根据自己的需求来在 prometheus 当作做 query。可以在 <code>k8s.io/apiserver/pkg/endpoints/metrics/metrics.go</code> 里面看到。</p>
 <p>之前也说过，超时间调用时会打 log 的，在代码中保存了一些 trace 日志，可以通过 <code>grep Trace</code>来过滤。Trace[%d] 这样开头, %d 是一个 id 可以看到具体的 trace 信息。</p>
@@ -437,7 +437,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">56</span>
+          <span class="site-state-item-count">57</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -450,7 +450,7 @@
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">93</span>
+        <span class="site-state-item-count">95</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
