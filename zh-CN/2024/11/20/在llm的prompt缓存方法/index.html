@@ -31,7 +31,7 @@
 <meta property="og:description" content="Prompt缓存可以从两个角度来处理： 基于相似度的外部缓存一种是对提示词和结果做相似性对比，对结果缓存，这一部分可以在外部来做，例如 langchain的 llm caching。具体实现方法包括：  向量化存储：  将prompt转换为向量表示 使用向量数据库（如FAISS、Milvus等）存储 通过向量相似度检索相近的历史prompt   模糊匹配：  使用编辑距离等算法计算文本相似度 设置">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2024-11-20T06:08:26.000Z">
-<meta property="article:modified_time" content="2024-11-20T06:29:52.425Z">
+<meta property="article:modified_time" content="2024-11-21T06:41:15.298Z">
 <meta property="article:author" content="ggaaooppeenngg">
 <meta property="article:tag" content="LLM">
 <meta property="article:tag" content="promt">
@@ -209,10 +209,16 @@
                 <i class="far fa-calendar"></i>
               </span>
               <span class="post-meta-item-text">发表于</span>
-              
 
-              <time title="创建时间：2024-11-20 14:08:26 / 修改时间：14:29:52" itemprop="dateCreated datePublished" datetime="2024-11-20T14:08:26+08:00">2024-11-20</time>
+              <time title="创建时间：2024-11-20 14:08:26" itemprop="dateCreated datePublished" datetime="2024-11-20T14:08:26+08:00">2024-11-20</time>
             </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2024-11-21 14:41:15" itemprop="dateModified" datetime="2024-11-21T14:41:15+08:00">2024-11-21</time>
+              </span>
 
           
   
@@ -297,7 +303,17 @@
 <p>值得注意的是，KV Cache中的Key和Value都包含了位置编码信息。这意味着要充分发挥prompt缓存的作用，需要确保提示词保持相同的前缀结构。如果提示词的位置发生变化，即使内容相同，对应的KV值也会不同。</p>
 <p>具体来说，当两次不同的推理过程中，如果prompt具有相同的提示词前缀，那么这部分的KV计算结果是完全一致的，因此可以直接复用之前推理过程中的KV cache，从而提高推理效率。</p>
 <p>最近有一个有趣的<a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2311.04934">论文</a>：通过使用DSL（领域特定语言）来描述prompt结构，可以更精确地控制位置编码。这种方法不仅能够缓存相同的前缀，还支持缓存相同的后缀，同时允许中间部分灵活变动，进一步提升了缓存的效率。但我个人感觉比较难用，等于给本来很灵活的prompt套上了一层结构化的描述语言，这种结构化的语言如果是一些GPT应用的开发有固定模式可能还好，但是通用场景下很难让用户能够用得起来这么专业的描述语言。</p>
-
+<p>像RAG系统中的文档检索结果和固定的记忆上下文，都非常适合作为”提示词前缀”，这样可以更好地利用KV Cache机制。</p>
+<p>在设计prompt结构时，我们应该按照内容的变化频率来排序，将越”稳定”的部分放在越前面的位置：</p>
+<ol>
+<li>系统提示词（System Prompt）：基本保持不变</li>
+<li>个人记忆（Memory）：对特定用户来说相对稳定</li>
+<li>RAG检索内容（Context）：根据查询动态变化</li>
+<li>对话历史（History）：随交互持续更新</li>
+<li>用户输入（User Input）：每次都不同</li>
+</ol>
+<p>这种由稳定到动态的排序结构可以最大化KV Cache的复用效果：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">System: 你是一个专业的助手。请基于以下上下文回答问题。</span><br><span class="line">Memory: &#123;personal_memory_context&#125;</span><br><span class="line">Context: &#123;retrieved_documents&#125;</span><br><span class="line">History: &#123;chat_history&#125;</span><br><span class="line">User: &#123;user_question&#125;</span><br></pre></td></tr></table></figure>
     </div>
 
     
