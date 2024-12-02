@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="_85tctgPWrqH2EPVuuD5IT6KE-tW8nH0hTISJDMnShg">
+  <meta name="baidu-site-verification" content="bb16c5b1fd3302c18e0015bef11eea42">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"ggaaooppeenngg.github.io","root":"/","scheme":"Mist","version":"7.8.0","exturl":false,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":true,"scrollpercent":true},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="Knative主要有两个重要的部分，一个是自动扩展一个是流量切换，并且目前的设计已经和istio是相对独立的了。 Knative的service和k8s的service容易混淆，所以用sks指代knative的service，然后service本身是指k8s本身的service。 sks的revision创建的时候会有两个service，一个是 public service，一个是 private">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Knative 架构分析">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2021/12/02/Knative-%E6%9E%B6%E6%9E%84%E5%88%86%E6%9E%90/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="Knative主要有两个重要的部分，一个是自动扩展一个是流量切换，并且目前的设计已经和istio是相对独立的了。 Knative的service和k8s的service容易混淆，所以用sks指代knative的service，然后service本身是指k8s本身的service。 sks的revision创建的时候会有两个service，一个是 public service，一个是 private">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2021-12-02T06:25:51.000Z">
+<meta property="article:modified_time" content="2021-12-02T06:25:51.660Z">
+<meta property="article:author" content="ggaaooppeenngg">
+<meta property="article:tag" content="knative">
+<meta property="article:tag" content="serverless">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2021/12/02/Knative-%E6%9E%B6%E6%9E%84%E5%88%86%E6%9E%90/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Knative 架构分析 | ggaaooppeenngg</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-62096626-1"></script>
+    <script>
+      if (CONFIG.hostname === location.hostname) {
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'UA-62096626-1');
+      }
+    </script>
+
+
+  <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?bb16c5b1fd3302c18e0015bef11eea42";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+  </script>
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">ggaaooppeenngg</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">为什么计算机科学是无限的但生命是有限的</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">112</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">14</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">63</span></a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2021/12/02/Knative-%E6%9E%B6%E6%9E%84%E5%88%86%E6%9E%90/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Knative 架构分析
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-12-02 14:25:51" itemprop="dateCreated datePublished" datetime="2021-12-02T14:25:51+08:00">2021-12-02</time>
+            </span>
+
+          
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2021/12/02/Knative-%E6%9E%B6%E6%9E%84%E5%88%86%E6%9E%90/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2021/12/02/Knative-架构分析/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>Knative主要有两个重要的部分，一个是自动扩展一个是流量切换，并且目前的设计已经和istio是相对独立的了。</p>
+<p>Knative的service和k8s的service容易混淆，所以用sks指代knative的service，然后service本身是指k8s本身的service。</p>
+<p>sks的revision创建的时候会有两个service，一个是 public service，一个是 private service，如果用istio的话会看到一个和ingressgateway关联的有externalname的service，这个service是和ingress实现相关的。主要的实现还是public和private两个service，实现和具体的ingress的实现是独立的。</p>
+<p>Private service 对应的是真实的pod的endpoints，public service 有两种模式一个serve模式，一个是proxy模式。当public service出于proxy模式时，其endpoints指向的是activator，当处于serve模式时endpoints指向的是private service所指向的后端endpoints。</p>
+<p>在scale从0到1的过程中，会先阻塞在activator上，当有pod启动以后，还是会保持proxy模式，直到超过burst才会切换到private service的endpoints上。在从1到0的过程中会再切换回activator，直到有新的请求到来再触发pod的启动。</p>
+<h2 id="activator"><a href="#activator" class="headerlink" title="activator"></a>activator</h2><p>Throttler</p>
+<blockquote>
+<p>Throttler is the interface that Handler calls to Try to proxy the user request</p>
+</blockquote>
+<p>Health Handler 注册用于 kubelet 做 readiness 和 health probe 的接口，返回statSink的状态，收到 signal term 的时候就开始返回500。</p>
+<p>Network probe handler<br>knative组件用来 probe 的接口，在header里面会有区分。</p>
+<p>Context handler<br>把header中的revision的name和namespace注入的context当中</p>
+<p>Metric Handler<br>收集request的qps等metrics的信息。</p>
+<p>Log Handler<br>请求日志</p>
+<p>Tracing Handler<br>Trace spans</p>
+<p>Cocurrency report Handler</p>
+<p>记录请求信息，这些信息会被reporter上报</p>
+<p>Activator handler</p>
+<p>过一层 throttler 进行proxy，如果没受限制就会proxy request。</p>
+<p>Throttler 会根据revID创建一个throttler，revision如果存在的话就会创建throttler。（revision肯定是一直在的哪怕没有起pod）如果超过revision的并发数就会退出。</p>
+<p>Throttler 会try对应的revisionThrottler的pods然后转发过去。</p>
+<h2 id="controller"><a href="#controller" class="headerlink" title="controller"></a>controller</h2><p>Controller 主要是对用户使用的几个CRD的同步：Service、Route、Revision、Configuration。</p>
+<h2 id="net-istio"><a href="#net-istio" class="headerlink" title="net-istio"></a>net-istio</h2><p>Ingress 的一种实现</p>
+<p>internal 的 ingress创建一个 ingress virtualservice 并且将gate指定为isito-gateway，其他的ingress实现其实类似，只是目前没有traefik的支持。knative有没有istio现在是没啥区别了。</p>
+<h2 id="domain-mappings"><a href="#domain-mappings" class="headerlink" title="domain mappings"></a>domain mappings</h2><p>一个用于扩展域名的CRD DomainClaim，会根据domainclaim创建一个ingress。</p>
+<h2 id="queue-proxy"><a href="#queue-proxy" class="headerlink" title="queue-proxy"></a>queue-proxy</h2><p>tracing metrics breaker 都是正常操作。本质是个sidecar层面的反向代理。</p>
+<p>Metrcis</p>
+<p>Admin</p>
+<p>有一个给cocurrency endpoint发 paused 和 resumed 的回调。</p>
+<p>Main</p>
+<p>Proxy handler 收集 request in 和 request out。</p>
+<h2 id="自定义默认域名的问题"><a href="#自定义默认域名的问题" class="headerlink" title="自定义默认域名的问题"></a>自定义默认域名的问题</h2><p>kubectl get  cm config-network -n knative-serving -o yaml 可以看到默认的模板去修改他</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">domain-template: &quot;&#123;&#123;.Name&#125;&#125;.&#123;&#123;.Namespace&#125;&#125;.&#123;&#123;.Domain&#125;&#125;&quot;</span><br></pre></td></tr></table></figure>
+
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/knative/" rel="tag"># knative</a>
+              <a href="/tags/serverless/" rel="tag"># serverless</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/zh-CN/2021/10/26/Go%E7%9A%84WASM%E8%BF%90%E8%A1%8C%E6%97%B6/" rel="prev" title="Go的WASM运行时">
+      <i class="fa fa-chevron-left"></i> Go的WASM运行时
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/zh-CN/2022/09/06/%E4%BD%BF%E7%94%A8ebpf%E5%AF%B9oomkill%E8%BF%9B%E8%A1%8C%E6%8E%A2%E6%B5%8B/" rel="next" title="使用ebpf对oomkill进行探测">
+      使用ebpf对oomkill进行探测 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    
+  <div class="comments">
+    <div id="disqus_thread">
+      <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+    </div>
+  </div>
+  
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#activator"><span class="nav-number">1.</span> <span class="nav-text">activator</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#controller"><span class="nav-number">2.</span> <span class="nav-text">controller</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#net-istio"><span class="nav-number">3.</span> <span class="nav-text">net-istio</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#domain-mappings"><span class="nav-number">4.</span> <span class="nav-text">domain mappings</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#queue-proxy"><span class="nav-number">5.</span> <span class="nav-text">queue-proxy</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%87%AA%E5%AE%9A%E4%B9%89%E9%BB%98%E8%AE%A4%E5%9F%9F%E5%90%8D%E7%9A%84%E9%97%AE%E9%A2%98"><span class="nav-number">6.</span> <span class="nav-text">自定义默认域名的问题</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">63</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">14</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">112</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/ggaaooppeenngg" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;ggaaooppeenngg" rel="noopener" target="_blank"><i class="github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:peng.gao.dut@gmail.com" title="E-Mail → mailto:peng.gao.dut@gmail.com" rel="noopener" target="_blank"><i class="envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2024</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://mist.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+  <script>
+    (function(){
+      var canonicalURL, curProtocol;
+      //Get the <link> tag
+      var x=document.getElementsByTagName("link");
+		//Find the last canonical URL
+		if(x.length > 0){
+			for (i=0;i<x.length;i++){
+				if(x[i].rel.toLowerCase() == 'canonical' && x[i].href){
+					canonicalURL=x[i].href;
+				}
+			}
+		}
+    //Get protocol
+	    if (!canonicalURL){
+	    	curProtocol = window.location.protocol.split(':')[0];
+	    }
+	    else{
+	    	curProtocol = canonicalURL.split(':')[0];
+	    }
+      //Get current URL if the canonical URL does not exist
+	    if (!canonicalURL) canonicalURL = window.location.href;
+	    //Assign script content. Replace current URL with the canonical URL
+      !function(){var e=/([http|https]:\/\/[a-zA-Z0-9\_\.]+\.baidu\.com)/gi,r=canonicalURL,t=document.referrer;if(!e.test(r)){var n=(String(curProtocol).toLowerCase() === 'https')?"https://sp0.baidu.com/9_Q4simg2RQJ8t7jm9iCKT-xh_/s.gif":"//api.share.baidu.com/s.gif";t?(n+="?r="+encodeURIComponent(document.referrer),r&&(n+="&l="+r)):r&&(n+="?l="+r);var i=new Image;i.src=n}}(window);})();
+  </script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+<script>
+  function loadCount() {
+    var d = document, s = d.createElement('script');
+    s.src = 'https://ggaaooppeenngg.disqus.com/count.js';
+    s.id = 'dsq-count-scr';
+    (d.head || d.body).appendChild(s);
+  }
+  // defer loading until the whole page loading is completed
+  window.addEventListener('load', loadCount, false);
+</script>
+<script>
+  var disqus_config = function() {
+    this.page.url = "https://ggaaooppeenngg.github.io/zh-CN/2021/12/02/Knative-%E6%9E%B6%E6%9E%84%E5%88%86%E6%9E%90/";
+    this.page.identifier = "zh-CN/2021/12/02/Knative-架构分析/";
+    this.page.title = "Knative 架构分析";
+    };
+  NexT.utils.loadComments(document.querySelector('#disqus_thread'), () => {
+    if (window.DISQUS) {
+      DISQUS.reset({
+        reload: true,
+        config: disqus_config
+      });
+    } else {
+      var d = document, s = d.createElement('script');
+      s.src = 'https://ggaaooppeenngg.disqus.com/embed.js';
+      s.setAttribute('data-timestamp', '' + +new Date());
+      (d.head || d.body).appendChild(s);
+    }
+  });
+</script>
+
+</body>
+</html>
