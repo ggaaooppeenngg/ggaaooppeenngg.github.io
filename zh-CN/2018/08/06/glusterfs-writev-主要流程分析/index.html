@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="_85tctgPWrqH2EPVuuD5IT6KE-tW8nH0hTISJDMnShg">
+  <meta name="baidu-site-verification" content="bb16c5b1fd3302c18e0015bef11eea42">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"ggaaooppeenngg.github.io","root":"/","scheme":"Mist","version":"7.8.0","exturl":false,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":true,"scrollpercent":true},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="glusterfs 主要有以下几个组件  gluster 命令行。 glusterd 管理进程。 glusterfsd 服务进程。 glusterfs 客户端 fuse 进程。  glusterfs 是靠 translator   做分层设计的，类似于可插拔的模块的概念，对应的结构体是 xlator_t，因为是 C 写的，一些面向的对象的写法也是通过 xlator 实现的，可以理解 xlator">
+<meta property="og:type" content="article">
+<meta property="og:title" content="glusterfs writev 的主要流程单分析">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2018/08/06/glusterfs-writev-%E4%B8%BB%E8%A6%81%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="glusterfs 主要有以下几个组件  gluster 命令行。 glusterd 管理进程。 glusterfsd 服务进程。 glusterfs 客户端 fuse 进程。  glusterfs 是靠 translator   做分层设计的，类似于可插拔的模块的概念，对应的结构体是 xlator_t，因为是 C 写的，一些面向的对象的写法也是通过 xlator 实现的，可以理解 xlator">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2018/08/06/glusterfs-writev-%E4%B8%BB%E8%A6%81%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/translator.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2018/08/06/glusterfs-writev-%E4%B8%BB%E8%A6%81%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/overallprocess.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2018/08/06/glusterfs-writev-%E4%B8%BB%E8%A6%81%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/stack.png">
+<meta property="article:published_time" content="2018-08-05T18:14:41.000Z">
+<meta property="article:modified_time" content="2019-07-23T15:24:30.441Z">
+<meta property="article:author" content="ggaaooppeenngg">
+<meta property="article:tag" content="文件系统">
+<meta property="article:tag" content="glusterfs">
+<meta property="article:tag" content="分布式文件系统">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://ggaaooppeenngg.github.io/zh-CN/2018/08/06/glusterfs-writev-%E4%B8%BB%E8%A6%81%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/translator.png">
+
+<link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2018/08/06/glusterfs-writev-%E4%B8%BB%E8%A6%81%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>glusterfs writev 的主要流程单分析 | ggaaooppeenngg</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-62096626-1"></script>
+    <script>
+      if (CONFIG.hostname === location.hostname) {
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'UA-62096626-1');
+      }
+    </script>
+
+
+  <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?bb16c5b1fd3302c18e0015bef11eea42";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+  </script>
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">ggaaooppeenngg</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">为什么计算机科学是无限的但生命是有限的</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">115</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">14</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">65</span></a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2018/08/06/glusterfs-writev-%E4%B8%BB%E8%A6%81%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          glusterfs writev 的主要流程单分析
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2018-08-06 02:14:41" itemprop="dateCreated datePublished" datetime="2018-08-06T02:14:41+08:00">2018-08-06</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2019-07-23 23:24:30" itemprop="dateModified" datetime="2019-07-23T23:24:30+08:00">2019-07-23</time>
+              </span>
+
+          
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2018/08/06/glusterfs-writev-%E4%B8%BB%E8%A6%81%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2018/08/06/glusterfs-writev-主要流程分析/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>glusterfs 主要有以下几个组件</p>
+<ul>
+<li>gluster 命令行。</li>
+<li>glusterd 管理进程。</li>
+<li>glusterfsd 服务进程。</li>
+<li>glusterfs 客户端 fuse 进程。</li>
+</ul>
+<p><code>glusterfs</code> 是靠 <code>translator  </code> 做分层设计的，类似于可插拔的模块的概念，对应的结构体是 <code>xlator_t</code>，因为是 C 写的，一些面向的对象的写法也是通过 <code>xlator</code> 实现的，可以理解 <code>xlator</code> 是类，具体的实现是对象。比如 <code>protocol/client</code> 是最后的 <code>xlator</code> 从客户端发送到网络，对应的 <code>storage/posix</code> 是服务端接受的最后一层交给服务器上的文件系统。每个  <code>xlator</code> 都会编译成一个单独的 .so 文件。通过指定配置文件可以把不同的 <code>xlator</code> 进行组装，加载 .so 以后，通过<code>dlsym</code> 查找 <code>xlator</code> 的符号（函数表），相当于获取 <code>xlator</code> 的公开接口。配置文件中的 <code>volume</code> 和 <code>subvolume</code> 对应了 <code>xlator</code> 的组织关系。</p>
+<p>volfile 会配置在 <code>/var/lib/glusterd/vols/</code> 下面，对应的文件名是 volfile-id 选项指定的。<code>xlator_t</code> 定义在 <code>libglusterfs/src/xlator.h</code> 里面。下面这张图就可以看到各个 translator 的关系。</p>
+<p>glusterfsd 最开始是 <code>protocol/server</code> 最后是 <code>storage/posix</code> 两个 xlator 作为开头和结束。</p>
+<p>glusterfs (client) 是以<code>protocol/client</code> 结尾。</p>
+<img data-src="/zh-CN/2018/08/06/glusterfs-writev-%E4%B8%BB%E8%A6%81%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/translator.png" class="">
+
+<blockquote>
+<p>那个 write-behind 应该对应的是缓存策略里面的 write back，异步写，而不是直写。</p>
+</blockquote>
+<p>这种设计的好处是方便扩展，你只要填补 <code>xlator</code> 的实现，编译成 .so ，放到链接目录下面，就可以加载进去，不用改整个 glusterfs 的代码。</p>
+<p>glusterfs 的整个应用的结构也可以看一下。</p>
+<img data-src="/zh-CN/2018/08/06/glusterfs-writev-%E4%B8%BB%E8%A6%81%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/overallprocess.png" class="">
+
+<p>用户态是 fuse 实现的文件系统，通过网络协议走到 server，server 本身用的是本地的文件系统，glusterfs 推荐使用 xfs。</p>
+<p>下面举个详细的例子。</p>
+<p>以 <code>writev</code> 举例，（write 的本质也是 writev，这里的 v 指的是内存向量，写的时候用链表表示的内存向量可以减少内存的拷贝，因为要分配一段连续的内存，然后拷到一起很没有效率，而且系统调用本身也支持这个系统调用，走到底层是硬件支持的，硬件不支持，也能 hook 帮你再拷贝到一起，但上层就不用管这些细节了），他们的调用关系通过 <code>STACK_WIND</code> 和 <code>STACK_UNWIND</code> 实现，对于所有的 xlator 的 op 都是这种调用关系，本身一层结束以后通过调用 <code>STACK_WIND</code> 调用下一层对应的 op，然后在调用完成之后通过 <code>STACK_UNWIND</code> 回调 op_cbk，并且这种调用关系是树状的。</p>
+<img data-src="/zh-CN/2018/08/06/glusterfs-writev-%E4%B8%BB%E8%A6%81%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/stack.png" class="">
+
+<p>这张图解释挺好的，说明了 xlator 向下传递的过程，通过 <code>STACK_WIND</code> 调用下一层，通过 <code>STACK_UNWIND</code> 调用上一层的 cbk。</p>
+<p><code>glusterfsd</code> 每个 volume 都会起一个线程来处理。</p>
+<p><code>./xlators/mount/fuse/src/fuse-bridge.c</code> 下面是 <code>fuse</code> 的接口，这是客户端的入口，作为文件系统的“桥接点”，大概是为什么叫 bridge 的原因吧。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">static</span> <span class="keyword">fuse_handler_t</span> *fuse_std_ops[FUSE_OP_HIGH] = &#123;</span><br><span class="line">        [FUSE_LOOKUP]      = fuse_lookup,</span><br><span class="line">        [FUSE_FORGET]      = fuse_forget,</span><br><span class="line">        [FUSE_GETATTR]     = fuse_getattr,</span><br><span class="line">        [FUSE_SETATTR]     = fuse_setattr,</span><br><span class="line">        [FUSE_READLINK]    = fuse_readlink,</span><br><span class="line">        [FUSE_SYMLINK]     = fuse_symlink,</span><br><span class="line">        [FUSE_MKNOD]       = fuse_mknod,</span><br><span class="line">        [FUSE_MKDIR]       = fuse_mkdir,</span><br><span class="line">        [FUSE_UNLINK]      = fuse_unlink,</span><br><span class="line">        [FUSE_RMDIR]       = fuse_rmdir,</span><br><span class="line">        [FUSE_RENAME]      = fuse_rename,</span><br><span class="line">        [FUSE_LINK]        = fuse_link,</span><br><span class="line">        [FUSE_OPEN]        = fuse_open,</span><br><span class="line">        [FUSE_READ]        = fuse_readv,</span><br><span class="line">        [FUSE_WRITE]       = fuse_write,</span><br><span class="line">        [FUSE_STATFS]      = fuse_statfs,</span><br><span class="line">        [FUSE_RELEASE]     = fuse_release,</span><br><span class="line">        [FUSE_FSYNC]       = fuse_fsync,</span><br></pre></td></tr></table></figure>
+
+<p>看一下  <code>fuse_write</code>，传了一个 <code>xlator_t</code> ，这个东西是 <code>glusterfs</code> 的分层设计的核心，每个 <code>fuse_in_header_t</code>  和 <code>msg</code> 还有 <code>iobuf</code> 都是 fuse 的 API。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">static</span> <span class="keyword">void</span></span></span><br><span class="line"><span class="function"><span class="title">fuse_write</span> <span class="params">(<span class="keyword">xlator_t</span> *<span class="keyword">this</span>, <span class="keyword">fuse_in_header_t</span> *finh, <span class="keyword">void</span> *msg,</span></span></span><br><span class="line"><span class="params"><span class="function">            struct iobuf *iobuf)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">        <span class="comment">/* WRITE is special, metadata is attached to in_header,</span></span><br><span class="line"><span class="comment">         * and msg is the payload as-is.</span></span><br><span class="line"><span class="comment">         */</span></span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">fuse_write_in</span> *<span class="title">fwi</span> =</span> (struct fuse_write_in *)</span><br><span class="line">                                      (finh + <span class="number">1</span>);</span><br><span class="line"></span><br><span class="line">        <span class="keyword">fuse_state_t</span>    *state = <span class="literal">NULL</span>;</span><br><span class="line">        <span class="keyword">fd_t</span>            *fd = <span class="literal">NULL</span>;</span><br><span class="line"><span class="meta">#<span class="meta-keyword">if</span> FUSE_KERNEL_MINOR_VERSION &gt;= 9</span></span><br><span class="line">        <span class="keyword">fuse_private_t</span>  *priv = <span class="literal">NULL</span>;</span><br><span class="line">        priv = <span class="keyword">this</span>-&gt;<span class="keyword">private</span>;</span><br><span class="line"><span class="meta">#<span class="meta-keyword">endif</span></span></span><br><span class="line"></span><br><span class="line">        GET_STATE (<span class="keyword">this</span>, finh, state);</span><br><span class="line">        fd          = FH_TO_FD (fwi-&gt;fh);</span><br><span class="line">        state-&gt;fd   = fd;</span><br><span class="line">        state-&gt;size = fwi-&gt;size;</span><br><span class="line">        state-&gt;off  = fwi-&gt;offset;</span><br><span class="line"></span><br><span class="line">        <span class="comment">/* lets ignore &#x27;fwi-&gt;write_flags&#x27;, but just consider &#x27;fwi-&gt;flags&#x27; */</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">if</span> FUSE_KERNEL_MINOR_VERSION &gt;= 9</span></span><br><span class="line">        state-&gt;io_flags = fwi-&gt;flags;</span><br><span class="line"><span class="meta">#<span class="meta-keyword">else</span></span></span><br><span class="line">        state-&gt;io_flags = fwi-&gt;write_flags;</span><br><span class="line"><span class="meta">#<span class="meta-keyword">endif</span></span></span><br><span class="line">        <span class="comment">/* <span class="doctag">TODO:</span> may need to handle below flag</span></span><br><span class="line"><span class="comment">           (fwi-&gt;write_flags &amp; FUSE_WRITE_CACHE);</span></span><br><span class="line"><span class="comment">        */</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line">        fuse_resolve_fd_init (state, &amp;state-&gt;resolve, fd);</span><br><span class="line"></span><br><span class="line">        <span class="comment">/* See comment by similar code in fuse_settatr */</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">if</span> FUSE_KERNEL_MINOR_VERSION &gt;= 9</span></span><br><span class="line">        priv = <span class="keyword">this</span>-&gt;<span class="keyword">private</span>;</span><br><span class="line">        <span class="keyword">if</span> (priv-&gt;proto_minor &gt;= <span class="number">9</span> &amp;&amp; fwi-&gt;write_flags &amp; FUSE_WRITE_LOCKOWNER)</span><br><span class="line">                state-&gt;lk_owner = fwi-&gt;lock_owner;</span><br><span class="line"><span class="meta">#<span class="meta-keyword">endif</span></span></span><br><span class="line"></span><br><span class="line">        state-&gt;<span class="built_in">vector</span>.iov_base = msg;</span><br><span class="line">        state-&gt;<span class="built_in">vector</span>.iov_len  = fwi-&gt;size;</span><br><span class="line">        state-&gt;iobuf = iobuf;</span><br><span class="line"></span><br><span class="line">        fuse_resolve_and_resume (state, fuse_write_resume);</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>首先是传入了写入文件的描述符，要写的内存的段的地址和大小，iobuf 这个结构体和内核里的 iobuf 是查不多的。然后进到 <code>fuse_resolve_and_resume</code>，这个函数主要是解析一些文件的元数据，并且返回到 <code>writev_resume</code> 这个回调函数上，解析的函数在 <code>./xlators/mount/fuse/src/fuse-resolve.c</code> 下面，这整个是个状态机的写法，主要是解析 fd，父路径，inode 等信息。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">static</span> <span class="keyword">int</span></span></span><br><span class="line"><span class="function"><span class="title">fuse_resolve</span> <span class="params">(<span class="keyword">fuse_state_t</span> *state)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">        <span class="keyword">fuse_resolve_t</span>   *resolve = <span class="literal">NULL</span>;</span><br><span class="line"></span><br><span class="line">        resolve = state-&gt;resolve_now;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (resolve-&gt;fd) &#123;</span><br><span class="line"></span><br><span class="line">                fuse_resolve_fd (state);</span><br><span class="line"></span><br><span class="line">        &#125; <span class="keyword">else</span> <span class="keyword">if</span> (!gf_uuid_is_null (resolve-&gt;pargfid)) &#123;</span><br><span class="line"></span><br><span class="line">                fuse_resolve_parent (state);</span><br><span class="line"></span><br><span class="line">        &#125; <span class="keyword">else</span> <span class="keyword">if</span> (!gf_uuid_is_null (resolve-&gt;gfid)) &#123;</span><br><span class="line"></span><br><span class="line">                fuse_resolve_inode (state);</span><br><span class="line"></span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                fuse_resolve_all (state);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>到了回到调  <code>fuse_write_resume</code> 上，包了一层引用计数就往下传了。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">iobref_add (iobref, state-&gt;iobuf);</span><br><span class="line"></span><br><span class="line">gf_log (<span class="string">&quot;glusterfs-fuse&quot;</span>, GF_LOG_TRACE,</span><br><span class="line">        <span class="string">&quot;%&quot;</span>PRIu64<span class="string">&quot;: WRITE (%p, size=%&quot;</span>GF_PRI_SIZET<span class="string">&quot;, offset=%&quot;</span>PRId64<span class="string">&quot;)&quot;</span>,</span><br><span class="line">        state-&gt;finh-&gt;unique, state-&gt;fd, state-&gt;size, state-&gt;off);</span><br><span class="line"></span><br><span class="line">FUSE_FOP (state, fuse_writev_cbk, GF_FOP_WRITE, writev, state-&gt;fd,</span><br><span class="line">          &amp;state-&gt;<span class="built_in">vector</span>, <span class="number">1</span>, state-&gt;off, state-&gt;io_flags, iobref,</span><br><span class="line">          state-&gt;xdata);</span><br><span class="line"></span><br><span class="line">iobref_unref (iobref);</span><br></pre></td></tr></table></figure>
+
+<p>fuse_writev_cbk 里面 <code>send_fuse_obj</code> 把 <code>iobuf</code>发送出去。<code>send_fuse_data</code>  到 <code>send_fuse_iov</code>，</p>
+<p>然后走整个的 <code>xlator</code> 的 writev 调用链，到 <code>client</code> 上，这里最主要的就是 submit_request 开始走网络 rpc 了。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">int32_t</span></span></span><br><span class="line"><span class="function"><span class="title">client3_3_writev</span> <span class="params">(<span class="keyword">call_frame_t</span> *frame, <span class="keyword">xlator_t</span> *<span class="keyword">this</span>, <span class="keyword">void</span> *data)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">        <span class="keyword">clnt_args_t</span>    *args     = <span class="literal">NULL</span>;</span><br><span class="line">        <span class="keyword">clnt_conf_t</span>    *conf     = <span class="literal">NULL</span>;</span><br><span class="line">        gfs3_write_req  req      = &#123;&#123;<span class="number">0</span>,&#125;,&#125;;</span><br><span class="line">        <span class="keyword">int</span>             op_errno = ESTALE;</span><br><span class="line">        <span class="keyword">int</span>             ret      = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (!frame || !<span class="keyword">this</span> || !data)</span><br><span class="line">                <span class="keyword">goto</span> unwind;</span><br><span class="line"></span><br><span class="line">        args = data;</span><br><span class="line">        conf = <span class="keyword">this</span>-&gt;<span class="keyword">private</span>;</span><br><span class="line"></span><br><span class="line">        ret = client_pre_writev (<span class="keyword">this</span>, &amp;req, args-&gt;fd, args-&gt;size,</span><br><span class="line">                                 args-&gt;offset, args-&gt;flags, &amp;args-&gt;xdata);</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (ret) &#123;</span><br><span class="line">                op_errno = -ret;</span><br><span class="line">                <span class="keyword">goto</span> unwind;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        ret = client_fd_fop_prepare_local (frame, args-&gt;fd, req.fd);</span><br><span class="line">        <span class="keyword">if</span> (ret) &#123;</span><br><span class="line">                op_errno = -ret;</span><br><span class="line">                <span class="keyword">goto</span> unwind;</span><br><span class="line">        &#125;</span><br><span class="line">        ret = client_submit_request (<span class="keyword">this</span>, &amp;req, frame, conf-&gt;fops,</span><br><span class="line">                                     GFS3_OP_WRITE, client3_3_writev_cbk,</span><br><span class="line">                                     args-&gt;iobref, args-&gt;<span class="built_in">vector</span>, args-&gt;count,</span><br><span class="line">                                     <span class="literal">NULL</span>, <span class="number">0</span>, <span class="literal">NULL</span>,</span><br><span class="line">                                     (<span class="keyword">xdrproc_t</span>)xdr_gfs3_write_req);</span><br><span class="line">        <span class="keyword">if</span> (ret) &#123;</span><br><span class="line">                <span class="comment">/*</span></span><br><span class="line"><span class="comment">                 * If the lower layers fail to submit a request, they&#x27;ll also</span></span><br><span class="line"><span class="comment">                 * do the unwind for us (see rpc_clnt_submit), so don&#x27;t unwind</span></span><br><span class="line"><span class="comment">                 * here in such cases.</span></span><br><span class="line"><span class="comment">                 */</span></span><br><span class="line">                gf_msg (<span class="keyword">this</span>-&gt;name, GF_LOG_WARNING, <span class="number">0</span>, PC_MSG_FOP_SEND_FAILED,</span><br><span class="line">                        <span class="string">&quot;failed to send the fop&quot;</span>);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        GF_FREE (req.xdata.xdata_val);</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">unwind:</span><br><span class="line">        CLIENT_STACK_UNWIND (writev, frame, <span class="number">-1</span>, op_errno, <span class="literal">NULL</span>, <span class="literal">NULL</span>, <span class="literal">NULL</span>);</span><br><span class="line">        GF_FREE (req.xdata.xdata_val);</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>回调就会开始释放内存等等操作，这里就略过了，这里回到 fuse 的 writev_cbk</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">static</span> <span class="keyword">int</span></span></span><br><span class="line"><span class="function"><span class="title">fuse_writev_cbk</span> <span class="params">(<span class="keyword">call_frame_t</span> *frame, <span class="keyword">void</span> *cookie, <span class="keyword">xlator_t</span> *<span class="keyword">this</span>,</span></span></span><br><span class="line"><span class="params"><span class="function">                 <span class="keyword">int32_t</span> op_ret, <span class="keyword">int32_t</span> op_errno,</span></span></span><br><span class="line"><span class="params"><span class="function">                 struct iatt *stbuf, struct iatt *postbuf, <span class="keyword">dict_t</span> *xdata)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">        <span class="keyword">fuse_state_t</span> *state = <span class="literal">NULL</span>;</span><br><span class="line">        <span class="keyword">fuse_in_header_t</span> *finh = <span class="literal">NULL</span>;</span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">fuse_write_out</span> <span class="title">fwo</span> =</span> &#123;<span class="number">0</span>, &#125;;</span><br><span class="line"></span><br><span class="line">        state = frame-&gt;root-&gt;state;</span><br><span class="line">        finh = state-&gt;finh;</span><br><span class="line"></span><br><span class="line">        fuse_log_eh_fop(<span class="keyword">this</span>, state, frame, op_ret, op_errno);</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (op_ret &gt;= <span class="number">0</span>) &#123;</span><br><span class="line">                gf_log (<span class="string">&quot;glusterfs-fuse&quot;</span>, GF_LOG_TRACE,</span><br><span class="line">                        <span class="string">&quot;%&quot;</span>PRIu64<span class="string">&quot;: WRITE =&gt; %d/%&quot;</span>GF_PRI_SIZET<span class="string">&quot;,%&quot;</span>PRId64<span class="string">&quot;/%&quot;</span>PRIu64,</span><br><span class="line">                        frame-&gt;root-&gt;unique,</span><br><span class="line">                        op_ret, state-&gt;size, state-&gt;off, stbuf-&gt;ia_size);</span><br><span class="line"></span><br><span class="line">                fwo.size = op_ret;</span><br><span class="line">                send_fuse_obj (<span class="keyword">this</span>, finh, &amp;fwo);</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                gf_log (<span class="string">&quot;glusterfs-fuse&quot;</span>, GF_LOG_WARNING,</span><br><span class="line">                        <span class="string">&quot;%&quot;</span>PRIu64<span class="string">&quot;: WRITE =&gt; -1 gfid=%s fd=%p (%s)&quot;</span>,</span><br><span class="line">                        frame-&gt;root-&gt;unique,</span><br><span class="line">                        (state-&gt;fd &amp;&amp; state-&gt;fd-&gt;inode) ?</span><br><span class="line">                        uuid_utoa (state-&gt;fd-&gt;inode-&gt;gfid) : <span class="string">&quot;nil&quot;</span>, state-&gt;fd,</span><br><span class="line">                        strerror (op_errno));</span><br><span class="line"></span><br><span class="line">                send_fuse_err (<span class="keyword">this</span>, finh, op_errno);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        free_fuse_state (state);</span><br><span class="line">        STACK_DESTROY (frame-&gt;root);</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>send_fuse_obj</code> 是一个宏实际上是 <code>send_fuse_data</code>，把 fuse_write_out 传给 fuse 告诉 fuse 写出了多少，或者返回错误给 fuse。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">define</span> send_fuse_obj(this, finh, obj) \</span></span><br><span class="line"><span class="meta">        send_fuse_data (this, finh, obj, sizeof (*(obj)))</span></span><br></pre></td></tr></table></figure>
+
+<p>整个的分析过程大概是从客户端的角度来看的，glusterfs 比较重要的一个 <code>xlator</code> 就是 dht xlator，distributed hash table，这个 xlator 决定了文件的分布。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F/" rel="tag"># 文件系统</a>
+              <a href="/tags/glusterfs/" rel="tag"># glusterfs</a>
+              <a href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F/" rel="tag"># 分布式文件系统</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/zh-CN/2018/05/29/Tensorflow-%E7%9A%84-Tensor-%E5%92%8C-OpKernel-%E5%88%86%E6%9E%90/" rel="prev" title="Tensorflow 的 Tensor 和 OpKernel 分析">
+      <i class="fa fa-chevron-left"></i> Tensorflow 的 Tensor 和 OpKernel 分析
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/zh-CN/2018/09/10/kube-proxy-%E5%88%86%E6%9E%90/" rel="next" title="kube-proxy 分析">
+      kube-proxy 分析 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    
+  <div class="comments">
+    <div id="disqus_thread">
+      <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+    </div>
+  </div>
+  
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">65</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">14</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/ggaaooppeenngg" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;ggaaooppeenngg" rel="noopener" target="_blank"><i class="github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:peng.gao.dut@gmail.com" title="E-Mail → mailto:peng.gao.dut@gmail.com" rel="noopener" target="_blank"><i class="envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2024</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://mist.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+  <script>
+    (function(){
+      var canonicalURL, curProtocol;
+      //Get the <link> tag
+      var x=document.getElementsByTagName("link");
+		//Find the last canonical URL
+		if(x.length > 0){
+			for (i=0;i<x.length;i++){
+				if(x[i].rel.toLowerCase() == 'canonical' && x[i].href){
+					canonicalURL=x[i].href;
+				}
+			}
+		}
+    //Get protocol
+	    if (!canonicalURL){
+	    	curProtocol = window.location.protocol.split(':')[0];
+	    }
+	    else{
+	    	curProtocol = canonicalURL.split(':')[0];
+	    }
+      //Get current URL if the canonical URL does not exist
+	    if (!canonicalURL) canonicalURL = window.location.href;
+	    //Assign script content. Replace current URL with the canonical URL
+      !function(){var e=/([http|https]:\/\/[a-zA-Z0-9\_\.]+\.baidu\.com)/gi,r=canonicalURL,t=document.referrer;if(!e.test(r)){var n=(String(curProtocol).toLowerCase() === 'https')?"https://sp0.baidu.com/9_Q4simg2RQJ8t7jm9iCKT-xh_/s.gif":"//api.share.baidu.com/s.gif";t?(n+="?r="+encodeURIComponent(document.referrer),r&&(n+="&l="+r)):r&&(n+="?l="+r);var i=new Image;i.src=n}}(window);})();
+  </script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+<script>
+  function loadCount() {
+    var d = document, s = d.createElement('script');
+    s.src = 'https://ggaaooppeenngg.disqus.com/count.js';
+    s.id = 'dsq-count-scr';
+    (d.head || d.body).appendChild(s);
+  }
+  // defer loading until the whole page loading is completed
+  window.addEventListener('load', loadCount, false);
+</script>
+<script>
+  var disqus_config = function() {
+    this.page.url = "https://ggaaooppeenngg.github.io/zh-CN/2018/08/06/glusterfs-writev-%E4%B8%BB%E8%A6%81%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/";
+    this.page.identifier = "zh-CN/2018/08/06/glusterfs-writev-主要流程分析/";
+    this.page.title = "glusterfs writev 的主要流程单分析";
+    };
+  NexT.utils.loadComments(document.querySelector('#disqus_thread'), () => {
+    if (window.DISQUS) {
+      DISQUS.reset({
+        reload: true,
+        config: disqus_config
+      });
+    } else {
+      var d = document, s = d.createElement('script');
+      s.src = 'https://ggaaooppeenngg.disqus.com/embed.js';
+      s.setAttribute('data-timestamp', '' + +new Date());
+      (d.head || d.body).appendChild(s);
+    }
+  });
+</script>
+
+</body>
+</html>

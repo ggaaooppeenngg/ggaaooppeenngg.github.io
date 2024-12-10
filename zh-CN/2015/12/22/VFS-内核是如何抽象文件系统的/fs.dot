@@ -1,0 +1,25 @@
+digraph fs_type {
+
+node [
+shape = "box"
+] file_systems,filesystem_type1,filesystem_type2,filesystem_type3,
+super_blocks,super_block1,super_block2,super_block3,
+vfsmount,"dentry:mount_point","vfsmount:parent";
+
+filesystem_type1 -> file_systems;
+filesystem_type2 -> file_systems;
+filesystem_type3 -> file_systems;
+filesystem_type1 -> filesystem_type2 -> filesystem_type3;
+
+super_block1 -> super_blocks;
+super_block2 -> super_blocks;
+super_block3 -> super_blocks;
+super_block1 -> super_block2 -> super_block3;
+
+super_block1 -> filesystem_type1;
+super_block1 -> vfsmount;
+
+vfsmount -> "dentry:mount_point";
+vfsmount -> "vfsmount:parent";
+
+}
