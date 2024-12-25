@@ -145,7 +145,7 @@
   </li>
         <li class="menu-item menu-item-tags">
 
-    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">116</span></a>
+    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">118</span></a>
 
   </li>
         <li class="menu-item menu-item-categories">
@@ -155,7 +155,7 @@
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">67</span></a>
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">68</span></a>
 
   </li>
   </ul>
@@ -177,6 +177,99 @@
 
           <div class="content index posts-expand">
             
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2018/12/11/etcd-raft-code-walkthrough/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            <a href="/zh-CN/2018/12/11/etcd-raft-code-walkthrough/" class="post-title-link" itemprop="url">etcd/raft code walkthrough</a>
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2018-12-11 23:51:03" itemprop="dateCreated datePublished" datetime="2018-12-11T23:51:03+08:00">2018-12-11</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2019-08-14 20:21:47" itemprop="dateModified" datetime="2019-08-14T20:21:47+08:00">2019-08-14</time>
+              </span>
+
+          
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2018/12/11/etcd-raft-code-walkthrough/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2018/12/11/etcd-raft-code-walkthrough/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <p>我照着 raft 论文重新过了一遍 etcd/raft 的代码，主要的文件是 etcd 下面的 <code>raft.go</code>。对照这个代码重新梳理一遍也算是深入理解一下 raft 算法。接下来会包含两个视频一个是选举相关的内容，一个是日志复制的内容，我 walktrough 的时候默认是大致读过论文的，对一些机制和字段都有了解，没有具体解析每个字段的来历，并且把一些问题按照代码的顺序重新理了一遍。</p>
+<p>第一部分是关于选举的，raft 本身是一个 quorum based 的算法，一致性要靠“大多数人”的同意，并且为了简单和不必要的竞争，raft 只有一个主节点，在收到大多数人的投票以后成为主节点。</p>
+<div class="video-container"><iframe src="https://www.youtube.com/embed/Qo45IJbSr3k" frameborder="0" loading="lazy" allowfullscreen></iframe></div>
+
+<p>第二部分是关于日志复制的，raft 需要让主节点把客户端的请求复制到大多数节点上才能算达成一致，并且 commit，下面介绍的是复制的机制，并且 ConfChange 和 Snapshot 也是走这个流程达成一致的。</p>
+<div class="video-container"><iframe src="https://www.youtube.com/embed/WjsrdYQ1SH0" frameborder="0" loading="lazy" allowfullscreen></iframe></div>
+
+<p>之后的 walkthrough 应该会慢慢补上，关于一些其他的逻辑和具体的一些函数的细节部分会在后面放出。</p>
+<h2 id="mvcc"><a href="#mvcc" class="headerlink" title="mvcc"></a>mvcc</h2><p>v2 版本的实现存在 watcher 丢失或者丢失事件的问题，导致客户端要重新获取一遍。新版本是有本地嵌入式的数据库来避免这些问题。<br>mvcc 是 etcd v3 版本的存储实现主要有两个部分，一个是 backend 的 boltDB 和内存索引 key index。</p>
+<p>BoltDB 是一个 B+ 树的嵌入式 KV store，相对于 leveldb 适用于写多读少的情况，我之前的<a href="https://ggaaooppeenngg.github.io/zh-CN/2017/03/31/%E4%BB%8E%E6%9C%B4%E7%B4%A0%E8%A7%A3%E9%87%8A%E5%87%BA%E5%8F%91%E8%A7%A3%E9%87%8Aleveldb%E7%9A%84%E8%AE%BE%E8%AE%A1/">文章</a>简单介绍了一下 leveldb 的设计，BoltDB 比较适合读多写少，或者存在大范围 scan 的情况下比较合适，还有类似 levedb 的产品 <a target="_blank" rel="noopener" href="https://blog.dgraph.io/post/badger/">badger</a>，是纯 Go 实现的，在多写的情况下 leveldb 的衍生品表现更好。</p>
+<p>BatchTx 就是收集很多的 call，然后在一个 Update 里面完成。</p>
+<p>backend 里面存的 key 是 revision ，其中 main revision 是事务编号，sub revision 是事务中操作的编号，etcd 在 boltdb 上还做了一层缓存，所以多了一些锁机制。<br>内存索引中存的是真正的 key 到 revison 的索引。</p>
+<p>key_index -&gt; tx_buffer -&gt; boltdb.tx</p>
+<p>调用路径</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">kv:</span><br><span class="line">  WriteView 是一些直接操作</span><br><span class="line">  ReadView</span><br><span class="line">  Read() TxnRead</span><br><span class="line">  Write() TxnWrite 是拿到对应的 transaction</span><br><span class="line"></span><br><span class="line">revision:</span><br><span class="line">  main</span><br><span class="line">  sub</span><br><span class="line">kvstore:</span><br><span class="line">  readView readView&#123;kv&#125; 用了 Read() Read/Write 是 kvstore 自己实现的用于拿 backend 的和自己的各种锁。(kvstore\_txn.go)</span><br><span class="line">  writeView writeView&#123;kv&#125; 用了 Write()</span><br><span class="line">treeIndex:</span><br><span class="line">  keyIndex</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">writeView:</span><br><span class="line">  拿到 kv 的 Write(storeTxnWrite):  首先查 tw.s.kvindex.Get 然后再 backend.Tx UnsageSeqPut，然后更新 keyindex，append changes，处理 lease (old detach new attach)</span><br><span class="line">readView</span><br><span class="line">   storeTxnRead: keyindex Revisons -&gt; tx.UnsafeRange</span><br><span class="line"></span><br><span class="line">lessor  lesor(重音在后面)</span><br><span class="line">   leaseBucket 在单独的一个 bucket 里面</span><br></pre></td></tr></table></figure>
+
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
       
   
   
@@ -1339,114 +1432,6 @@
   
   
 
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2018/04/21/CUDA-%E7%9A%84%E8%AE%A1%E7%AE%97%E6%A8%A1%E5%9E%8B/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="ggaaooppeenngg">
-      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="ggaaooppeenngg">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/zh-CN/2018/04/21/CUDA-%E7%9A%84%E8%AE%A1%E7%AE%97%E6%A8%A1%E5%9E%8B/" class="post-title-link" itemprop="url">CUDA 的计算模型</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-
-              <time title="创建时间：2018-04-21 18:20:28" itemprop="dateCreated datePublished" datetime="2018-04-21T18:20:28+08:00">2018-04-21</time>
-            </span>
-              <span class="post-meta-item">
-                <span class="post-meta-item-icon">
-                  <i class="far fa-calendar-check"></i>
-                </span>
-                <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2019-07-23 23:24:30" itemprop="dateModified" datetime="2019-07-23T23:24:30+08:00">2019-07-23</time>
-              </span>
-
-          
-  
-  <span class="post-meta-item">
-    
-      <span class="post-meta-item-icon">
-        <i class="far fa-comment"></i>
-      </span>
-      <span class="post-meta-item-text">Disqus：</span>
-    
-    <a title="disqus" href="/zh-CN/2018/04/21/CUDA-%E7%9A%84%E8%AE%A1%E7%AE%97%E6%A8%A1%E5%9E%8B/#disqus_thread" itemprop="discussionUrl">
-      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2018/04/21/CUDA-的计算模型/" itemprop="commentCount"></span>
-    </a>
-  </span>
-  
-  
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <h2 id="我的一点观点"><a href="#我的一点观点" class="headerlink" title="我的一点观点"></a>我的一点观点</h2><p>我个人觉得 nvidia 的 CUDA 太封闭了，不是很能明白这样封闭的产品怎么能够长久生存，仅仅是因为家大业大么，如果有家公司推出了八成性能的 GPU，但是整套开发的生态非常友好，是不是会像 Android 取代诺基亚一样，还是 nvidia 就是苹果，就算封闭环境也能保证强劲体验，这我也不好说了。</p>
-<h2 id="安装"><a href="#安装" class="headerlink" title="安装"></a>安装</h2><p>CUDA+cudnn 装起来挺麻烦的，反正如果有错误的话，可以检查 CUDA samples 里面的 deviceQuery 是否成功，如果不成功可以用 strace 看一下少了什么东西，再想办法安装上去。检查 cudnn samples 是否成功也是一样的，里面有一个 mnistDNN 的例子。</p>
-<h2 id="Hello-World"><a href="#Hello-World" class="headerlink" title="Hello World!"></a>Hello World!</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">#include &lt;stdio.h&gt;</span><br><span class="line"></span><br><span class="line">__global__ void helloFromGPU (void)</span><br><span class="line">&#123;</span><br><span class="line">	printf(&quot;Hello world!\n&quot;);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">int main(void)</span><br><span class="line">&#123;</span><br><span class="line">	printf(&quot;Hello World! from CPU\n&quot;);</span><br><span class="line"></span><br><span class="line">	helloFromGPU &lt;&lt;&lt;1, 10&gt;&gt;&gt;();</span><br><span class="line">	cudaDeviceReset();</span><br><span class="line">	return 0;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>以上就是一段 GPU 的 Hello world，执行下面的代码可以看到我们在 GPU 上并行执行了十个 “Hello world!” 的打印。</p>
-<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">$</span><span class="bash"> nvcc -arch sm_20 hello.cu -o hello</span></span><br><span class="line"><span class="meta">$</span><span class="bash"> ./hello</span></span><br><span class="line">Hello World! from CPU</span><br><span class="line">Hello world!</span><br><span class="line">Hello world!</span><br><span class="line">Hello world!</span><br><span class="line">Hello world!</span><br><span class="line">Hello world!</span><br><span class="line">Hello world!</span><br><span class="line">Hello world!</span><br><span class="line">Hello world!</span><br><span class="line">Hello world!</span><br><span class="line">Hello world!</span><br></pre></td></tr></table></figure>
-<h2 id="CUDA"><a href="#CUDA" class="headerlink" title="CUDA"></a>CUDA</h2><p>CUDA 全称 Compute Unified Device Architecure，用于定义 GPU 的架构标准。GPU 的工作方式主要依赖于多核心的并行计算，CUDA 提供了方便的模型进行这种模式的编程，下面就会简单介绍一下 CUDA 的架构以及基于 GPU 的编程。</p>
-<p>CUDA 一次启动的线程称为网格(grid)，网格中包含块，每个块包含新程，是一个二维的模式，这张图片就说明得很清晰，首先是由 Grid 组成，然后每个 Block 有 shared memory，同 block 的线程可以访问 shared memory，不同的 Block 的线程只能访问全局的内存，这种结构也方便设计和实现并行算法。</p>
-<p><img data-src="https://www.researchgate.net/profile/Marco_Nobile/publication/261069154/figure/fig1/AS:296718735298563@1447754667270/Schematization-of-CUDA-architecture-Schematic-representation-of-CUDA-threads-and-memory.png" alt="cuda-arch"></p>
-<p>CUDA 的编译器 nvcc 是 gcc 的一个扩展，支持编写运行在 GPU 上的函数，其中的，<code>&lt;&lt;x, y&gt;&gt;</code> 扩展就是用来指定 block 和 thread 的数量的。</p>
-<p>比如典型的俩个向量相加的例子：</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">sumArrayOnHost</span><span class="params">(<span class="keyword">float</span> *A, <span class="keyword">float</span> *B, <span class="keyword">float</span> *C, <span class="keyword">const</span> <span class="keyword">int</span> N)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; N; i++)</span><br><span class="line">        C[i] = A[i] + B[i]</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>但是 GPU 的核函数怎么写呢，是这样的。</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">__global__ <span class="keyword">void</span> <span class="title">sumArrayOnGPU</span><span class="params">(<span class="keyword">float</span> *A, <span class="keyword">float</span> *N, <span class="keyword">float</span> C)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">int</span> i = threadIdx.x</span><br><span class="line">    C[i] = A[i] + B[i]</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>然后，如果 N 是 32 的话，可以如下调用，<code>__global__</code> 表示这个函数可以在 host 调用也可以在 GPU 上调用，用个 32 个线程的 block 算这个向量和，N 隐性包含在了定义中。</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sumArrayOnGPU&lt;&lt;<span class="number">1</span>, <span class="number">32</span>&gt;&gt;(<span class="keyword">float</span> *A, <span class="keyword">float</span> *B, <span class="keyword">float</span> *C)</span><br></pre></td></tr></table></figure>
-
-<h2 id="线程组织"><a href="#线程组织" class="headerlink" title="线程组织"></a>线程组织</h2><p>基于 CPU 和 GPU 的异构计算平台可以优势互补，CPU 负责处理逻辑复杂的串行程序，而 GPU 重点处理数据密集型的并行计算程序，从而发挥最大功效。</p>
-<p>线程组织主要依据网格（现在网络这个词其实比较容易混淆，可以是神经网络可以是计算机网络，这里指的是线程的组织形式）模型。主要分 grid, block, thread，组织的方式就靠索引来决定，可以通过 block 索引和 thread 索引进行线程的定位。CUDA 提供了块内线程同步的方法，但是没有提供块间同步的原语。</p>
-<h3 id="线程束分化"><a href="#线程束分化" class="headerlink" title="线程束分化"></a>线程束分化</h3><p>线程束 = warp</p>
-<p>CPU 有很强的分支预测的能力，会预加载指令，如果预测正确，执行代价就很小，但是 GPU 在这方面是很弱的，因为线程束当中如果执行分支出现不同，那出现分支的线程就会被禁止执行，这也是用 GPU 做并行编程的时候需要参考的一个很重要的因素，保证并行的线程出现线程束分化的情况尽量少。</p>
-<p>下面就是线程束分化的例子。</p>
-<p><img data-src="http://15418.courses.cs.cmu.edu/spring2013content/lectures/02_basicarch/images/slide_030.png"></p>
-<h3 id="并行归约问题"><a href="#并行归约问题" class="headerlink" title="并行归约问题"></a>并行归约问题</h3><p>并行归约是指如何对并行问题进行归约，比如说相邻配对和交错配对。</p>
-<h2 id="设备管理"><a href="#设备管理" class="headerlink" title="设备管理"></a>设备管理</h2><p>管理 GPU 主要是通过 CUDA API 或者 <code>nvidia-smi</code> 命令来获取。</p>
-<h2 id="SM（流式多处理器）"><a href="#SM（流式多处理器）" class="headerlink" title="SM（流式多处理器）"></a>SM（流式多处理器）</h2><p>上面讲的是抽象上的分层，但是实际的物理层面承载 GPU 的是 SM。最早的 GPU 架构叫 Fermi，然后是 Kepler，然后才是 Tesla。一般说的 <code>cm_20</code>, <code>sm_20</code> 就指这种计算能力和架构，新款的 GPU 计算能力要更强一点。</p>
-<h2 id="内存模型"><a href="#内存模型" class="headerlink" title="内存模型"></a>内存模型</h2><p>CUDA 的内存模型和 CPU 是类似的也是多级的结构。线程有局部内存，块之间有全局内存。GPU 和 CPU 都是主要采用 DRAM 来做主存，CPU 的一级缓存会用 SRAM 做。CPU 的多级缓存对用户来说不是很需要考虑，尽量屏蔽了其中的细节，但是 GPU 相对来说会把这种分级结构暴露给用户，这对编程来说也是一种新的挑战。</p>
-<h2 id="后面"><a href="#后面" class="headerlink" title="后面"></a>后面</h2><p>用 GPU 计算一些计算密集型的程序，速度是真快，比 CPU 块很多，所以这也是为什么大量深度学习的应用都要通过 GPU 加速的原因。</p>
-
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
 
   
   <nav class="pagination">
@@ -1516,7 +1501,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">67</span>
+          <span class="site-state-item-count">68</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -1529,7 +1514,7 @@
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">116</span>
+        <span class="site-state-item-count">118</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>

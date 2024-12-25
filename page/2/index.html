@@ -145,7 +145,7 @@
   </li>
         <li class="menu-item menu-item-tags">
 
-    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">116</span></a>
+    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">118</span></a>
 
   </li>
         <li class="menu-item menu-item-categories">
@@ -155,7 +155,7 @@
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">67</span></a>
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">68</span></a>
 
   </li>
   </ul>
@@ -177,6 +177,115 @@
 
           <div class="content index posts-expand">
             
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2022/09/06/%E4%BD%BF%E7%94%A8ebpf%E5%AF%B9oomkill%E8%BF%9B%E8%A1%8C%E6%8E%A2%E6%B5%8B/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            <a href="/zh-CN/2022/09/06/%E4%BD%BF%E7%94%A8ebpf%E5%AF%B9oomkill%E8%BF%9B%E8%A1%8C%E6%8E%A2%E6%B5%8B/" class="post-title-link" itemprop="url">使用ebpf对oomkill进行探测</a>
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2022-09-06 17:48:18" itemprop="dateCreated datePublished" datetime="2022-09-06T17:48:18+08:00">2022-09-06</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2022-09-07 15:24:19" itemprop="dateModified" datetime="2022-09-07T15:24:19+08:00">2022-09-07</time>
+              </span>
+
+          
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2022/09/06/%E4%BD%BF%E7%94%A8ebpf%E5%AF%B9oomkill%E8%BF%9B%E8%A1%8C%E6%8E%A2%E6%B5%8B/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2022/09/06/使用ebpf对oomkill进行探测/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <p>ebpf是内核当中一个非常重要的功能，简单来说就是以虚拟机的形式提供一种在内核中执行嵌入字节码的能力。<br>ebpf定义的指令集也非常简答，但是写起来比较麻烦所以作为工具提供了libbpf和bpf-tool。<br>用户可以通过写C的形式写ebpf程序嵌入到内核中，同时在用户态进行交互，用户态的程序没有语言限制。<br>ebpf特性的对应内核版本列表在<a target="_blank" rel="noopener" href="https://github.com/iovisor/bcc/blob/master/docs/kernel-versions.md">这</a>，后面例子中的ringbuffer map是要内核版本在5.8以上。<br>ebpf的架构和工具链的一个比较完整的文档是cilium的一个<a target="_blank" rel="noopener" href="https://docs.cilium.io/en/stable/bpf/">文档</a>。</p>
+<p><code>vmlinux.h</code>是通过bpftool生成的一个虚拟<a target="_blank" rel="noopener" href="https://github.com/libbpf/libbpf-bootstrap/blob/330abf58d8e20476583ed7c9c90a46fe906e4d7a/examples/rust/tracecon/README.md">头文件</a>，用于访问内核数据结构。</p>
+<p>libbpf 和 bpftool 都是在内核的代码仓库里面开发的。对应的目录分别是<code>tools/lib/bpf</code>和<code>tools/bpf</code>，帮助用户用c开发和调试ebpf程序。<br>相当于说bpftool是ebpf的调试和观测工具，libbpf是一提供给开发者的ebpf库。</p>
+<p>在<code>bpf_herplers.h</code>有一个section的定义<code>SEC</code>用来决定在ebpf的<code>.o</code>对象文件中的位置，以及一些功能。<br>比如<code>SEC(kprobe/xxx)</code>就代表修饰的程序会嵌入到内核函数的调用中。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">/*</span><br><span class="line"> * Helper macro to place programs, maps, license in</span><br><span class="line"> * different sections in elf_bpf file. Section names</span><br><span class="line"> * are interpreted by libbpf depending on the context (BPF programs, BPF maps,</span><br><span class="line"> * extern variables, etc).</span><br><span class="line"> * To allow use of SEC() with externs (e.g., for extern .maps declarations),</span><br><span class="line"> * make sure __attribute__((unused)) doesn&#x27;t trigger compilation warning.</span><br><span class="line"> */</span><br><span class="line">#define SEC(name) \</span><br><span class="line">        _Pragma(&quot;GCC diagnostic push&quot;)                                      \</span><br><span class="line">        _Pragma(&quot;GCC diagnostic ignored \&quot;-Wignored-attributes\&quot;&quot;)          \</span><br><span class="line">        __attribute__((section(name), used))                                \</span><br><span class="line">        _Pragma(&quot;GCC diagnostic pop&quot;)                                       \</span><br></pre></td></tr></table></figure>
+
+<p>libbpf.c 有对应的SEC的定义。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">#define SEC_DEF(sec_pfx, ptype, ...) &#123;                                      \</span><br><span class="line">        .sec = sec_pfx,                                                     \</span><br><span class="line">        .len = sizeof(sec_pfx) - 1,                                         \</span><br><span class="line">        .prog_type = BPF_PROG_TYPE_##ptype,                                 \</span><br><span class="line">        __VA_ARGS__                                                         \</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">static const struct bpf_sec_def section_defs[] = &#123;</span><br><span class="line">          BPF_PROG_SEC(&quot;socket&quot;,                  BPF_PROG_TYPE_SOCKET_FILTER),</span><br><span class="line">          BPF_EAPROG_SEC(&quot;sk_reuseport/migrate&quot;,  BPF_PROG_TYPE_SK_REUSEPORT,</span><br><span class="line">                                                  BPF_SK_REUSEPORT_SELECT_OR_MIGRATE),</span><br><span class="line">          BPF_EAPROG_SEC(&quot;sk_reuseport&quot;,          BPF_PROG_TYPE_SK_REUSEPORT,</span><br><span class="line">                                                  BPF_SK_REUSEPORT_SELECT),</span><br><span class="line">          SEC_DEF(&quot;kprobe/&quot;, KPROBE,</span><br><span class="line">                  .attach_fn = attach_kprobe),</span><br><span class="line">          BPF_PROG_SEC(&quot;uprobe/&quot;,                 BPF_PROG_TYPE_KPROBE),</span><br><span class="line">          SEC_DEF(&quot;kretprobe/&quot;, KPROBE,</span><br><span class="line">                  .attach_fn = attach_kprobe),</span><br><span class="line">          BPF_PROG_SEC(&quot;uretprobe/&quot;,              BPF_PROG_TYPE_KPROBE),</span><br><span class="line">          BPF_PROG_SEC(&quot;classifier&quot;,              BPF_PROG_TYPE_SCHED_CLS),</span><br><span class="line">          BPF_PROG_SEC(&quot;action&quot;,                  BPF_PROG_TYPE_SCHED_ACT),</span><br><span class="line">          SEC_DEF(&quot;tracepoint/&quot;, TRACEPOINT,</span><br><span class="line">                  .attach_fn = attach_tp),</span><br><span class="line">          SEC_DEF(&quot;tp/&quot;, TRACEPOINT,</span><br><span class="line">                  .attach_fn = attach_tp),</span><br><span class="line">          SEC_DEF(&quot;raw_tracepoint/&quot;, RAW_TRACEPOINT,</span><br><span class="line">                  .attach_fn = attach_raw_tp),</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>kprobe的attach方式。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line">struct bpf_link *bpf_program__attach_kprobe(struct bpf_program *prog,</span><br><span class="line">                                            bool retprobe,</span><br><span class="line">                                            const char *func_name)</span><br><span class="line">&#123;</span><br><span class="line">        char errmsg[STRERR_BUFSIZE];</span><br><span class="line">        struct bpf_link *link;</span><br><span class="line">        int pfd, err;</span><br><span class="line"></span><br><span class="line">        pfd = perf_event_open_probe(false /* uprobe */, retprobe, func_name,</span><br><span class="line">                                    0 /* offset */, -1 /* pid */);</span><br><span class="line">        if (pfd &lt; 0) &#123;</span><br><span class="line">                pr_warn(&quot;prog &#x27;%s&#x27;: failed to create %s &#x27;%s&#x27; perf event: %s\n&quot;,</span><br><span class="line">                        prog-&gt;name, retprobe ? &quot;kretprobe&quot; : &quot;kprobe&quot;, func_name,</span><br><span class="line">                        libbpf_strerror_r(pfd, errmsg, sizeof(errmsg)));</span><br><span class="line">                return libbpf_err_ptr(pfd);</span><br><span class="line">        &#125;</span><br><span class="line">        link = bpf_program__attach_perf_event(prog, pfd);</span><br><span class="line">        err = libbpf_get_error(link);</span><br><span class="line">        if (err) &#123;</span><br><span class="line">                close(pfd);</span><br><span class="line">                pr_warn(&quot;prog &#x27;%s&#x27;: failed to attach to %s &#x27;%s&#x27;: %s\n&quot;,</span><br><span class="line">                        prog-&gt;name, retprobe ? &quot;kretprobe&quot; : &quot;kprobe&quot;, func_name,</span><br><span class="line">                        libbpf_strerror_r(err, errmsg, sizeof(errmsg)));</span><br><span class="line">                return libbpf_err_ptr(err);</span><br><span class="line">        &#125;</span><br><span class="line">        return link;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>根据函数名用<code>perf_event_open_probe</code>注入<code>program</code>。</p>
+<p>内核对于oom的处理主要在<code>mm/oom_kill.c</code>中。<br>oom的触发就是在内存无法分配的时候，选择一个最“差”的进程发送kill信号。<br><code>oom_kill_process</code>这个函数是主要入口，定义是<code>static void oom_kill_process(struct oom_control *oc, const char *message)</code>，<br>其中<code>oc-&gt;victim</code>是要被杀掉的进程，如果有cgroup会把相同内存cgroup的进程都杀掉，所以如果要检测一个进程的oom可以通过检测这个函数的参数做到。</p>
+<p>下面这段就是OOM的时候dmesg看到的信息。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">/* Get a reference to safely compare mm after task_unlock(victim) */</span><br><span class="line">mm = victim-&gt;mm;</span><br><span class="line">mmgrab(mm);</span><br><span class="line"></span><br><span class="line">/* Raise event before sending signal: task reaper must see this */</span><br><span class="line">count_vm_event(OOM_KILL);</span><br><span class="line">memcg_memory_event_mm(mm, MEMCG_OOM_KILL);</span><br><span class="line"></span><br><span class="line">/*</span><br><span class="line"> * We should send SIGKILL before granting access to memory reserves</span><br><span class="line"> * in order to prevent the OOM victim from depleting the memory</span><br><span class="line"> * reserves from the user space under its control.</span><br><span class="line"> */</span><br><span class="line">do_send_sig_info(SIGKILL, SEND_SIG_PRIV, victim, PIDTYPE_TGID);</span><br><span class="line">mark_oom_victim(victim);</span><br><span class="line">pr_err(&quot;%s: Killed process %d (%s) total-vm:%lukB, anon-rss:%lukB, file-rss:%lukB, shmem-rss:%lukB, UID:%u pgtables:%lukB oom_score_adj:%hd\n&quot;,</span><br><span class="line">        message, task_pid_nr(victim), victim-&gt;comm, K(mm-&gt;total_vm),</span><br><span class="line">        K(get_mm_counter(mm, MM_ANONPAGES)),</span><br><span class="line">        K(get_mm_counter(mm, MM_FILEPAGES)),</span><br><span class="line">        K(get_mm_counter(mm, MM_SHMEMPAGES)),</span><br><span class="line">        from_kuid(&amp;init_user_ns, task_uid(victim)),</span><br><span class="line">        mm_pgtables_bytes(mm) &gt;&gt; 10, victim-&gt;signal-&gt;oom_score_adj);</span><br><span class="line">task_unlock(victim);</span><br></pre></td></tr></table></figure>
+
+<p>对于内核函数的检测需要ebpf当中的<a target="_blank" rel="noopener" href="https://docs.kernel.org/trace/kprobes.html">kprobe</a>的能力。<br>kprobe类似单步调试的能力，在函数入口插入一个breakpoint，然后通过trap让执行流转到注册的ebpf的程序。</p>
+<p>oomkill的内核中的ebpf程序主要参考datadog的<a target="_blank" rel="noopener" href="https://github.com/DataDog/datadog-agent/blob/main/pkg/collector/corechecks/ebpf/c/runtime/oom-kill-kern.c">agent</a>的实现。<br>框架程序主要参考cilium/ebpf当中的<a target="_blank" rel="noopener" href="https://github.com/cilium/ebpf/tree/master/examples/ringbuffer">例子</a>。</p>
+<p><code>PT_REGS_PARM1</code>是一个宏可以帮助读取内核函数的参数，因为按照约定ebpf都是通过寄存器传参的，所以其实返回的是第1个参数对应的寄存器。<code>bpf_probe_read</code>是一个用于读取内存到ebpf程序中的辅助函数。<br>所以oomkill的ebpf实现的内核中的代码就比较简单，嵌入oom_kill_process的函数调用，或者要被结束的进程复制出进程的pid和command，然后通过类型为<code>BPF_MAP_TYPE_RINGBUF</code>的map发送event。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br></pre></td><td class="code"><pre><span class="line">// +build ignore</span><br><span class="line"></span><br><span class="line">#include &quot;vmlinux.h&quot;</span><br><span class="line">#include &quot;bpf_helpers.h&quot;</span><br><span class="line">#include &quot;bpf_tracing.h&quot;</span><br><span class="line"></span><br><span class="line">char __license[] SEC(&quot;license&quot;) = &quot;Dual MIT/GPL&quot;;</span><br><span class="line"></span><br><span class="line">struct event &#123;</span><br><span class="line">	u32 pid;</span><br><span class="line">	u8 comm[80];</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">struct &#123;</span><br><span class="line">	__uint(type, BPF_MAP_TYPE_RINGBUF);</span><br><span class="line">	__uint(max_entries, 1 &lt;&lt; 24);</span><br><span class="line">&#125; events SEC(&quot;.maps&quot;);</span><br><span class="line"></span><br><span class="line">// Force emitting struct event into the ELF.</span><br><span class="line">const struct event *unused __attribute__((unused));</span><br><span class="line"></span><br><span class="line">SEC(&quot;kprobe/oom_kill_process&quot;)</span><br><span class="line">int kprobe_oom_kill_process(struct pt_regs *ctx) &#123;</span><br><span class="line">	struct event *task_info;</span><br><span class="line">	struct oom_control *oc = (struct oom_control *)PT_REGS_PARM1(ctx);</span><br><span class="line"></span><br><span class="line">	task_info = bpf_ringbuf_reserve(&amp;events, sizeof(struct event), 0);</span><br><span class="line"></span><br><span class="line">	if (!task_info) &#123;</span><br><span class="line">		return 0;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	struct task_struct *p;</span><br><span class="line">        bpf_probe_read(&amp;p, sizeof(p), &amp;oc-&gt;chosen);</span><br><span class="line">	bpf_probe_read(&amp;task_info-&gt;pid, sizeof(task_info-&gt;pid), &amp;p-&gt;pid);</span><br><span class="line">	bpf_probe_read(&amp;task_info-&gt;comm, sizeof(task_info-&gt;comm), (void *)&amp;p-&gt;comm);</span><br><span class="line"></span><br><span class="line">	bpf_ringbuf_submit(task_info, 0);</span><br><span class="line"></span><br><span class="line">	return 0;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>用户态的程序也比较简单，把ebpf的对象文件attach以后读取ringbuffer别解析event。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br></pre></td><td class="code"><pre><span class="line">package main</span><br><span class="line"></span><br><span class="line">import (</span><br><span class="line">	&quot;bytes&quot;</span><br><span class="line">	&quot;encoding/binary&quot;</span><br><span class="line">	&quot;errors&quot;</span><br><span class="line">	&quot;fmt&quot;</span><br><span class="line">	&quot;log&quot;</span><br><span class="line">	&quot;os&quot;</span><br><span class="line">	&quot;os/signal&quot;</span><br><span class="line">	&quot;syscall&quot;</span><br><span class="line"></span><br><span class="line">	&quot;github.com/cilium/ebpf/link&quot;</span><br><span class="line">	&quot;github.com/cilium/ebpf/ringbuf&quot;</span><br><span class="line">	&quot;github.com/cilium/ebpf/rlimit&quot;</span><br><span class="line">	&quot;golang.org/x/sys/unix&quot;</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line">//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang -type event -target amd64 bpf oom_kill_kernel.c</span><br><span class="line"></span><br><span class="line">func main() &#123;</span><br><span class="line">	// Name of the kernel function to trace.</span><br><span class="line">	fn := &quot;oom_kill_process&quot;</span><br><span class="line"></span><br><span class="line">	// Subscribe to signals for terminating the program.</span><br><span class="line">	stopper := make(chan os.Signal, 1)</span><br><span class="line">	signal.Notify(stopper, os.Interrupt, syscall.SIGTERM)</span><br><span class="line"></span><br><span class="line">	// Allow the current process to lock memory for eBPF resources.</span><br><span class="line">	if err := rlimit.RemoveMemlock(); err != nil &#123;</span><br><span class="line">		log.Fatal(err)</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	// Load pre-compiled programs and maps into the kernel.</span><br><span class="line">	objs := bpfObjects&#123;&#125;</span><br><span class="line">	if err := loadBpfObjects(&amp;objs, nil); err != nil &#123;</span><br><span class="line">		log.Fatalf(&quot;loading objects: %v&quot;, err)</span><br><span class="line">	&#125;</span><br><span class="line">	defer objs.Close()</span><br><span class="line"></span><br><span class="line">	fmt.Println(&quot;probe&quot;)</span><br><span class="line">	// Open a Kprobe at the entry point of the kernel function and attach the</span><br><span class="line">	// pre-compiled program. Each time the kernel function enters, the program</span><br><span class="line">	// will emit an event containing pid and command of the execved task.</span><br><span class="line">	kp, err := link.Kprobe(fn, objs.KprobeOomKillProcess, nil)</span><br><span class="line">	if err != nil &#123;</span><br><span class="line">		log.Fatalf(&quot;opening kprobe: %s&quot;, err)</span><br><span class="line">	&#125;</span><br><span class="line">	defer kp.Close()</span><br><span class="line">	fmt.Println(&quot;attach done&quot;)</span><br><span class="line"></span><br><span class="line">	// Open a ringbuf reader from userspace RINGBUF map described in the</span><br><span class="line">	// eBPF C program.</span><br><span class="line">	rd, err := ringbuf.NewReader(objs.Events)</span><br><span class="line">	if err != nil &#123;</span><br><span class="line">		log.Fatalf(&quot;opening ringbuf reader: %s&quot;, err)</span><br><span class="line">	&#125;</span><br><span class="line">	defer rd.Close()</span><br><span class="line"></span><br><span class="line">	// Close the reader when the process receives a signal, which will exit</span><br><span class="line">	// the read loop.</span><br><span class="line">	go func() &#123;</span><br><span class="line">		&lt;-stopper</span><br><span class="line"></span><br><span class="line">		if err := rd.Close(); err != nil &#123;</span><br><span class="line">			log.Fatalf(&quot;closing ringbuf reader: %s&quot;, err)</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;()</span><br><span class="line"></span><br><span class="line">	log.Println(&quot;Waiting for events..&quot;)</span><br><span class="line"></span><br><span class="line">	// bpfEvent is generated by bpf2go.</span><br><span class="line">	var event bpfEvent</span><br><span class="line">	for &#123;</span><br><span class="line">		record, err := rd.Read()</span><br><span class="line">		if err != nil &#123;</span><br><span class="line">			if errors.Is(err, ringbuf.ErrClosed) &#123;</span><br><span class="line">				log.Println(&quot;Received signal, exiting..&quot;)</span><br><span class="line">				return</span><br><span class="line">			&#125;</span><br><span class="line">			log.Printf(&quot;reading from reader: %s&quot;, err)</span><br><span class="line">			continue</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		// Parse the ringbuf event entry into a bpfEvent structure.</span><br><span class="line">		if err := binary.Read(bytes.NewBuffer(record.RawSample), binary.LittleEndian, &amp;event); err != nil &#123;</span><br><span class="line">			log.Printf(&quot;parsing ringbuf event: %s&quot;, err)</span><br><span class="line">			continue</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		log.Printf(&quot;pid: %d\tcomm: %s\n&quot;, event.Pid, unix.ByteSliceToString(event.Comm[:]))</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>使用一个python脚本进行测试OOM。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">a=&quot;111111111111111&quot;</span><br><span class="line">while True:</span><br><span class="line">    a+=a</span><br></pre></td></tr></table></figure>
+<p>最后运行结果</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">probe</span><br><span class="line">attach done</span><br><span class="line">Waiting for events..</span><br><span class="line">pid: 16541 comm: python</span><br></pre></td></tr></table></figure>
+
+<p>ebpf的能力还不止于此，业界做了很多流量控制，性能监控的实践，包括calico用ebpf的实现替代kube-proxy，waeve-scope 用ebpf记录tcp连接，cilium 也用eBPF，结合了tc和XDP。datadog-agent 也是使用了ebpf做一些监控，上面的oomkill的例子也是参考datadog的。ebpf能够让linux内核变得更动态更灵活。甚至有一种说法是eBPF让Linux内核正在变成微内核。</p>
+
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
       
   
   
@@ -1242,99 +1351,6 @@
   
   
 
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2018/12/11/etcd-raft-code-walkthrough/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="ggaaooppeenngg">
-      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="ggaaooppeenngg">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/zh-CN/2018/12/11/etcd-raft-code-walkthrough/" class="post-title-link" itemprop="url">etcd/raft code walkthrough</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-
-              <time title="创建时间：2018-12-11 23:51:03" itemprop="dateCreated datePublished" datetime="2018-12-11T23:51:03+08:00">2018-12-11</time>
-            </span>
-              <span class="post-meta-item">
-                <span class="post-meta-item-icon">
-                  <i class="far fa-calendar-check"></i>
-                </span>
-                <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2019-08-14 20:21:47" itemprop="dateModified" datetime="2019-08-14T20:21:47+08:00">2019-08-14</time>
-              </span>
-
-          
-  
-  <span class="post-meta-item">
-    
-      <span class="post-meta-item-icon">
-        <i class="far fa-comment"></i>
-      </span>
-      <span class="post-meta-item-text">Disqus：</span>
-    
-    <a title="disqus" href="/zh-CN/2018/12/11/etcd-raft-code-walkthrough/#disqus_thread" itemprop="discussionUrl">
-      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2018/12/11/etcd-raft-code-walkthrough/" itemprop="commentCount"></span>
-    </a>
-  </span>
-  
-  
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <p>我照着 raft 论文重新过了一遍 etcd/raft 的代码，主要的文件是 etcd 下面的 <code>raft.go</code>。对照这个代码重新梳理一遍也算是深入理解一下 raft 算法。接下来会包含两个视频一个是选举相关的内容，一个是日志复制的内容，我 walktrough 的时候默认是大致读过论文的，对一些机制和字段都有了解，没有具体解析每个字段的来历，并且把一些问题按照代码的顺序重新理了一遍。</p>
-<p>第一部分是关于选举的，raft 本身是一个 quorum based 的算法，一致性要靠“大多数人”的同意，并且为了简单和不必要的竞争，raft 只有一个主节点，在收到大多数人的投票以后成为主节点。</p>
-<div class="video-container"><iframe src="https://www.youtube.com/embed/Qo45IJbSr3k" frameborder="0" loading="lazy" allowfullscreen></iframe></div>
-
-<p>第二部分是关于日志复制的，raft 需要让主节点把客户端的请求复制到大多数节点上才能算达成一致，并且 commit，下面介绍的是复制的机制，并且 ConfChange 和 Snapshot 也是走这个流程达成一致的。</p>
-<div class="video-container"><iframe src="https://www.youtube.com/embed/WjsrdYQ1SH0" frameborder="0" loading="lazy" allowfullscreen></iframe></div>
-
-<p>之后的 walkthrough 应该会慢慢补上，关于一些其他的逻辑和具体的一些函数的细节部分会在后面放出。</p>
-<h2 id="mvcc"><a href="#mvcc" class="headerlink" title="mvcc"></a>mvcc</h2><p>v2 版本的实现存在 watcher 丢失或者丢失事件的问题，导致客户端要重新获取一遍。新版本是有本地嵌入式的数据库来避免这些问题。<br>mvcc 是 etcd v3 版本的存储实现主要有两个部分，一个是 backend 的 boltDB 和内存索引 key index。</p>
-<p>BoltDB 是一个 B+ 树的嵌入式 KV store，相对于 leveldb 适用于写多读少的情况，我之前的<a href="https://ggaaooppeenngg.github.io/zh-CN/2017/03/31/%E4%BB%8E%E6%9C%B4%E7%B4%A0%E8%A7%A3%E9%87%8A%E5%87%BA%E5%8F%91%E8%A7%A3%E9%87%8Aleveldb%E7%9A%84%E8%AE%BE%E8%AE%A1/">文章</a>简单介绍了一下 leveldb 的设计，BoltDB 比较适合读多写少，或者存在大范围 scan 的情况下比较合适，还有类似 levedb 的产品 <a target="_blank" rel="noopener" href="https://blog.dgraph.io/post/badger/">badger</a>，是纯 Go 实现的，在多写的情况下 leveldb 的衍生品表现更好。</p>
-<p>BatchTx 就是收集很多的 call，然后在一个 Update 里面完成。</p>
-<p>backend 里面存的 key 是 revision ，其中 main revision 是事务编号，sub revision 是事务中操作的编号，etcd 在 boltdb 上还做了一层缓存，所以多了一些锁机制。<br>内存索引中存的是真正的 key 到 revison 的索引。</p>
-<p>key_index -&gt; tx_buffer -&gt; boltdb.tx</p>
-<p>调用路径</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">kv:</span><br><span class="line">  WriteView 是一些直接操作</span><br><span class="line">  ReadView</span><br><span class="line">  Read() TxnRead</span><br><span class="line">  Write() TxnWrite 是拿到对应的 transaction</span><br><span class="line"></span><br><span class="line">revision:</span><br><span class="line">  main</span><br><span class="line">  sub</span><br><span class="line">kvstore:</span><br><span class="line">  readView readView&#123;kv&#125; 用了 Read() Read/Write 是 kvstore 自己实现的用于拿 backend 的和自己的各种锁。(kvstore\_txn.go)</span><br><span class="line">  writeView writeView&#123;kv&#125; 用了 Write()</span><br><span class="line">treeIndex:</span><br><span class="line">  keyIndex</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">writeView:</span><br><span class="line">  拿到 kv 的 Write(storeTxnWrite):  首先查 tw.s.kvindex.Get 然后再 backend.Tx UnsageSeqPut，然后更新 keyindex，append changes，处理 lease (old detach new attach)</span><br><span class="line">readView</span><br><span class="line">   storeTxnRead: keyindex Revisons -&gt; tx.UnsafeRange</span><br><span class="line"></span><br><span class="line">lessor  lesor(重音在后面)</span><br><span class="line">   leaseBucket 在单独的一个 bucket 里面</span><br></pre></td></tr></table></figure>
-
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
 
   
   <nav class="pagination">
@@ -1404,7 +1420,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">67</span>
+          <span class="site-state-item-count">68</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -1417,7 +1433,7 @@
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">116</span>
+        <span class="site-state-item-count">118</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
