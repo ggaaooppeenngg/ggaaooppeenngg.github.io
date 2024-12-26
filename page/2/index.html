@@ -145,7 +145,7 @@
   </li>
         <li class="menu-item menu-item-tags">
 
-    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">118</span></a>
+    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">119</span></a>
 
   </li>
         <li class="menu-item menu-item-categories">
@@ -155,7 +155,7 @@
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">68</span></a>
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">69</span></a>
 
   </li>
   </ul>
@@ -177,6 +177,236 @@
 
           <div class="content index posts-expand">
             
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2024/11/19/AI-Infra-%E7%9A%84%E4%B8%BB%E8%A6%81%E6%8C%91%E6%88%98%E6%80%BB%E7%BB%93/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            <a href="/zh-CN/2024/11/19/AI-Infra-%E7%9A%84%E4%B8%BB%E8%A6%81%E6%8C%91%E6%88%98%E6%80%BB%E7%BB%93/" class="post-title-link" itemprop="url">AI Infra 的一些挑战</a>
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2024-11-19 16:21:45" itemprop="dateCreated datePublished" datetime="2024-11-19T16:21:45+08:00">2024-11-19</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2024-12-26 12:02:28" itemprop="dateModified" datetime="2024-12-26T12:02:28+08:00">2024-12-26</time>
+              </span>
+
+          
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2024/11/19/AI-Infra-%E7%9A%84%E4%B8%BB%E8%A6%81%E6%8C%91%E6%88%98%E6%80%BB%E7%BB%93/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2024/11/19/AI-Infra-的主要挑战总结/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <p>从一些大模型的训练技术报告来看有一些比较有代表性的挑战，比如 Meta 的 Research Super Compute (RSC) 和 X 的 Grok Infra。这些技术报告中提到了一些关键的技术挑战和解决方案，包括 GPU 架构与互联、存储系统、训练的稳定性等。</p>
+<h2 id="X-Grok-Infra"><a href="#X-Grok-Infra" class="headerlink" title="X Grok Infra"></a>X Grok Infra</h2><p>从 <a target="_blank" rel="noopener" href="https://x.ai/blog/grok-1.5">Grok-1.5 Infra</a> 的技术报告中可以窥见，Grok-1.5 在基础设施方面具有以下核心优势：</p>
+<ol>
+<li>先进的分布式训练框架：基于 JAX、Rust 和 Kubernetes 的技术栈，不仅确保了高性能，还能快速适配和训练新的模型架构。</li>
+<li>卓越的可靠性和可用性：通过自研的训练协调器，系统能够智能地检测并隔离故障节点，大幅降低训练任务中断的风险。</li>
+<li>高效的存储与数据处理：在检查点存储、数据加载和训练作业重启等环节都进行了深度优化，将训练过程中的停机时间降至最低。</li>
+</ol>
+<h2 id="Meta-Reasearch-Super-Compute"><a href="#Meta-Reasearch-Super-Compute" class="headerlink" title="Meta Reasearch Super Compute"></a>Meta Reasearch Super Compute</h2><p>另一个典型案例是 Meta 的 <a target="_blank" rel="noopener" href="https://engineering.fb.com/2024/03/12/data-center-engineering/building-metas-genai-infrastructure/">Research Super Compute (RSC)</a> 超算集群，在这上面训练了Llama3.2，有一份92页的<a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2407.21783">技术报告</a>，RSC的<a target="_blank" rel="noopener" href="https://www.usenix.org/conference/osdi24/presentation/choudhury">相关Talk</a>，以及里面用到的<a target="_blank" rel="noopener" href="https://www.usenix.org/system/files/osdi24-choudhury.pdf">MAST论文</a>调度器：</p>
+<h3 id="算力规模"><a href="#算力规模" class="headerlink" title="算力规模"></a>算力规模</h3><p>已升级至 16,000 张 H100 GPU，算力获得质的飞跃。每个服务器配备了 8 块 GPU 和 2 块 CPU。在服务器内部，八块 GPU 通过 NVLink 连接。</p>
+<h3 id="网络互联"><a href="#网络互联" class="headerlink" title="网络互联"></a>网络互联</h3><p>采用双网络方案：</p>
+<ul>
+<li><strong>NVIDIA Quantum InfiniBand</strong>，带宽高达 1600 Gb/s，RoCE（RDMA over Converged Ethernet）作为补充互联方案。</li>
+</ul>
+<h4 id="网络拓扑"><a href="#网络拓扑" class="headerlink" title="网络拓扑"></a>网络拓扑</h4><ul>
+<li><strong>底层网络（第一个层）</strong>：每个机架（rack）包含 16 块 GPU，分散在两个服务器上，并通过一个 Minipack2 顶层网络（ToR）交换机连接。</li>
+<li><strong>中间网络（第二层）</strong>：192 个这样的机架通过 Cluster Switches 连接，形成一个包含 3,072 块 GPU 的 Pod。这种设计确保了从任何两个 GPU 之间的通信都有满速带宽，没有过度订阅。</li>
+<li><strong>顶层网络（第三层）</strong>：八个这样的 Pod 通过 Aggregation Switches 连接，形成一个包含 24,000 块 GPU 的集群。然而，顶层网络的连接没有保持满速带宽，而是存在过度订阅比例为 1：7。</li>
+</ul>
+<h4 id="负载均衡"><a href="#负载均衡" class="headerlink" title="负载均衡"></a>负载均衡</h4><ul>
+<li><strong>Collective library</strong> 将 16 个网络流中的两个 GPU 之间的数据传输从一个流变为 16 个流。</li>
+<li><strong>Enhanced-ECMP（E-ECMP）协议</strong> 通过在 RoCE（Rdma over Converged Ethernet）报头中添加额外的字段，进行 hash 计算，从而有效地在不同网络路径上平衡 16 个流。</li>
+</ul>
+<h4 id="拥塞控制"><a href="#拥塞控制" class="headerlink" title="拥塞控制"></a>拥塞控制</h4><p>使用深度缓冲区（deep-buffer switches）来解决在 Spine（Gangidi et al., 2024）中由于集体通信模式引起的暂时拥堵和缓冲问题。</p>
+<h3 id="存储系统"><a href="#存储系统" class="headerlink" title="存储系统"></a>存储系统</h3><p>采用自研的 Tectonic 文件系统，通过 FUSE 提供标准的 Linux 文件系统接口，确保高效的数据访问。</p>
+<ul>
+<li><strong>存储容量</strong>：240 PB，基于 7,500 台 SSD servers</li>
+<li><strong>支持的最大吞吐量</strong>：7 TB/s</li>
+<li><strong>支持的可持续吞吐量</strong>：2 TB/s</li>
+<li><strong>检查点写入</strong>：非常时断时续，导致存储网络饱和</li>
+<li><strong>检查点的目标</strong>：因为 checkpoint 非常大，最小化 GPU 停顿时间，加快检查点频率也变得非常重要</li>
+</ul>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>从这些实践可以看出，现代 AI 基础设施主要围绕三大核心要素展开：</p>
+<ul>
+<li>计算能力（以 GPU 为核心）</li>
+<li>网络互联（RoCE 或 InfiniBand）</li>
+<li>存储系统</li>
+</ul>
+<p>而在上层的编排调度领域，系统的容错能力和可靠性则成为关键考量因素。</p>
+<h2 id="GPU-架构与互联"><a href="#GPU-架构与互联" class="headerlink" title="GPU 架构与互联"></a>GPU 架构与互联</h2><p>在当前AI训练领域，主流的GPU型号主要是NVIDIA的A100、H100和H200系列，它们按照发布时间依次提供了更强大的算力和更优化的架构设计。关于GPU的详细架构，特别是其拓扑结构，可以参考<a target="_blank" rel="noopener" href="https://arthurchiao.art/blog/gpu-advanced-notes-1-zh/">这篇深度解析文章</a>。</p>
+<h3 id="GPU互联拓扑"><a href="#GPU互联拓扑" class="headerlink" title="GPU互联拓扑"></a>GPU互联拓扑</h3><p>GPU之间的互联拓扑结构主要取决于不同总线间的传输特性，GPU之间可以通过NVIDIA专有的NVLink高速互联技术直接通信。在现代GPU集群中，主要有以下几种互联方式：</p>
+<ol>
+<li>NVSwitch架构：通过NVIDIA的交换架构实现所有GPU之间的全互联</li>
+<li>走网卡，如果卡之间没有NVSwitch的话，可以绕过CPU走网卡：<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">GPU0 -&gt; PCIe -&gt; IB(InfiniBand) -&gt; PCIe -&gt; GPU1</span><br></pre></td></tr></table></figure>
+这种通信模式由NCCL（NVIDIA Collective Communications Library）负责协调和优化。</li>
+</ol>
+<h3 id="GPU分配策略"><a href="#GPU分配策略" class="headerlink" title="GPU分配策略"></a>GPU分配策略</h3><p>NVIDIA开源的<a target="_blank" rel="noopener" href="https://github.com/NVIDIA/go-gpuallocator">go-gpuallocator</a>库提供了一系列基于拓扑关系的GPU分配策略。例如，其中的<code>NewStaticDGX1Policy</code>专门针对DGX-1标准配置优化。考虑到单机环境下GPU组合的可能性有限，这种基于静态规则的分配策略已经能够很好地满足需求。</p>
+<p>这些分配策略的核心目标是最小化跨总线和跨NUMA节点的通信开销，确保GPU间通信尽可能利用最高带宽的数据通路，从而提供最优的训练性能。</p>
+<h3 id="跨节点的通信"><a href="#跨节点的通信" class="headerlink" title="跨节点的通信"></a>跨节点的通信</h3><p>在分布式训练场景下，跨节点通信需要经过更长的数据传输路径：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">GPU -&gt; NIC -&gt; 叶层交换机 -&gt; 核心交换机 -&gt; NIC -&gt; GPU</span><br></pre></td></tr></table></figure>
+
+<p>这种通信模式面临两个主要的优化方向：</p>
+<ol>
+<li><p><strong>本地化优化</strong>：尽可能将相关联的GPU任务分配在物理位置相近的节点上，以减少网络延迟。</p>
+</li>
+<li><p><strong>负载均衡</strong>：避免将所有任务集中在同一交换机下，防止出现网络拥塞。过度集中可能导致局部带宽饱和，反而降低整体训练效率。</p>
+</li>
+</ol>
+<p>这种权衡本质上是一个网络流优化问题。通过图论中的网络流算法，可以在通信延迟和带宽利用率之间找到最优平衡点，从而实现更高效的跨节点通信。</p>
+<p>一个分布式训练的带宽瓶颈来源于带宽最低的那条路径。</p>
+<h3 id="利用-Kubernetes-Pod-亲和性优化网络拓扑"><a href="#利用-Kubernetes-Pod-亲和性优化网络拓扑" class="headerlink" title="利用 Kubernetes Pod 亲和性优化网络拓扑"></a>利用 Kubernetes Pod 亲和性优化网络拓扑</h3><p>在 Kubernetes 环境下，我们可以通过 Pod 亲和性（Affinity）和规则来优化 GPU 任务的分配。主要可以从以下几个方面入手：</p>
+<p><strong>拓扑感知调度</strong>：使用 <code>topologyKey</code> 确保相关联的 Pod 被调度到网络拓扑上接近的节点：<br>例如同一个分布式训练任务<code>(training-group = group1)</code>尽让分配在一个机架上，同交换机，同核心交换机也是类似的。</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">affinity:</span></span><br><span class="line">  <span class="attr">podAffinity:</span></span><br><span class="line">    <span class="attr">preferredDuringSchedulingIgnoredDuringExecution:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">weight:</span> <span class="number">50</span></span><br><span class="line">      <span class="attr">podAffinityTerm:</span></span><br><span class="line">        <span class="attr">labelSelector:</span></span><br><span class="line">          <span class="attr">matchExpressions:</span></span><br><span class="line">          <span class="bullet">-</span> <span class="attr">key:</span> <span class="string">training-group</span></span><br><span class="line">            <span class="attr">operator:</span> <span class="string">In</span></span><br><span class="line">            <span class="attr">values:</span></span><br><span class="line">            <span class="bullet">-</span> <span class="string">group1</span></span><br><span class="line">        <span class="attr">topologyKey:</span> <span class="string">topology.kubernetes.io/rack</span>  <span class="comment"># 同机架优先</span></span><br></pre></td></tr></table></figure>
+
+<p>这种方案的优势在于：</p>
+<ul>
+<li>配置简单，易于理解和维护</li>
+<li>充分利用 Kubernetes 原生能力，无需额外组件</li>
+<li>可以根据实际需求灵活调整权重和策略</li>
+</ul>
+<h2 id="存储系统-1"><a href="#存储系统-1" class="headerlink" title="存储系统"></a>存储系统</h2><p>AI训练中的存储系统面临着两个主要挑战：</p>
+<h3 id="1-海量小文件问题"><a href="#1-海量小文件问题" class="headerlink" title="1. 海量小文件问题"></a>1. 海量小文件问题</h3><p>AI训练数据集通常包含大量的小文件，这对传统文件系统的性能和管理造成了巨大压力。一些现代分布式文件系统提供了很好的解决方案，例如 Meta 的 Tectonic 和与其架构类似的 JuiceFS，它们采用了以下优化方案：</p>
+<p><strong>元数据管理优化</strong>：</p>
+<ul>
+<li>使用元数据库管理文件结构，将 <code>ls</code> 命令转化为简单的字符串前缀匹配操作</li>
+<li>避免了传统 Linux 文件系统依赖 inode 管理的方式</li>
+<li>解决了 inode 臃肿问题（在传统系统中，一个 inode 的大小可能与文件本身相当）</li>
+</ul>
+<h3 id="2-Checkpoint-存储挑战"><a href="#2-Checkpoint-存储挑战" class="headerlink" title="2. Checkpoint 存储挑战"></a>2. Checkpoint 存储挑战</h3><p>分布式训练中的 checkpoint 文件体积巨大，这在大语言模型训练中尤为明显：</p>
+<ul>
+<li>以 LLaMA-2-70B 为例，单个完整的 checkpoint 就需要 140GB 存储空间（FP16格式）</li>
+<li>训练过程中需要定期保存 checkpoint，累积存储需求可能达到 TB 甚至 PB 级别</li>
+<li>需要存储系统能够提供高带宽和低延迟的读写性能，同时保证数据的可靠性</li>
+</ul>
+<p>这些挑战要求存储系统具备：</p>
+<ul>
+<li>强大的扩展性</li>
+<li>高效的数据压缩能力</li>
+<li>智能的数据分层存储机制</li>
+<li>可靠的数据备份和恢复能力</li>
+</ul>
+<h2 id="训练的稳定性"><a href="#训练的稳定性" class="headerlink" title="训练的稳定性"></a>训练的稳定性</h2><p>在大规模 AI 训练中，硬件故障是一个常见问题。特别是新型号显卡往往会有较高的故障率，再加上传统的硬件错误，这些都可能导致训练中断。因此，快速识别错误并恢复训练成为了一个关键挑战。目前主流的解决方案主要有以下两种：</p>
+<h3 id="基于-torchrun-的弹性训练"><a href="#基于-torchrun-的弹性训练" class="headerlink" title="基于 torchrun 的弹性训练"></a>基于 torchrun 的弹性训练</h3><p>torchrun 提供了两种容错机制：简单重试和弹性训练。</p>
+<ol>
+<li><p><strong>简单重试模式</strong>：<br>通过 <code>--max-restarts</code> 参数配置重试次数：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">torchrun \</span><br><span class="line">    --nnodes=<span class="variable">$NUM_NODES</span> \</span><br><span class="line">    --nproc-per-node=<span class="variable">$NUM_TRAINERS</span> \</span><br><span class="line">    --max-restarts=3 \</span><br><span class="line">    --rdzv-id=<span class="variable">$JOB_ID</span> \</span><br><span class="line">    --rdzv-backend=c10d \</span><br><span class="line">    --rdzv-endpoint=<span class="variable">$HOST_NODE_ADDR</span> \</span><br><span class="line">    YOUR_TRAINING_SCRIPT.py [script args...]</span><br></pre></td></tr></table></figure></li>
+<li><p><strong>弹性训练模式</strong>：<br>通过设置 <code>nnodes</code> 的范围来支持动态节点数：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">torchrun \</span><br><span class="line">    --nnodes=1:4 \  <span class="comment"># 支持1-4个节点的动态伸缩</span></span><br><span class="line">    --nproc-per-node=<span class="variable">$NUM_TRAINERS</span> \</span><br><span class="line">    --max-restarts=3 \</span><br><span class="line">    --rdzv-id=<span class="variable">$JOB_ID</span> \</span><br><span class="line">    --rdzv-backend=c10d \</span><br><span class="line">    --rdzv-endpoint=<span class="variable">$HOST_NODE_ADDR</span> \</span><br><span class="line">    YOUR_TRAINING_SCRIPT.py [script args...]</span><br></pre></td></tr></table></figure></li>
+</ol>
+<p>弹性训练模式需要配置服务发现机制，默认使用 c10d 作为内置的节点发现服务，也支持使用 etcd 等外部服务。</p>
+<p>当节点发生变化时，系统会自动处理以下场景：</p>
+<ul>
+<li><strong>节点离开（缩容）</strong>：系统通知 agent，停止现有 workers，重新组建 WorkerGroup，使用新的 RANK 和 WORLD_SIZE 启动所有 workers</li>
+<li><strong>节点加入（扩容）</strong>：接纳新节点，按照相同流程重组 WorkerGroup</li>
+</ul>
+<h3 id="基于-DeepSpeed-的弹性训练"><a href="#基于-DeepSpeed-的弹性训练" class="headerlink" title="基于 DeepSpeed 的弹性训练"></a>基于 DeepSpeed 的弹性训练</h3><p>DeepSpeed 提供了更细粒度的弹性训练配置：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">  <span class="attr">&quot;elasticity&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;enabled&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">true</span></span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;max_train_batch_size&quot;</span><span class="punctuation">:</span> <span class="string">&quot;seqlen&quot;</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;micro_batch_sizes&quot;</span><span class="punctuation">:</span> <span class="number">8</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;min_gpus&quot;</span><span class="punctuation">:</span> <span class="number">1024</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;max_gpus&quot;</span><span class="punctuation">:</span> <span class="string">&quot;fixed_linear&quot;</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;min_time&quot;</span><span class="punctuation">:</span> <span class="string">&quot;seqlen&quot;</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;version&quot;</span><span class="punctuation">:</span> <span class="number">8</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;ignore_non_elastic_batch_info&quot;</span><span class="punctuation">:</span> <span class="number">1024</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;num_gpus_per_node&quot;</span><span class="punctuation">:</span> <span class="string">&quot;fixed_linear&quot;</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;model_parallel_size&quot;</span><span class="punctuation">:</span> MODEL_PARALLEL_SIZE</span><br><span class="line">  <span class="punctuation">&#125;</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
+
+<p>DeepSpeed 的特点是：</p>
+<ul>
+<li>支持动态调整 batch size</li>
+<li>以 GPU 为粒度进行弹性伸缩（而不是节点级别）</li>
+<li>提供更丰富的训练参数配置</li>
+</ul>
+<h3 id="弹性训练控制器"><a href="#弹性训练控制器" class="headerlink" title="弹性训练控制器"></a>弹性训练控制器</h3><p>要实现完整的弹性训练支持，控制器需要：</p>
+<ol>
+<li>依赖服务发现机制进行节点注册和健康检查</li>
+<li>动态调整弹性策略（如 min_nodes、max_nodes 等参数）</li>
+</ol>
+<p>对于简单的降级场景，通过静态配置即可实现：</p>
+<ul>
+<li>将 max_nodes 设置为总资源规格</li>
+<li>将 min_nodes 设置为最小运行要求（如设置为 1:4 表示支持 1-4 张显卡的动态伸缩）</li>
+</ul>
+<h3 id="节点的问题发现"><a href="#节点的问题发现" class="headerlink" title="节点的问题发现"></a>节点的问题发现</h3><p>在大规模语言模型（LLM）预训练过程中，常见的硬件异常包括：</p>
+<ol>
+<li><p><strong>GPU ECC 错误</strong>：当 GPU 发生不可纠正的显存 ECC（Error Correcting Code）错误时，通常需要重置 GPU 或重启节点来清除这个错误。 </p>
+</li>
+<li><p><strong>Infiniband（IB）/NCCL 问题</strong>：这类问题通常源于硬件故障，如网卡损坏或网络抖动，可能导致训练速度下降或任务异常中断。</p>
+</li>
+<li><p><strong>任务挂起（Hang）</strong>：通常与 IB/NCCL 问题相关，需要人工检测和处理。</p>
+</li>
+<li><p><strong>GPU 掉卡</strong>：此时一般会触发 CUDA 错误或程序异常退出，可能需要重置 GPU 或重启节点来解决。</p>
+</li>
+<li><p><strong>机器异常</strong>：包括 GPU 之外的硬件异常，如硬盘、CPU 等，甚至整机故障，可能需要更换硬件或进行系统维护。</p>
+</li>
+<li><p><strong>机器配置异常</strong>：例如，某台机器意外启用了 MIG（多实例 GPU），可能影响训练任务的正常运行。</p>
+</li>
+<li><p><strong>集群维护</strong>：集群中的其他任务或系统维护、升级，可能需要暂停当前训练任务。</p>
+</li>
+</ol>
+<p>可以使用<a target="_blank" rel="noopener" href="https://github.com/kubernetes/node-problem-detector">node-promblem-detector</a>，<br>node-problem-detector 是一个用于在集群管理栈的上游层次中使各个节点问题可见的守护进程。它在每个节点上运行，检测节点问题并将其报告给 apiserver。</p>
+<p>监控和容错是一个比较难的问题，需要结合硬件和软件的特性，以及业务需求，进行综合考量。<br>特别是万卡集群，MFU 只有 50%左右。</p>
+<p>在训练 OPT-175B 模型的过程中，Meta团队使用了 992 个 80GB 的 A100 GPU，每个 GPU 实现了约 147 TFLOP/s 的性能，对应的机器浮点利用率（MFU）约为 47%（147/312）。 </p>
+<p>为了应对可能的硬件故障，团队额外准备了 12 台备用机器，以便在出现问题时进行替换。在训练期间，平均每天约有 2 台机器发生故障，即每台机器每天发生故障的概率约为 1.61%。</p>
+<p>整个训练过程持续了约 2 个多月，包括从 2021 年 10 月 20 日到 2021 年 11 月 11 日的测试阶段，以及从 2021 年 11 月 11 日到 2022 年 1 月 6 日的正式训练阶段，正式训练约 57 天。</p>
+<p>根据预估，实际训练时间应为约 25 天，但由于各种问题，实际有效训练时间仅占总时间的约 44%。在前期，由于各种问题，团队至少手动重启了 35 次任务。为减少人工干预，后续引入了自动重启机制，但由于硬件故障，仍触发了超过 70 次重启，平均每天需要重启一次任务。</p>
+<p>这些经验表明，在大规模模型训练中，硬件故障和其他问题会显著影响训练效率。为此，团队采取了多种措施来应对这些挑战，包括准备备用硬件、引入自动重启机制等，以确保训练过程的顺利进行。  </p>
+<p>这个问题在用新的卡的时候会有更多问题。</p>
+<h2 id="总结-1"><a href="#总结-1" class="headerlink" title="总结"></a>总结</h2><blockquote>
+<p>To train our largest Llama 3 models, we combined three types of parallelization: data parallelization, model parallelization, and pipeline parallelization. Our most efficient implementation achieves a compute utilization of over 400 TFLOPS per GPU when trained on 16K GPUs simultaneously. We performed training runs on two custom-built 24K GPU clusters. To maximize GPU uptime, we developed an advanced new training stack that automates error detection, handling, and maintenance. We also greatly improved our hardware reliability and detection mechanisms for silent data corruption, and we developed new scalable storage systems that reduce overheads of checkpointing and rollback. Those improvements resulted in an overall effective training time of more than 95%. Combined, these improvements increased the efficiency of Llama 3 training by ~three times compared to Llama 2.</p>
+</blockquote>
+<p>LLAMA3 的<a target="_blank" rel="noopener" href="https://ai.meta.com/blog/meta-llama-3/">技术博客</a>揭示了许多令人振奋的优化成果，这些优化背后蕴含着大量值得深入研究的技术细节。虽然我们可能难以直接接触如此大规模的训练集群及其面临的挑战，但这些技术进展仍然为整个 AI 基础设施领域提供了宝贵的参考和启发。</p>
+
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
       
   
   
@@ -1238,119 +1468,6 @@
   
   
 
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2019/03/03/tf-%E6%A8%A1%E5%9E%8B%E7%9A%84%E4%BF%9D%E5%AD%98%E5%92%8C%E5%86%BB%E7%BB%93/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="ggaaooppeenngg">
-      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="ggaaooppeenngg">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/zh-CN/2019/03/03/tf-%E6%A8%A1%E5%9E%8B%E7%9A%84%E4%BF%9D%E5%AD%98%E5%92%8C%E5%86%BB%E7%BB%93/" class="post-title-link" itemprop="url">tensorflow 模型的存档、保存、冻结、优化</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-
-              <time title="创建时间：2019-03-03 02:29:46" itemprop="dateCreated datePublished" datetime="2019-03-03T02:29:46+08:00">2019-03-03</time>
-            </span>
-              <span class="post-meta-item">
-                <span class="post-meta-item-icon">
-                  <i class="far fa-calendar-check"></i>
-                </span>
-                <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2019-07-23 23:24:30" itemprop="dateModified" datetime="2019-07-23T23:24:30+08:00">2019-07-23</time>
-              </span>
-
-          
-  
-  <span class="post-meta-item">
-    
-      <span class="post-meta-item-icon">
-        <i class="far fa-comment"></i>
-      </span>
-      <span class="post-meta-item-text">Disqus：</span>
-    
-    <a title="disqus" href="/zh-CN/2019/03/03/tf-%E6%A8%A1%E5%9E%8B%E7%9A%84%E4%BF%9D%E5%AD%98%E5%92%8C%E5%86%BB%E7%BB%93/#disqus_thread" itemprop="discussionUrl">
-      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2019/03/03/tf-模型的保存和冻结/" itemprop="commentCount"></span>
-    </a>
-  </span>
-  
-  
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <p>模型的保存分三种类型</p>
-<ol>
-<li> 知道模型结构，单纯保存变量</li>
-<li> 不知道模型结构，保存模型和变量</li>
-<li> 不需要再改变量，只要常量化的模型（“冻结”）</li>
-</ol>
-<p>第一种用于训练的存档，并且临时恢复，这个时候用户是把训练需要的网络结构在代码里面构造好了的，只是在一定的时间下需要暂时保存网络中的变量，为了在崩溃之后继续训练。所以自然而然会有一个问题，如果我用 Python 写的代码，需要在 C++ 当中恢复，我需要知道你的模型结构，才能恢复，这个最蠢的办法是用 C++ 把你的网络结构再构造一遍，但我们按照统一的协议（比如 Protobuf）确定网络结构，就可以直接从标准序列化的数据中解析网络结构，这就是第二种情况，独立于语言，模型和变量一起保存的情况。然后如果碰到我们不需要再训练了，比如只是把这个模型进行部署，不需要改变相关的变量，那么其实只要一个带常量的模型就可以，这就是第三种情况，把变量冻结的正向传播模型。接下来会依次解释这几种情况的工作方式。</p>
-<p>除了这些以外，针对用于服务的模型还可以做很多的优化。</p>
-<h2 id="存档"><a href="#存档" class="headerlink" title="存档"></a>存档</h2><p>存档只是单纯的保存变量，并且能够恢复，可以在一定的迭代次数以后保存变量，并且从任意一个存档开始重新训练。以两个变量加减 1 为例。</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">import tensorflow as tf</span><br><span class="line"></span><br><span class="line"># Create some variables.</span><br><span class="line">v1 = tf.get_variable(&quot;v1&quot;, shape=[3], initializer = tf.zeros_initializer)</span><br><span class="line">v2 = tf.get_variable(&quot;v2&quot;, shape=[5], initializer = tf.zeros_initializer)</span><br><span class="line"></span><br><span class="line">inc_v1 = v1.assign(v1+1)</span><br><span class="line">dec_v2 = v2.assign(v2-1)</span><br><span class="line"></span><br><span class="line"># Add an op to initialize the variables.</span><br><span class="line">init_op = tf.global_variables_initializer()</span><br><span class="line"></span><br><span class="line"># Add ops to save and restore all the variables.</span><br><span class="line">saver = tf.train.Saver()</span><br><span class="line"></span><br><span class="line"># Later, launch the model, initialize the variables, do some work, and save the</span><br><span class="line"># variables to disk.</span><br><span class="line">with tf.Session() as sess:</span><br><span class="line">  sess.run(init_op)</span><br><span class="line">  # Do some work with the model.</span><br><span class="line">  inc_v1.op.run()</span><br><span class="line">  dec_v2.op.run()</span><br><span class="line">  # Save the variables to disk.</span><br><span class="line">  save_path = saver.save(sess, &quot;/tmp/tf-test/model.ckpt&quot;)</span><br><span class="line">  print(&quot;Model saved in path: %s&quot; % save_path)</span><br></pre></td></tr></table></figure>
-
-<p>可以在 <code>/tmp/tf-test</code> 下面看到这几个文件 <code>checkpoint                     model.ckpt.data-00000-of-00001 model.ckpt.index               model.ckpt.meta</code>。</p>
-<p>可以通过脚本观察保存的变量 <code>python  $tensorflow-src/tensorflow/python/tools/inspect_checkpoint.py --file_name=/tmp/tf-test/model.ckpt  --all_tensors</code></p>
-<p>得到保存的变量的内容，注意 <code>model.ckpt</code> 这个只是文件前缀。</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">tensor_name:  v1</span><br><span class="line">[1. 1. 1.]</span><br><span class="line">tensor_name:  v2</span><br><span class="line">[-1. -1. -1. -1. -1.]</span><br></pre></td></tr></table></figure>
-<p>如果要恢复的话，可以通过下面的代码。</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">import tensorflow as tf</span><br><span class="line"></span><br><span class="line"># Create some variables.</span><br><span class="line">v1 = tf.get_variable(&quot;v1&quot;, shape=[3])</span><br><span class="line">v2 = tf.get_variable(&quot;v2&quot;, shape=[5])</span><br><span class="line"></span><br><span class="line"># Add ops to save and restore all the variables.</span><br><span class="line">saver = tf.train.Saver()</span><br><span class="line"></span><br><span class="line"># Later, launch the model, use the saver to restore variables from disk, and</span><br><span class="line"># do some work with the model.</span><br><span class="line">with tf.Session() as sess:</span><br><span class="line">  # Restore variables from disk.</span><br><span class="line">  saver.restore(sess, &quot;/tmp/tf-test/model.ckpt&quot;)</span><br><span class="line">  print(&quot;Model restored.&quot;)</span><br><span class="line">  # Check the values of the variables</span><br><span class="line">  print(&quot;v1 : %s&quot; % v1.eval())</span><br><span class="line">  print(&quot;v2 : %s&quot; % v2.eval())</span><br></pre></td></tr></table></figure>
-<p>得到一样的效果</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">v1 : [1. 1. 1.]</span><br><span class="line">v2 : [-1. -1. -1. -1. -1.]</span><br></pre></td></tr></table></figure>
-<p>具体来说 .meta 对应的是 MetaGraph 和 SaverGraph，.index 对应的是变量值的位置，key 是变量名，value 是变量保存的入口定义，data 变量的值具体保存的文件。这是恢复代码中已经原样构造出了 Graph，如果没有构造的化，需要通过 <code>tf.train.import_meta_graph(&#39;/tmp/model.ckpt.meta&#39;)</code> 来加载，但是存档保存的信息比较单一，Tensorflow 提供了一个更丰富的 API 来使用。</p>
-<h2 id="保存"><a href="#保存" class="headerlink" title="保存"></a>保存</h2><p><code>SavedModelBuilder</code> 保存的 API 比较丰富，能够保存多个 MetaGraph 和 Variables 的组合，除此之外还能附带 assets，并且要指定模型签名，<code>simple_saved</code> 的方法是一个简单版本的调用，适用于 Predict API。这里要展开一下 GraphDef, MetaGraphDef, SignatureDef, tags 这些东西的概念。对于 MetaGraph，<a target="_blank" rel="noopener" href="https://blog.csdn.net/qq_38542085/article/details/78554550">这篇文章</a>解释得很清楚。SignatureDef 是对应了一种图的输入和输出，可以依据这个进行 serving API 的调用，类似于函数签名，相对于一个接口的定义。</p>
-<p>tensorflow_serving 自己给了个<a target="_blank" rel="noopener" href="https://github.com/tensorflow/serving/blob/master/tensorflow_serving/example/mnist_saved_model.py">例子</a>，执行 <code>python mnist_saved_model.py /tmp/tf-test-2</code> 以后可以获得一个目录，下面有版本 1 的模型数据，执行 <code>saved_model_cli show --dir  /tmp/tf-test-2/1</code> 可以查看对应的签名。可以看到对应的层级关系，默认用于服务的模型会打上 serve 的标签，函数签名有两个，分别对应了 predict 和 classify 的方法。</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line">MetaGraphDef with tag-set: &#x27;serve&#x27; contains the following SignatureDefs:</span><br><span class="line"></span><br><span class="line">signature_def[&#x27;predict_images&#x27;]:</span><br><span class="line">  The given SavedModel SignatureDef contains the following input(s):</span><br><span class="line">    inputs[&#x27;images&#x27;] tensor_info:</span><br><span class="line">        dtype: DT_FLOAT</span><br><span class="line">        shape: (-1, 784)</span><br><span class="line">        name: x:0</span><br><span class="line">  The given SavedModel SignatureDef contains the following output(s):</span><br><span class="line">    outputs[&#x27;scores&#x27;] tensor_info:</span><br><span class="line">        dtype: DT_FLOAT</span><br><span class="line">        shape: (-1, 10)</span><br><span class="line">        name: y:0</span><br><span class="line">  Method name is: tensorflow/serving/predict</span><br><span class="line"></span><br><span class="line">signature_def[&#x27;serving_default&#x27;]:</span><br><span class="line">  The given SavedModel SignatureDef contains the following input(s):</span><br><span class="line">    inputs[&#x27;inputs&#x27;] tensor_info:</span><br><span class="line">        dtype: DT_STRING</span><br><span class="line">        shape: unknown_rank</span><br><span class="line">        name: tf_example:0</span><br><span class="line">  The given SavedModel SignatureDef contains the following output(s):</span><br><span class="line">    outputs[&#x27;classes&#x27;] tensor_info:</span><br><span class="line">        dtype: DT_STRING</span><br><span class="line">        shape: (-1, 10)</span><br><span class="line">        name: index_to_string_Lookup:0</span><br><span class="line">    outputs[&#x27;scores&#x27;] tensor_info:</span><br><span class="line">        dtype: DT_FLOAT</span><br><span class="line">        shape: (-1, 10)</span><br><span class="line">        name: TopKV2:0</span><br><span class="line">  Method name is: tensorflow/serving/classify</span><br></pre></td></tr></table></figure>
-<p>可以参考 tensorflow 的 <a target="_blank" rel="noopener" href="https://www.tensorflow.org/tfx/serving/api_rest">REST API</a>，比如 <code>GET http://host:port/v1/models/$&#123;MODEL_NAME&#125;[/versions/$&#123;MODEL_VERSION&#125;]</code> 其实对应这个例子就是 <code>GET http://host:port/v1/models/tf-test-2/versions/1</code>，然后感觉函数签名不同的 method name，可以调用不同的 request，比如 <code>POST http://host:port/v1/models/$&#123;MODEL_NAME&#125;[/versions/$&#123;MODEL_VERSION&#125;]:predict</code> 这个格式，如果输入和输出对应的是 <code>images</code> 和 <code>scores</code> 那么就对应了第一个签名。</p>
-<h2 id="冻结"><a href="#冻结" class="headerlink" title="冻结"></a>冻结</h2><p>冻结的情况就是变量不再需要修改，直接把变量转化成常量保存成单一的模型，方便在部署的场景下使用。<br>冻结模型的代码在<a target="_blank" rel="noopener" href="https://github.com/tensorflow/tensorflow/blob/master/tensorflow/python/tools/freeze_graph.py">这里</a>，他的主要流程如下</p>
-<ol>
-<li>清除所有 Op 中的 device，让原来在指定 CPU/GPU/节点 上的 Op 不再绑定。</li>
-<li>通过 <code>graph_util.convert_variables_to_constants</code> 将所有的 Variable <code>eval</code> 一次，把变量的 Op 的结果拿到，替换成 constant</li>
-</ol>
-<h2 id="优化"><a href="#优化" class="headerlink" title="优化"></a>优化</h2><p>除了冻结模型以外，还可以删减一些多余的节点，比如 Summary 节点或者 Identity 节点，甚者把 16bit 的浮点数权重修改为 8bit 的浮点数权重（这个在 Tensorflow Lite 里很有用）。<a target="_blank" rel="noopener" href="https://medium.com/google-cloud/optimizing-tensorflow-models-for-serving-959080e9ddbf">这篇文章</a> 列出了详细的优化方式，主要是靠 <code>transform_graph</code> 这个工具，地址在<a target="_blank" rel="noopener" href="https://github.com/tensorflow/tensorflow/blob/master/tensorflow/tools/graph_transforms/README.md">这</a>，他有很详细的柴剪列表，并且可以自己编写裁剪函数，充分做到模型在部署环节的“纯净化”，调用方式也很简单。</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">transform_graph \</span><br><span class="line">--in_graph=tensorflow_inception_graph.pb \</span><br><span class="line">--out_graph=optimized_inception_graph.pb \</span><br><span class="line">--inputs=&#x27;Mul:0&#x27; \</span><br><span class="line">--outputs=&#x27;softmax:0&#x27; \</span><br><span class="line">--transforms=&#x27;</span><br><span class="line">strip_unused_nodes(type=float, shape=&quot;1,299,299,3&quot;)</span><br><span class="line">remove_nodes(op=Identity, op=CheckNumerics)</span><br><span class="line">fold_old_batch_norms</span><br><span class="line">&#x27;</span><br></pre></td></tr></table></figure>
-<p>在<code>transforms</code>里面加入你想进行优化的 transformer 和对应的参数即可，在科赛上也有在线可以跑的<a target="_blank" rel="noopener" href="https://www.kesci.com/home/project/5c8219e31e7104002b3747d6">notebook</a></p>
-<h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2><ol>
-<li><a target="_blank" rel="noopener" href="https://cloud.google.com/ml-engine/docs/tensorflow/deploying-models#build_an_optimal_prediction_graph">Cloud ML Engine</a></li>
-</ol>
-
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
 
   
   <nav class="pagination">
@@ -1420,7 +1537,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">68</span>
+          <span class="site-state-item-count">69</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -1433,7 +1550,7 @@
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">118</span>
+        <span class="site-state-item-count">119</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
