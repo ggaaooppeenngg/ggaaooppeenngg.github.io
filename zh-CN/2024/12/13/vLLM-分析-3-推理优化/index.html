@@ -40,8 +40,12 @@
 <meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2024/12/13/vLLM-%E5%88%86%E6%9E%90-3-%E6%8E%A8%E7%90%86%E4%BC%98%E5%8C%96/prefill_4.png">
 <meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2024/12/13/vLLM-%E5%88%86%E6%9E%90-3-%E6%8E%A8%E7%90%86%E4%BC%98%E5%8C%96/prefill_5.png">
 <meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2024/12/13/vLLM-%E5%88%86%E6%9E%90-3-%E6%8E%A8%E7%90%86%E4%BC%98%E5%8C%96/prefill_6.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2024/12/13/vLLM-%E5%88%86%E6%9E%90-3-%E6%8E%A8%E7%90%86%E4%BC%98%E5%8C%96/spd.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2024/12/13/vLLM-%E5%88%86%E6%9E%90-3-%E6%8E%A8%E7%90%86%E4%BC%98%E5%8C%96/p_l.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2024/12/13/vLLM-%E5%88%86%E6%9E%90-3-%E6%8E%A8%E7%90%86%E4%BC%98%E5%8C%96/pl_bs_gp_relation.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2024/12/13/vLLM-%E5%88%86%E6%9E%90-3-%E6%8E%A8%E7%90%86%E4%BC%98%E5%8C%96/medusa.png">
 <meta property="article:published_time" content="2024-12-13T09:14:56.000Z">
-<meta property="article:modified_time" content="2024-12-13T09:14:56.446Z">
+<meta property="article:modified_time" content="2025-01-06T09:13:14.866Z">
 <meta property="article:author" content="ggaaooppeenngg">
 <meta property="article:tag" content="LLM">
 <meta property="article:tag" content="Python">
@@ -222,6 +226,13 @@
 
               <time title="创建时间：2024-12-13 17:14:56" itemprop="dateCreated datePublished" datetime="2024-12-13T17:14:56+08:00">2024-12-13</time>
             </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-01-06 17:13:14" itemprop="dateModified" datetime="2025-01-06T17:13:14+08:00">2025-01-06</time>
+              </span>
 
           
   
@@ -305,6 +316,27 @@
 
 <p>最后，将b、c、d在大模型中对应的logits prob求和并取平均值。如果这个值大于一个阈值，就认为这个token是合理的，否则就拒绝。</p>
 <p>这种方法通过结合小模型的快速生成能力和大模型的高准确性，实现了高效且准确的token生成过程。</p>
+<p>根据论文[<a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2406.14066]%E6%9D%A5%E8%AF%B4%EF%BC%8C%E5%9C%A8continus">https://arxiv.org/pdf/2406.14066]来说，在continus</a> batching的情况下，Speculative Decoding可以提高推理速度，减少计算资源的浪费。</p>
+<img data-src="/zh-CN/2024/12/13/vLLM-%E5%88%86%E6%9E%90-3-%E6%8E%A8%E7%90%86%E4%BC%98%E5%8C%96/spd.png" class="">
+
+<p>在Target模型验证完以后，还会多生成一个bonus token，也就是上面的那个D。</p>
+<p>其中Decoding也产生了很多的方法，有基于模型的，也有model free的，才用大模型的一部分，或者直接从外部数据库来获取。</p>
+<blockquote>
+<p>结果表明，在低请求率下（具体来说，请求率为 4），提出 3 个或 5 个令牌会带来最显著的加速。然而，随着请求率的增加，提出更多令牌的优势迅速减弱：当请求率超过 12 时，提出 5 个令牌不再带来性能提升。同样，在请求率大于 16 时，提出 3 个令牌会导致性能下降。</p>
+</blockquote>
+<img data-src="/zh-CN/2024/12/13/vLLM-%E5%88%86%E6%9E%90-3-%E6%8E%A8%E7%90%86%E4%BC%98%E5%8C%96/p_l.png" class="">
+
+<p>其中不同的颗粒度的猜测长度也会对性能有影响。</p>
+<p>全局统一的长度；每个step所有request用一个长度；每个step每个request用不同的长度。</p>
+<p>相较于吞吐，Goodput规定只有没被拒绝的token才计算，用来衡量最总的性能。</p>
+<img data-src="/zh-CN/2024/12/13/vLLM-%E5%88%86%E6%9E%90-3-%E6%8E%A8%E7%90%86%E4%BC%98%E5%8C%96/pl_bs_gp_relation.png" class="">
+
+<p>这张图展示了猜测长度和batch size对于Goodput的影响。</p>
+<p>对于小批次，要多猜测（propose），小批次尺寸下每次请求需提议超 4 个 token 以实现最大有效吞吐量（goodput），且随着批次尺寸增大，最优猜测长度会降低；<br>对于大批次，则要少猜测，甚至不进行推测反而能获得更高有效吞吐量，因为大批次下推测失败成本显著增加，超过潜在收益。</p>
+<p>除了朴素的猜测模型，里面也提到了Medusa风格的猜测模型。预测3个token就有三个head分别预测每个位置。<br>里面的例子head 1猜了三个，对了1个，head 2猜了2个对了一个，head3猜了3个全错了，然后加上LLM的bonus token。</p>
+<img data-src="/zh-CN/2024/12/13/vLLM-%E5%88%86%E6%9E%90-3-%E6%8E%A8%E7%90%86%E4%BC%98%E5%8C%96/medusa.png" class="">
+
+<p>SmartSpec 估算Goodput的方法就是根据成功率计算期望长度再乘上Request对应的时间。<br>然后根据不同的batch size计算Goodput，让Goodput最大化，得到最佳Goodput从而让吞吐最大化。</p>
 <h2 id="Automatic-Prefix-Caching"><a href="#Automatic-Prefix-Caching" class="headerlink" title="Automatic Prefix Caching"></a>Automatic Prefix Caching</h2><p>一般的LLM请求的提示词会非常长，据说OpenAI的系统提示词已经有几K了，这个规模很适合做前缀缓存。<br>前缀缓存是指将提示词分成多个前缀，然后将这些前缀缓存到KV缓存中，这样在生成token的时候就可以直接使用KV缓存中的值，<br>而不需要重新计算。这样可以减少计算量，提高推理速度。<br>当然在vLLM中kv cache是分块的，所以prefix 也是分块的。</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">                    Block 1                  Block 2                  Block 3</span><br><span class="line">         [A gentle breeze stirred] [the leaves as children] [laughed in the distance]</span><br><span class="line">Block 1: |&lt;--- block tokens ----&gt;|</span><br><span class="line">Block 2: |&lt;------- prefix ------&gt;| |&lt;--- block tokens ---&gt;|</span><br><span class="line">Block 3: |&lt;------------------ prefix --------------------&gt;| |&lt;--- block tokens ----&gt;|</span><br></pre></td></tr></table></figure>
 <h2 id="Multi-LoRA-Serving"><a href="#Multi-LoRA-Serving" class="headerlink" title="Multi-LoRA Serving"></a>Multi-LoRA Serving</h2><p>VLLM当中的LoRA Adaptor是可以动态加载的，因为他本身和基座模型保持独立。<br>这里要注意的一个点是，如果词汇表修改了，会影响最后的llm head，比如英文基座模型用中文词汇表，那么 vocab_size 就不一样了。<br>会导致llm head的输出维度不一样，这个时候就需要重新训练llm head。<br>所以要注意最后的llm head的输出维度。</p>
@@ -488,7 +520,7 @@
 <div class="copyright">
   
   &copy; 
-  <span itemprop="copyrightYear">2024</span>
+  <span itemprop="copyrightYear">2025</span>
   <span class="with-love">
     <i class="fa fa-heart"></i>
   </span>
