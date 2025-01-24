@@ -145,7 +145,7 @@
   </li>
         <li class="menu-item menu-item-tags">
 
-    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">124</span></a>
+    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">126</span></a>
 
   </li>
         <li class="menu-item menu-item-categories">
@@ -155,7 +155,7 @@
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">72</span></a>
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">73</span></a>
 
   </li>
   </ul>
@@ -177,6 +177,185 @@
 
           <div class="content index posts-expand">
             
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2016/04/01/go-lexer-%E8%AF%8D%E6%B3%95%E5%88%86%E6%9E%90/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            <a href="/zh-CN/2016/04/01/go-lexer-%E8%AF%8D%E6%B3%95%E5%88%86%E6%9E%90/" class="post-title-link" itemprop="url">go-lexer-词法分析</a>
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2016-04-01 14:40:36" itemprop="dateCreated datePublished" datetime="2016-04-01T14:40:36+08:00">2016-04-01</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2019-07-23 23:24:30" itemprop="dateModified" datetime="2019-07-23T23:24:30+08:00">2019-07-23</time>
+              </span>
+
+          
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2016/04/01/go-lexer-%E8%AF%8D%E6%B3%95%E5%88%86%E6%9E%90/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2016/04/01/go-lexer-词法分析/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <p>词法分析一般是编译器的第一部分,而且词法分析很简单,就是一个有限状态机.<br>开始词法分析的过程就是把源文件转换成一组预先定义好的token的过程.<br>这一组被统一表现的token之后会被送入语法分析器进行语法解析,这里我们主要关注如何进行词法分析.</p>
+<p>做词法分析就几种方法:</p>
+<ol>
+<li> 直接使用工具比如lex.</li>
+<li> 使用更低一层的正则表达式.</li>
+<li> 使用状态动作,构造一个状态机.</li>
+</ol>
+<p>而真正实现一个语言的话,使用工具没有什么错,但是问题是,很难获得正确的错误提示.<br>工具生成的错误处理很弱.而且需要学习另一门规则或特定的语法.生成的代码可能性能不好,难以优化,但是用工具可以非常简单实现词法分析.<br>早期编译器的设计阶段都会使用lex来做词法分析器,比如gcc和Go都是这么做的,但是到了后期一个真正生产化的语言可能不能依赖生成的代码,而需要做自己特定的修改和优化,所以自己实现一个词法分析器就显得比较重要了.</p>
+<p>正则表达被人诟病的一个话题就是效率问题,比如perl拥有功能最强大的正则表达式,但是整个正则表达式引擎的效率却很低,Go在这方面牺牲了一些正则表达式的特性来保证正则表达式的效率不至于过低,但是正则表达式对于大量文本处理体现的弱势却是很明显的.因为可能我们要处理的状态其实不需要一个繁重的正则表达来解决.</p>
+<p>其实实现一个词法分析器很简单,而且这种技能是基本不会变的,如果写过一次,以后都是同样的实现方式.</p>
+<p>先看一下Go的实现,在Go的源码下面<code>go/token/token.go</code>目录里面是这么定义token的.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">// Token is the set of lexical tokens of the Go programming language.</span><br><span class="line">type Token int</span><br></pre></td></tr></table></figure>
+<p>其实就是个枚举类型,对于每种类型的字面值都有对应的token.<br>实际上这个只能算是一个token的类型.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">// The list of tokens.</span><br><span class="line">const (</span><br><span class="line">        // Special tokens</span><br><span class="line">        ILLEGAL Token = iota</span><br><span class="line">        EOF</span><br><span class="line">        COMMENT</span><br><span class="line"></span><br><span class="line">        literal_beg</span><br><span class="line">        // Identifiers and basic type literals</span><br><span class="line">        // (these tokens stand for classes of literals)</span><br><span class="line">        IDENT  // main</span><br><span class="line">        INT    // 12345</span><br><span class="line">        FLOAT  // 123.45</span><br><span class="line">        IMAG   // 123.45i</span><br><span class="line">        CHAR   // &#x27;a&#x27;</span><br><span class="line">        STRING // &quot;abc&quot;</span><br><span class="line">	// 省略</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+<p>枚举所有可以碰到的token类型.</p>
+<p><code>go/token/position.go</code> 当中是关于token位置相关的定义.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">// -----------------------------------------------------------------------------</span><br><span class="line">// Positions</span><br><span class="line"></span><br><span class="line">// Position describes an arbitrary source position</span><br><span class="line">// including the file, line, and column location.</span><br><span class="line">// A Position is valid if the line number is &gt; 0.</span><br><span class="line">//</span><br><span class="line">type Position struct &#123;</span><br><span class="line">        Filename string // filename, if any</span><br><span class="line">        Offset   int    // offset, starting at 0 </span><br><span class="line">        Line     int    // line number, starting at 1   </span><br><span class="line">        Column   int    // column number, starting at 1 (byte count)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这个很简单就是标示在文件中的位置,比较有意思的是<code>Pos</code>的定义<code>type Pos int</code>,这是位置标示的紧凑表示.接下来看看Pos和Position之间是如何转换的.</p>
+<p>首先定义了一个<code>FileSet</code>,可以理解为把<code>File</code>的内容字节按顺序存放的一个大数组,而某个文件则属于数组的一个区间[base,base+size]中,base是文件的第一个字节在大数组中的位置,size是这个文件的大小,某个文件中的<code>Pos</code>是在[base,base+size]这个区间里的一个小标.</p>
+<p>所以最后<code>Pos</code>能够压缩成一个整数来表示一个文件当中的位置,当需要使用的使用再从<code>FileSet</code>中转换出完整的<code>Position</code>对象.</p>
+<p><code>go/token/serialize.go</code> 是对<code>FileSet</code>序列化,这里就略过了.</p>
+<p>所以整个<code>go/token</code>包只是对token的一些定义和转化,词法分析的部分在<code>go/scanner</code>当中.</p>
+<p>scan的主流程如下,主体是一个switch case表示的状态机,<br>比如碰到字符那么扫描到不为字符为止就作为一个标识符,比如碰到数字那么可能按照扫描数字,然后向后看一次小数字再扫描数字,直到没有数字为止.<br>scan每次会返回一个被扫描的token,压缩表示的位置,和字面值的字符串,这样就能够把一个源文件转化成一个token的记号流,也就是tokenize或者lexical analysis的过程.</p>
+<pre><code>func (s *Scanner) Scan() (pos token.Pos, tok token.Token, lit string) &#123;
+scanAgain:
+        s.skipWhitespace() 
+        // current token start
+        pos = s.file.Pos(s.offset)
+        // determine token value
+        insertSemi := false
+        switch ch := s.ch; &#123;
+    /* 字符开头,开始扫描标识符 */
+        case isLetter(ch):
+                lit = s.scanIdentifier()
+                if len(lit) &gt; 1 &#123;
+                        // keywords are longer than one letter - avoid lookup otherwise
+                        tok = token.Lookup(lit)
+                        switch tok &#123;
+                        case token.IDENT, token.BREAK, token.CONTINUE, token.FALLTHROUGH, token.RETURN:
+                                insertSemi = true
+                        &#125;
+                &#125; else &#123;
+                        insertSemi = true
+                        tok = token.IDENT
+                &#125; 
+    /* 数字开头,扫描数字 */
+        case &#39;0&#39; &lt;= ch &amp;&amp; ch &lt;= &#39;9&#39;:
+                insertSemi = true
+                tok, lit = s.scanNumber(false)
+        default:
+
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">看一下例子的结果.</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+func ExampleScanner_Scan() &#123;
+        // src is the input that we want to tokenize.
+    // 需要记号化的源文件
+        src := []byte(&quot;cos(x) + 1i*sin(x) // Euler&quot;)
+
+        // Initialize the scanner.
+        var s scanner.Scanner
+        fset := token.NewFileSet()                      // positions are relative to fset
+    // 添加到文件集合中
+        file := fset.AddFile(&quot;&quot;, fset.Base(), len(src)) // register input &quot;file&quot;
+    // 初始化scanner
+        s.Init(file, src, nil /* no error handler */, scanner.ScanComments)
+
+        // Repeated calls to Scan yield the token sequence found in the input.
+        for &#123;
+                pos, tok, lit := s.Scan()
+                if tok == token.EOF &#123;
+                        break
+                &#125;
+                fmt.Printf(&quot;%s\t%s\t%q\n&quot;, fset.Position(pos), tok, lit)
+        &#125;
+    // 不断扫描就能得到如下结果
+    // 词法分析就是做这样一件事情.
+        // output:
+        // 1:1  IDENT   &quot;cos&quot;
+        // 1:4  (       &quot;&quot;
+        // 1:5  IDENT   &quot;x&quot;
+        // 1:6  )       &quot;&quot;
+        // 1:8  +       &quot;&quot;
+        // 1:10 IMAG    &quot;1i&quot;
+        // 1:12 *       &quot;&quot;
+        // 1:13 IDENT   &quot;sin&quot;
+        // 1:16 (       &quot;&quot;
+        // 1:17 IDENT   &quot;x&quot;
+        // 1:18 )       &quot;&quot;
+        // 1:20 ;       &quot;\n&quot;
+        // 1:20 COMMENT &quot;// Euler&quot;
+&#125;
+
+```
+
+我在我的数据结构字符画生成工具[1]里面就实现了一个词法分析器,方便我用简单的语法构造一个字符画,然后插入到注释中辅助解释.
+唯一的不同的是,我使用了channel读取token记号,来增加并发,而go本身的记号化是串行的,当然,这点区别其实没有多大,而且这个设计
+在Go的模板包里面使用了,Rob Pike也有过相关的演讲[2].
+
+1.  https://github.com/ggaaooppeenngg/cpic/blob/master/lex.go
+2.  http://cuddle.googlecode.com/hg/talk/lex.html#landing-slide
+</code></pre>
+
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
       
   
   
@@ -1190,99 +1369,6 @@
   
   
 
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2015/07/04/%E5%B1%85%E7%84%B6%E8%A2%ABheap%E9%9A%BE%E5%80%92%E4%BA%86/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="ggaaooppeenngg">
-      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="ggaaooppeenngg">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/zh-CN/2015/07/04/%E5%B1%85%E7%84%B6%E8%A2%ABheap%E9%9A%BE%E5%80%92%E4%BA%86/" class="post-title-link" itemprop="url">居然被heap难倒了</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-
-              <time title="创建时间：2015-07-04 19:46:57" itemprop="dateCreated datePublished" datetime="2015-07-04T19:46:57+08:00">2015-07-04</time>
-            </span>
-              <span class="post-meta-item">
-                <span class="post-meta-item-icon">
-                  <i class="far fa-calendar-check"></i>
-                </span>
-                <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2019-07-23 23:24:30" itemprop="dateModified" datetime="2019-07-23T23:24:30+08:00">2019-07-23</time>
-              </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-folder"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/data-structure/" itemprop="url" rel="index"><span itemprop="name">data structure</span></a>
-                </span>
-                  ，
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/data-structure/algorithm/" itemprop="url" rel="index"><span itemprop="name">algorithm</span></a>
-                </span>
-            </span>
-
-          
-  
-  <span class="post-meta-item">
-    
-      <span class="post-meta-item-icon">
-        <i class="far fa-comment"></i>
-      </span>
-      <span class="post-meta-item-text">Disqus：</span>
-    
-    <a title="disqus" href="/zh-CN/2015/07/04/%E5%B1%85%E7%84%B6%E8%A2%ABheap%E9%9A%BE%E5%80%92%E4%BA%86/#disqus_thread" itemprop="discussionUrl">
-      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2015/07/04/居然被heap难倒了/" itemprop="commentCount"></span>
-    </a>
-  </span>
-  
-  
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <p>之前一直小看了heap觉得这个数据结构比较简单,等串讲的时候发现其实并不是的,居然为了heap的插入删除争论了很久.<br>这里特地记录一下,heap的性质是递归的父结点比子节点大，说白了就是一个优先队列.<br>push,pop都只要分别做一次向上调整和向下调整.</p>
-<p>但之前我的知识体系好像调整要有一次down再一次up.<br>这是在真正调整的时候用的比如替换任意一个元素或者删除任意一个元素.<br>替换很好理解就是引入一个元素可能很大也可能很小,要么向上要么向下.<br>而我卡住的地方是删除,老是觉得把最后一个结点换上来应该是不用向上调整只要向下的，<br>因为这个定义是递归的,但是不是的，虽然在删除处i下面的子树可以，但是如果最后一个结点不在i的子树下面,比如另外一个i的兄弟子树下面，整棵树都比i小的话（这里指最小堆），那么其实情况和替换是类似的，所以任意删除和替换才是会把down up两个函数都写入,但都是只执行一次.</p>
-
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
 
   
   <nav class="pagination">
@@ -1352,7 +1438,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">72</span>
+          <span class="site-state-item-count">73</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -1365,7 +1451,7 @@
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">124</span>
+        <span class="site-state-item-count">126</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
