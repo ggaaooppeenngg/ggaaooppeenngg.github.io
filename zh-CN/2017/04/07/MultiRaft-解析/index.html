@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.3.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="_85tctgPWrqH2EPVuuD5IT6KE-tW8nH0hTISJDMnShg">
+  <meta name="baidu-site-verification" content="bb16c5b1fd3302c18e0015bef11eea42">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha256-dABdfBfUoC8vJUBOwGVdm8L9qlMWaHTIfXt+7GnZCIo=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.css" integrity="sha256-gkQVf8UKZgQ0HyuxL/VnacadJ+D2Kox2TCEBuNQg5+w=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="援引自 cockroach 博客 的解释 cockroach 的底层 scaling 存储本身可以认为是一张无限大的有序 KV map，上层封装了一层 SQL。他 sharding 的方式是通过 range 实现的。对一组 64M 大小数据的范围内的 key 做冗余，用二级 metadata range 可以理论上存储 4EB 的数据。 举个例子，五节点打散三副本的一个 range 做冗余，是成本">
+<meta property="og:type" content="article">
+<meta property="og:title" content="MultiRaft 解析">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2017/04/07/MultiRaft-%E8%A7%A3%E6%9E%90/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="援引自 cockroach 博客 的解释 cockroach 的底层 scaling 存储本身可以认为是一张无限大的有序 KV map，上层封装了一层 SQL。他 sharding 的方式是通过 range 实现的。对一组 64M 大小数据的范围内的 key 做冗余，用二级 metadata range 可以理论上存储 4EB 的数据。 举个例子，五节点打散三副本的一个 range 做冗余，是成本">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/04/07/MultiRaft-%E8%A7%A3%E6%9E%90/raft1.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/04/07/MultiRaft-%E8%A7%A3%E6%9E%90/raft2.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/04/07/MultiRaft-%E8%A7%A3%E6%9E%90/multiraft.png">
+<meta property="article:published_time" content="2017-04-07T12:13:11.000Z">
+<meta property="article:modified_time" content="2025-03-28T10:39:05.177Z">
+<meta property="article:author" content="ggaaooppeenngg">
+<meta property="article:tag" content="raft">
+<meta property="article:tag" content="分布式">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/04/07/MultiRaft-%E8%A7%A3%E6%9E%90/raft1.png">
+
+
+<link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2017/04/07/MultiRaft-%E8%A7%A3%E6%9E%90/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://ggaaooppeenngg.github.io/zh-CN/2017/04/07/MultiRaft-%E8%A7%A3%E6%9E%90/","path":"zh-CN/2017/04/07/MultiRaft-解析/","title":"MultiRaft 解析"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>MultiRaft 解析 | ggaaooppeenngg</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-62096626-1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"UA-62096626-1","only_pageview":false,"measure_protocol_api_secret":null}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+  <script src="/js/third-party/analytics/baidu-analytics.js"></script>
+  <script async src="https://hm.baidu.com/hm.js?bb16c5b1fd3302c18e0015bef11eea42"></script>
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">ggaaooppeenngg</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">为什么计算机科学是无限的但生命是有限的</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">134</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">14</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">78</span></a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-overview-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">78</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">14</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">134</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/ggaaooppeenngg" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;ggaaooppeenngg" rel="noopener me" target="_blank"><i class="github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:peng.gao.dut@gmail.com" title="E-Mail → mailto:peng.gao.dut@gmail.com" rel="noopener me" target="_blank"><i class="envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+        <div class="back-to-top animated" role="button" aria-label="返回顶部">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2017/04/07/MultiRaft-%E8%A7%A3%E6%9E%90/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="MultiRaft 解析 | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          MultiRaft 解析
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2017-04-07 20:13:11" itemprop="dateCreated datePublished" datetime="2017-04-07T20:13:11+08:00">2017-04-07</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2025-03-28 18:39:05" itemprop="dateModified" datetime="2025-03-28T18:39:05+08:00">2025-03-28</time>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2017/04/07/MultiRaft-%E8%A7%A3%E6%9E%90/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2017/04/07/MultiRaft-解析/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>援引自 cockroach <a target="_blank" rel="noopener" href="https://www.cockroachlabs.com/blog/scaling-raft/">博客</a> 的解释</p>
+<p>cockroach 的底层 scaling 存储本身可以认为是一张无限大的有序 KV map，上层封装了一层 SQL。他 sharding 的方式是通过 range 实现的。对一组 64M 大小数据的范围内的 key 做冗余，用二级 metadata range 可以理论上存储 4EB 的数据。</p>
+<p>举个例子，五节点打散三副本的一个 range 做冗余，是成本性能和效率上比较典型的一个折衷。像你说的 leader 集中的情况是比较少的，因为三副本是打散分布到不同节点上的，所以三副本的交集不会太集中，单点的压力还是很少的。</p>
+<p>另外租约的存在（不知道算不算在 multi raft 算法内），也可以缓解集中化的压力，通过获得授权的租约旁路一些“可以本地化”的请求（比如只对一个 replica 的操作以及一些能保证数据不变的一段时间的读请求），来缓解主的压力，这个最早我记得在 GFS 里面看到过是这么设计的。</p>
+<p>另外 gossip 的协议有点像交换机的生成树协议，是通过互相传播自己的负载和位置信心来传播信息的，没有中心化的决策节点，这样的好处就是无中心化，不会依靠一个中心的节点来做负载均衡，而且整个系统就需要一个二进制文件不依赖任何的其他服务。</p>
+<p>如图是一个 range 在三节点上的三副本的一个 raft group 之间有网路通信。</p>
+<img data-src="/zh-CN/2017/04/07/MultiRaft-%E8%A7%A3%E6%9E%90/raft1.png" class="">
+
+<p>但是如果 range 变多的话，就会很复杂，如下图，是四个节点之间大概 8 个 （如果我没看错颜色的话） range 的 raft group 之间通信。</p>
+<img data-src="/zh-CN/2017/04/07/MultiRaft-%E8%A7%A3%E6%9E%90/raft2.png" class="">
+
+<p>很明显网络 RoundTrip 太多了。针对这个的优化就是 MultiRaft 了，说白了就是把网络请求 batch up，变成下面的形式。</p>
+<img data-src="/zh-CN/2017/04/07/MultiRaft-%E8%A7%A3%E6%9E%90/multiraft.png" class="">
+
+<p>这样网络压力就会小很多。针对这个的优化和应用本身的实现是耦合的，作者也尝试把这个优化加到 etcd/raft 当中，但是最后的决定是增加 RawNode 这样的无线程安全的接口给应用层实用，方便对心跳等请求的合并，所以你会看到有个非线程安全的 RawNode 的实现。</p>
+<p>具体到 cockroach 的实现是可以找到相应的代码的，省略无关代码就如下。</p>
+<p>在发送消息的时候检查是否有可以整合的请求。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">func (r *Replica) sendRaftMessage(ctx context.Context, msg raftpb.Message) &#123;</span><br><span class="line">    for range &#123;</span><br><span class="line">        // 迭代每个 follower 发送消息</span><br><span class="line">        // 对消息进行缓存</span><br><span class="line">        if r.maybeCoalesceHeartbeat(ctx, msg, toReplica, fromReplica, true) &#123;</span><br><span class="line">                continue</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>循环取出缓存的消息，注意因为是整合了消息，所以对消息来说有延迟，这里稍微加快了频率，弥补这个延迟。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">// Since coalesced heartbeats adds latency to heartbeat messages, it is</span><br><span class="line">// beneficial to have it run on a faster cycle than once per tick, so that</span><br><span class="line">// the delay does not impact latency-sensitive features such as quiescence.</span><br><span class="line">func (s *Store) startCoalescedHeartbeatsLoop() &#123;</span><br><span class="line">	s.stopper.RunWorker(func() &#123;</span><br><span class="line">		ticker := time.NewTicker(s.cfg.CoalescedHeartbeatsInterval)</span><br><span class="line">		defer func() &#123;</span><br><span class="line">			ticker.Stop()</span><br><span class="line">		&#125;()</span><br><span class="line"></span><br><span class="line">		for &#123;</span><br><span class="line">			select &#123;</span><br><span class="line">			case &lt;-ticker.C:</span><br><span class="line">				s.sendQueuedHeartbeats()</span><br><span class="line">			case &lt;-s.stopper.ShouldStop():</span><br><span class="line">				return</span><br><span class="line">			&#125;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;)</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>在 Store 这个层面是对每个 Replica （一个 raft group 的成员） 是有感知的，但是每个 raft group 是独立的，只是在发送是会检查对方节点是否和现在的 raft group 有交集，<br>从而尝试合并消息的发送，你可以理解为在节点之间的消息通道上对不同 raft group 之间多路复用。<br>这就是 MultiRaft 对多个 raft group 的网络吞吐做的一个优化，代价是可能造成消息的延迟，因为毕竟是被缓存到队列里了。</p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/raft/" rel="tag"># raft</a>
+              <a href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F/" rel="tag"># 分布式</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/zh-CN/2017/03/31/%E4%BB%8E%E6%9C%B4%E7%B4%A0%E8%A7%A3%E9%87%8A%E5%87%BA%E5%8F%91%E8%A7%A3%E9%87%8Aleveldb%E7%9A%84%E8%AE%BE%E8%AE%A1/" rel="prev" title="从朴素解释出发解释leveldb的设计">
+                  <i class="fa fa-angle-left"></i> 从朴素解释出发解释leveldb的设计
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/zh-CN/2017/04/16/SQL%E9%9A%94%E7%A6%BB%E7%BA%A7%E5%88%AB/" rel="next" title="SQL 隔离级别">
+                  SQL 隔离级别 <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 2014 – 
+    <span itemprop="copyrightYear">2025</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+  </div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/mist/" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.umd.js" integrity="sha256-a+H7FYzJv6oU2hfsfDGM2Ohw/cR9v+hPfxHCLdmCrE8=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lozad.js/1.16.0/lozad.min.js" integrity="sha256-mOFREFhqmHeQbXpK2lp4nA3qooVgACfh88fpJftLBbc=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/sidebar.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+  <script src="/js/third-party/fancybox.js"></script>
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"ggaaooppeenngg","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

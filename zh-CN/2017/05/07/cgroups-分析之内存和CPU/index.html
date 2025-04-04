@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.3.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="_85tctgPWrqH2EPVuuD5IT6KE-tW8nH0hTISJDMnShg">
+  <meta name="baidu-site-verification" content="bb16c5b1fd3302c18e0015bef11eea42">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha256-dABdfBfUoC8vJUBOwGVdm8L9qlMWaHTIfXt+7GnZCIo=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.css" integrity="sha256-gkQVf8UKZgQ0HyuxL/VnacadJ+D2Kox2TCEBuNQg5+w=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="cgroup 的整体结构cgroup 是容器当中对资源进行限制的机制，完整的名称是叫 control group。经常提到的 hierarchy 对应的是一个层级，而subsystem 对应的是一个子系统，都是可以望文生意的。创建一个层级是通过挂载完成的，也就是说层级对应的是文件系统 root 目录的结构。 子系统目前有下列几种   devices 设备权限  cpuset 分配指定的 CPU 和">
+<meta property="og:type" content="article">
+<meta property="og:title" content="cgroup 分析之CPU和内存部分">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2017/05/07/cgroups-%E5%88%86%E6%9E%90%E4%B9%8B%E5%86%85%E5%AD%98%E5%92%8CCPU/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="cgroup 的整体结构cgroup 是容器当中对资源进行限制的机制，完整的名称是叫 control group。经常提到的 hierarchy 对应的是一个层级，而subsystem 对应的是一个子系统，都是可以望文生意的。创建一个层级是通过挂载完成的，也就是说层级对应的是文件系统 root 目录的结构。 子系统目前有下列几种   devices 设备权限  cpuset 分配指定的 CPU 和">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/05/07/cgroups-%E5%88%86%E6%9E%90%E4%B9%8B%E5%86%85%E5%AD%98%E5%92%8CCPU/refrigerator.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/05/07/cgroups-%E5%88%86%E6%9E%90%E4%B9%8B%E5%86%85%E5%AD%98%E5%92%8CCPU/shares_hierarchy.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/05/07/cgroups-%E5%88%86%E6%9E%90%E4%B9%8B%E5%86%85%E5%AD%98%E5%92%8CCPU/sched_domain.jpg">
+<meta property="article:published_time" content="2017-05-06T19:14:07.000Z">
+<meta property="article:modified_time" content="2025-03-28T10:39:05.282Z">
+<meta property="article:author" content="ggaaooppeenngg">
+<meta property="article:tag" content="kernel">
+<meta property="article:tag" content="内核">
+<meta property="article:tag" content="cgroup">
+<meta property="article:tag" content="容器">
+<meta property="article:tag" content="container">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/05/07/cgroups-%E5%88%86%E6%9E%90%E4%B9%8B%E5%86%85%E5%AD%98%E5%92%8CCPU/refrigerator.png">
+
+
+<link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2017/05/07/cgroups-%E5%88%86%E6%9E%90%E4%B9%8B%E5%86%85%E5%AD%98%E5%92%8CCPU/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://ggaaooppeenngg.github.io/zh-CN/2017/05/07/cgroups-%E5%88%86%E6%9E%90%E4%B9%8B%E5%86%85%E5%AD%98%E5%92%8CCPU/","path":"zh-CN/2017/05/07/cgroups-分析之内存和CPU/","title":"cgroup 分析之CPU和内存部分"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>cgroup 分析之CPU和内存部分 | ggaaooppeenngg</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-62096626-1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"UA-62096626-1","only_pageview":false,"measure_protocol_api_secret":null}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+  <script src="/js/third-party/analytics/baidu-analytics.js"></script>
+  <script async src="https://hm.baidu.com/hm.js?bb16c5b1fd3302c18e0015bef11eea42"></script>
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">ggaaooppeenngg</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">为什么计算机科学是无限的但生命是有限的</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">134</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">14</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">78</span></a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#cgroup-%E7%9A%84%E6%95%B4%E4%BD%93%E7%BB%93%E6%9E%84"><span class="nav-number">1.</span> <span class="nav-text">cgroup 的整体结构</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#cgroup-%E7%9A%84%E5%88%9B%E5%BB%BA"><span class="nav-number">2.</span> <span class="nav-text">cgroup 的创建</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#freezer-%E5%AD%90%E7%B3%BB%E7%BB%9F"><span class="nav-number">3.</span> <span class="nav-text">freezer 子系统</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#cpu-%E5%AD%90%E7%B3%BB%E7%BB%9F"><span class="nav-number">4.</span> <span class="nav-text">cpu 子系统</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#CFS-%E8%B0%83%E5%BA%A6%E5%99%A8"><span class="nav-number">4.1.</span> <span class="nav-text">CFS 调度器</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%97%B6%E9%97%B4%E8%AE%A1%E7%AE%97"><span class="nav-number">4.1.1.</span> <span class="nav-text">时间计算</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%BF%9B%E7%A8%8B%E9%80%89%E6%8B%A9"><span class="nav-number">4.1.2.</span> <span class="nav-text">进程选择</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%B0%83%E5%BA%A6%E5%85%A5%E5%8F%A3"><span class="nav-number">4.1.3.</span> <span class="nav-text">调度入口</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%85%B7%E4%BD%93%E7%9C%8B-cgroup-%E7%9A%84-cpu-%E5%AD%90%E7%B3%BB%E7%BB%9F"><span class="nav-number">5.</span> <span class="nav-text">具体看 cgroup 的 cpu 子系统</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#cpuacct-%E5%AD%90%E7%B3%BB%E7%BB%9F"><span class="nav-number">6.</span> <span class="nav-text">cpuacct 子系统</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#cpuset-%E5%AD%90%E7%B3%BB%E7%BB%9F"><span class="nav-number">7.</span> <span class="nav-text">cpuset 子系统</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#memory-%E5%AD%90%E7%B3%BB%E7%BB%9F"><span class="nav-number">8.</span> <span class="nav-text">memory 子系统</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">9.</span> <span class="nav-text">总结</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">78</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">14</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">134</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/ggaaooppeenngg" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;ggaaooppeenngg" rel="noopener me" target="_blank"><i class="github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:peng.gao.dut@gmail.com" title="E-Mail → mailto:peng.gao.dut@gmail.com" rel="noopener me" target="_blank"><i class="envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+        <div class="back-to-top animated" role="button" aria-label="返回顶部">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2017/05/07/cgroups-%E5%88%86%E6%9E%90%E4%B9%8B%E5%86%85%E5%AD%98%E5%92%8CCPU/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="cgroup 分析之CPU和内存部分 | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          cgroup 分析之CPU和内存部分
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2017-05-07 03:14:07" itemprop="dateCreated datePublished" datetime="2017-05-07T03:14:07+08:00">2017-05-07</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2025-03-28 18:39:05" itemprop="dateModified" datetime="2025-03-28T18:39:05+08:00">2025-03-28</time>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2017/05/07/cgroups-%E5%88%86%E6%9E%90%E4%B9%8B%E5%86%85%E5%AD%98%E5%92%8CCPU/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2017/05/07/cgroups-分析之内存和CPU/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="cgroup-的整体结构"><a href="#cgroup-的整体结构" class="headerlink" title="cgroup 的整体结构"></a>cgroup 的整体结构</h1><p>cgroup 是容器当中对资源进行限制的机制，完整的名称是叫 control group。经常提到的 hierarchy 对应的是一个层级，而subsystem 对应的是一个子系统，都是可以望文生意的。创建一个层级是通过挂载完成的，也就是说层级对应的是文件系统 root 目录的结构。</p>
+<p>子系统目前有下列几种</p>
+<ol>
+<li> devices 设备权限</li>
+<li> cpuset 分配指定的 CPU 和内存节点</li>
+<li> cpu 控制 CPU 占用率</li>
+<li> cpuacct 统计 CPU 使用情况</li>
+<li> memory 限制内存的使用上限</li>
+<li> freezer 暂停 Cgroup 中的进程</li>
+<li> net_cls 配合 tc(traffic controller)限制网络带宽</li>
+<li> net_prio 设置进程的网络流量优先级</li>
+<li> huge_tlb 限制 HugeTLB 的使用</li>
+<li> perf_event 允许 Perf 工具基于 Cgroup 分组做性能检测</li>
+</ol>
+<p>创建层级通过 <code>mount -t cgroup -o subsystems name /cgroup/name</code>，/cgroup/name 是用来挂载层级的目录(层级结构是通过挂载添加的)，-o 是子系统列表，比如 <code>-o cpu,cpuset,memory</code>，name 是层级的名称，一个层级可以包含多个子系统，如果要修改层级里的子系统重新 mount 即可。子系统和层级之间满足几个关系。</p>
+<ol>
+<li> 同一个 hierarchy 可以附加一个或多个 subsystem</li>
+<li> 一个 subsystem 可以附加到多个 hierarchy，当且仅当这些 hierarchy 只有这唯一一个 subsystem</li>
+<li> 系统每次新建一个 hierarchy 时，该系统上的所有 task 默认构成了这个新建的 hierarchy 的初始化 cgroup，这个 cgroup 也称为 root cgroup。对于你创建的每个 hierarchy，task 只能存在于其中一个 cgroup 中，即一个 task 不能存在于同一个 hierarchy 的不同 cgroup 中，但是一个 task 可以存在在不同 hierarchy 中的多个 cgroup 中。如果操作时把一个 task 添加到同一个 hierarchy 中的另一个 cgroup 中，则会从第一个 cgroup 中移除</li>
+</ol>
+<p><code>/proc/self</code> 对应的是当前进程的 proc 目录，比如当前进程 pid 是1，那么<code>/proc/1</code>和<code>/proc/self</code>是等价的。运行<code>man proc</code>可以看到<code>/proc/self/cgroup</code>的解释。</p>
+<blockquote>
+<p>/proc/[pid]/cgroup (since Linux 2.6.24)<br>       This file describes control groups to which the process/task belongs.  For each cgroup hierarchy there is one entry<br>containing colon-separated fields of the form:</p>
+<pre><code>5:cpuacct,cpu,cpuset:/daemons
+</code></pre>
+<p>The colon-separated fields are, from left to right:</p>
+<pre><code>1. hierarchy ID number
+
+2. set of subsystems bound to the hierarchy
+
+3. control group in the hierarchy to which the process belongs
+</code></pre>
+<p>This file is present only if the CONFIG_CGROUPS kernel configuration option is enabled.</p>
+</blockquote>
+<p>这个展示的是当前进程属于的 control groups, 每一行是一排 hierarchy，中间是子系统，最后是受控制的 cgroup，可以通过这个文件知道自己所属于的cgroup。</p>
+<h1 id="cgroup-的创建"><a href="#cgroup-的创建" class="headerlink" title="cgroup 的创建"></a>cgroup 的创建</h1><p>创建一个独立的 cgroup 则是在层级结构下面创建一个目录。</p>
+<p>先看一下创建目录做了什么</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br></pre></td><td class="code"><pre><span class="line">static int cgroup_mkdir(struct inode *dir, struct dentry *dentry, int mode)</span><br><span class="line">&#123; </span><br><span class="line">        struct cgroup *c_parent = dentry-&gt;d_parent-&gt;d_fsdata;</span><br><span class="line">  </span><br><span class="line">        /* the vfs holds inode-&gt;i_mutex already */</span><br><span class="line">        return cgroup_create(c_parent, dentry, mode | S_IFDIR);</span><br><span class="line">&#125; </span><br><span class="line"></span><br><span class="line">static long cgroup_create(struct cgroup *parent, struct dentry *dentry,</span><br><span class="line">                             mode_t mode)</span><br><span class="line">&#123;</span><br><span class="line">	/* 获取父cgroup对应的层级hierarchy */</span><br><span class="line">	/* 这里叫做 cgroupfs 其实是匹配的，因为创建 hierachy 就是 mount 了一个文件系统的动作 */</span><br><span class="line">	struct cgroupfs_root *root = parent-&gt;root;</span><br><span class="line">	/* 初始化一个cgroup结构 cgrp */</span><br><span class="line">        init_cgroup_housekeeping(cgrp);</span><br><span class="line">        cgrp-&gt;parent = parent; /* 设置父 cgroup */</span><br><span class="line">        cgrp-&gt;root = parent-&gt;root; /* 继承 parent 的 hierachy */</span><br><span class="line">        cgrp-&gt;top_cgroup = parent-&gt;top_cgroup; /* 继承父 parent 对应 hierachy 的root cgroup */</span><br><span class="line">	/* 继承父 parent 的 notify_on_release 设置 */</span><br><span class="line">        if (notify_on_release(parent))</span><br><span class="line">                set_bit(CGRP_NOTIFY_ON_RELEASE, &amp;cgrp-&gt;flags);</span><br><span class="line">	/* 对所属的hierachy的子系统进行初始化 */</span><br><span class="line">        for_each_subsys(root, ss) &#123;</span><br><span class="line">                struct cgroup_subsys_state *css = ss-&gt;create(ss, cgrp);</span><br><span class="line">                if (IS_ERR(css)) &#123;</span><br><span class="line">                        err = PTR_ERR(css);</span><br><span class="line">                        goto err_destroy;</span><br><span class="line">                &#125;</span><br><span class="line">                init_cgroup_css(css, ss, cgrp);</span><br><span class="line">                if (ss-&gt;use_id)</span><br><span class="line">                        if (alloc_css_id(ss, parent, cgrp))</span><br><span class="line">                                goto err_destroy;</span><br><span class="line">                /* At error, -&gt;destroy() callback has to free assigned ID. */</span><br><span class="line">        &#125;</span><br><span class="line">	/* 加入到父 cgroup 的子列表里 */</span><br><span class="line">        cgroup_lock_hierarchy(root);</span><br><span class="line">        list_add(&amp;cgrp-&gt;sibling, &amp;cgrp-&gt;parent-&gt;children);</span><br><span class="line">        cgroup_unlock_hierarchy(root);</span><br><span class="line">	/* 创建 cgroup 目录 */</span><br><span class="line">	cgroup_create_dir(cgrp, dentry, mode);</span><br><span class="line">	/* 创建目录下对应的文件,比如common的部分(tasks),或者子系统的部分(cpu.shares,freezer.state)*/</span><br><span class="line">        cgroup_populate_dir(cgrp);</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>看一下 <code>cgroup_subsys_state-&gt;create</code> 的实现，举个例子比如<code>kernel/cpuset.c</code>的<code>cpuset</code>子系统的创建。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line">static struct cgroup_subsys_state *cpuset_create(</span><br><span class="line">        struct cgroup_subsys *ss,</span><br><span class="line">        struct cgroup *cont)</span><br><span class="line">&#123;</span><br><span class="line">        struct cpuset *cs;</span><br><span class="line">        struct cpuset *parent;</span><br><span class="line"></span><br><span class="line">        if (!cont-&gt;parent) &#123;</span><br><span class="line">                return &amp;top_cpuset.css;</span><br><span class="line">        &#125;</span><br><span class="line">        parent = cgroup_cs(cont-&gt;parent);</span><br><span class="line">        cs = kmalloc(sizeof(*cs), GFP_KERNEL);</span><br><span class="line">        if (!cs)</span><br><span class="line">                return ERR_PTR(-ENOMEM);</span><br><span class="line">        if (!alloc_cpumask_var(&amp;cs-&gt;cpus_allowed, GFP_KERNEL)) &#123;</span><br><span class="line">                kfree(cs);</span><br><span class="line">                return ERR_PTR(-ENOMEM);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        cs-&gt;flags = 0;</span><br><span class="line">        if (is_spread_page(parent))</span><br><span class="line">                set_bit(CS_SPREAD_PAGE, &amp;cs-&gt;flags);</span><br><span class="line">        if (is_spread_slab(parent))</span><br><span class="line">                set_bit(CS_SPREAD_SLAB, &amp;cs-&gt;flags);</span><br><span class="line">        set_bit(CS_SCHED_LOAD_BALANCE, &amp;cs-&gt;flags);</span><br><span class="line">        cpumask_clear(cs-&gt;cpus_allowed);</span><br><span class="line">        nodes_clear(cs-&gt;mems_allowed);</span><br><span class="line">        fmeter_init(&amp;cs-&gt;fmeter);</span><br><span class="line">        cs-&gt;relax_domain_level = -1;</span><br><span class="line"></span><br><span class="line">        cs-&gt;parent = parent;</span><br><span class="line">        number_of_cpusets++;</span><br><span class="line">        return &amp;cs-&gt;css ;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>其实就是一系列 cgroup 初始化动作，填充目录的部分作为接口留给子系统实现。</p>
+<p>总结一下:</p>
+<p>hierarchy 对应的是 cgroup 的一个根，拥有一个<code>top_cgroup</code>，之后 hierarchy 下面的目录(cgroup)都是继承这些内容。</p>
+<p>真正起作用的入口其实是对文件的读写操作，关于这一块VFS的内容可以看一下我之前的<a href="https://ggaaooppeenngg.github.io/zh-CN/2015/12/22/VFS-%E5%86%85%E6%A0%B8%E6%98%AF%E5%A6%82%E4%BD%95%E6%8A%BD%E8%B1%A1%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F%E7%9A%84/">博客</a>，这也是由子系统实现的，接下来看看子系统的实现。</p>
+<h1 id="freezer-子系统"><a href="#freezer-子系统" class="headerlink" title="freezer 子系统"></a>freezer 子系统</h1><p>freeze tasks 的相关内容可以在内核<a target="_blank" rel="noopener" href="https://www.kernel.org/doc/Documentation/power/freezing-of-tasks.txt">文档</a>当中找到，简单来说是为了提供一种机制能够让进程挂起。这些函数在电源控制里面有很多用到的地方，比如我们常说的挂起，就是让所有进程进入冬眠状态。</p>
+<p>首先看这个子系统是因为它比较简单，属性比较少，实现的代码也比较少。</p>
+<p>这里铺垫一些知识，说明内核是如何睡眠和唤醒进程的。<br>一般内核进程进入睡眠需要进入<code>wait_queue</code>，然后调用 schedule。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">/* wait 是我们想要让 task 睡眠的 queue entry, q 是等待队列 */</span><br><span class="line">DEFINE_WAIT(wait);</span><br><span class="line">/* 添加到等待队列中 */</span><br><span class="line">add_wait_queue(q, &amp;wait);</span><br><span class="line"></span><br><span class="line">/*</span><br><span class="line"> * 这里要检查condition是因为可能在唤醒之后这个condition的条件又不成立了,</span><br><span class="line"> * 这个和条件变量一样,即使条件满足被wake up了,也可能被其他进程修改了该条件.</span><br><span class="line"> */</span><br><span class="line">while (!condition) &#123;</span><br><span class="line">	prepare_to_wait(&amp;q, &amp;wait, TASK_INTERRUPTIBLE);</span><br><span class="line">	if (signal_pending(current))</span><br><span class="line">		/* 处理信号 */</span><br><span class="line">	/* 进行调度 */</span><br><span class="line">	schedule();</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">finish_wait(&amp;g, &amp;wait);</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>内核当中进入睡眠都是这个模板，这里的 schedule，会触发调度器遍历 scheduler class，选择优先级最高的调度类。<br>一般就是CFS(Complete Fair Scheduler)，接下来会进行 context 切换，注意不是像一般理解的那样，函数调用增长栈空间,而是把栈和寄存器都换掉，刷掉缓存等等，由此进入另外一个进程的上下文。直到被唤醒从恢复保存的 IP 重新开始执行。</p>
+<p>唤醒的过程则是，调用<code>wake_up()</code>函数把 task 的状态重新设置为 <code>TASK_RUNNING</code>，并且把task从等待队列移除。<br>它会使用 <code>enqueue_task()</code> 把任务从新加入到调度器中。如果是 CFS 调度器的话就是加入到红黑树中，当<code>need_resched</code>设置了的话会显式调用调用<code>schedule()</code>调度，不然还会继续执行唤醒者的上下文。</p>
+<p>然后说一下<em>Freezing of tasks</em>，就是通过发送信号唤醒用户态的进程和内核进程，所有这些进程需要响应这个信号并且最后调用 <code>refrigerator()</code> 进入睡眠，也就上面的那个循环。<br>下图是进入冬眠进程的过程.</p>
+<img data-src="/zh-CN/2017/05/07/cgroups-%E5%88%86%E6%9E%90%E4%B9%8B%E5%86%85%E5%AD%98%E5%92%8CCPU/refrigerator.png" class="">
+
+<p>“冰箱”这个函数名称很形象，就是把当前 task 丢入睡眠状态直到解封。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br></pre></td><td class="code"><pre><span class="line">/* Refrigerator is place where frozen processes are stored :-). */</span><br><span class="line">void refrigerator(void)        </span><br><span class="line">&#123;</span><br><span class="line">        /* Hmm, should we be allowed to suspend when there are realtime</span><br><span class="line">           processes around? */</span><br><span class="line">        long save;             </span><br><span class="line"></span><br><span class="line">        task_lock(current);    </span><br><span class="line">        if (freezing(current)) &#123;        </span><br><span class="line">                frozen_process();               </span><br><span class="line">                task_unlock(current);           </span><br><span class="line">        &#125; else &#123;               </span><br><span class="line">                task_unlock(current);           </span><br><span class="line">                return;        </span><br><span class="line">        &#125;</span><br><span class="line">        save = current-&gt;state; </span><br><span class="line">        pr_debug(&quot;%s entered refrigerator\n&quot;, current-&gt;comm);</span><br><span class="line">  </span><br><span class="line">        spin_lock_irq(&amp;current-&gt;sighand-&gt;siglock);</span><br><span class="line">        recalc_sigpending(); /* We sent fake signal, clean it up */</span><br><span class="line">        spin_unlock_irq(&amp;current-&gt;sighand-&gt;siglock);</span><br><span class="line">  </span><br><span class="line">        /* prevent accounting of that task to load */</span><br><span class="line">        current-&gt;flags |= PF_FREEZING;  </span><br><span class="line">  </span><br><span class="line">        for (;;) &#123;             </span><br><span class="line">                set_current_state(TASK_UNINTERRUPTIBLE);</span><br><span class="line">                if (!frozen(current))           </span><br><span class="line">                        break; </span><br><span class="line">                schedule();    </span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        /* Remove the accounting blocker */</span><br><span class="line">        current-&gt;flags &amp;= ~PF_FREEZING;</span><br><span class="line"></span><br><span class="line">        pr_debug(&quot;%s left refrigerator\n&quot;, current-&gt;comm);</span><br><span class="line">        __set_current_state(save);</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>所以 freezer subsystem 干的事情就是这样一件事情，把 cgroup 中的进程进行挂起和恢复。现在具体看一下实现。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">enum freezer_state &#123;           </span><br><span class="line">        CGROUP_THAWED = 0,     </span><br><span class="line">        CGROUP_FREEZING,       </span><br><span class="line">        CGROUP_FROZEN,         </span><br><span class="line">&#125;;</span><br><span class="line">  </span><br><span class="line">struct freezer &#123;               </span><br><span class="line">        struct cgroup_subsys_state css; </span><br><span class="line">        enum freezer_state state;       </span><br><span class="line">        spinlock_t lock; /* protects _writes_ to state */</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>freezer 有三种状态，THAWED，FREEZING，FROZEN，分别代表正常状态，停止中和停止。</p>
+<p>freezer 对应的文件有<code>state</code>,<code>cftype</code>是对vfs的file结构的一个封装，最后加上子系统的name，文件名对应的就是”freezer.state”。<br>对<code>freezer.state</code>更改文件内容的操作就可以更改cgroup当中task的挂起和恢复.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">/* 文件的读写函数 */</span><br><span class="line">static struct cftype files[] = &#123;</span><br><span class="line">        &#123;</span><br><span class="line">                .name = &quot;state&quot;, </span><br><span class="line">                .read_seq_string = freezer_read,</span><br><span class="line">                .write_string = freezer_write,  </span><br><span class="line">        &#125;,                     </span><br><span class="line">&#125;;</span><br><span class="line">  </span><br><span class="line">/* 添加子系统文件到cgroup目录中 */</span><br><span class="line">static int freezer_populate(struct cgroup_subsys *ss, struct cgroup *cgroup)</span><br><span class="line">&#123; </span><br><span class="line">        if (!cgroup-&gt;parent)   </span><br><span class="line">                return 0;      </span><br><span class="line">        return cgroup_add_files(cgroup, ss, files, ARRAY_SIZE(files));</span><br><span class="line">&#125; </span><br></pre></td></tr></table></figure>
+
+<p>首先看一下<code>freezer_read</code>.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line">static int freezer_read(struct cgroup *cgroup, struct cftype *cft,</span><br><span class="line">                        struct seq_file *m)</span><br><span class="line">&#123;</span><br><span class="line">        struct freezer *freezer;</span><br><span class="line">        enum freezer_state state;</span><br><span class="line"></span><br><span class="line">        if (!cgroup_lock_live_group(cgroup))</span><br><span class="line">                return -ENODEV;</span><br><span class="line"></span><br><span class="line">        freezer = cgroup_freezer(cgroup);</span><br><span class="line">        spin_lock_irq(&amp;freezer-&gt;lock);</span><br><span class="line">        state = freezer-&gt;state;</span><br><span class="line">        if (state == CGROUP_FREEZING) &#123;</span><br><span class="line">                /* We change from FREEZING to FROZEN lazily if the cgroup was</span><br><span class="line">                 * only partially frozen when we exitted write. */</span><br><span class="line">                update_freezer_state(cgroup, freezer);</span><br><span class="line">                state = freezer-&gt;state;</span><br><span class="line">        &#125;</span><br><span class="line">        spin_unlock_irq(&amp;freezer-&gt;lock);</span><br><span class="line">        cgroup_unlock();</span><br><span class="line"></span><br><span class="line">        seq_puts(m, freezer_state_strs[state]);</span><br><span class="line">        seq_putc(m, &#x27;\n&#x27;);</span><br><span class="line">        return 0;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>整个函数就是把 freezer 的 state 转换成字符换然后读取出来。</p>
+<p>再看下 <code>freezer_write</code> 是如何改变进程状态的。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">static int freezer_write(struct cgroup *cgroup,</span><br><span class="line">                         struct cftype *cft,             </span><br><span class="line">                         const char *buffer)             </span><br><span class="line">&#123; </span><br><span class="line">        int retval;            </span><br><span class="line">        enum freezer_state goal_state;  </span><br><span class="line">  </span><br><span class="line">        if (strcmp(buffer, freezer_state_strs[CGROUP_THAWED]) == 0)</span><br><span class="line">                goal_state = CGROUP_THAWED;     </span><br><span class="line">        else if (strcmp(buffer, freezer_state_strs[CGROUP_FROZEN]) == 0)</span><br><span class="line">                goal_state = CGROUP_FROZEN;     </span><br><span class="line">        else                   </span><br><span class="line">                return -EINVAL;</span><br><span class="line">  </span><br><span class="line">        if (!cgroup_lock_live_group(cgroup))</span><br><span class="line">                return -ENODEV;</span><br><span class="line">        retval = freezer_change_state(cgroup, goal_state);</span><br><span class="line">        cgroup_unlock();       </span><br><span class="line">        return retval;         </span><br><span class="line">&#125; </span><br></pre></td></tr></table></figure>
+<p>其实只是把写入的字符串转换成对应的枚举类型，然后调用<code>freezer_change_state(cgroup, goal_state)</code>;</p>
+<p>为了不贴过多的代码，这里略写，其实是根据类型不同进行调用了<code>unfreeze_cgroup</code>和<code>try_to_freeze_cgroup</code>。</p>
+<p><code>try_to_freeze_cgroup</code> 遍历每个task执行freeze操作，而unfreeze也是类似</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">static int try_to_freeze_cgroup(struct cgroup *cgroup, struct freezer *freezer)</span><br><span class="line">&#123;</span><br><span class="line">        struct cgroup_iter it;</span><br><span class="line">        struct task_struct *task;</span><br><span class="line">        unsigned int num_cant_freeze_now = 0;</span><br><span class="line"></span><br><span class="line">        freezer-&gt;state = CGROUP_FREEZING;</span><br><span class="line">        cgroup_iter_start(cgroup, &amp;it);</span><br><span class="line">        while ((task = cgroup_iter_next(cgroup, &amp;it))) &#123;</span><br><span class="line">		/* 尝试freeze task */</span><br><span class="line">                if (!freeze_task(task, true))</span><br><span class="line">                        continue;</span><br><span class="line">                if (is_task_frozen_enough(task))</span><br><span class="line">                        continue;</span><br><span class="line">                if (!freezing(task) &amp;&amp; !freezer_should_skip(task))</span><br><span class="line">                        num_cant_freeze_now++;</span><br><span class="line">        &#125;</span><br><span class="line">        cgroup_iter_end(cgroup, &amp;it);</span><br><span class="line"></span><br><span class="line">        return num_cant_freeze_now ? -EBUSY : 0;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>所以，这里我们看最后的freeze和unfreeze某个task的动作。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line">bool freeze_task(struct task_struct *p, bool sig_only)</span><br><span class="line">&#123;</span><br><span class="line">        /*</span><br><span class="line">         * We first check if the task is freezing and next if it has already</span><br><span class="line">         * been frozen to avoid the race with frozen_process() which first marks</span><br><span class="line">         * the task as frozen and next clears its TIF_FREEZE.</span><br><span class="line">         */</span><br><span class="line">        if (!freezing(p)) &#123;</span><br><span class="line">                rmb();</span><br><span class="line">		/* 如果frozen标记了</span><br><span class="line">		 * 说明已经冻结,就返回失败</span><br><span class="line">		 */</span><br><span class="line">                if (frozen(p))</span><br><span class="line">                        return false;</span><br><span class="line"></span><br><span class="line">                if (!sig_only || should_send_signal(p))</span><br><span class="line">                        set_freeze_flag(p);</span><br><span class="line">                else</span><br><span class="line">                        return false;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        if (should_send_signal(p)) &#123;</span><br><span class="line">                if (!signal_pending(p))</span><br><span class="line">                        fake_signal_wake_up(p);</span><br><span class="line">        &#125; else if (sig_only) &#123;</span><br><span class="line">                return false;</span><br><span class="line">        &#125; else &#123;</span><br><span class="line">                wake_up_state(p, TASK_INTERRUPTIBLE);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        return true;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>停止的方式就是通过标记 <code>freeze_flag</code>，然后通过发送信号或者唤醒 task 来处理<code>TIF_FREEZE</code>标记(取决于是否设置了<code>PF_FREEZER_NOSIG</code>)。<br>最后又回到了之前给的那张流程图，等处理函数运行又会<code>try_to_freeze()</code>检查信号或者标志位，然后进入冰箱，而唤醒的方式则是反过来，把标记清除并且<code>wake_up</code>进程即可。</p>
+<h1 id="cpu-子系统"><a href="#cpu-子系统" class="headerlink" title="cpu 子系统"></a>cpu 子系统</h1><p>cpu子系统是对CPU时间配额进行限制的子系统，属性在这里列举一下</p>
+<ul>
+<li>  cpu.cfs_period_us 完全公平调度器的调整时间配额的周期</li>
+<li>  cpu.cfs_quota_us 完全公平调度器的周期当中可以占用的时间</li>
+<li>cpu.stat 统计值<ul>
+<li>  nr_periods 进入周期的次数</li>
+<li>  nr_throttled 运行时间被调整的次数</li>
+<li>  throttled_time 用于调整的时间</li>
+</ul>
+</li>
+<li>  cpu.share cgroup中cpu的分配，如果a group是100，b group是300，那么a就会获得\(\frac{1}{4}\)，b就会获得\(\frac{3}{4}\)的CPU。</li>
+</ul>
+<h2 id="CFS-调度器"><a href="#CFS-调度器" class="headerlink" title="CFS 调度器"></a>CFS 调度器</h2><p>接下来看一下对于 CPU 的限制是如何做到的，这要补充一下 CFS(完全公平调度器) 的<a target="_blank" rel="noopener" href="https://www.kernel.org/doc/Documentation/scheduler/sched-design-CFS.txt">相关的内容</a>。</p>
+<p>CFS 保证进程之间完全公平获得 CPU 的份额，和我们传统的操作系统的时间片的理念不同，CFS 计算进程的 vruntime (其实就是总时间中的比例，并且带上进程优先级作为权重)，来选择需要调度的下一个进程。用户态暴露的权重就是nice值，这个值越高权重就会低，反之亦然。(坊间的解释是 nice 的意思就是我对别的进程很 nice ，所以让别的进程多运行一会儿，自己少运行一会儿)。</p>
+<p>CFS主要有几点，时间计算，进程选择，调度入口。</p>
+<h3 id="时间计算"><a href="#时间计算" class="headerlink" title="时间计算"></a>时间计算</h3><p>先看下面这句话</p>
+<blockquote>
+<p>Linux is a multi-user operating system. Consider a scenario where user A spawns ten tasks and user B spawns five. Using the above approach, every task would get ~7% of the available CPU time within a scheduling period. So user A gets 67% and user B gets 33% of the CPU time during their runs. Clearly, if user A continues to spawn more tasks, he can starve user B of even more CPU time. To address this problem, the concept of “group scheduling” was introduced in the scheduler, where, instead of dividing the CPU time among tasks, it is divided among groups of tasks.</p>
+</blockquote>
+<p>总结来说 CPU 的时间并不是分给独立的 <code>task</code> 的，而是分给 <code>task_group</code> 的，这样防止用户 A 的进程数远远大于 B 而导致 B 饥饿的<a target="_blank" rel="noopener" href="https://lwn.net/Articles/639543/">情况</a>。这一组task通过 <code>sched_entity</code> 来表示。能够导致进程分组的方式一种是把进程划入一个cgroup，一种是通过<code>set_sid()</code>系统调用的新session中创建的进程会自动分组，这需要<code>CONFIG_SCHED_AUTOGROUP</code>编译选项开启。</p>
+<p>调度的粒度是以<code>sched_entity</code>为粒度的,</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line">struct sched_entity &#123;</span><br><span class="line">        struct load_weight      load;           /* for load-balancing */</span><br><span class="line">        struct rb_node          run_node;</span><br><span class="line">        struct list_head        group_node;</span><br><span class="line">        unsigned int            on_rq;</span><br><span class="line"></span><br><span class="line">        u64                     exec_start;</span><br><span class="line">        u64                     sum_exec_runtime;</span><br><span class="line">        u64                     vruntime;</span><br><span class="line">        u64                     prev_sum_exec_runtime;</span><br><span class="line"></span><br><span class="line">        u64                     nr_migrations;</span><br><span class="line"></span><br><span class="line">#if defined(CONFIG_SMP) &amp;&amp; defined(CONFIG_FAIR_GROUP_SCHED)</span><br><span class="line">        /* Per-entity load-tracking */</span><br><span class="line">        struct sched_avg        avg;</span><br><span class="line">#endif</span><br><span class="line">#ifdef CONFIG_SCHEDSTATS       </span><br><span class="line">        struct sched_statistics statistics;</span><br><span class="line">#endif                         </span><br><span class="line"></span><br><span class="line">#ifdef CONFIG_FAIR_GROUP_SCHED </span><br><span class="line">        struct sched_entity     *parent;</span><br><span class="line">        /* rq on which this entity is (to be) queued: */</span><br><span class="line">        struct cfs_rq           *cfs_rq;</span><br><span class="line">        /* rq &quot;owned&quot; by this entity/group: */</span><br><span class="line">        struct cfs_rq           *my_q;  </span><br><span class="line">#endif</span><br><span class="line">&#125;;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>每个调度实体都有两个<code>cfs_rq</code>结构</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">   struct cfs_rq &#123;</span><br><span class="line">struct load_weight load;</span><br><span class="line">unsigned long runnable_load_avg;</span><br><span class="line">unsigned long blocked_load_avg;</span><br><span class="line">unsigned long tg_load_contrib;</span><br><span class="line">/* ... */</span><br><span class="line">   &#125;;</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>Each scheduling entity may, in turn, be queued on a parent scheduling entity’s run queue. At the lowest level of this hierarchy, the scheduling entity is a task; the scheduler traverses this hierarchy until the end when it has to pick a task to run on the CPU.</p>
+</blockquote>
+<p>最底层的调度实体就是进程，而每个调度实体还会有两个<code>cfs_rq</code>，一个是<code>cfs_rq</code>另一个是<code>my_q</code>，前者是当前调度实体从属的rq，后者他自己的rq，所有的子调度实体都在这个rq上，从而构成了树形结构。可以通过<code>cfs_rq</code>遍历调度实体，而把自己的时间平分给<code>my_q</code>的调度实体.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">   struct task_group &#123;</span><br><span class="line">struct sched_entity **se;</span><br><span class="line">struct cfs_rq **cfs_rq;</span><br><span class="line">unsigned long shares;</span><br><span class="line">atomic_long_t load_avg;</span><br><span class="line">/* ... */</span><br><span class="line">   &#125;;</span><br></pre></td></tr></table></figure>
+<blockquote>
+<p>Tasks belonging to a group can be scheduled on any CPU. Therefore it is not sufficient for a group to have a single scheduling entity; instead, every group must have one scheduling entity for each CPU. Tasks belonging to a group must move between the run queues in these per-CPU scheduling entities only, so that the footprint of the task is associated with the group even during task migrations.</p>
+</blockquote>
+<p>单独的<code>sched_entity</code>为了适应SMP结构，又引入了<code>task_group</code>结构，包含了数组，分别属于某个CPU，对于一个进程想要从CPU1迁移到CPU2，只要把进程从<code>tg-&gt;cfs_rq[0]</code>转移到<code>tg-&gt;cfs_rq[1]</code>即可，一种 percpu 的结构。</p>
+<p>优先级有一个映射表，表示调度占的权重，一般nice值为0的时候，大家都是1024，但是nice值为1的时候，权重就会降低到820，对于所有1024权重的进程，就会享有更少的时间，这个映射体现的是每提升一个等级，相差值大约为10%。</p>
+<p>下面是 nice 值到权重的映射，这是内核普通进程的优先级范围(100-139)，内核拥有140个优先级。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">static const int prio_to_weight[40] = &#123;</span><br><span class="line"> /* -20 */     88761,     71755,     56483,     46273,     36291,</span><br><span class="line"> /* -15 */     29154,     23254,     18705,     14949,     11916,</span><br><span class="line"> /* -10 */      9548,      7620,      6100,      4904,      3906,</span><br><span class="line"> /*  -5 */      3121,      2501,      1991,      1586,      1277,</span><br><span class="line"> /*   0 */      1024,       820,       655,       526,       423,</span><br><span class="line"> /*   5 */       335,       272,       215,       172,       137,</span><br><span class="line"> /*  10 */       110,        87,        70,        56,        45,</span><br><span class="line"> /*  15 */        36,        29,        23,        18,        15,</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>调度实体中包含了一个结构就是表示这个权重的值，表示进程占的权重。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">   struct load_weight &#123;</span><br><span class="line">unsigned long weight;</span><br><span class="line">   &#125;;</span><br></pre></td></tr></table></figure>
+
+<p>最后 <code>time_slice = (sched_period() * se.load.weight) / cfs_rq.load.weight;</code> 就是 se 运行时应该分配到的 CPU 时间的份额(<code>sched_period</code>是<code>cfs.nr_running</code>调度最小粒度时间，理想要每个进程都能运行一次)。</p>
+<p>另外，用于衡量CPU负载的方式是通过<code>sched_entity</code>中的<code>sched_avg</code>结构，这个结构用于记录负载情况：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">struct sched_avg &#123;</span><br><span class="line">u32 runnable_sum, runnable_avg_period;</span><br><span class="line">unsigned long load_avg_contrib;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>当<code>sched_entity</code>是一个进程的时候，计算公式是<code>sa.load_avg_contrib = (sa.runnable_sum * se.load.weight) / sa.runnable_period;</code>(<code>se</code>是<code>sched_entity</code>，<code>sa</code>是<code>sched_avg</code>)，<code>runnbale_sum</code> 是处于 <code>RUNNING</code> 状态的时间，<code>runnable_period</code> 表示可以变成运行状态的时间段。<code>runnable_load_avg</code> 是<code>cfs_rq</code>中用于统计所有<code>se</code>的<code>load</code>的合，以此来表示CPU负载。<code>blocked_load_avg</code> 是相应的进程处于阻塞状态的负载。</p>
+<p>当<code>sched_entity</code>是一组进程的时候，计算方式是，<br>首先提取<code>task group</code></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">tg = cfs_rq-&gt;tg;</span><br></pre></td></tr></table></figure>
+<p>之前已经统计了队列中的所有<code>se</code>的总和<code>runnable_load_avg</code>，然后全部累加到<code>tg</code>中。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">cfs_rq-&gt;tg_load_contrib = cfs_rq-&gt;runnable_load_avg + cfs_rq-&gt;blocked_load_avg;</span><br><span class="line">    tg-&gt;load_avg += cfs_rq-&gt;tg_load_contrib;</span><br></pre></td></tr></table></figure>
+
+<p>最后<code>se</code>的值是通过在<code>tg</code>中的比重得到的，这里的<code>tg-&gt;shares</code>是最大允许的负载。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">se-&gt;avg.load_avg_contrib =</span><br><span class="line"> (cfs_rq-&gt;tg_load_contrib * tg-&gt;shares / tg-&gt;load_avg);</span><br></pre></td></tr></table></figure>
+
+
+
+<h3 id="进程选择"><a href="#进程选择" class="headerlink" title="进程选择"></a>进程选择</h3><p>完全公平调度器的进程选择其实很简单，通过调用<code>pick_next_entity()</code>每次选择 vruntime 最小的进程进行运行。装载进程的结构选择的是红黑树，并且最左下角的结点是个特殊的节点，被保存起来，这样防止每次都从 root 一直搜索到最左下角，每次选择进程的时候直接选择该节点即可。</p>
+<p>每次 vruntime 会在时钟中断和任何进程运行状态发生改变的时候进行计算，方式是通过权重调整得到一个 delta 值然后加到 vruntime 上面。<br>公式是<code>vruntime += delta_exec * (NICE_0_LOAD/curr-&gt;load.weight);</code>。这里的 weight 取决于 shares 值和负载等等因素的综合结果。</p>
+<p>通过<code>enqueue_entity()</code>可以把进程加入到红黑树当中，当进程被唤醒的时候，或者第一次调用<code>fork</code>的时候就会被调用这个函数。具体就是更新了统计数据，并且把调度节点插入到红黑树当中。如果正好插入到了最右下角，那么就能马上被运行了。</p>
+<p>通过<code>dequeue_entity()</code>可以把调度结点从红黑树中删除，这是进程在阻塞或者终止的时候会被调用的函数，具体就是把调度节点移除红黑树并且调整红黑树。</p>
+<h3 id="调度入口"><a href="#调度入口" class="headerlink" title="调度入口"></a>调度入口</h3><p>内核的调度入口就是<code>schedule()</code>，遍历所有的调度类(因为内核中调度器的实现不只一种)，选择权重最高的调度类并且进行进程选择，然后执行该进程。</p>
+<p>这里列举一下所有抢占可能发生的时机</p>
+<ol>
+<li>用户态进程:<ul>
+<li>  从系统调用返回</li>
+<li>  从中断返回</li>
+</ul>
+</li>
+<li>内核态进程:<ul>
+<li>  从中断返回内核态</li>
+<li>  进程主动调用<code>schedule()</code></li>
+<li>  进程变为可抢占状态(没有持有锁,其实还是中断驱动的)</li>
+<li>  进程阻塞(最后还是调用schedule)</li>
+</ul>
+</li>
+</ol>
+<h1 id="具体看-cgroup-的-cpu-子系统"><a href="#具体看-cgroup-的-cpu-子系统" class="headerlink" title="具体看 cgroup 的 cpu 子系统"></a>具体看 cgroup 的 cpu 子系统</h1><p>补充完调度器的知识，再回来看 cgroup 是如何对进程做运行时间限制的。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">static struct cftype cpu_files[] = &#123;</span><br><span class="line">#ifdef CONFIG_FAIR_GROUP_SCHED</span><br><span class="line">        &#123;</span><br><span class="line">                .name = &quot;shares&quot;,</span><br><span class="line">                .read_u64 = cpu_shares_read_u64,</span><br><span class="line">                .write_u64 = cpu_shares_write_u64,</span><br><span class="line">        &#125;,</span><br><span class="line">#endif</span><br><span class="line">#ifdef CONFIG_CFS_BANDWIDTH</span><br><span class="line">        &#123;</span><br><span class="line">                .name = &quot;cfs_quota_us&quot;,</span><br><span class="line">                .read_s64 = cpu_cfs_quota_read_s64,</span><br><span class="line">                .write_s64 = cpu_cfs_quota_write_s64,</span><br><span class="line">        &#125;,</span><br><span class="line">        &#123;</span><br><span class="line">                .name = &quot;cfs_period_us&quot;,</span><br><span class="line">                .read_u64 = cpu_cfs_period_read_u64,</span><br><span class="line">                .write_u64 = cpu_cfs_period_write_u64,</span><br><span class="line">        &#125;,</span><br><span class="line">        &#123;</span><br><span class="line">                .name = &quot;stat&quot;,</span><br><span class="line">                .read_map = cpu_stats_show,</span><br><span class="line">        &#125;,</span><br><span class="line">#endif</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>cpu 子系统也是用对文件进行读写的接口，其实就是获取了 cgroup 的 subsystem 的从属的 <code>task_group</code>，并且读取或者设置了 <code>quota_us</code> 和 <code>period_write</code> 以及 <code>shares</code> 属性。具体这些属性应用的地方在调度器内部。<code>task_group</code>是一个管理组调度的结构。</p>
+<p>因为内嵌了一个<code>cgroup_subsys_state</code>，这样cgroup就能通过自己的<code>css</code>成员反找到这个<code>task_group</code>。</p>
+<p>看一下<code>cpu_shares_write_u64</code>的实现</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">cpu_shares_write_u64 实际调用的是</span><br><span class="line">	-&gt; sched_group_set_shares(cgroup_tg(cgrp), scale_load(shareval))</span><br><span class="line">		-&gt; update_cfs_shares 获取 cgroup 的task group结构，调整权重</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">static void update_cfs_shares(struct cfs_rq *cfs_rq)</span><br><span class="line">&#123;</span><br><span class="line">        struct task_group *tg;</span><br><span class="line">        struct sched_entity *se;</span><br><span class="line">        long shares;</span><br><span class="line"></span><br><span class="line">        tg = cfs_rq-&gt;tg;</span><br><span class="line">        se = tg-&gt;se[cpu_of(rq_of(cfs_rq))];</span><br><span class="line">        if (!se || throttled_hierarchy(cfs_rq))</span><br><span class="line">                return;</span><br><span class="line">#ifndef CONFIG_SMP</span><br><span class="line">        if (likely(se-&gt;load.weight == tg-&gt;shares))</span><br><span class="line">                return;</span><br><span class="line">#endif</span><br><span class="line">        /* 根据tg-&gt;shares 和 rq 的负载计算出新的权重 */</span><br><span class="line">        shares = calc_cfs_shares(cfs_rq, tg);</span><br><span class="line">	</span><br><span class="line">        reweight_entity(cfs_rq_of(se), se, shares);</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>最后一步 <code>reweight_entity</code> 就是调整<code>se-&gt;load.weight</code>的权重，从这里来保证<code>shares</code>能够调整进程可以获得的运行时间。当然除了这里，任何发生调度的地方都会有这样的行为，只不过我们主动修改了<code>shares</code>的值。</p>
+<p>下图表示了展示了<code>shares</code>在<code>task group</code>中的作用。</p>
+<img data-src="/zh-CN/2017/05/07/cgroups-%E5%88%86%E6%9E%90%E4%B9%8B%E5%86%85%E5%AD%98%E5%92%8CCPU/shares_hierarchy.png" class="">
+
+<p>对于<code>cpu.cfs_period_us</code>和<code>cpu.cfs_quota_us</code>，是关于<code>CPU bandwith</code>的内容，论文<a href="https://ggaaooppeenngg.github.io/zh-CN/2015/12/22/VFS-%E5%86%85%E6%A0%B8%E6%98%AF%E5%A6%82%E4%BD%95%E6%8A%BD%E8%B1%A1%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F%E7%9A%84/">CPU bandwidth control for CFS</a>详细描述了其中的设计。论文中举例提到，shares 值只是使得CPU 的时间能够平均分配，但是实际运行时间可能会有变化，不能限制一个进程运行的上限。</p>
+<p>在调度实体<code>sched_entity</code>中内嵌了一个结构体:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">struct cfs_bandwidth &#123;</span><br><span class="line">#ifdef CONFIG_CFS_BANDWIDTH</span><br><span class="line">        raw_spinlock_t lock;</span><br><span class="line">        ktime_t period;</span><br><span class="line">        /* quota 是被赋予的时间，runtime 是实际运行的时间 */</span><br><span class="line">        u64 quota, runtime;</span><br><span class="line">        s64 hierarchal_quota;</span><br><span class="line">        /* 到期时间 */ </span><br><span class="line">        u64 runtime_expires;</span><br><span class="line">  </span><br><span class="line">        int idle, timer_active;</span><br><span class="line">        struct hrtimer period_timer, slack_timer;</span><br><span class="line">        struct list_head throttled_cfs_rq;</span><br><span class="line"></span><br><span class="line">        /* statistics */</span><br><span class="line">        int nr_periods, nr_throttled;   </span><br><span class="line">        u64 throttled_time;</span><br><span class="line">#endif</span><br><span class="line">&#125;;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>在每次调度的时候(无论是时间中断还是其他调度时间导致 enqueue 或者 dequeue)，都会调用<code>account_cfs_rq_runtime()</code>,runtime 相当于实际使用的 quota , 在论文里说的是<code>account_cfs_rq_quota()</code>，对占用时间更新，计算剩余可以运行的时间，如果不够，则进行限制，标记为不可调度。其中内含一个高精度定时器<code>period_timer</code>定时扫描进程，把限制的进程解除，并给予更多的bandwidth以继续运行，period就是计时器的周期，每次都会更新可运行的时间。注意这里用的时间是真实时间.</p>
+<p>另外，<code>cpu.stat</code> 主要是控制过程中的统计信息，是只读属性，比如被限制了多少次等等，具体的代码分析就直接略过。</p>
+<h1 id="cpuacct-子系统"><a href="#cpuacct-子系统" class="headerlink" title="cpuacct 子系统"></a>cpuacct 子系统</h1><p>cpuacct 比较简单，因为主要是一些统计信息</p>
+<ul>
+<li>  cpuacct.stat cgroup 及子消耗在用户态和内核态的CPU循环次数</li>
+<li>  cpuacct.usage cgroup 消耗的CPU总时间</li>
+<li>  cpuacct.usage_percpu cgroup在每个CPU上消耗的总时间</li>
+</ul>
+<p>在<code>kernel/sched/cpuacct.c</code>下有具体实现。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">/* track cpu usage of a group of tasks and its child groups */</span><br><span class="line">struct cpuacct &#123;</span><br><span class="line">        struct cgroup_subsys_state css;</span><br><span class="line">        /* cpuusage holds pointer to a u64-type object on every cpu */</span><br><span class="line">        u64 __percpu *cpuusage;</span><br><span class="line">        struct kernel_cpustat __percpu *cpustat;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>其中定义了<a target="_blank" rel="noopener" href="http://www.makelinux.net/ldd3/chp-8-sect-5">per-cpu</a>结构，让每个CPU都独占了一个用于统计的值，算是CPU的私有变量。</p>
+<p>接口如下</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">static struct cftype files[] = &#123;</span><br><span class="line">        &#123;</span><br><span class="line">                .name = &quot;usage&quot;,</span><br><span class="line">                .read_u64 = cpuusage_read,</span><br><span class="line">                .write_u64 = cpuusage_write,</span><br><span class="line">        &#125;,</span><br><span class="line">        &#123;</span><br><span class="line">                .name = &quot;usage_percpu&quot;,</span><br><span class="line">                .read_seq_string = cpuacct_percpu_seq_read,</span><br><span class="line">        &#125;,</span><br><span class="line">        &#123;</span><br><span class="line">                .name = &quot;stat&quot;,</span><br><span class="line">                .read_map = cpuacct_stats_show,</span><br><span class="line">        &#125;,</span><br><span class="line">        &#123; &#125;     /* terminate */</span><br><span class="line">&#125;;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>每次调度<code>update_curr</code>，都会调用<code>cpuacct_charge</code>更新<code>cpuacct</code>中的值，作为统计数据。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line">/*</span><br><span class="line"> * charge this task&#x27;s execution time to its accounting group.</span><br><span class="line"> *</span><br><span class="line"> * called with rq-&gt;lock held.</span><br><span class="line"> */</span><br><span class="line">void cpuacct_charge(struct task_struct *tsk, u64 cputime)</span><br><span class="line">&#123;</span><br><span class="line">        struct cpuacct *ca;</span><br><span class="line">        int cpu;</span><br><span class="line">        /* 获取当前task属于的cpu */</span><br><span class="line">        cpu = task_cpu(tsk);</span><br><span class="line"></span><br><span class="line">        rcu_read_lock();</span><br><span class="line">        /* task的cpuacct结构 */</span><br><span class="line">        ca = task_ca(tsk);</span><br><span class="line">        /* 所有父节点的值都应该相应变化</span><br><span class="line">         * 上溯父节点更新统计值</span><br><span class="line">         */</span><br><span class="line">        while (true) &#123;</span><br><span class="line">                u64 *cpuusage = per_cpu_ptr(ca-&gt;cpuusage, cpu);</span><br><span class="line">                *cpuusage += cputime;</span><br><span class="line"></span><br><span class="line">                ca = parent_ca(ca);</span><br><span class="line">                if (!ca)</span><br><span class="line">                        break;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        rcu_read_unlock();</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>在时钟中断的时候会最终调用<code>cpuacct_account_field()</code>来更新<code>kcpustat</code>。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">/*</span><br><span class="line"> * Add user/system time to cpuacct.</span><br><span class="line"> *</span><br><span class="line"> * Note: it&#x27;s the caller that updates the account of the root cgroup.</span><br><span class="line"> */</span><br><span class="line">void cpuacct_account_field(struct task_struct *p, int index, u64 val)</span><br><span class="line">&#123;</span><br><span class="line">        struct kernel_cpustat *kcpustat;</span><br><span class="line">        struct cpuacct *ca;</span><br><span class="line"></span><br><span class="line">        rcu_read_lock();</span><br><span class="line">        ca = task_ca(p);</span><br><span class="line">        while (ca != &amp;root_cpuacct) &#123;</span><br><span class="line">                kcpustat = this_cpu_ptr(ca-&gt;cpustat);</span><br><span class="line">                kcpustat-&gt;cpustat[index] += val;</span><br><span class="line">                ca = __parent_ca(ca);</span><br><span class="line">        &#125;</span><br><span class="line">        rcu_read_unlock();</span><br><span class="line">&#125;   </span><br></pre></td></tr></table></figure>
+
+<p>cpuacct 算是一个简单的子系统，多是统计信息。</p>
+<h1 id="cpuset-子系统"><a href="#cpuset-子系统" class="headerlink" title="cpuset 子系统"></a>cpuset 子系统</h1><p>cpuset 子系统用于分配独立的内存节点和CPU节点，这个主要应用与<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Non-uniform_memory_access">NUMA结构</a>里面，多内存节点属于结构，先看一下<code>cpuset</code>的结构。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">struct cpuset &#123;</span><br><span class="line">        struct cgroup_subsys_state css;</span><br><span class="line">        </span><br><span class="line">        unsigned long flags;            /* &quot;unsigned long&quot; so bitops work */</span><br><span class="line">        cpumask_var_t cpus_allowed;     /* CPUs allowed to tasks in cpuset */</span><br><span class="line">        nodemask_t mems_allowed;        /* Memory Nodes allowed to tasks */</span><br><span class="line">        </span><br><span class="line">        struct fmeter fmeter;           /* memory_pressure filter */</span><br><span class="line">        </span><br><span class="line">        /*</span><br><span class="line">         * Tasks are being attached to this cpuset.  Used to prevent</span><br><span class="line">         * zeroing cpus/mems_allowed between -&gt;can_attach() and -&gt;attach().</span><br><span class="line">         */</span><br><span class="line">        int attach_in_progress;</span><br><span class="line">        </span><br><span class="line">        /* partition number for rebuild_sched_domains() */</span><br><span class="line">        int pn;</span><br><span class="line">        </span><br><span class="line">        /* for custom sched domain */</span><br><span class="line">        int relax_domain_level;</span><br><span class="line">        </span><br><span class="line">        struct work_struct hotplug_work;</span><br><span class="line">&#125;;  </span><br></pre></td></tr></table></figure>
+
+<ul>
+<li> cpuset.cpus cpu结点限制</li>
+<li> cpuset.mems 内存结点限制</li>
+<li> cpuset.memory_migrate 内存结点改变是否迁移</li>
+<li> cpuset.cpu_exclusive 指定的限制是否是独享的，除了父节点或者子节点，不会和其他cpuset有交集</li>
+<li> cpuset.mem_exclusive 指定的限制是否是独享的，除了父节点或者子节点，不会和其他cpuset有交集</li>
+<li> cpuset.memory_pressure 换页压力的比率统计</li>
+<li> cpuset.mem_hardwall 限制内核内存分配的结点，mems是限制用户态的分配</li>
+<li> cpuset.memory_spread_page 把page cache分散到分配的各个结点中，而不是当前运行的结点.</li>
+<li> cpuset.memory_spread_slab 把fs相关的slab的对象(inode和dentry)分散到结点中.</li>
+<li> cpuset.sched_load_balance 打开调度CPU的负载均衡，这里指的是cpuset拥有的sched_domain，默认全局的CPU调度是本来就有负载均衡的。</li>
+<li> cpuset.sched_relax_domain_level </li>
+<li> cpuset.memory_pressure_enabled 计算换页压力的开关，注意，这个属性在<code>top_group</code>里面才有</li>
+</ul>
+<p><code>cpus_allowed</code>和<code>mems_allowed</code>就是允许分配的内存节点和CPU节点的<a target="_blank" rel="noopener" href="http://blog.csdn.net/ustc_dylan/article/details/4030831">掩码</a>。</p>
+<p>分配内存的时候调用栈是<code>alloc_pages()-&gt;alloc_pages_current()-&gt;__alloc_pages_nodemask()</code>，直到寻找可分配结点的时候会调用 <code>zref_in_nodemask</code> 来判断是否可以分配在该结点。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">static inline int zref_in_nodemask(struct zoneref *zref, nodemask_t *nodes)</span><br><span class="line">&#123; </span><br><span class="line">#ifdef CONFIG_NUMA</span><br><span class="line">        return node_isset(zonelist_node_idx(zref), *nodes);</span><br><span class="line">#else</span><br><span class="line">        return 1;</span><br><span class="line">#endif /* CONFIG_NUMA */</span><br><span class="line">&#125; </span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>从这个函数也可以看到如果编译选项带了<code>CONFIG_NUMA</code>才会起作用，不然返回的永远都是真。</p>
+<p>分散<code>file cache</code>和<code>slab cache</code>的方式是通过设置<a target="_blank" rel="noopener" href="https://www.kernel.org/doc/Documentation/scheduler/sched-domains.txt">标志位</a>来实现的。</p>
+<blockquote>
+<p>Setting the flag ‘cpuset.memory_spread_page’ turns on a per-process flag<br>PFA_SPREAD_PAGE for each task that is in that cpuset or subsequently<br>joins that cpuset.  The page allocation calls for the page cache<br>is modified to perform an inline check for this PFA_SPREAD_PAGE task<br>flag, and if set, a call to a new routine cpuset_mem_spread_node()<br>returns the node to prefer for the allocation.</p>
+<p>Similarly, setting ‘cpuset.memory_spread_slab’ turns on the flag<br>PFA_SPREAD_SLAB, and appropriately marked slab caches will allocate<br>pages from the node returned by cpuset_mem_spread_node().</p>
+</blockquote>
+<p>内存分配向结点的传播，都是通过设置标志<code>PFA_SPREAD_PAGE</code>或者<code>PFA_SPREAD_SLAB</code>来标记的，这个时候对应的函数<code>cpuset_mem_spread_node</code>和<code>cpuset_mem_spread_node</code>会返回希望分配的结点，举个例子，<code>cpuset_mem_spread_node</code>会从允许的节点中随机返回一个值，以达到分配对象分散在结点当中。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">static int cpuset_spread_node(int *rotor)</span><br><span class="line">&#123; </span><br><span class="line">        int node;              </span><br><span class="line"></span><br><span class="line">        node = next_node(*rotor, current-&gt;mems_allowed);</span><br><span class="line">        if (node == MAX_NUMNODES)       </span><br><span class="line">                node = first_node(current-&gt;mems_allowed);</span><br><span class="line">        *rotor = node;         </span><br><span class="line">        return node;           </span><br><span class="line">&#125; </span><br><span class="line">  </span><br><span class="line">int cpuset_mem_spread_node(void)</span><br><span class="line">&#123; </span><br><span class="line">        if (current-&gt;cpuset_mem_spread_rotor == NUMA_NO_NODE)</span><br><span class="line">                current-&gt;cpuset_mem_spread_rotor =</span><br><span class="line">                        node_random(&amp;current-&gt;mems_allowed);</span><br><span class="line">  </span><br><span class="line">        return cpuset_spread_node(&amp;current-&gt;cpuset_mem_spread_rotor);</span><br><span class="line">&#125; </span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>对于CPU结点的控制是通过修改<code>cpus_allowed</code>来控制的，在task被唤醒的时候选择运行的rq时就会对掩码做判断，这是调度类需要实现的接口<code>select_task_rq</code>，比如CFS的实现:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">/*</span><br><span class="line"> * The caller (fork, wakeup) owns p-&gt;pi_lock, -&gt;cpus_allowed is stable.</span><br><span class="line"> */</span><br><span class="line">static inline</span><br><span class="line">int select_task_rq(struct task_struct *p, int sd_flags, int wake_flags)</span><br><span class="line">&#123; </span><br><span class="line">        int cpu = p-&gt;sched_class-&gt;select_task_rq(p, sd_flags, wake_flags);</span><br><span class="line">  </span><br><span class="line">        /*</span><br><span class="line">         * In order not to call set_task_cpu() on a blocking task we need</span><br><span class="line">         * to rely on ttwu() to place the task on a valid -&gt;cpus_allowed</span><br><span class="line">         * cpu.</span><br><span class="line">         *</span><br><span class="line">         * Since this is common to all placement strategies, this lives here.</span><br><span class="line">         *</span><br><span class="line">         * [ this allows -&gt;select_task() to simply return task_cpu(p) and</span><br><span class="line">         *   not worry about this generic constraint ]</span><br><span class="line">         */</span><br><span class="line">        if (unlikely(!cpumask_test_cpu(cpu, tsk_cpus_allowed(p)) ||</span><br><span class="line">                     !cpu_online(cpu)))              </span><br><span class="line">                cpu = select_fallback_rq(task_cpu(p), p);</span><br><span class="line"></span><br><span class="line">        return cpu;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p><code>load_balance</code> 设置的是<code>cpuset</code>的<code>CS_SCHED_LOAD_BALANCE</code>标志，之后会调用<code>update_cpumask</code>，这个标志的更新会调用<code>rebuild_sched_domains_locked()</code>，会引起<code>sched_domain</code>的分配。当然这不是唯一的<code>sched_domain</code>重新划分的触发点,触发点有一下几点。</p>
+<ol>
+<li> 绑定了CPU并且该标记改变</li>
+<li> 这个标记为enable，绑定CPU发生改变</li>
+<li> 绑定了CPU，这个标记为enable，标记<code>cpuset.sched_relax_domain_level</code>发生改变</li>
+<li> 绑定了CPU，并且该标记设置了，但是cpuset被删除了</li>
+<li> CPU 转变 offline/online 状态</li>
+</ol>
+<p>简单说一下[sched_domain](<a target="_blank" rel="noopener" href="https://www.ibm.com/developerworks/cn/linux/l-cn-schldom/">https://www.ibm.com/developerworks/cn/linux/l-cn-schldom/</a> sched domain 的详细内容)的作用，其实就是划定了负载均衡的 CPU 范围，默认是有一个全局的<code>sched_domain</code>，对所有 CPU 做负载均衡的，现在再划分出一个<code>sched_domain</code>把 CPU 的某个子集作为负载均衡的单元。<br>每个 Scheduling Domain 其实就是具有相同属性的一组 CPU 的集合. 并且跟据 Hyper-threading, Multi-core, SMP, NUMA architectures 这样的系统结构划分成不同的级别，不同级之间通过指针链接在一起, 从而形成一种的树状的关系, 如下图所示。</p>
+<img data-src="/zh-CN/2017/05/07/cgroups-%E5%88%86%E6%9E%90%E4%B9%8B%E5%86%85%E5%AD%98%E5%92%8CCPU/sched_domain.jpg" class="">
+
+<p>调度器会调用<code>partition_sched_domains()</code>来更新自己的<code>scehd_domains</code>，调度域发生作用的地方是在时钟中断的时候会触发<code>SCHED_SOFTIRQ</code>对任务做迁移，或者<code>p-&gt;sched_class-&gt;select_task_rq</code>，会在选择运行 CPU 时进行抉择，看一下 CFS 的实现的<code>select_task_rq</code>的简化流程</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br></pre></td><td class="code"><pre><span class="line">// 向上遍历更高层次的domain,如果发现同属一个domain</span><br><span class="line">// 就是affine目标</span><br><span class="line">      for_each_domain(cpu, tmp) &#123;</span><br><span class="line">               /*</span><br><span class="line">                * If both cpu and prev_cpu are part of this domain,</span><br><span class="line">                * cpu is a valid SD_WAKE_AFFINE target.</span><br><span class="line">                */</span><br><span class="line">               if (want_affine &amp;&amp; (tmp-&gt;flags &amp; SD_WAKE_AFFINE) &amp;&amp;</span><br><span class="line">                   cpumask_test_cpu(prev_cpu, sched_domain_span(tmp))) &#123;</span><br><span class="line">                       affine_sd = tmp;</span><br><span class="line">                       break;</span><br><span class="line">               &#125;</span><br><span class="line"></span><br><span class="line">               if (tmp-&gt;flags &amp; sd_flag)</span><br><span class="line">                       sd = tmp;</span><br><span class="line">       &#125;</span><br><span class="line">// 如果上面的条件满足,从prev_cpu中选出一个idle的new_cpu来运行.</span><br><span class="line">       if (affine_sd) &#123;</span><br><span class="line">               if (cpu != prev_cpu &amp;&amp; wake_affine(affine_sd, p, sync))</span><br><span class="line">                       prev_cpu = cpu;                 </span><br><span class="line">	// 在同一个级别的sched domain向下找到一个idle的CPU.</span><br><span class="line">               new_cpu = select_idle_sibling(p, prev_cpu);</span><br><span class="line">	// 快速路径,有idle的CPU就不用负载均衡了.</span><br><span class="line">               goto unlock;</span><br><span class="line">       &#125;</span><br><span class="line">// 遍历层级</span><br><span class="line">       while (sd) &#123;</span><br><span class="line">	//  找到负载最小的CPU</span><br><span class="line">               group = find_idlest_group(sd, p, cpu, load_idx);</span><br><span class="line">               if (!group) &#123;</span><br><span class="line">                       sd = sd-&gt;child;</span><br><span class="line">                       continue;</span><br><span class="line">               &#125;</span><br><span class="line"></span><br><span class="line">               new_cpu = find_idlest_cpu(group, p, cpu);</span><br><span class="line">	/* 如果最闲置的CPU没有变的话,或者没有找到的话,就向下遍历.</span><br><span class="line">               if (new_cpu == -1 || new_cpu == cpu) &#123;</span><br><span class="line">                       /* Now try balancing at a lower domain level of cpu */</span><br><span class="line">                       sd = sd-&gt;child;</span><br><span class="line">                       continue;</span><br><span class="line">               &#125;</span><br><span class="line"></span><br><span class="line">               /* Now try balancing at a lower domain level of new_cpu */</span><br><span class="line">               cpu = new_cpu;</span><br><span class="line">               weight = sd-&gt;span_weight;</span><br><span class="line">               sd = NULL;</span><br><span class="line">	// 如果选出的节点weight比其他节点都大的话.</span><br><span class="line">	// 再向下一个层级遍历.</span><br><span class="line">               for_each_domain(cpu, tmp) &#123;</span><br><span class="line">                       if (weight &lt;= tmp-&gt;span_weight)</span><br><span class="line">                               break;</span><br><span class="line">                       if (tmp-&gt;flags &amp; sd_flag)</span><br><span class="line">                               sd = tmp;</span><br><span class="line">               &#125;</span><br><span class="line">               /* while loop will break here if sd == NULL */</span><br><span class="line">       &#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>负载均衡的对象有个例外。</p>
+<blockquote>
+<p>CPUs in “cpuset.isolcpus” were excluded from load balancing by the<br>isolcpus= kernel boot option, and will never be load balanced regardless<br>of the value of “cpuset.sched_load_balance” in any cpuset.</p>
+</blockquote>
+<p>如果boot选项标记了该CPU，会无视<code>sched_load_balance</code>的设置。</p>
+<p><code>cpuset.sched_relax_domain_level</code>有几个等级，越大越优先，表示迁移时搜索CPU的范围，这个主要开启了负载均衡选项的时候才有用。</p>
+<ul>
+<li>  -1  : no request. use system default or follow request of others. 用默认的或者按照其他组的优先级来.</li>
+<li>  0  : no search,不搜索.</li>
+<li>  1  : search siblings (hyperthreads in a core,搜索CPU当中的超线程).</li>
+<li>  2  : search cores in a package.(搜索CPU当中的核).</li>
+<li>  3  : search cpus in a node [= system wide on non-NUMA system]</li>
+<li>  4  : search nodes in a chunk of node [on NUMA system]</li>
+<li>  5  : search system wide [on NUMA system]</li>
+</ul>
+<h1 id="memory-子系统"><a href="#memory-子系统" class="headerlink" title="memory 子系统"></a>memory 子系统</h1><p>看完 cpu 部分再开看一下内存子系统是如何做限制的</p>
+<p>memory 子系统的参数比较多</p>
+<ul>
+<li>  memory.usage_in_bytes           # 当前内存中的 res_counter 使用量</li>
+<li>  memory.memsw.usage_in_bytes     # 当前内存和交换空间中的 res_counter 使用量</li>
+<li>  memory.limit_in_bytes           # 设置/读取 内存使用量</li>
+<li>  memory.memsw.limit_in_bytes     # 设置/读取 内存加交换空间使用量</li>
+<li>  memory.failcnt                  # 读取内存使用量被限制的次数</li>
+<li>  memory.memsw.failcnt            # 读取内存和交换空间使用量被限制的次数</li>
+<li>  memory.max_usage_in_bytes       # 最大内存使用量</li>
+<li>  memory.memsw.max_usage_in_bytes # 最大内存和交换空间使用量</li>
+<li>  memory.soft_limit_in_bytes      # 设置/读取内存的soft limit</li>
+<li>  memory.stat                     # 统计信息</li>
+<li>  memory.use_hierarchy            # 设置/读取 层级统计的使能</li>
+<li>  memory.force_empty              # trigger forced move charge to parent?</li>
+<li>  memory.pressure_level           # 设置内存压力通知</li>
+<li>  memory.swappiness               # 设置/读取 vmscan swappiness 参数?</li>
+<li>  memory.move_charge_at_immigrate # 设置/读取 controls of moving charges?</li>
+<li>  memory.oom_control              # 设置/读取 内存超限控制信息</li>
+<li>  memory.numa_stat                # 每个numa节点的内存使用数量</li>
+<li>  memory.kmem.limit_in_bytes      # 设置/读取 内核内存限制的hard limit</li>
+<li>  memory.kmem.usage_in_bytes      # 读取当前内核内存的分配</li>
+<li>  memory.kmem.failcnt             # 读取当前内核内存分配受限的次数</li>
+<li>  memory.kmem.max_usage_in_bytes  # 读取最大内核内存使用量</li>
+<li>  memory.kmem.tcp.limit_in_bytes  # 设置tcp 缓存内存的hard limit</li>
+<li>  memory.kmem.tcp.usage_in_bytes  # 读取tcp 缓存内存的使用量</li>
+<li>  memory.kmem.tcp.failcnt            # tcp 缓存内存分配的受限次数</li>
+<li>  memory.kmem.tcp.max_usage_in_bytes # tcp 缓存内存的最大使用量</li>
+</ul>
+<p>对于大部分的数据是通过<code>res_counter</code>来保存的</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line">/*</span><br><span class="line"> * The core object. the cgroup that wishes to account for some</span><br><span class="line"> * resource may include this counter into its structures and use</span><br><span class="line"> * the helpers described beyond</span><br><span class="line"> */</span><br><span class="line"></span><br><span class="line">struct res_counter &#123;</span><br><span class="line">        /*</span><br><span class="line">         * the current resource consumption level</span><br><span class="line">         */</span><br><span class="line">        unsigned long long usage;</span><br><span class="line">        /*</span><br><span class="line">         * the maximal value of the usage from the counter creation</span><br><span class="line">         */</span><br><span class="line">        unsigned long long max_usage;</span><br><span class="line">        /*</span><br><span class="line">         * the limit that usage cannot exceed</span><br><span class="line">         */</span><br><span class="line">        unsigned long long limit;</span><br><span class="line">        /*</span><br><span class="line">         * the limit that usage can be exceed</span><br><span class="line">         */</span><br><span class="line">        unsigned long long soft_limit;</span><br><span class="line">        /*</span><br><span class="line">         * the number of unsuccessful attempts to consume the resource</span><br><span class="line">         */</span><br><span class="line">        unsigned long long failcnt;</span><br><span class="line">        /*</span><br><span class="line">         * the lock to protect all of the above.</span><br><span class="line">         * the routines below consider this to be IRQ-safe</span><br><span class="line">         */</span><br><span class="line">        spinlock_t lock;</span><br><span class="line">        /*</span><br><span class="line">         * Parent counter, used for hierarchial resource accounting</span><br><span class="line">         */</span><br><span class="line">        struct res_counter *parent;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>获取方式是通过该结构相关的封装接口提供的，比如<code>mem_cgroup_usage</code>就是通过<code>res_counter_red_u64</code>来获取对应的<code>res_counter</code>的<code>RES_USAGE</code>对应的值的，也就是<code>unsigned long long usage</code>这个成员。(如果不是root，还会递归获取rss和page cache的合。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">static inline u64 mem_cgroup_usage(struct mem_cgroup *memcg, bool swap)</span><br><span class="line">&#123; </span><br><span class="line">        u64 val;</span><br><span class="line">  </span><br><span class="line">        if (!mem_cgroup_is_root(memcg)) &#123;</span><br><span class="line">                if (!swap)</span><br><span class="line">                        return res_counter_read_u64(&amp;memcg-&gt;res, RES_USAGE);</span><br><span class="line">                else</span><br><span class="line">                        return res_counter_read_u64(&amp;memcg-&gt;memsw, RES_USAGE);</span><br><span class="line">        &#125;</span><br><span class="line">  </span><br><span class="line">        /*</span><br><span class="line">         * Transparent hugepages are still accounted for in MEM_CGROUP_STAT_RSS</span><br><span class="line">         * as well as in MEM_CGROUP_STAT_RSS_HUGE.</span><br><span class="line">         */</span><br><span class="line">	// 如果是root就把所有的内存使用量都算进来.</span><br><span class="line">        val = mem_cgroup_recursive_stat(memcg, MEM_CGROUP_STAT_CACHE);</span><br><span class="line">        val += mem_cgroup_recursive_stat(memcg, MEM_CGROUP_STAT_RSS);</span><br><span class="line">  </span><br><span class="line">        if (swap)</span><br><span class="line">                val += mem_cgroup_recursive_stat(memcg, MEM_CGROUP_STAT_SWAP);</span><br><span class="line">  </span><br><span class="line">        return val &lt;&lt; PAGE_SHIFT;       </span><br><span class="line">&#125; </span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p><code>struct mem_cgroup</code> 是负责内存 cgroup 的结构，简化的表示是</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">struct mem_cgroup &#123;</span><br><span class="line">        struct cgroup_subsys_state css; // 通过css关联cgroup.</span><br><span class="line">        struct res_counter res; // mem统计变量</span><br><span class="line">	res_counter memsw; // mem+sw的和</span><br><span class="line">        struct res_counter kmem; // 内核内存统计量</span><br><span class="line">	...</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>这些参数的入口都在<code>mm/memcontrol.c</code>下，比如说<code>memory.usage_in_bytes</code>的读取调用的是<code>mem_cgroup_read</code>函数,</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><span class="line">static ssize_t mem_cgroup_read(struct cgroup *cont, struct cftype *cft,</span><br><span class="line">                               struct file *file, char __user *buf,</span><br><span class="line">                               size_t nbytes, loff_t *ppos)</span><br><span class="line">&#123;</span><br><span class="line">	// 获取cgroup对应的mem_cgroup.</span><br><span class="line">        struct mem_cgroup *memcg = mem_cgroup_from_cont(cont);</span><br><span class="line">        char str[64];</span><br><span class="line">        u64 val;</span><br><span class="line">        int name, len;</span><br><span class="line">        enum res_type type;</span><br><span class="line">  </span><br><span class="line">	// 获取读取的类型,memory.usage_in_bytes就是_MEM</span><br><span class="line">        type = MEMFILE_TYPE(cft-&gt;private);</span><br><span class="line">	// 名称</span><br><span class="line">        name = MEMFILE_ATTR(cft-&gt;private);</span><br><span class="line">  </span><br><span class="line">        switch (type) &#123;</span><br><span class="line">        case _MEM:</span><br><span class="line">                if (name == RES_USAGE)          </span><br><span class="line">                        val = mem_cgroup_usage(memcg, false); </span><br><span class="line">                else</span><br><span class="line">                        val = res_counter_read_u64(&amp;memcg-&gt;res, name);</span><br><span class="line">                break;</span><br><span class="line">        case _MEMSWAP:</span><br><span class="line">                if (name == RES_USAGE)          </span><br><span class="line">                        val = mem_cgroup_usage(memcg, true);</span><br><span class="line">                else</span><br><span class="line">                        val = res_counter_read_u64(&amp;memcg-&gt;memsw, name);</span><br><span class="line">                break;</span><br><span class="line">        case _KMEM:</span><br><span class="line">                val = res_counter_read_u64(&amp;memcg-&gt;kmem, name);</span><br><span class="line">                break;</span><br><span class="line">        default:</span><br><span class="line">                BUG();</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        len = scnprintf(str, sizeof(str), &quot;%llu\n&quot;, (unsigned long long)val);</span><br><span class="line">        return simple_read_from_buffer(buf, nbytes, ppos, str, len);</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>接下来再看一下这些值是在什么时候统计的，统计的入口是<code>mem_cgroup_charge_common()</code>，如果统计值超过限制就会在cgroup内进行回收。调用者分别是缺页时调用的<code>mem_cgroup_newpage_charge</code> 和 page cache　相关的<code>mem_cgroup_cache_charge</code>。</p>
+<p>简单复习一下内存分配的过程，来自<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Non-uniform_memory_access">维基百科</a></p>
+<blockquote>
+<p>创建进程fork(), 程序载入execve(), 映射文件mmap(), 动态内存分配 malloc()/brk() 等进程相关操作都需要分配内存给进程。不过这时进程申请和获得的还不是实际内存，而是虚拟内存，准确的说是“内存区域”。进程对内存区域的分配最终都会归结到 do_mmap() 函数上来(brk调用被单独以系统调用实现，不用do_mmap())，内核使用 do_mmap() 函数创建一个新的线性地址区间。但是说该函数创建了一个新 VMA 并不非常准确，因为如果创建的地址区间和一个已经存在的地址区间相邻，并且它们具有相同的访问权限的话，那么两个区间将合并为一个。如果不能合并，那么就确实需要创建一个新的 VMA 了。但无论哪种情况，do_mmap() 函数都会将一个地址区间加入到进程的地址空间中–无论是扩展已存在的内存区域还是创建一个新的区域。同样，释放一个内存区域应使用函数 do_ummap()，它会销毁对应的内存区域。当进程需要内存时，从内核获得的仅仅是虚拟的内存区域，而不是实际的物理地址，进程并没有获得物理内存，获得的仅仅是对一个新的线性地址区间的使用权。实际的物理内存只有当进程真的去访问新获取的虚拟地址时，才会由”请求页机制”产生”缺页”异常，从而进入分配实际页面的例程<br>。</p>
+</blockquote>
+<p>和下面来自<a target="_blank" rel="noopener" href="https://www.kernel.org/doc/Documentation/cgroup-v1/memory.txt">内核文档</a></p>
+<blockquote>
+<p>与用户进程相似，内核也有一个名为 init_mm 的 mm_strcut 结构来描述内核地址空间，其中页表项 pdg=swapper_pg_dir包含了系统内核空间(3G-4G)的映射关系。因此 vmalloc 分配内核虚拟地址必须更新内核页表，而kmalloc或get_free_page由于分配的连续内存，所以不需要更新内核页表。[13]</p>
+</blockquote>
+<p>内存页的分配是基于伙伴分配系统，也就是基于2的阶乘通过拆分大阶乘的连续页和合并小阶乘的连续页来管理物理内存的方式，这在任何一本操作系统的书里都会讲到，我之前的博客也详细分析了。</p>
+<p>当进程进入缺页异常的时候就会分配具体的物理内存，当物理内存使用超过高水平线以后，换页daemon(kswapd)就会被唤醒用于把内存交换到交换空间以腾出内存，当内存恢复至高水平线以后换页daemon进入睡眠。</p>
+<p>缺页异常的入口是</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line">static int __do_fault(struct mm_struct *mm, struct vm_area_struct *vma,</span><br><span class="line">                unsigned long address, pmd_t *pmd,</span><br><span class="line">                pgoff_t pgoff, unsigned int flags, pte_t orig_pte)</span><br><span class="line">&#123;</span><br><span class="line">        pte_t *page_table;</span><br><span class="line">        spinlock_t *ptl;</span><br><span class="line">        struct page *page;</span><br><span class="line">        struct page *cow_page;</span><br><span class="line">        pte_t entry;</span><br><span class="line">        int anon = 0;</span><br><span class="line">        struct page *dirty_page = NULL;</span><br><span class="line">        struct vm_fault vmf;</span><br><span class="line">        int ret;</span><br><span class="line">        int page_mkwrite = 0;</span><br><span class="line"></span><br><span class="line">        /*</span><br><span class="line">         * If we do COW later, allocate page befor taking lock_page()</span><br><span class="line">         * on the file cache page. This will reduce lock holding time.</span><br><span class="line">         */</span><br><span class="line">        if ((flags &amp; FAULT_FLAG_WRITE) &amp;&amp; !(vma-&gt;vm_flags &amp; VM_SHARED)) &#123;</span><br><span class="line"></span><br><span class="line">                if (unlikely(anon_vma_prepare(vma)))</span><br><span class="line">                        return VM_FAULT_OOM;</span><br><span class="line"></span><br><span class="line">		/* 分配内存并且映射到内存区间 */</span><br><span class="line">                cow_page = alloc_page_vma(GFP_HIGHUSER_MOVABLE, vma, address);</span><br><span class="line">                if (!cow_page)</span><br><span class="line">                        return VM_FAULT_OOM;</span><br><span class="line">		/* 进行统计 */</span><br><span class="line">                if (mem_cgroup_newpage_charge(cow_page, mm, GFP_KERNEL)) &#123;</span><br><span class="line">                        page_cache_release(cow_page);</span><br><span class="line">                        return VM_FAULT_OOM;</span><br><span class="line">                &#125;</span><br><span class="line">        &#125; else</span><br><span class="line">                cow_page = NULL;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p><code>mem_cgroup_newpage_charge</code>则调用<code>mem_cgroup_charge_common</code></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">int mem_cgroup_newpage_charge(struct page *page,</span><br><span class="line">                              struct mm_struct *mm, gfp_t gfp_mask)</span><br><span class="line">&#123; </span><br><span class="line">        if (mem_cgroup_disabled())</span><br><span class="line">                return 0;</span><br><span class="line">	// 不应该关联到页表</span><br><span class="line">        VM_BUG_ON(page_mapped(page));</span><br><span class="line">	// 对应用户态地址,但是不是匿名页</span><br><span class="line">        VM_BUG_ON(page-&gt;mapping &amp;&amp; !PageAnon(page));</span><br><span class="line">	// mm 为空</span><br><span class="line">        VM_BUG_ON(!mm);</span><br><span class="line">        return mem_cgroup_charge_common(page, mm, gfp_mask,</span><br><span class="line">                                        MEM_CGROUP_CHARGE_TYPE_ANON);</span><br><span class="line">&#125; </span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p><code>mem_cgroup_charge_common</code>内容是，返回<code>ret &lt; 0</code>则是OOM。第一步是调用<code>__mem_cgroup_try_charge</code>查看当前使用量是否超过内存限制，如果超过就进行内存回收。第二步如果成功就调用<code>__mem_cgroup_commit_charge</code>添加统计值 ,不然就返回无法分配内存的错误。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">static int mem_cgroup_charge_common(struct page *page, struct mm_struct *mm,</span><br><span class="line">                                gfp_t gfp_mask, enum charge_type ctype)</span><br><span class="line">&#123; </span><br><span class="line">        struct mem_cgroup *memcg = NULL;</span><br><span class="line">        unsigned int nr_pages = 1;      </span><br><span class="line">        bool oom = true;</span><br><span class="line">        int ret;</span><br><span class="line">        if (PageTransHuge(page)) &#123;      </span><br><span class="line">                nr_pages &lt;&lt;= compound_order(page);</span><br><span class="line">                VM_BUG_ON(!PageTransHuge(page));</span><br><span class="line">                /*</span><br><span class="line">                 * Never OOM-kill a process for a huge page.  The</span><br><span class="line">                 * fault handler will fall back to regular pages.</span><br><span class="line">                 */</span><br><span class="line">                oom = false;</span><br><span class="line">        &#125;</span><br><span class="line">  </span><br><span class="line">        ret = __mem_cgroup_try_charge(mm, gfp_mask, nr_pages, &amp;memcg, oom);</span><br><span class="line">        if (ret == -ENOMEM)</span><br><span class="line">                return ret;</span><br><span class="line">        __mem_cgroup_commit_charge(memcg, page, nr_pages, ctype, false);</span><br><span class="line">        return 0;</span><br><span class="line">&#125; </span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p><code>__mem_cgroup_try_charge</code>最终会调用<code>mem_cgroup_do_charge</code>，省略代码:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line">static int mem_cgroup_do_charge(struct mem_cgroup *memcg, gfp_t gfp_mask,</span><br><span class="line">                                unsigned int nr_pages, unsigned int min_pages,</span><br><span class="line">                                bool invoke_oom)</span><br><span class="line">&#123;</span><br><span class="line">        unsigned long csize = nr_pages * PAGE_SIZE;</span><br><span class="line">        struct mem_cgroup *mem_over_limit;</span><br><span class="line">        struct res_counter *fail_res;</span><br><span class="line">        unsigned long flags = 0;</span><br><span class="line">        int ret;</span><br><span class="line">	// 更新res计数器</span><br><span class="line">        ret = res_counter_charge(&amp;memcg-&gt;res, csize, &amp;fail_res);</span><br><span class="line"></span><br><span class="line">        if (likely(!ret)) &#123;</span><br><span class="line">                if (!do_swap_account)</span><br><span class="line">                        return CHARGE_OK;</span><br><span class="line">		// 计数成功,如果开启swap计数,记录memsw.</span><br><span class="line">                ret = res_counter_charge(&amp;memcg-&gt;memsw, csize, &amp;fail_res);</span><br><span class="line">                if (likely(!ret))</span><br><span class="line">                        return CHARGE_OK;               </span><br><span class="line">		// swap计数失败,退回res的计数</span><br><span class="line">                res_counter_uncharge(&amp;memcg-&gt;res, csize);</span><br><span class="line">		// 获取fail_res对应的memcg,也就是计数失败的memcg.</span><br><span class="line">                mem_over_limit = mem_cgroup_from_res_counter(fail_res, memsw);</span><br><span class="line">                flags |= MEM_CGROUP_RECLAIM_NOSWAP;</span><br><span class="line">        &#125; else</span><br><span class="line">                mem_over_limit = mem_cgroup_from_res_counter(fail_res, res);</span><br><span class="line">	// 回收内存</span><br><span class="line">        ret = mem_cgroup_reclaim(mem_over_limit, gfp_mask, flags);</span><br><span class="line">	// 告诉上层重试一次，可能回收了一些内存</span><br><span class="line">        if (nr_pages &lt;= (1 &lt;&lt; PAGE_ALLOC_COSTLY_ORDER) &amp;&amp; ret)</span><br><span class="line">                return CHARGE_RETRY;</span><br><span class="line">        if (invoke_oom)</span><br><span class="line">		// 进入oom的处理</span><br><span class="line">                mem_cgroup_oom(mem_over_limit, gfp_mask, get_order(csize));	</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p><code>mem_cgroup_reclaim</code>的代码:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line">static unsigned long mem_cgroup_reclaim(struct mem_cgroup *memcg,</span><br><span class="line">                                        gfp_t gfp_mask,                 </span><br><span class="line">                                        unsigned long flags)            </span><br><span class="line">&#123;</span><br><span class="line">        unsigned long total = 0;        </span><br><span class="line">        bool noswap = false;</span><br><span class="line">        int loop;</span><br><span class="line"></span><br><span class="line">        if (flags &amp; MEM_CGROUP_RECLAIM_NOSWAP)</span><br><span class="line">                noswap = true;</span><br><span class="line">        if (!(flags &amp; MEM_CGROUP_RECLAIM_SHRINK) &amp;&amp; memcg-&gt;memsw_is_minimum)</span><br><span class="line">                noswap = true;</span><br><span class="line"></span><br><span class="line">        for (loop = 0; loop &lt; MEM_CGROUP_MAX_RECLAIM_LOOPS; loop++) &#123;</span><br><span class="line">                if (loop)</span><br><span class="line">                        drain_all_stock_async(memcg);   </span><br><span class="line">                total += try_to_free_mem_cgroup_pages(memcg, gfp_mask, noswap);</span><br><span class="line">                /*</span><br><span class="line">                 * Allow limit shrinkers, which are triggered directly</span><br><span class="line">                 * by userspace, to catch signals and stop reclaim</span><br><span class="line">                 * after minimal progress, regardless of the margin.</span><br><span class="line">                 */</span><br><span class="line">                if (total &amp;&amp; (flags &amp; MEM_CGROUP_RECLAIM_SHRINK))</span><br><span class="line">                        break;</span><br><span class="line">                if (mem_cgroup_margin(memcg))   </span><br><span class="line">                        break;</span><br><span class="line">                /*</span><br><span class="line">                 * If nothing was reclaimed after two attempts, there</span><br><span class="line">                 * may be no reclaimable pages in this hierarchy.</span><br><span class="line">                 */</span><br><span class="line">                if (loop &amp;&amp; !total)             </span><br><span class="line">                        break;</span><br><span class="line">        &#125;</span><br><span class="line">        return total;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+
+<p><code>RSS</code>在<code>page_fault</code>的时候记录，<code>page cache</code>是插入到<code>inode</code>的<code>radix-tree</code>中才记录的。<br><code>RSS</code>在完全<code>unmap</code>的时候减少计数，<code>page cache</code>的<code>page</code>在离开<code>inode</code>的<code>radix-tree</code>才减少计数。<br>即使<code>RSS</code>完全unmap，也就是被<code>kswapd</code>给换出，可能作为SwapCache存留在系统中，除非不作为SwapCache，不然还是会被计数。<br>一个换入的<code>page</code>不会马上计数，只有被<code>map</code>的时候才会，当进行换页的时候，会预读一些不属于当前进程的<code>page</code>，而不是通过<code>page fault</code>，所以不在换入的时候计数。</p>
+<p>补充:</p>
+<blockquote>
+<ul>
+<li>why ‘memory+swap’ rather than swap.<br>The global LRU(kswapd) can swap out arbitrary pages. Swap-out means<br>to move account from memory to swap…there is no change in usage of<br>memory+swap. In other words, when we want to limit the usage of swap without<br>affecting global LRU, memory+swap limit is better than just limiting swap from<br>an OS point of view.[12]</li>
+</ul>
+</blockquote>
+<p>使用<code>memoery+swap</code>来统计而不是光统计<code>swap</code>，是因为<code>kswapd</code>换出的<code>page</code>只是从内存到了交换空间而已 ,在不影响<code>kswpad</code>的单页内存池<code>LRU</code>的情况下，这样的统计更有意义。</p>
+<p>内核内存是不会被换出的。只有在被限制的时候才会开始计数。并且限制不能在已经有进程或者有子cgroup的情况下设置。<br>计数部分</p>
+<blockquote>
+<p>When use_hierarchy == 1 and a group is accounted, its children will<br>automatically be accounted regardless of their limit value.</p>
+</blockquote>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>目前总结了调度相关和内存相关的 cgroup 代码，可以看出 cgroup 本身其实主要是在一些 hook 的地方做检查，真正的控制的执行者还是调度器和内存分配器本身，cgroup 只是统计数据并且在必要的时候触发调度和内存回收等等。接下来我会就网络的部分进行一些分析，希望能够把完整的各个 cgroup 的子系统都能够解析一下。</p>
+<p>参考:</p>
+<ol>
+<li> 《Docker 进阶与实战》</li>
+<li> <a target="_blank" rel="noopener" href="http://abcdxyzk.github.io/download/kernel/Linux_Physical_Memory_Page_Allocation.pdf">http://abcdxyzk.github.io/download/kernel/Linux_Physical_Memory_Page_Allocation.pdf</a></li>
+</ol>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/kernel/" rel="tag"># kernel</a>
+              <a href="/tags/%E5%86%85%E6%A0%B8/" rel="tag"># 内核</a>
+              <a href="/tags/cgroup/" rel="tag"># cgroup</a>
+              <a href="/tags/%E5%AE%B9%E5%99%A8/" rel="tag"># 容器</a>
+              <a href="/tags/container/" rel="tag"># container</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/zh-CN/2017/04/30/hugepage-%E5%88%86%E6%9E%90/" rel="prev" title="hugepage 分析">
+                  <i class="fa fa-angle-left"></i> hugepage 分析
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/zh-CN/2017/05/19/cgroup-%E5%AD%90%E7%B3%BB%E7%BB%9F%E4%B9%8B-net-cls-%E5%92%8C-net-prio/" rel="next" title="cgroup 子系统之 net_cls 和 net_prio">
+                  cgroup 子系统之 net_cls 和 net_prio <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 2014 – 
+    <span itemprop="copyrightYear">2025</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+  </div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/mist/" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.umd.js" integrity="sha256-a+H7FYzJv6oU2hfsfDGM2Ohw/cR9v+hPfxHCLdmCrE8=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lozad.js/1.16.0/lozad.min.js" integrity="sha256-mOFREFhqmHeQbXpK2lp4nA3qooVgACfh88fpJftLBbc=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/sidebar.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+  <script src="/js/third-party/fancybox.js"></script>
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"ggaaooppeenngg","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

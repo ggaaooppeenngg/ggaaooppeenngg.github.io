@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.3.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="_85tctgPWrqH2EPVuuD5IT6KE-tW8nH0hTISJDMnShg">
+  <meta name="baidu-site-verification" content="bb16c5b1fd3302c18e0015bef11eea42">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha256-dABdfBfUoC8vJUBOwGVdm8L9qlMWaHTIfXt+7GnZCIo=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.css" integrity="sha256-gkQVf8UKZgQ0HyuxL/VnacadJ+D2Kox2TCEBuNQg5+w=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="BPFBPF (Berkeley Packet Filter) 最早是用在 tcpdump 里面的，比如 tcpdump tcp and dst port 80  这样的过滤规则会单独复制 tcp 协议并且目的端口是 80 的包到用户态。整个实现是基于内核中的一个虚拟机来实现的，通过翻译 BPF 规则到字节码运行到内核中的虚拟机当中。最早的论文是这篇，这篇论文我大概翻了一下，主要讲的是原本的基于栈">
+<meta property="og:type" content="article">
+<meta property="og:title" content="K8S 中的 eBPF">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2018/11/10/K8S-%E4%B8%AD%E7%9A%84-eBPF/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="BPFBPF (Berkeley Packet Filter) 最早是用在 tcpdump 里面的，比如 tcpdump tcp and dst port 80  这样的过滤规则会单独复制 tcp 协议并且目的端口是 80 的包到用户态。整个实现是基于内核中的一个虚拟机来实现的，通过翻译 BPF 规则到字节码运行到内核中的虚拟机当中。最早的论文是这篇，这篇论文我大概翻了一下，主要讲的是原本的基于栈">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2018/11/10/K8S-%E4%B8%AD%E7%9A%84-eBPF/image-20181110153643535.png">
+<meta property="article:published_time" content="2018-11-10T10:36:25.000Z">
+<meta property="article:modified_time" content="2025-03-28T10:39:05.138Z">
+<meta property="article:author" content="ggaaooppeenngg">
+<meta property="article:tag" content="kubernetes">
+<meta property="article:tag" content="eBPF">
+<meta property="article:tag" content="网络">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://ggaaooppeenngg.github.io/zh-CN/2018/11/10/K8S-%E4%B8%AD%E7%9A%84-eBPF/image-20181110153643535.png">
+
+
+<link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2018/11/10/K8S-%E4%B8%AD%E7%9A%84-eBPF/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://ggaaooppeenngg.github.io/zh-CN/2018/11/10/K8S-%E4%B8%AD%E7%9A%84-eBPF/","path":"zh-CN/2018/11/10/K8S-中的-eBPF/","title":"K8S 中的 eBPF"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>K8S 中的 eBPF | ggaaooppeenngg</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-62096626-1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"UA-62096626-1","only_pageview":false,"measure_protocol_api_secret":null}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+  <script src="/js/third-party/analytics/baidu-analytics.js"></script>
+  <script async src="https://hm.baidu.com/hm.js?bb16c5b1fd3302c18e0015bef11eea42"></script>
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">ggaaooppeenngg</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">为什么计算机科学是无限的但生命是有限的</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">134</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">14</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">78</span></a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#BPF"><span class="nav-number">1.</span> <span class="nav-text">BPF</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#eBPF"><span class="nav-number">2.</span> <span class="nav-text">eBPF</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%9C%A8-eBPF-%E4%B9%8B%E5%89%8D"><span class="nav-number">2.1.</span> <span class="nav-text">在 eBPF 之前</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%9C%89%E4%BA%86-eBPF"><span class="nav-number">2.2.</span> <span class="nav-text">有了 eBPF</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#eBPF-%E7%9A%84%E5%85%B6%E4%BB%96%E5%BA%94%E7%94%A8"><span class="nav-number">2.3.</span> <span class="nav-text">eBPF 的其他应用</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98"><span class="nav-number">2.3.1.</span> <span class="nav-text">性能调优</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%AE%89%E5%85%A8"><span class="nav-number">2.3.2.</span> <span class="nav-text">安全</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#cgroup"><span class="nav-number">2.3.3.</span> <span class="nav-text">cgroup</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8F%82%E8%80%83"><span class="nav-number">3.</span> <span class="nav-text">参考:</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">78</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">14</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">134</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/ggaaooppeenngg" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;ggaaooppeenngg" rel="noopener me" target="_blank"><i class="github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:peng.gao.dut@gmail.com" title="E-Mail → mailto:peng.gao.dut@gmail.com" rel="noopener me" target="_blank"><i class="envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+        <div class="back-to-top animated" role="button" aria-label="返回顶部">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2018/11/10/K8S-%E4%B8%AD%E7%9A%84-eBPF/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="K8S 中的 eBPF | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          K8S 中的 eBPF
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2018-11-10 18:36:25" itemprop="dateCreated datePublished" datetime="2018-11-10T18:36:25+08:00">2018-11-10</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2025-03-28 18:39:05" itemprop="dateModified" datetime="2025-03-28T18:39:05+08:00">2025-03-28</time>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2018/11/10/K8S-%E4%B8%AD%E7%9A%84-eBPF/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2018/11/10/K8S-中的-eBPF/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h2 id="BPF"><a href="#BPF" class="headerlink" title="BPF"></a>BPF</h2><p>BPF (Berkeley Packet Filter) 最早是用在 <code>tcpdump</code> 里面的，比如 <code>tcpdump tcp and dst port 80</code>  这样的过滤规则会单独复制 tcp 协议并且目的端口是 80 的包到用户态。整个实现是基于内核中的一个虚拟机来实现的，通过翻译 BPF 规则到字节码运行到内核中的虚拟机当中。最早的论文是<a target="_blank" rel="noopener" href="https://www.tcpdump.org/papers/bpf-usenix93.pdf">这篇</a>，这篇论文我大概翻了一下，主要讲的是原本的基于栈的过滤太重了，而 BPF 是一套能充分利用 CPU 寄存器，动态注册 filter 的虚拟机实现，相对于基于内存的实现更高效，不过那个时候的内存比较小才几十兆。bpf 会从链路层复制 pakcet 并根据 filter 的规则选择抛弃或者复制，字节码是这样的，具体语法就不介绍了，一般也不会去直接写这些字节码，然后通过内核中实现的一个虚拟机翻译这些字节码，注册过滤规则，这样不修改内核的虚拟机也能实现很多功能。</p>
+<p>在 Linux 中对应的 API 是</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">socket(SOCK_RAW)</span><br><span class="line">bind(iface)</span><br><span class="line">setsockopt(SO_ATTACH_FILTER)</span><br></pre></td></tr></table></figure>
+
+<p>下面是一个低层级的 demo，首先 ethernet header 的十二个字节记录了 ip 的协议，ip 的第9个字节记录 tcp 的协议，如果协议编号不匹配都跳到最后 reject，然后在到 tcp 的第二个字节是 port 看看是不是 80，都满足的话就 accept。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;stdio.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;string.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;sys/types.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;sys/socket.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;net/if.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;net/ethernet.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;netinet/in.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;netinet/ip.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;arpa/inet.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;netpacket/packet.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;linux/filter.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> OP_LDH (BPF_LD  | BPF_H   | BPF_ABS)</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> OP_LDB (BPF_LD  | BPF_B   | BPF_ABS)</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> OP_JEQ (BPF_JMP | BPF_JEQ | BPF_K)</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> OP_RET (BPF_RET | BPF_K)</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// Filter TCP segments to port 80</span></span><br><span class="line"><span class="type">static</span> <span class="class"><span class="keyword">struct</span> <span class="title">sock_filter</span> <span class="title">bpfcode</span>[8] =</span> &#123;</span><br><span class="line">        &#123; OP_LDH, <span class="number">0</span>, <span class="number">0</span>, <span class="number">12</span>          &#125;,  <span class="comment">// ldh [12]                                                                                                                                                                                                                         </span></span><br><span class="line">        &#123; OP_JEQ, <span class="number">0</span>, <span class="number">5</span>, ETH_P_IP    &#125;,  <span class="comment">// jeq #0x800, L2, L8                                                                                                                                                                                                               </span></span><br><span class="line">        &#123; OP_LDB, <span class="number">0</span>, <span class="number">0</span>, <span class="number">23</span>          &#125;,  <span class="comment">// ldb [23]           # 14 bytes of ethernet header + 9 bytes in IP header until the protocol                                                                                                                                       </span></span><br><span class="line">        &#123; OP_JEQ, <span class="number">0</span>, <span class="number">3</span>, IPPROTO_TCP &#125;,  <span class="comment">// jeq #0x6, L4, L8                                                                                                                                                                                                                 </span></span><br><span class="line">        &#123; OP_LDH, <span class="number">0</span>, <span class="number">0</span>, <span class="number">36</span>          &#125;,  <span class="comment">// ldh [36]           # 14 bytes of ethernet header + 20 bytes of IP header (we assume no options) + 2 bytes of offset until the port                                                                                               </span></span><br><span class="line">        &#123; OP_JEQ, <span class="number">0</span>, <span class="number">1</span>, <span class="number">80</span>          &#125;,  <span class="comment">// jeq #0x50, L6, L8                                                                                                                                                                                                                </span></span><br><span class="line">        &#123; OP_RET, <span class="number">0</span>, <span class="number">0</span>, <span class="number">-1</span>,         &#125;,  <span class="comment">// ret #0xffffffff    # (accept)                                                                                                                                                                                                    </span></span><br><span class="line">        &#123; OP_RET, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>           &#125;,  <span class="comment">// ret #0x0           # (reject)                                                                                                                                                                                                    </span></span><br><span class="line"></span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="type">int</span> <span class="title function_">main</span><span class="params">(<span class="type">int</span> argc, <span class="type">char</span> **argv)</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="type">int</span> sock;</span><br><span class="line">	<span class="type">int</span> n;</span><br><span class="line">	<span class="type">char</span> buf[<span class="number">2000</span>];</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">sockaddr_ll</span> <span class="title">addr</span>;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">packet_mreq</span> <span class="title">mreq</span>;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">iphdr</span> *<span class="title">ip</span>;</span></span><br><span class="line">	<span class="type">char</span> saddr_str[INET_ADDRSTRLEN], daddr_str[INET_ADDRSTRLEN];</span><br><span class="line">	<span class="type">char</span> *proto_str;</span><br><span class="line">	<span class="type">char</span> *name;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">sock_fprog</span> <span class="title">bpf</span> =</span> &#123; <span class="number">8</span>, bpfcode &#125;;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (argc != <span class="number">2</span>) &#123;</span><br><span class="line">		<span class="built_in">printf</span>(<span class="string">&quot;Usage: %s ifname\n&quot;</span>, argv[<span class="number">0</span>]);</span><br><span class="line">		<span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	name = argv[<span class="number">1</span>];</span><br><span class="line"></span><br><span class="line">	sock = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));</span><br><span class="line">	<span class="keyword">if</span> (sock &lt; <span class="number">0</span>) &#123;</span><br><span class="line">		perror(<span class="string">&quot;socket&quot;</span>);</span><br><span class="line">		<span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="built_in">memset</span>(&amp;addr, <span class="number">0</span>, <span class="keyword">sizeof</span>(addr));</span><br><span class="line">	addr.sll_ifindex = if_nametoindex(name);</span><br><span class="line">	addr.sll_family = AF_PACKET;</span><br><span class="line">	addr.sll_protocol = htons(ETH_P_ALL);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (bind(sock, (<span class="keyword">struct</span> sockaddr *) &amp;addr, <span class="keyword">sizeof</span>(addr))) &#123;</span><br><span class="line">		perror(<span class="string">&quot;bind&quot;</span>);</span><br><span class="line">		<span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (setsockopt(sock, SOL_SOCKET, SO_ATTACH_FILTER, &amp;bpf, <span class="keyword">sizeof</span>(bpf))) &#123;</span><br><span class="line">		perror(<span class="string">&quot;setsockopt ATTACH_FILTER&quot;</span>);</span><br><span class="line">		<span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="built_in">memset</span>(&amp;mreq, <span class="number">0</span>, <span class="keyword">sizeof</span>(mreq));</span><br><span class="line">	mreq.mr_type = PACKET_MR_PROMISC;</span><br><span class="line">	mreq.mr_ifindex = if_nametoindex(name);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (setsockopt(sock, SOL_PACKET,</span><br><span class="line">				PACKET_ADD_MEMBERSHIP, (<span class="type">char</span> *)&amp;mreq, <span class="keyword">sizeof</span>(mreq))) &#123;</span><br><span class="line">		perror(<span class="string">&quot;setsockopt MR_PROMISC&quot;</span>);</span><br><span class="line">		<span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">for</span> (;;) &#123;</span><br><span class="line">		n = recv(sock, buf, <span class="keyword">sizeof</span>(buf), <span class="number">0</span>);</span><br><span class="line">		<span class="keyword">if</span> (n &lt; <span class="number">1</span>) &#123;</span><br><span class="line">			perror(<span class="string">&quot;recv&quot;</span>);</span><br><span class="line">			<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		ip = (<span class="keyword">struct</span> iphdr *)(buf + <span class="keyword">sizeof</span>(<span class="keyword">struct</span> ether_header));</span><br><span class="line"></span><br><span class="line">		inet_ntop(AF_INET, &amp;ip-&gt;saddr, saddr_str, <span class="keyword">sizeof</span>(saddr_str));</span><br><span class="line">		inet_ntop(AF_INET, &amp;ip-&gt;daddr, daddr_str, <span class="keyword">sizeof</span>(daddr_str));</span><br><span class="line"></span><br><span class="line">		<span class="keyword">switch</span> (ip-&gt;protocol) &#123;</span><br><span class="line"><span class="meta">#<span class="keyword">define</span> PTOSTR(_p,_str) \</span></span><br><span class="line"><span class="meta">			case _p: proto_str = _str; break</span></span><br><span class="line"></span><br><span class="line">		PTOSTR(IPPROTO_ICMP, <span class="string">&quot;icmp&quot;</span>);</span><br><span class="line">		PTOSTR(IPPROTO_TCP, <span class="string">&quot;tcp&quot;</span>);</span><br><span class="line">		PTOSTR(IPPROTO_UDP, <span class="string">&quot;udp&quot;</span>);</span><br><span class="line">		<span class="keyword">default</span>:</span><br><span class="line">			proto_str = <span class="string">&quot;&quot;</span>;</span><br><span class="line">			<span class="keyword">break</span>;</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		<span class="built_in">printf</span>(<span class="string">&quot;IPv%d proto=%d(%s) src=%s dst=%s\n&quot;</span>,</span><br><span class="line">				ip-&gt;version, ip-&gt;protocol, proto_str, saddr_str, daddr_str);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>执行 <code>curl &quot;http://www.baidu.com&quot;</code>，结果如下：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">sudo ./filter ens3</span><br><span class="line">IPv4 proto=6(tcp) src=172.31.3.210 dst=220.181.112.244</span><br><span class="line">IPv4 proto=6(tcp) src=172.31.3.210 dst=220.181.112.244</span><br><span class="line">IPv4 proto=6(tcp) src=172.31.3.210 dst=220.181.112.244</span><br><span class="line">IPv4 proto=6(tcp) src=172.31.3.210 dst=220.181.112.244</span><br><span class="line">IPv4 proto=6(tcp) src=172.31.3.210 dst=220.181.112.244</span><br><span class="line">IPv4 proto=6(tcp) src=172.31.3.210 dst=220.181.112.244</span><br><span class="line">IPv4 proto=6(tcp) src=172.31.3.210 dst=220.181.112.244</span><br></pre></td></tr></table></figure>
+
+<p>这些低级别的操作都封装在了 libpcap 里面，一般不太会自己这么写。</p>
+<h2 id="eBPF"><a href="#eBPF" class="headerlink" title="eBPF"></a>eBPF</h2><p>eBPF 是 extended BPF 具有更强大的功能。老的 BPF 现在叫 cBPF (classic BPF)。</p>
+<p>首先是字节码的指令集更加丰富了，并且现在有了 64 位的寄存器（相较于上古时期的 32 位的CPU），有了 JIT mapping 技术和 LLVM 的后端。JIT 指的的是 Just In Time，实时编译。</p>
+<p>一般的 ePBF 的工作流是编写一个 C 的子集（比如没有循环），通过 LLVM 编译到字节码，然成生成 ELF 文件，然后 JIT 编译进内核。</p>
+<p>eBPF 一个最重要的功能是可以做到动态跟踪（dynamic tracing），可以不修改程序直接监控一个正在运行的进程。</p>
+<h3 id="在-eBPF-之前"><a href="#在-eBPF-之前" class="headerlink" title="在 eBPF 之前"></a>在 eBPF 之前</h3><p>在 ebpf 之前，为了实现同样的功能，要在执行的指令中嵌入 hook，并且支持跳到 inspect 函数，然后再恢复执行，这个流程和 debugger 非常相似，这是用 kprobe 来实现，kprobe 是 2007 年引入内核的。比如下面的例子，把 Instruction 3 改成跳转指令，然后再执行 Instruction 3，然后再跳转回去。</p>
+<img data-src="/zh-CN/2018/11/10/K8S-%E4%B8%AD%E7%9A%84-eBPF/image-20181110153643535.png" class="">
+
+<p>使用 kprobe 需要通过编译 kernel module 注册到内核当中，非常麻烦，等于是直接动内核的代码很容易引起内核 panic，而且每个内核版本都不一样，函数符号和位移是有区别的，对每个版本的内核都要编译一个对应的版本的 module。为了解决这个问题引入了一些静态的稳定的 trace point，不会因为版本而改变的地方可以插入 kprobe，但这样就限制了 kprobe 可以探测的范围。</p>
+<h3 id="有了-eBPF"><a href="#有了-eBPF" class="headerlink" title="有了 eBPF"></a>有了 eBPF</h3><p>有了 eBPF，就可以将用户态的程序插入到内核中，不用编写内核模块了，但是问题并没有改善，内核版本带来的问题还是没有解决。</p>
+<p>eBPF 的 kprobe 一种方式时候 mapping，映射 kprobe 的数据到用户态程序，比如发包数，然后用户态程序定期检查这个映射进行统计。</p>
+<p>另一种方式是 event (perf_events)，如果 kprobe 向用户态程序发送事件来进行统计，这样不同轮询，直接异步计算就可以。</p>
+<p>低级别的 API，这个只有 Linux 有</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">bpf() 系统调用</span><br><span class="line">BPF_PROG_LOAD 加载 BPF 字节码</span><br><span class="line">  BPF_PROG_TYPE_SOCKET_FILTER</span><br><span class="line">  BPF_PROG_TYPE_KPROBE</span><br><span class="line">BPF_MAP_* map 映射到 BPF 当中</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">perf_event_open() + ioctl(PERF_EVENT_IOC_SET_BPF)</span><br></pre></td></tr></table></figure>
+
+<p>高级别的接口是 bcc（BPFcompiler collection），转换 c 到 LLVM-epbf 后端，并且前端是 python 的。可以实现动态加载 eBPF 字节码到内核中。</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/weaveworks/scope">weave scope</a> 就是用 bcc 实现的 <a target="_blank" rel="noopener" href="https://github.com/weaveworks-plugins/scope-http-statistics">HTTP stats</a> 的统计。</p>
+<p>在<a target="_blank" rel="noopener" href="https://github.com/weaveworks-plugins/scope-http-statistics/blob/master/ebpf-http-statistics.c#L25">这里</a>可以看到程序的主体，这里 hook 了内核函数 <code>skb_copy_datagram_iter</code>，这个函数有一个 tracepoint <code>trace_skb_copy_datagram_iovec</code>。在内核代码里面对应的是下面这段。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> *      skb_copy_datagram_iter - Copy a datagram to an iovec iterator.</span></span><br><span class="line"><span class="comment"> *      @skb: buffer to copy</span></span><br><span class="line"><span class="comment"> *      @offset: offset in the buffer to start copying from</span></span><br><span class="line"><span class="comment"> *      @to: iovec iterator to copy to</span></span><br><span class="line"><span class="comment"> *      @len: amount of data to copy from buffer to iovec</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="type">int</span> <span class="title function_">skb_copy_datagram_iter</span><span class="params">(<span class="type">const</span> <span class="keyword">struct</span> sk_buff *skb, <span class="type">int</span> offset,</span></span><br><span class="line"><span class="params">                           <span class="keyword">struct</span> iov_iter *to, <span class="type">int</span> len)</span></span><br><span class="line">&#123;</span><br><span class="line">        <span class="type">int</span> start = skb_headlen(skb);</span><br><span class="line">        <span class="type">int</span> i, copy = start - offset, start_off = offset, n;</span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">sk_buff</span> *<span class="title">frag_iter</span>;</span></span><br><span class="line"></span><br><span class="line">        trace_skb_copy_datagram_iovec(skb, len);</span><br></pre></td></tr></table></figure>
+
+<p>这里对这个 hook 注册了程序，具体的代码就不展示了，主要是根据协议统计这个 HTTP 的大小，方法等信息。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">/* skb_copy_datagram_iter() (Kernels &gt;= 3.19) is in charge of copying socket</span></span><br><span class="line"><span class="comment"> * buffers from kernel to userspace.</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * skb_copy_datagram_iter() has an associated tracepoint</span></span><br><span class="line"><span class="comment"> * (trace_skb_copy_datagram_iovec), which would be more stable than a kprobe but</span></span><br><span class="line"><span class="comment"> * it lacks the offset argument.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="type">int</span> <span class="title function_">kprobe__skb_copy_datagram_iter</span><span class="params">(<span class="keyword">struct</span> pt_regs *ctx, <span class="type">const</span> <span class="keyword">struct</span> sk_buff *skb, <span class="type">int</span> offset, <span class="type">void</span> *unused_iovec, <span class="type">int</span> len)</span></span><br><span class="line">&#123;</span><br></pre></td></tr></table></figure>
+
+<p>比如判断 method 是不是 DELETE 的是实现就比较蠢，是因为 eBPF 不支持循环，只能这么实现才能把 c 代码翻译成字节码。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">case</span> <span class="string">&#x27;D&#x27;</span>:</span><br><span class="line">	<span class="keyword">if</span> ((data[<span class="number">1</span>] != <span class="string">&#x27;E&#x27;</span>) || (data[<span class="number">2</span>] != <span class="string">&#x27;L&#x27;</span>) || (data[<span class="number">3</span>] != <span class="string">&#x27;E&#x27;</span>) || (data[<span class="number">4</span>] != <span class="string">&#x27;T&#x27;</span>) || (data[<span class="number">5</span>] != <span class="string">&#x27;E&#x27;</span>) || (data[<span class="number">6</span>] != <span class="string">&#x27; &#x27;</span>)) &#123;</span><br><span class="line">		<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">break</span>;</span><br></pre></td></tr></table></figure>
+
+<p>除了 bcc 之外，waeve 使用了 <a target="_blank" rel="noopener" href="https://github.com/iovisor/gobpf">gobpf</a>，一个 bpf 的 go binding，并且通过建立 tcp 连接来猜测内核的数据结构，以达到内核版本无关，这个项目 <a target="_blank" rel="noopener" href="https://github.com/weaveworks/tcptracer-bpf">tcptracer-bpf</a> 还在开发中。</p>
+<h3 id="eBPF-的其他应用"><a href="#eBPF-的其他应用" class="headerlink" title="eBPF 的其他应用"></a>eBPF 的其他应用</h3><p>还有一个比较大头的基于 eBPF 的是 <a target="_blank" rel="noopener" href="https://github.com/cilium/cilium">cilium</a>，一套比较完整的网络解决方案，用 eBPF 实现了 NAT，L3/L4 负载均衡，连接记录等等功能。比如访问控制，一般的 iptables 都是 drop 或者 rst，要过整个协议栈，但是 eBPF 可以在 connect 的时候就拦截然后返回 EACCESS，这样就不用过协议栈了。cilium 一个优化就是通过 <a target="_blank" rel="noopener" href="https://github.com/iovisor/bpf-docs/blob/master/Express_Data_Path.pdf">XDP</a> ，利用类似 DPDK 的加速方案，hook 到驱动层中，让 eBPF 可以直接使用 DMA 的缓冲，优化负载均衡。</p>
+<blockquote>
+<p>BPF/XDP allows for a 10x improvement in load balancing over IPVS for L3/L4 traffic.</p>
+</blockquote>
+<p>现在 k8s 最新的 lb 方案是基于 ipvs 的，我在 <a href="https://ggaaooppeenngg.github.io/zh-CN/2018/09/10/kube-proxy-%E5%88%86%E6%9E%90/">kube-proxy 分析</a> 里面有提到过，已经比原来的 iptables 提高很多了，现在有了 eBPF 加 XDP 的硬件加速可以实现更高的提升，facebook 的 <a target="_blank" rel="noopener" href="https://github.com/facebookincubator/katran">katran</a> L4 负载均衡器的实现也是类似的。</p>
+<p>cilium 在我看来基本上是 k8s 网络的一个大方向吧，只不过包括 eBPF 和 XDP 对硬件和内核版本都要比较新，是一个要持续关注的更新。</p>
+<h4 id="性能调优"><a href="#性能调优" class="headerlink" title="性能调优"></a>性能调优</h4><p>在<a target="_blank" rel="noopener" href="https://www.youtube.com/watch?v=bj3qdEDbCD4">Velocity 2017: Performance Analysis Superpowers with Linux eBPF</a>里，<a target="_blank" rel="noopener" href="https://www.youtube.com/channel/UCxzogoHFu8-1H9u522wVQpQ">Brendan Gregg</a> (Netflix 的性能调优专家) 提到，性能调优也是 eBPF 的一个大头。用于网络监控其实只是 hook 在了协议栈的函数上，如果 hook 在别的地方可以有更多的统计维度。比如 bcc 官方的例子就是统计 IO Size 的大小的分布，更多关于基于 eBPF 的性能调优可以参考他的 <a target="_blank" rel="noopener" href="http://www.brendangregg.com/linuxperf.html">blog</a>，他给出了更详细的关于 eBPF 的解释，里面有一些列 Linux 性能调优的内容。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_"># </span><span class="language-bash">./bitehist.py</span></span><br><span class="line">Tracing... Hit Ctrl-C to end.</span><br><span class="line">^C</span><br><span class="line">     kbytes          : count     distribution</span><br><span class="line">       0 -&gt; 1        : 3        |                                      |</span><br><span class="line">       2 -&gt; 3        : 0        |                                      |</span><br><span class="line">       4 -&gt; 7        : 211      |**********                            |</span><br><span class="line">       8 -&gt; 15       : 0        |                                      |</span><br><span class="line">      16 -&gt; 31       : 0        |                                      |</span><br><span class="line">      32 -&gt; 63       : 0        |                                      |</span><br><span class="line">      64 -&gt; 127      : 1        |                                      |</span><br><span class="line">     128 -&gt; 255      : 800      |**************************************|</span><br></pre></td></tr></table></figure>
+
+<h4 id="安全"><a href="#安全" class="headerlink" title="安全"></a>安全</h4><p>在安全方面有 seccomp，可以实现限制 Linux 的系统调用，而 <a target="_blank" rel="noopener" href="https://blog.yadutaf.fr/2014/05/29/introduction-to-seccomp-bpf-linux-syscall-filter/">seccompe-bpf</a> 则是通过 bpf 支持更强大的过滤和匹配功能，k8s pod 里面的 SecurityContext 就有 seccomp 实现的部分。</p>
+<h4 id="cgroup"><a href="#cgroup" class="headerlink" title="cgroup"></a>cgroup</h4><p>在 cgroup 上有一个小原型，<a target="_blank" rel="noopener" href="https://github.com/kinvolk/cgnet">cgnet</a> 获取 cgroup 的网络统计信息到 prometheus，也是基于 eBPF 的。</p>
+<h2 id="参考"><a href="#参考" class="headerlink" title="参考:"></a>参考:</h2><ol>
+<li><p><a target="_blank" rel="noopener" href="https://www.youtube.com/watch?v=k4jqTLtdrxQ">Infrastructure 2017 - Alfonso Acosta - High-performance Linux monitoring with eBPF</a></p>
+</li>
+<li><p><a target="_blank" rel="noopener" href="https://media.ccc.de/v/ASG2017-134-using_bpf_in_kubernetes#t=355">Using bpf in kubernetes</a></p>
+</li>
+<li><p><a target="_blank" rel="noopener" href="https://opensource.googleblog.com/2016/11/cilium-networking-and-security.html">Cilium: Networking and security for containers with BPF and XDP</a></p>
+</li>
+</ol>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/kubernetes/" rel="tag"># kubernetes</a>
+              <a href="/tags/eBPF/" rel="tag"># eBPF</a>
+              <a href="/tags/%E7%BD%91%E7%BB%9C/" rel="tag"># 网络</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/zh-CN/2018/10/08/K8S-%E5%85%BC%E5%AE%B9-CSI-%E5%81%9A%E7%9A%84%E5%B7%A5%E4%BD%9C/" rel="prev" title="K8S 兼容 CSI 做的工作">
+                  <i class="fa fa-angle-left"></i> K8S 兼容 CSI 做的工作
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/zh-CN/2018/12/11/etcd-raft-code-walkthrough/" rel="next" title="etcd/raft code walkthrough">
+                  etcd/raft code walkthrough <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 2014 – 
+    <span itemprop="copyrightYear">2025</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+  </div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/mist/" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.umd.js" integrity="sha256-a+H7FYzJv6oU2hfsfDGM2Ohw/cR9v+hPfxHCLdmCrE8=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lozad.js/1.16.0/lozad.min.js" integrity="sha256-mOFREFhqmHeQbXpK2lp4nA3qooVgACfh88fpJftLBbc=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/sidebar.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+  <script src="/js/third-party/fancybox.js"></script>
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"ggaaooppeenngg","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

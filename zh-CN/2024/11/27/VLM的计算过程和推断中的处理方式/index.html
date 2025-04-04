@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.3.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="_85tctgPWrqH2EPVuuD5IT6KE-tW8nH0hTISJDMnShg">
+  <meta name="baidu-site-verification" content="bb16c5b1fd3302c18e0015bef11eea42">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha256-dABdfBfUoC8vJUBOwGVdm8L9qlMWaHTIfXt+7GnZCIo=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.css" integrity="sha256-gkQVf8UKZgQ0HyuxL/VnacadJ+D2Kox2TCEBuNQg5+w=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="这篇文章对VLM的架构解释得非常清楚。 一种方法是使用适配器将图片转换为tokens，例如LLaVA使用的prompt based适配器。这种方法类似于RAG的形式，将图片理解的内容补充在对话的上文中。这种适配器会占用LLM的上下文长度，因为图片的tokens会被放入LLM的上文中。目前来说性能会好一些。 另一种方法是基于交叉注意力的适配器，这种方法不会占用LLM的上下文长度，但需要大量参数来达到">
+<meta property="og:type" content="article">
+<meta property="og:title" content="VLM的计算过程和推断中的处理方式">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2024/11/27/VLM%E7%9A%84%E8%AE%A1%E7%AE%97%E8%BF%87%E7%A8%8B%E5%92%8C%E6%8E%A8%E6%96%AD%E4%B8%AD%E7%9A%84%E5%A4%84%E7%90%86%E6%96%B9%E5%BC%8F/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="这篇文章对VLM的架构解释得非常清楚。 一种方法是使用适配器将图片转换为tokens，例如LLaVA使用的prompt based适配器。这种方法类似于RAG的形式，将图片理解的内容补充在对话的上文中。这种适配器会占用LLM的上下文长度，因为图片的tokens会被放入LLM的上文中。目前来说性能会好一些。 另一种方法是基于交叉注意力的适配器，这种方法不会占用LLM的上下文长度，但需要大量参数来达到">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2024-11-27T09:54:04.000Z">
+<meta property="article:modified_time" content="2025-03-28T10:39:05.270Z">
+<meta property="article:author" content="ggaaooppeenngg">
+<meta property="article:tag" content="LLM">
+<meta property="article:tag" content="VLM">
+<meta property="article:tag" content="Python">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2024/11/27/VLM%E7%9A%84%E8%AE%A1%E7%AE%97%E8%BF%87%E7%A8%8B%E5%92%8C%E6%8E%A8%E6%96%AD%E4%B8%AD%E7%9A%84%E5%A4%84%E7%90%86%E6%96%B9%E5%BC%8F/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://ggaaooppeenngg.github.io/zh-CN/2024/11/27/VLM%E7%9A%84%E8%AE%A1%E7%AE%97%E8%BF%87%E7%A8%8B%E5%92%8C%E6%8E%A8%E6%96%AD%E4%B8%AD%E7%9A%84%E5%A4%84%E7%90%86%E6%96%B9%E5%BC%8F/","path":"zh-CN/2024/11/27/VLM的计算过程和推断中的处理方式/","title":"VLM的计算过程和推断中的处理方式"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>VLM的计算过程和推断中的处理方式 | ggaaooppeenngg</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-62096626-1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"UA-62096626-1","only_pageview":false,"measure_protocol_api_secret":null}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+  <script src="/js/third-party/analytics/baidu-analytics.js"></script>
+  <script async src="https://hm.baidu.com/hm.js?bb16c5b1fd3302c18e0015bef11eea42"></script>
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">ggaaooppeenngg</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">为什么计算机科学是无限的但生命是有限的</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">134</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">14</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">78</span></a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-overview-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">78</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">14</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">134</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/ggaaooppeenngg" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;ggaaooppeenngg" rel="noopener me" target="_blank"><i class="github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:peng.gao.dut@gmail.com" title="E-Mail → mailto:peng.gao.dut@gmail.com" rel="noopener me" target="_blank"><i class="envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+        <div class="back-to-top animated" role="button" aria-label="返回顶部">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2024/11/27/VLM%E7%9A%84%E8%AE%A1%E7%AE%97%E8%BF%87%E7%A8%8B%E5%92%8C%E6%8E%A8%E6%96%AD%E4%B8%AD%E7%9A%84%E5%A4%84%E7%90%86%E6%96%B9%E5%BC%8F/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="VLM的计算过程和推断中的处理方式 | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          VLM的计算过程和推断中的处理方式
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2024-11-27 17:54:04" itemprop="dateCreated datePublished" datetime="2024-11-27T17:54:04+08:00">2024-11-27</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2025-03-28 18:39:05" itemprop="dateModified" datetime="2025-03-28T18:39:05+08:00">2025-03-28</time>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2024/11/27/VLM%E7%9A%84%E8%AE%A1%E7%AE%97%E8%BF%87%E7%A8%8B%E5%92%8C%E6%8E%A8%E6%96%AD%E4%B8%AD%E7%9A%84%E5%A4%84%E7%90%86%E6%96%B9%E5%BC%8F/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2024/11/27/VLM的计算过程和推断中的处理方式/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p><a target="_blank" rel="noopener" href="https://towardsdatascience.com/an-introduction-to-vlms-the-future-of-computer-vision-models-5f5aeaafb282">这篇文章</a>对VLM的架构解释得非常清楚。</p>
+<p>一种方法是使用适配器将图片转换为tokens，例如<a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2304.08485">LLaVA</a>使用的prompt based适配器。这种方法类似于RAG的形式，将图片理解的内容补充在对话的上文中。这种适配器会占用LLM的上下文长度，因为图片的tokens会被放入LLM的上文中。目前来说性能会好一些。</p>
+<p>另一种方法是基于交叉注意力的适配器，这种方法不会占用LLM的上下文长度，但需要大量参数来达到良好的质量。<a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2407.21783">Llama3.2</a>就是这种结构。</p>
+<blockquote>
+<p>关于Llama3.2本身，它使用了GQA，将kv head分组，多头查询将原本的K和V头分成组并为每个组生成一个共享的Head，这样可以减少kv cache而不太丧失精度（相较于MQA这种只共享一个KV头的方法）。因此，分组多头查询在多头查询注意力和正常多头注意力之间维持了平衡，既考虑了速度，又考虑了输出质量。另一个优化是对一个上下文中的不同文档进行mask处理。由于大模型的上下文现在很长，会将多个文档放入一个上下文中进行训练，但为了避免文档之间的相互影响，需要在文档级别进行mask处理，即当前token不能看到之后的token，也不能看到同一上下文中其他文档的token。其他改动主要是训练规模的调整。</p>
+</blockquote>
+<p>根据Llama3.2的<a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2407.21783">技术报告</a>，里面的image encoder用的是ViT架构。适配器在语言模型和图像编码器之间引入交叉注意力层（cross-attention layers），以提高模型的效率和准确性。交叉注意力层使用通用查询注意力（GQA）并在核心语言模型每四层之后应用。交叉注意力层增加了大量可训练参数，例如Llama 3 405B中约有100B个参数。</p>
+<p>本质上，图片编码器的输出通过适配器后作为交叉注意力层的K，文本作为Q，V也来自图片适配器，从而计算文字和图片之间的注意力关系，然后与LLM的输出进行交叉注意力。在训练Llama3.2的适配器时，同时更新了图像编码器的参数，但刻意不更新语言模型的参数。这意味着在适配器训练过程中，Meta只关注图像编码器和适配器的学习，而不影响语言模型的预训练知识。<br>简而言之，这个适配器在功能上类似于最初的encoder-decoder Transformer中的encoder部分。</p>
+<p>在具体的以vLLM推断过程的实现为例，对话的API中会包含<code>&#123;&quot;type&quot;:&quot;image&quot;,&quot;image_url&quot;:&quot;uri_of_the_image&quot;&#125;</code>，在应用对话模板以后会插入占位符，比如llama3.2用的就是<code>&lt;|image|&gt;</code>，原始的训练中的文本内容会变成类似<code>&quot;&lt;|image|&gt;If I had to write a haiku for this one&quot;</code>，以此标记图片的位置信息，实际上需要图片会通过<code>uri_of_the_image</code>被加载到encoder中并携带<code>&lt;|image|&gt;</code>所代表的位置信息编码。</p>
+<p>总的来说，VLM的计算过程和推断中的处理方式通过引入适配器和交叉注意力层，实现了图片和文本的高效融合，为多模态任务提供了强大的支持。</p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/LLM/" rel="tag"># LLM</a>
+              <a href="/tags/VLM/" rel="tag"># VLM</a>
+              <a href="/tags/Python/" rel="tag"># Python</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/zh-CN/2024/11/25/%E7%94%A8Rust%E4%BB%8E%E9%9B%B6%E7%BC%96%E5%86%99LevelDB/" rel="prev" title="用Rust从零编写LevelDB">
+                  <i class="fa fa-angle-left"></i> 用Rust从零编写LevelDB
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/zh-CN/2024/12/02/vLLM-%E5%88%86%E6%9E%901-1/" rel="next" title="vLLM 分析 1 提示词的前置处理和流式响应">
+                  vLLM 分析 1 提示词的前置处理和流式响应 <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 2014 – 
+    <span itemprop="copyrightYear">2025</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+  </div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/mist/" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.umd.js" integrity="sha256-a+H7FYzJv6oU2hfsfDGM2Ohw/cR9v+hPfxHCLdmCrE8=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lozad.js/1.16.0/lozad.min.js" integrity="sha256-mOFREFhqmHeQbXpK2lp4nA3qooVgACfh88fpJftLBbc=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/sidebar.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+  <script src="/js/third-party/fancybox.js"></script>
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"ggaaooppeenngg","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

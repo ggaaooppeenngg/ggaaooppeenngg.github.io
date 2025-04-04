@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.3.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="_85tctgPWrqH2EPVuuD5IT6KE-tW8nH0hTISJDMnShg">
+  <meta name="baidu-site-verification" content="bb16c5b1fd3302c18e0015bef11eea42">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha256-dABdfBfUoC8vJUBOwGVdm8L9qlMWaHTIfXt+7GnZCIo=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.css" integrity="sha256-gkQVf8UKZgQ0HyuxL/VnacadJ+D2Kox2TCEBuNQg5+w=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="kube-controller-manager 可以认为是一个守护进程用于监视 apiserver 暴露的集群状态，并且不断地尝试把当前状态向集群的目标状态迁移。为了避免频繁查询 apiserver，apiserver 提供了 watch 接口用于监视资源的增加删除和更新，client-go 对此作了抽象，封装一层 informer 来表示本地 apiserver 状态的 cache。这个视频 有">
+<meta property="og:type" content="article">
+<meta property="og:title" content="kube-controller-manager 分析">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2017/11/27/kube-controller-%E5%88%86%E6%9E%90/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="kube-controller-manager 可以认为是一个守护进程用于监视 apiserver 暴露的集群状态，并且不断地尝试把当前状态向集群的目标状态迁移。为了避免频繁查询 apiserver，apiserver 提供了 watch 接口用于监视资源的增加删除和更新，client-go 对此作了抽象，封装一层 informer 来表示本地 apiserver 状态的 cache。这个视频 有">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/11/27/kube-controller-%E5%88%86%E6%9E%90/controller.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/11/27/kube-controller-%E5%88%86%E6%9E%90/monitor_node_status.png">
+<meta property="article:published_time" content="2017-11-27T13:30:11.000Z">
+<meta property="article:modified_time" content="2025-03-28T10:39:05.314Z">
+<meta property="article:author" content="ggaaooppeenngg">
+<meta property="article:tag" content="kubernetes">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/11/27/kube-controller-%E5%88%86%E6%9E%90/controller.png">
+
+
+<link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2017/11/27/kube-controller-%E5%88%86%E6%9E%90/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://ggaaooppeenngg.github.io/zh-CN/2017/11/27/kube-controller-%E5%88%86%E6%9E%90/","path":"zh-CN/2017/11/27/kube-controller-分析/","title":"kube-controller-manager 分析"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>kube-controller-manager 分析 | ggaaooppeenngg</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-62096626-1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"UA-62096626-1","only_pageview":false,"measure_protocol_api_secret":null}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+  <script src="/js/third-party/analytics/baidu-analytics.js"></script>
+  <script async src="https://hm.baidu.com/hm.js?bb16c5b1fd3302c18e0015bef11eea42"></script>
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">ggaaooppeenngg</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">为什么计算机科学是无限的但生命是有限的</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">134</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">14</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">78</span></a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#client-%E5%BD%93%E4%B8%AD%E7%9A%84-controller"><span class="nav-number">1.</span> <span class="nav-text">client 当中的 controller</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#kube-controller-%E5%BD%93%E4%B8%AD%E7%9A%84%E6%8F%92%E4%BB%B6%E5%BC%8F-controller"><span class="nav-number">2.</span> <span class="nav-text">kube-controller 当中的插件式 controller</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#node-controller"><span class="nav-number">2.1.</span> <span class="nav-text">node controller</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#podGCController"><span class="nav-number">2.2.</span> <span class="nav-text">podGCController</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%85%B6%E4%BB%96-controller"><span class="nav-number">2.3.</span> <span class="nav-text">其他 controller</span></a></li></ol></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">78</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">14</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">134</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/ggaaooppeenngg" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;ggaaooppeenngg" rel="noopener me" target="_blank"><i class="github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:peng.gao.dut@gmail.com" title="E-Mail → mailto:peng.gao.dut@gmail.com" rel="noopener me" target="_blank"><i class="envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+        <div class="back-to-top animated" role="button" aria-label="返回顶部">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2017/11/27/kube-controller-%E5%88%86%E6%9E%90/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="kube-controller-manager 分析 | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          kube-controller-manager 分析
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2017-11-27 21:30:11" itemprop="dateCreated datePublished" datetime="2017-11-27T21:30:11+08:00">2017-11-27</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2025-03-28 18:39:05" itemprop="dateModified" datetime="2025-03-28T18:39:05+08:00">2025-03-28</time>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2017/11/27/kube-controller-%E5%88%86%E6%9E%90/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2017/11/27/kube-controller-分析/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>kube-controller-manager 可以认为是一个守护进程用于监视 apiserver 暴露的集群状态，并且不断地尝试把当前状态向集群的目标状态迁移。为了避免频繁查询 apiserver，apiserver 提供了 watch 接口用于监视资源的增加删除和更新，client-go 对此作了抽象，封装一层 informer 来表示本地 apiserver 状态的 cache。<a target="_blank" rel="noopener" href="https://v.qq.com/x/page/c03641vzw2m.html?start=7">这个视频</a> 有一个 Google 工程师讲解的 client-go 的详细内容，<a target="_blank" rel="noopener" href="https://www.kubernetes.org.cn/2693.html">这篇</a> 七牛前同事的文章介绍了 informer 的整体结构，写得也很好。</p>
+<h3 id="client-当中的-controller"><a href="#client-当中的-controller" class="headerlink" title="client 当中的 controller"></a>client 当中的 controller</h3><p>处理事件的 controller 由几部分构成，首先是 Config 当中的可配置部分，下图是 controller 的关系，controller 实现了 Controller 接口。</p>
+<img data-src="/zh-CN/2017/11/27/kube-controller-%E5%88%86%E6%9E%90/controller.png" class="">
+
+<p>controller 从 Queue 当中通过 Pop 获取对象交给 Process 回调处理，DeltaFIFO 和 FIFO 是类似的，只是 DeltaFIFO 可以处理删除事件，一般都用 DeltaFIFO。ListerWatcher 就是用客户端构造出来的，针对对应资源的 List Watch 方法的集合，List 用于获取最开始的对象获取，Watch 用于监控之后的变化，所有最开始的时候现有的对象会通过 List 传给 Add 回调，同步了当前状态以后再不断接受新的变化，但是 Watch 本身是有超时机制的，不能永久监听，所以再超时之后还会通过 List 方法，先同步一次再进行删除操作。Resync Period 表示把 cache 中的对象重新入队给回调函数处理，这种情况一般是可能你可能漏掉了更细操作，或者是之前的一些失败了。大部分情况用不到这个选项，可以非常相信 etcd 的功能。</p>
+<p>调用路径</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">cache.NewListWatchFromClient -&gt; listWatcher</span><br><span class="line">cache.NewIndexer -&gt; store</span><br><span class="line">cache.NewLister(store) -&gt; lister</span><br><span class="line">cache.NewReflector</span><br><span class="line">go refector.Run()</span><br></pre></td></tr></table></figure>
+
+<p>还有一个关键结构是 reflector，reflector 会把对象转化成对应的需要的对象并且 Add 到 Queue 当中去。</p>
+<p>Informer 本身的框架是异步的，所以为了做并发控制就引入了 workqueue 的组件，workqueue 有 rate limit 的功能，并且能够合并更新操作。</p>
+<p>注意不要修改传入的对象，因为他们要和 cache 一致，如果要写对象的话，需要使用 api.Scheme.Copy 这个函数，进行深度拷贝，所有的 k8s Object 都要支持深拷贝的方法。</p>
+<h3 id="kube-controller-当中的插件式-controller"><a href="#kube-controller-当中的插件式-controller" class="headerlink" title="kube-controller 当中的插件式 controller"></a>kube-controller 当中的插件式 controller</h3><p>在<code>k8s.io/kubernetes/cmd/kube-controller-manager/app/controllermanager.go </code> 中的<code>NewControllerInitializers</code> 函数有大部分 controller 的列表，<code>bootstrapsigner</code> 和 <code>tokencleaner</code> 是默认关闭的。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">var</span> ControllersDisabledByDefault = sets.NewString(</span><br><span class="line">	<span class="string">&quot;bootstrapsigner&quot;</span>,</span><br><span class="line">	<span class="string">&quot;tokencleaner&quot;</span>,</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+
+<p>需要特殊初始化的是 <code>serviceaccount-tok</code>，另外的是 <code>NewControllerInitializers</code> 当中的 controller 了。所有的 controller 初始化函数都要满足如下接口。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// InitFunc is used to launch a particular controller.  It may run additional &quot;should I activate checks&quot;.</span></span><br><span class="line"><span class="comment">// Any error returned will cause the controller process to `Fatal`</span></span><br><span class="line"><span class="comment">// The bool indicates whether the controller was enabled.</span></span><br><span class="line"><span class="keyword">type</span> InitFunc <span class="function"><span class="keyword">func</span><span class="params">(ctx ControllerContext)</span></span> (<span class="type">bool</span>, <span class="type">error</span>)</span><br></pre></td></tr></table></figure>
+
+<h4 id="node-controller"><a href="#node-controller" class="headerlink" title="node controller"></a>node controller</h4><p>接下来看一个具体的 controller，<code>startNodeController</code>。</p>
+<p><code>startNodeController</code> 首先解析 <code>ClusterCIDR</code> 和 <code>ServiceCIDR</code> 两个子网范围，下面是 <code>NodeController</code> 初始化需要的参数。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">nodeController, err := nodecontroller.NewNodeController(</span><br><span class="line">	ctx.InformerFactory.Core().V1().Pods(),</span><br><span class="line">	ctx.InformerFactory.Core().V1().Nodes(),</span><br><span class="line">	ctx.InformerFactory.Extensions().V1beta1().DaemonSets(),</span><br><span class="line">	ctx.Cloud,</span><br><span class="line">	ctx.ClientBuilder.ClientOrDie(<span class="string">&quot;node-controller&quot;</span>),</span><br><span class="line">	ctx.Options.PodEvictionTimeout.Duration,</span><br><span class="line">	ctx.Options.NodeEvictionRate,</span><br><span class="line">	ctx.Options.SecondaryNodeEvictionRate,</span><br><span class="line">	ctx.Options.LargeClusterSizeThreshold,</span><br><span class="line">	ctx.Options.UnhealthyZoneThreshold,</span><br><span class="line">	ctx.Options.NodeMonitorGracePeriod.Duration,</span><br><span class="line">	ctx.Options.NodeStartupGracePeriod.Duration,</span><br><span class="line">	ctx.Options.NodeMonitorPeriod.Duration,</span><br><span class="line">	clusterCIDR,</span><br><span class="line">	serviceCIDR,</span><br><span class="line">	<span class="type">int</span>(ctx.Options.NodeCIDRMaskSize),</span><br><span class="line">	ctx.Options.AllocateNodeCIDRs,</span><br><span class="line">	ipam.CIDRAllocatorType(ctx.Options.CIDRAllocatorType),</span><br><span class="line">	ctx.Options.EnableTaintManager,</span><br><span class="line">	utilfeature.DefaultFeatureGate.Enabled(features.TaintBasedEvictions),</span><br><span class="line">	utilfeature.DefaultFeatureGate.Enabled(features.TaintNodesByCondition),</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+
+<p>InformerFactory 是用来构造具体 resource 的 informer 的工厂类型，构造了 pods, nodes, daemonsets 的 informer, 说明 node controller 需要 watch 这几种 resource 的变化。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// Run starts an asynchronous loop that monitors the status of cluster nodes.</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(nc *Controller)</span></span> Run(stopCh &lt;-<span class="keyword">chan</span> <span class="keyword">struct</span>&#123;&#125;) &#123;</span><br><span class="line">        <span class="keyword">defer</span> utilruntime.HandleCrash()</span><br><span class="line"></span><br><span class="line">        glog.Infof(<span class="string">&quot;Starting node controller&quot;</span>)</span><br><span class="line">        <span class="keyword">defer</span> glog.Infof(<span class="string">&quot;Shutting down node controller&quot;</span>)</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> !controller.WaitForCacheSync(<span class="string">&quot;node&quot;</span>, stopCh, nc.nodeInformerSynced, nc.podInformerSynced, nc.daemonSetInformerSynced) &#123;</span><br><span class="line">                <span class="keyword">return</span></span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// Incorporate the results of node status pushed from kubelet to master.</span></span><br><span class="line">        <span class="keyword">go</span> wait.Until(<span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;</span><br><span class="line">                <span class="keyword">if</span> err := nc.monitorNodeStatus(); err != <span class="literal">nil</span> &#123;</span><br><span class="line">                        glog.Errorf(<span class="string">&quot;Error monitoring node status: %v&quot;</span>, err)</span><br><span class="line">                &#125;</span><br><span class="line">        &#125;, nc.nodeMonitorPeriod, wait.NeverStop)</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> nc.runTaintManager &#123;</span><br><span class="line">                <span class="keyword">go</span> nc.taintManager.Run(wait.NeverStop)</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> nc.useTaintBasedEvictions &#123;</span><br><span class="line">                <span class="comment">// Handling taint based evictions. Because we don&#x27;t want a dedicated logic in TaintManager for NC-originated</span></span><br><span class="line">                <span class="comment">// taints and we normally don&#x27;t rate limit evictions caused by taints, we need to rate limit adding taints.</span></span><br><span class="line">                <span class="keyword">go</span> wait.Until(nc.doNoExecuteTaintingPass, scheduler.NodeEvictionPeriod, wait.NeverStop)</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                <span class="comment">// Managing eviction of nodes:</span></span><br><span class="line">                <span class="comment">// When we delete pods off a node, if the node was not empty at the time we then</span></span><br><span class="line">                <span class="comment">// queue an eviction watcher. If we hit an error, retry deletion.</span></span><br><span class="line">                <span class="keyword">go</span> wait.Until(nc.doEvictionPass, scheduler.NodeEvictionPeriod, wait.NeverStop)</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        &lt;-stopCh</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>现在看一下运行的时候是如何做的，首先要调用 <code>controller.WaitForCacheSync</code> 等待 node，pod，daemonSet 的 inofrmer 同步，这是因为在 kube-controller-manager 当中使用的子 controller 使用的 informer 都是共享型的，也就是多个 controller 之间共享一个 informer  的 cache，所以在开始的时候需要保证所有的 sharedInformerFactory 创建的 informers 之间的 cache 先等待一次一致。controller 的读基本上是从 cache 读的，只要写才会打到 etcd 里面，然后等待 cache 的更新回调。</p>
+<img data-src="/zh-CN/2017/11/27/kube-controller-%E5%88%86%E6%9E%90/monitor_node_status.png" class="">
+
+<p>nodeController 主要分成两部分，一部分是 <code>monitorNodeStatus</code> , 它首先从 informer 的 cache 当中 list 新添加的节点和删除的节点，和 newZoneRepresentations。node 是分 zone 的，这在单可用区的 cluster 当中是个空字符串，但是如果 labels 中有 <code>failure-domain.beta.kubernetes.io/zone</code> 和 <code>failure-domain.beta.kubernetes.io/region</code> 就会构成不同的可用区的划分, 这个适用于仅仅在一家云厂商分不同可用区的时候可以用到。<a target="_blank" rel="noopener" href="https://kubernetes.io/docs/admin/multiple-zones/">这篇文档</a> 描述了多 zone 的 cluster 的内容，没有 zone 有相应的可用状态，如果某个 zone 变成不可用需要把 pod 从这个 zone 当中剔除，所以 pod 的 failover 是以 zone 为单位的。</p>
+<p>处理 node 比较啰嗦，<code>tryUpdateNodeStatus</code> 尝试获取当前的 conditions 更新并且获取 conditions。处理 node 过程主要是标记 node 为不可用的 node，或者把不可用的状态恢复过来。</p>
+<p>接下来的就是处理 pod eviction 的部分，另外，<a target="_blank" rel="noopener" href="https://kubernetes.io/docs/tasks/administer-cluster/out-of-resource/">这篇文档</a>解释了一些 kubelet 支持的资源耗尽的情况下 kubelet 的剔除策略。</p>
+<p><code>taintManager.Run</code> 处理 taint 的逻辑，<a target="_blank" rel="noopener" href="https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/">这篇文档</a> 解释了 taint 和 toleration 的关系，以及基于 taint 的 eviction 策略。首先看 node 的更新，然后把上面不能 tolerate 的 pod 传给 handlePodUpdate，然后 pod 有更新也会 handlePodUpdate，在 pod 更新的时间中会让 node 抢占一次。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">for</span> &#123;</span><br><span class="line">        <span class="keyword">select</span> &#123;</span><br><span class="line">        <span class="keyword">case</span> &lt;-stopCh:</span><br><span class="line">                <span class="keyword">break</span></span><br><span class="line">        <span class="keyword">case</span> nodeUpdate := &lt;-tc.nodeUpdateChannel:</span><br><span class="line">                tc.handleNodeUpdate(nodeUpdate)</span><br><span class="line">        <span class="keyword">case</span> podUpdate := &lt;-tc.podUpdateChannel:</span><br><span class="line">                <span class="comment">// If we found a Pod update we need to empty Node queue first.</span></span><br><span class="line">        priority:</span><br><span class="line">                <span class="keyword">for</span> &#123;</span><br><span class="line">                        <span class="keyword">select</span> &#123;</span><br><span class="line">                        <span class="keyword">case</span> nodeUpdate := &lt;-tc.nodeUpdateChannel:</span><br><span class="line">                                tc.handleNodeUpdate(nodeUpdate)</span><br><span class="line">                        <span class="keyword">default</span>:</span><br><span class="line">                                <span class="keyword">break</span> priority</span><br><span class="line">                        &#125;</span><br><span class="line">                &#125;</span><br><span class="line">                <span class="comment">// After Node queue is emptied we process podUpdate.</span></span><br><span class="line">                tc.handlePodUpdate(podUpdate)</span><br><span class="line">        &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>最后是 eviction 的部分，基于 eviction 的会把 pod 直接删除，基于 taint 只是打上标记，然后通过上面的 tiantManager 剔除。和 pod eviction 不同，taint eviction 是通过限制加 taint 的速率控制 raltelimit 的。</p>
+<h4 id="podGCController"><a href="#podGCController" class="headerlink" title="podGCController"></a>podGCController</h4><p>pod GC Controller 只 watch pod 一种资源，比较简单。</p>
+<p>在 <code>k8s.io/kubernetes/pkg/controller/podgc/gc_controller.go</code> 下。</p>
+<p><code>gcc.gcOrphaned</code> 删除 node 不存在的 pod，<code>gcc.gcUnscheduledTerminating</code> 删除正在终止，但是没有调度的 pod，<code>gcc.gcTerminated</code> 删除已经被终止的 pod。</p>
+<h4 id="其他-controller"><a href="#其他-controller" class="headerlink" title="其他 controller"></a>其他 controller</h4><p>其他 controller 也是类似的，从 apiserver 获取状态，并且向对应的状态迁移，这也是为什么 kubernetes 的命令和资源都是宣告式的原因。</p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/kubernetes/" rel="tag"># kubernetes</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/zh-CN/2017/11/05/Kubernetes-API-%E5%88%86%E6%9E%90/" rel="prev" title="Kubernetes API 分析">
+                  <i class="fa fa-angle-left"></i> Kubernetes API 分析
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/zh-CN/2017/12/19/kube-dns-service/" rel="next" title="kube-dns service">
+                  kube-dns service <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 2014 – 
+    <span itemprop="copyrightYear">2025</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+  </div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/mist/" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.umd.js" integrity="sha256-a+H7FYzJv6oU2hfsfDGM2Ohw/cR9v+hPfxHCLdmCrE8=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lozad.js/1.16.0/lozad.min.js" integrity="sha256-mOFREFhqmHeQbXpK2lp4nA3qooVgACfh88fpJftLBbc=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/sidebar.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+  <script src="/js/third-party/fancybox.js"></script>
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"ggaaooppeenngg","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

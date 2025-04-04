@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.3.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="_85tctgPWrqH2EPVuuD5IT6KE-tW8nH0hTISJDMnShg">
+  <meta name="baidu-site-verification" content="bb16c5b1fd3302c18e0015bef11eea42">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha256-dABdfBfUoC8vJUBOwGVdm8L9qlMWaHTIfXt+7GnZCIo=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.css" integrity="sha256-gkQVf8UKZgQ0HyuxL/VnacadJ+D2Kox2TCEBuNQg5+w=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="最大子数组之和问题是一道经典的面试题.这里对这个问题的迭代解法做一个证明. 先给出C的伪代码 1234567891011121314151617int max_sub_array(int* arr, int len&#123;	int temp &#x3D; 0, max &#x3D; arr[0];	int i;	for(i &#x3D; 0; i &lt; len; i++) &#123;		temp +&#x3D; a[i];">
+<meta property="og:type" content="article">
+<meta property="og:title" content="最大子数组证明">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2015/10/16/%E6%9C%80%E5%A4%A7%E5%AD%90%E6%95%B0%E7%BB%84%E8%AF%81%E6%98%8E/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="最大子数组之和问题是一道经典的面试题.这里对这个问题的迭代解法做一个证明. 先给出C的伪代码 1234567891011121314151617int max_sub_array(int* arr, int len&#123;	int temp &#x3D; 0, max &#x3D; arr[0];	int i;	for(i &#x3D; 0; i &lt; len; i++) &#123;		temp +&#x3D; a[i];">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2015-10-16T03:51:41.000Z">
+<meta property="article:modified_time" content="2025-03-28T10:39:05.428Z">
+<meta property="article:author" content="ggaaooppeenngg">
+<meta property="article:tag" content="算法">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2015/10/16/%E6%9C%80%E5%A4%A7%E5%AD%90%E6%95%B0%E7%BB%84%E8%AF%81%E6%98%8E/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://ggaaooppeenngg.github.io/zh-CN/2015/10/16/%E6%9C%80%E5%A4%A7%E5%AD%90%E6%95%B0%E7%BB%84%E8%AF%81%E6%98%8E/","path":"zh-CN/2015/10/16/最大子数组证明/","title":"最大子数组证明"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>最大子数组证明 | ggaaooppeenngg</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-62096626-1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"UA-62096626-1","only_pageview":false,"measure_protocol_api_secret":null}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+  <script src="/js/third-party/analytics/baidu-analytics.js"></script>
+  <script async src="https://hm.baidu.com/hm.js?bb16c5b1fd3302c18e0015bef11eea42"></script>
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">ggaaooppeenngg</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">为什么计算机科学是无限的但生命是有限的</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">134</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">14</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">78</span></a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-overview-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">78</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">14</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">134</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/ggaaooppeenngg" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;ggaaooppeenngg" rel="noopener me" target="_blank"><i class="github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:peng.gao.dut@gmail.com" title="E-Mail → mailto:peng.gao.dut@gmail.com" rel="noopener me" target="_blank"><i class="envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+        <div class="back-to-top animated" role="button" aria-label="返回顶部">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2015/10/16/%E6%9C%80%E5%A4%A7%E5%AD%90%E6%95%B0%E7%BB%84%E8%AF%81%E6%98%8E/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="最大子数组证明 | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          最大子数组证明
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2015-10-16 11:51:41" itemprop="dateCreated datePublished" datetime="2015-10-16T11:51:41+08:00">2015-10-16</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2025-03-28 18:39:05" itemprop="dateModified" datetime="2025-03-28T18:39:05+08:00">2025-03-28</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/algorithm/" itemprop="url" rel="index"><span itemprop="name">algorithm</span></a>
+        </span>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2015/10/16/%E6%9C%80%E5%A4%A7%E5%AD%90%E6%95%B0%E7%BB%84%E8%AF%81%E6%98%8E/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2015/10/16/最大子数组证明/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>最大子数组之和问题是一道经典的面试题.<br>这里对这个问题的迭代解法做一个证明.</p>
+<p>先给出C的伪代码</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">int max_sub_array(int* arr, int len</span><br><span class="line">&#123;</span><br><span class="line">	int temp = 0, max = arr[0];</span><br><span class="line">	int i;</span><br><span class="line">	for(i = 0; i &lt; len; i++) &#123;</span><br><span class="line">		temp += a[i];</span><br><span class="line">		if(temp &lt; 0) &#123;</span><br><span class="line">			temp = 0;</span><br><span class="line">		&#125;</span><br><span class="line">		if(temp &gt; max) &#123;</span><br><span class="line">			max = temp;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">	return int</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>算法的思路是这样的:</p>
+<p>所以用\(temp\)存储\(A[p..r]\),只要\(A[p..r]\)求和是负数的话,那么下一个\(A[r+1]\)开始,\(temp\)重新清零开始求和,只要\(temp\)比和大,就更新这个和.</p>
+<p>这个算法的思路证明如下:</p>
+<p>对于\(A[p..r]\),如果\(A[p..r]\)求和为负数的话,那么数组\(A[p..r+1]\)的最大子数组肯定不会是\(A[p..r+1]\)<br>因为\(A[p..r] + A[r+1] &lt; A[r+1]\)的.</p>
+<p>对数组的所有元素进行一个划分,对于\(A[i]\),如果能够使得 \(temp&gt;0 and temp+A[i]&lt;0\),那么这个元素就是一个划分的边界.<br>这样就会形成很多个区间.</p>
+<p>接下来要证明</p>
+<ol>
+<li> 最大子数组一定在划分块内</li>
+<li> 一定存在首元素是划分块的首元素的最大子数组</li>
+</ol>
+<p>对于第一个点,假设有一个元素\(A[i]\)在划分区间\(A[p..r]\)内,那么\(A[p..i-1] &gt; 0 and A[i..r] &lt; 0\)一定成立,这个可以用反证法.</p>
+<p>如果一个最大子数组横跨了这些区域假设这个最大子数组为\(A[i..j]\),并且\(A[r]\)最大子数组中最后一个处于分界的元素.<br>那么\(A[i..r] &lt; 0\)一定成立,所以最大子数组不可能有这段部分,因此最大子数组只会处于划分内.</p>
+<p>对于第二点,假设\(A[i..j]\)处于划分\(A[p..q]\)当中,那么\(A[p..i-1]+A[i..j] &gt;= a[i..j]\)一定成立,所以最大子数组<br>的开始元素也是划分的开始元素.</p>
+<p>综合起来就能证明这个算法的正确性.</p>
+<p>实际上抽象地理解就是把数组划分成了恰好多加一个元素和就变负数的N个划分,而最大子数组不可能超过这个划分,<br>因此在计算划分当中的最大值就能得到最大子数组.产生一个新的划分的时候如果碰到负数肯定是独自成立了一个划分,如果碰到正数<br>就会作为新的划分的开始,所以这个划分的第一个元素会成为最大子数组的第一个元素,然后遍历每次包含一个元素以后的和就能确定最大值,最终获得最大子数组.</p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E7%AE%97%E6%B3%95/" rel="tag"># 算法</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/zh-CN/2015/07/04/%E9%85%8D%E7%BD%AE%E6%A0%91%E8%8E%93%E6%B4%BE%E9%9D%99%E6%80%81IP/" rel="prev" title="一根网线直连电脑配置树莓派网络">
+                  <i class="fa fa-angle-left"></i> 一根网线直连电脑配置树莓派网络
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/zh-CN/2015/10/18/%E7%A6%BB%E5%BC%80%E9%98%BF%E9%87%8C%E4%B9%8B%E5%90%8E%E7%9A%84%E5%8F%8D%E6%80%9D/" rel="next" title="离开阿里之后的反思">
+                  离开阿里之后的反思 <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 2014 – 
+    <span itemprop="copyrightYear">2025</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+  </div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/mist/" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.umd.js" integrity="sha256-a+H7FYzJv6oU2hfsfDGM2Ohw/cR9v+hPfxHCLdmCrE8=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lozad.js/1.16.0/lozad.min.js" integrity="sha256-mOFREFhqmHeQbXpK2lp4nA3qooVgACfh88fpJftLBbc=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/sidebar.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+  <script src="/js/third-party/fancybox.js"></script>
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"ggaaooppeenngg","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

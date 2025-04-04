@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.3.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="_85tctgPWrqH2EPVuuD5IT6KE-tW8nH0hTISJDMnShg">
+  <meta name="baidu-site-verification" content="bb16c5b1fd3302c18e0015bef11eea42">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha256-dABdfBfUoC8vJUBOwGVdm8L9qlMWaHTIfXt+7GnZCIo=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.css" integrity="sha256-gkQVf8UKZgQ0HyuxL/VnacadJ+D2Kox2TCEBuNQg5+w=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="DeepSeek V3分析 During the pre-training stage, training DeepSeek-V3 on each trillion tokens requires only 180KH800 GPU hours, i.e., 3.7 days on our cluster with 2048 H800 GPUs.  DeepSeek实现了非常便宜的训练成本，是一个">
+<meta property="og:type" content="article">
+<meta property="og:title" content="DeepSeek V3分析">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2025/01/13/DeepSeek-V3%E5%88%86%E6%9E%90/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="DeepSeek V3分析 During the pre-training stage, training DeepSeek-V3 on each trillion tokens requires only 180KH800 GPU hours, i.e., 3.7 days on our cluster with 2048 H800 GPUs.  DeepSeek实现了非常便宜的训练成本，是一个">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2025-01-13T04:10:49.000Z">
+<meta property="article:modified_time" content="2025-03-28T10:39:05.134Z">
+<meta property="article:author" content="ggaaooppeenngg">
+<meta property="article:tag" content="DeepSeek">
+<meta property="article:tag" content="LLM">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2025/01/13/DeepSeek-V3%E5%88%86%E6%9E%90/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://ggaaooppeenngg.github.io/zh-CN/2025/01/13/DeepSeek-V3%E5%88%86%E6%9E%90/","path":"zh-CN/2025/01/13/DeepSeek-V3分析/","title":"DeepSeek V3分析"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>DeepSeek V3分析 | ggaaooppeenngg</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-62096626-1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"UA-62096626-1","only_pageview":false,"measure_protocol_api_secret":null}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+  <script src="/js/third-party/analytics/baidu-analytics.js"></script>
+  <script async src="https://hm.baidu.com/hm.js?bb16c5b1fd3302c18e0015bef11eea42"></script>
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">ggaaooppeenngg</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">为什么计算机科学是无限的但生命是有限的</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">134</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">14</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">78</span></a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#DeepSeek-V3%E5%88%86%E6%9E%90"><span class="nav-number">1.</span> <span class="nav-text">DeepSeek V3分析</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD"><span class="nav-number">1.1.</span> <span class="nav-text">基础设施</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%B9%B6%E8%A1%8C%E5%BA%A6%E9%85%8D%E7%BD%AE"><span class="nav-number">1.2.</span> <span class="nav-text">并行度配置</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#MLA"><span class="nav-number">1.3.</span> <span class="nav-text">MLA</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#MoE"><span class="nav-number">1.4.</span> <span class="nav-text">MoE</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#MTP"><span class="nav-number">1.5.</span> <span class="nav-text">MTP</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#DualPipe"><span class="nav-number">1.6.</span> <span class="nav-text">DualPipe</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#FP8"><span class="nav-number">1.7.</span> <span class="nav-text">FP8</span></a></li></ol></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">78</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">14</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">134</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/ggaaooppeenngg" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;ggaaooppeenngg" rel="noopener me" target="_blank"><i class="github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:peng.gao.dut@gmail.com" title="E-Mail → mailto:peng.gao.dut@gmail.com" rel="noopener me" target="_blank"><i class="envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+        <div class="back-to-top animated" role="button" aria-label="返回顶部">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2025/01/13/DeepSeek-V3%E5%88%86%E6%9E%90/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="DeepSeek V3分析 | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          DeepSeek V3分析
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2025-01-13 12:10:49" itemprop="dateCreated datePublished" datetime="2025-01-13T12:10:49+08:00">2025-01-13</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2025-03-28 18:39:05" itemprop="dateModified" datetime="2025-03-28T18:39:05+08:00">2025-03-28</time>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2025/01/13/DeepSeek-V3%E5%88%86%E6%9E%90/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2025/01/13/DeepSeek-V3分析/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="DeepSeek-V3分析"><a href="#DeepSeek-V3分析" class="headerlink" title="DeepSeek V3分析"></a>DeepSeek V3分析</h1><blockquote>
+<p>During the pre-training stage, training DeepSeek-V3 on each trillion tokens requires only 180K<br>H800 GPU hours, i.e., 3.7 days on our cluster with 2048 H800 GPUs.</p>
+</blockquote>
+<p>DeepSeek实现了非常便宜的训练成本，是一个700B的MoE模型。</p>
+<h2 id="基础设施"><a href="#基础设施" class="headerlink" title="基础设施"></a>基础设施</h2><ul>
+<li><strong>计算集群</strong>：在配备 2048 个 NVIDIA H800 GPU 的集群上训练，节点内通过 NVLink 和 NVSwitch 连接，节点间使用 InfiniBand 互连。</li>
+<li><strong>训练框架</strong>：基于 HAI - LLM 框架，采用 16 路管道并行（PP）、64 路专家并行（EP）和 ZeRO - 1 数据并行（DP）。设计 DualPipe 算法减少管道气泡并重叠计算与通信，开发高效的跨节点全对全通信内核，优化内存占用，无需使用昂贵的张量并行（TP）。</li>
+<li><strong>FP8 训练</strong>：提出 FP8 混合精度训练框架，对多数计算密集型操作采用 FP8 精度，对部分关键操作保留原始精度，引入细粒度量化策略、提高累积精度、采用 E4M3 格式及在线量化，还降低了内存和通信开销。</li>
+<li><strong>推理与部署</strong>：部署在 H800 集群上，通过分离预填充和解码阶段确保服务水平目标（SLO）和高吞吐量。预填充阶段最小部署单元为 4 节点 32 个 GPU，采用特定并行策略和冗余专家策略确保负载均衡；解码阶段最小部署单元为 40 节点 320 个 GPU，采用相应并行策略和冗余专家策略，并探索动态冗余策略。</li>
+<li><strong>硬件设计建议</strong>：针对通信硬件，期望未来硬件能卸载通信任务，统一网络接口；针对计算硬件，建议提高 FP8 GEMM 累积精度、支持细粒度量化、在线量化和转置 GEMM 操作。</li>
+</ul>
+<h2 id="并行度配置"><a href="#并行度配置" class="headerlink" title="并行度配置"></a>并行度配置</h2><p>在<strong>prefill阶段</strong>，attention模块采用4路张量并行+8路数据并行，moe模块采用32路专家并行。这样并行的目的是在满足首token时延的要求下，最大化系统吞吐（和训练任务类似）。</p>
+<p>在<strong>decode阶段</strong>，DeepSeek-V3采取320路专家并行（256个小专家+64个热点专家），有效降低解码时延，并缓解负载不均衡的问题。</p>
+<p>DeepSeek-V3 采用了多种并行策略，包括 16 路流水线并行（PP），这一策略有助于提高训练效率，加快模型的处理速度。同时，还应用了 64 路专家并行（EP），且在 8 个节点上进行，能够充分发挥多节点的计算优势。此外，ZeRO-1 数据并行（DP）也被运用到训练中，进一步提升了模型的训练效果。</p>
+<p>ZeRO-1 优化器被切分到不同的GPU上。 《大模型动力引擎——PyTorch性能与显存优化手册》有提到这个优化，总结的很好。</p>
+<blockquote>
+<p>假设我们有N=64块GPU进行数据并行训练，在ZeRO-1阶段，优化器的状态量首先被分散存储到所有GPU中，此时单张GPU上的内存使用量骤降到(4+4+8/64)*7.5=60.9GB。ZeRO-2阶段进一步地将模型的梯度也分散存储，此时单张GPU上的内存使用量便是(4+(4+8)/64)7.5=31.4GB。而ZeRO-3阶段将模型的参数也分散存储到N个节点，此时每张GPU的内存消耗只有(4+4+8)/647.5=1.875GB。从单卡需要120GB到仅需不到2GB内存，这个优化效果是不是有点惊艳？不过需要再次强调的是，这样巨大的显存优化是有代价的，显存切分的程度越高，相应的通信开销也会增加。因此，根据实际需求合理地进行显存切分是非常重要的。</p>
+</blockquote>
+<h2 id="MLA"><a href="#MLA" class="headerlink" title="MLA"></a>MLA</h2><p>采用类似 LoRA 的架构，借助一个低秩矩阵 “compressed laten vector”，kvcache 仅需对低秩的 key-value 对以及附带旋转位置编码（RoPE）的 key 进行缓存。</p>
+<h2 id="MoE"><a href="#MoE" class="headerlink" title="MoE"></a>MoE</h2><p>除了针对 Top k、routed experts 运用添加了激活函数的加权求和方式外，还额外引入了 shared experts。在 gate 的激活函数里增添一个 bias，以此来化解 balance 失衡的难题，在训练阶段，通过调节这个 bias 对 balance 状况予以奖惩，这一调节过程被称作 bias update speed。<br>就一个 batch、一个序列而言，每个 token 倘若倾向于特定的一些 expert，那么未被选中的 expert 实际上仅相当于训练了极小的 batch size，或者极短的序列，正因如此，才有了这样一种策略，用以平衡 expert 的 batch size 以及序列当中的 token 数量，毕竟序列通常都很长。<br>DeepSeek-V3 着重凭借辅助损失策略达成负载均衡，与此同时，引入互为补充的序列平衡损失，以防单个序列内部出现极度不平衡的现象。</p>
+<h2 id="MTP"><a href="#MTP" class="headerlink" title="MTP"></a>MTP</h2><p>类似于 speculative decoding，它同样会计算多个 token，不过具体方式存在一定差异。其 embedding 与 output head 是共用的，这一点和 sd 里的 Medusa 有所不同，Medusa 是由多个头来推测不同位置，而 MTP 则是依靠多个相同的头（只是 attention 有别）去推断不同位置。</p>
+<p>MTP 的核心目的在于提升主模型的性能表现，在推理阶段能够直接将 MTP 模块舍去，主模型依旧可以独自正常运作。不仅如此，MTP 模块还能够应用于推测解码环节，以此进一步优化生成延迟问题，让整个流程更加高效流畅。</p>
+<h2 id="DualPipe"><a href="#DualPipe" class="headerlink" title="DualPipe"></a>DualPipe</h2><p>双流水线pipeline的优化。它实现了前向和后向过程中计算与通信阶段的重叠，有效解决了跨节点专家并行带来的通信负载问题。</p>
+<h2 id="FP8"><a href="#FP8" class="headerlink" title="FP8"></a>FP8</h2><p>能够不依赖硬件能力做FP8精度的训练，这个点是非常厉害的。</p>
+<p>首先，为提高模型训练速度，大部分核心计算操作（尤其是 GEMM 运算），均采用 FP8 精度实现。这些 GEMM 运算接收 FP8 格式的张量输入，输出 BF16 或 FP32 格式的结果。如图6所示，线性运算相关的三个 GEMM 操作，包括 Fprop（前向传播）、Dgrad（激活值反向传播）和 Wgrad（权重反向传播），均采用 FP8 执行。这种设计策略理论上将计算速度提升至原有 BF16 方法的两倍。同时，FP8 格式的 Wgrad GEMM 使得激活值能够以 FP8 格式存储用于反向传播，显著降低了内存使用量。</p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/DeepSeek/" rel="tag"># DeepSeek</a>
+              <a href="/tags/LLM/" rel="tag"># LLM</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/zh-CN/2025/01/07/GaLore%E5%88%86%E6%9E%90/" rel="prev" title="GaLore分析">
+                  <i class="fa fa-angle-left"></i> GaLore分析
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/zh-CN/2025/01/23/vLLM%E7%9A%84PD%E5%88%86%E7%A6%BB/" rel="next" title="vLLM的PD分离">
+                  vLLM的PD分离 <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 2014 – 
+    <span itemprop="copyrightYear">2025</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+  </div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/mist/" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.umd.js" integrity="sha256-a+H7FYzJv6oU2hfsfDGM2Ohw/cR9v+hPfxHCLdmCrE8=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lozad.js/1.16.0/lozad.min.js" integrity="sha256-mOFREFhqmHeQbXpK2lp4nA3qooVgACfh88fpJftLBbc=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/sidebar.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+  <script src="/js/third-party/fancybox.js"></script>
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"ggaaooppeenngg","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

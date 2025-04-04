@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.3.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="_85tctgPWrqH2EPVuuD5IT6KE-tW8nH0hTISJDMnShg">
+  <meta name="baidu-site-verification" content="bb16c5b1fd3302c18e0015bef11eea42">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha256-dABdfBfUoC8vJUBOwGVdm8L9qlMWaHTIfXt+7GnZCIo=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.css" integrity="sha256-gkQVf8UKZgQ0HyuxL/VnacadJ+D2Kox2TCEBuNQg5+w=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="vLLM的一个主要贡献就是PagedAttention，可以实现更高效的推理。 高效的语言模型服务系统（LLM）需要批量处理多个请求。然而，现有系统存在以下问题：  每个请求的key-value缓存（KV缓存）内存巨大，动态增长和减少。 容易因为碎片化和冗余复制导致内存浪费，限制了批量大小。  为了解决这些问题，提出了PagedAttention，一个基于虚拟内存和分页技术的注意力算法。基于此，开">
+<meta property="og:type" content="article">
+<meta property="og:title" content="vLLM 分析2 计算引擎">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2024/12/10/vLLM-%E5%88%86%E6%9E%902-%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="vLLM的一个主要贡献就是PagedAttention，可以实现更高效的推理。 高效的语言模型服务系统（LLM）需要批量处理多个请求。然而，现有系统存在以下问题：  每个请求的key-value缓存（KV缓存）内存巨大，动态增长和减少。 容易因为碎片化和冗余复制导致内存浪费，限制了批量大小。  为了解决这些问题，提出了PagedAttention，一个基于虚拟内存和分页技术的注意力算法。基于此，开">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2024/12/10/vLLM-%E5%88%86%E6%9E%902-%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E/annimation1.gif">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2024/12/10/vLLM-%E5%88%86%E6%9E%902-%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E/kvcache.gif">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2024/12/10/vLLM-%E5%88%86%E6%9E%902-%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E/block_table.png">
+<meta property="article:published_time" content="2024-12-10T07:25:12.000Z">
+<meta property="article:modified_time" content="2025-03-28T10:39:05.408Z">
+<meta property="article:author" content="ggaaooppeenngg">
+<meta property="article:tag" content="LLM">
+<meta property="article:tag" content="Python">
+<meta property="article:tag" content="vLLM">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://ggaaooppeenngg.github.io/zh-CN/2024/12/10/vLLM-%E5%88%86%E6%9E%902-%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E/annimation1.gif">
+
+
+<link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2024/12/10/vLLM-%E5%88%86%E6%9E%902-%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://ggaaooppeenngg.github.io/zh-CN/2024/12/10/vLLM-%E5%88%86%E6%9E%902-%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E/","path":"zh-CN/2024/12/10/vLLM-分析2-计算引擎/","title":"vLLM 分析2 计算引擎"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>vLLM 分析2 计算引擎 | ggaaooppeenngg</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-62096626-1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"UA-62096626-1","only_pageview":false,"measure_protocol_api_secret":null}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+  <script src="/js/third-party/analytics/baidu-analytics.js"></script>
+  <script async src="https://hm.baidu.com/hm.js?bb16c5b1fd3302c18e0015bef11eea42"></script>
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">ggaaooppeenngg</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">为什么计算机科学是无限的但生命是有限的</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">134</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">14</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">78</span></a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#AsyncLLM"><span class="nav-number">1.</span> <span class="nav-text">AsyncLLM</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#EngineCore"><span class="nav-number">2.</span> <span class="nav-text">EngineCore</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Request"><span class="nav-number">3.</span> <span class="nav-text">Request</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Scheduler"><span class="nav-number">4.</span> <span class="nav-text">Scheduler</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#SchedulerOutput"><span class="nav-number">4.1.</span> <span class="nav-text">SchedulerOutput</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#KVCacheManager"><span class="nav-number">5.</span> <span class="nav-text">KVCacheManager</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#get-computed-blocks%E6%96%B9%E6%B3%95"><span class="nav-number">5.1.</span> <span class="nav-text">get_computed_blocks方法</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#append-slots%E6%96%B9%E6%B3%95"><span class="nav-number">5.2.</span> <span class="nav-text">append_slots方法</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Worker"><span class="nav-number">6.</span> <span class="nav-text">Worker</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#GPUModelRunner"><span class="nav-number">6.1.</span> <span class="nav-text">GPUModelRunner</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#InputBatch"><span class="nav-number">6.2.</span> <span class="nav-text">InputBatch</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#execute-model-%E6%96%B9%E6%B3%95"><span class="nav-number">6.3.</span> <span class="nav-text">execute_model 方法</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#update-states%E6%96%B9%E6%B3%95"><span class="nav-number">6.3.1.</span> <span class="nav-text">_update_states方法</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#excute-encoder%E6%96%B9%E6%B3%95"><span class="nav-number">6.3.2.</span> <span class="nav-text">_excute_encoder方法</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#gather-encoder-outputs-%E6%96%B9%E6%B3%95"><span class="nav-number">6.3.3.</span> <span class="nav-text">_gather_encoder_outputs 方法</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#prepare-inputs%E6%96%B9%E6%B3%95"><span class="nav-number">6.3.4.</span> <span class="nav-text">_prepare_inputs方法</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#prepare-sampling%E6%96%B9%E6%B3%95"><span class="nav-number">6.3.5.</span> <span class="nav-text">_prepare_sampling方法</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#GPUWorker"><span class="nav-number">6.4.</span> <span class="nav-text">GPUWorker</span></a></li></ol></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">78</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">14</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">134</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/ggaaooppeenngg" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;ggaaooppeenngg" rel="noopener me" target="_blank"><i class="github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:peng.gao.dut@gmail.com" title="E-Mail → mailto:peng.gao.dut@gmail.com" rel="noopener me" target="_blank"><i class="envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+        <div class="back-to-top animated" role="button" aria-label="返回顶部">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2024/12/10/vLLM-%E5%88%86%E6%9E%902-%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="vLLM 分析2 计算引擎 | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          vLLM 分析2 计算引擎
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2024-12-10 15:25:12" itemprop="dateCreated datePublished" datetime="2024-12-10T15:25:12+08:00">2024-12-10</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2025-03-28 18:39:05" itemprop="dateModified" datetime="2025-03-28T18:39:05+08:00">2025-03-28</time>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2024/12/10/vLLM-%E5%88%86%E6%9E%902-%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2024/12/10/vLLM-分析2-计算引擎/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>vLLM的一个主要贡献就是PagedAttention，可以实现更高效的推理。</p>
+<p>高效的语言模型服务系统（LLM）需要批量处理多个请求。然而，现有系统存在以下问题：</p>
+<ul>
+<li>每个请求的key-value缓存（KV缓存）内存巨大，动态增长和减少。</li>
+<li>容易因为碎片化和冗余复制导致内存浪费，限制了批量大小。</li>
+</ul>
+<p>为了解决这些问题，提出了PagedAttention，一个基于虚拟内存和分页技术的注意力算法。基于此，开发了vLLM，一个LLM服务系统，实现了以下两个目标：</p>
+<ol>
+<li>KV缓存显存的几乎零浪费，减少了显存碎片。</li>
+<li>KV缓存在请求之间和请求内共享，进一步减少显存使用。</li>
+</ol>
+<p><a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2309.06180">论文</a>包含了他早期设计。</p>
+<p>一次调用的示例如<a target="_blank" rel="noopener" href="https://blog.vllm.ai/2023/06/20/vllm.html">博客</a>中展示的。</p>
+<img data-src="/zh-CN/2024/12/10/vLLM-%E5%88%86%E6%9E%902-%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E/annimation1.gif" class="">
+
+<h2 id="AsyncLLM"><a href="#AsyncLLM" class="headerlink" title="AsyncLLM"></a>AsyncLLM</h2><p><code>generate</code>细节：</p>
+<ul>
+<li>如果引擎没有运行，启动后台循环，循环调用 <code>_run_output_handler</code> 方法来处理等待的请求。</li>
+<li>从 <code>AsyncStream</code> 中等待请求输出并生成它们。</li>
+</ul>
+<p>engine会在启动之前profile一下，把剩余的显存分配给kv cache用。</p>
+<p>AsyncStream 对 asyncio.Queue的封装，支持了终止的能力，当finish的时候会丢入一个STOP_ITERATION的exception，这样可以让调用者知道这个stream已经结束了。</p>
+<p>每当有一个对话请求的时候调用<code>add_request</code>就会生成一个这样的AsycStream用于处理对话的输出，其中副作用就是判断backgroud loop没有启动的时候，启动backgroundloop。</p>
+<p>AsyncEngine本身有一个<code>_new_request</code>的Queue用户保存request的AsyncStream。</p>
+<p><code>generate</code>方法会不断从AsyncStream中yield出结果，直到遇到STOP_ITERATION。</p>
+<p>loop的主体如下：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 1) Pull EngineCoreOutput from the EngineCore.</span></span><br><span class="line">outputs = <span class="keyword">await</span> <span class="variable language_">self</span>.engine_core.get_output_async()</span><br><span class="line"></span><br><span class="line"><span class="comment"># 2) Detokenize based on the output.</span></span><br><span class="line">request_outputs, reqs_to_abort = <span class="variable language_">self</span>.detokenizer.step(outputs)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 3) Put the RequestOutputs into the per-request AsyncStreams.</span></span><br><span class="line"><span class="variable language_">self</span>._process_request_outputs(request_outputs)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 4) Abort any requests that finished due to stop strings.</span></span><br><span class="line"><span class="keyword">await</span> <span class="variable language_">self</span>.engine_core.abort_requests_async(reqs_to_abort)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 5) Abort any requests due to client cancellations.</span></span><br><span class="line"><span class="keyword">await</span> <span class="variable language_">self</span>._process_cancellations()</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+
+<blockquote>
+<p>When TP=n &amp; PP=m, vLLM engine will have n*m + 1 processes in total.<br>Corollary: even when using a single GPU, we will have 2 processes.</p>
+</blockquote>
+<h2 id="EngineCore"><a href="#EngineCore" class="headerlink" title="EngineCore"></a>EngineCore</h2><p>EngineCore主要是完成 schedule、execute 和 output 的循环。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">step</span>(<span class="params">self</span>) -&gt; <span class="type">List</span>[EngineCoreOutput]:</span><br><span class="line">    <span class="string">&quot;&quot;&quot;Schedule, execute, and make output.&quot;&quot;&quot;</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> <span class="keyword">not</span> <span class="variable language_">self</span>.scheduler.has_unfinished_requests():</span><br><span class="line">        <span class="keyword">return</span> []</span><br><span class="line"></span><br><span class="line">    scheduler_output = <span class="variable language_">self</span>.scheduler.schedule()</span><br><span class="line">    output = <span class="variable language_">self</span>.model_executor.execute_model(scheduler_output)</span><br><span class="line">    engine_core_outputs = <span class="variable language_">self</span>.scheduler.update_from_output(</span><br><span class="line">        scheduler_output, output)</span><br><span class="line">    <span class="keyword">return</span> engine_core_outputs</span><br></pre></td></tr></table></figure>
+<h2 id="Request"><a href="#Request" class="headerlink" title="Request"></a>Request</h2><p>在具体分析之前，先看看 Request 的定义，这个数据结构串联了很多东西。</p>
+<p>属性 <code>num_tokens</code> 代表的是 <code>prompt_tokens</code> 和 <code>output_tokens</code> 的总数。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@property</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">num_tokens</span>(<span class="params">self</span>) -&gt; <span class="built_in">int</span>:</span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">len</span>(<span class="variable language_">self</span>._all_token_ids)</span><br></pre></td></tr></table></figure>
+
+<p><code>num_output_tokens</code> 代表 output tokens 的数量。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@property</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">num_output_tokens</span>(<span class="params">self</span>) -&gt; <span class="built_in">int</span>:</span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">len</span>(<span class="variable language_">self</span>._output_token_ids)</span><br></pre></td></tr></table></figure>
+
+<p><code>append_output_token_ids</code> 会改变上述的两个属性。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">append_output_token_ids</span>(<span class="params"></span></span><br><span class="line"><span class="params">    self,</span></span><br><span class="line"><span class="params">    token_ids: <span class="type">Union</span>[<span class="built_in">int</span>, <span class="type">List</span>[<span class="built_in">int</span>]],</span></span><br><span class="line"><span class="params"></span>) -&gt; <span class="literal">None</span>:</span><br><span class="line">    <span class="keyword">if</span> <span class="built_in">isinstance</span>(token_ids, <span class="built_in">int</span>):</span><br><span class="line">        token_ids = [token_ids]</span><br><span class="line">    <span class="variable language_">self</span>._output_token_ids.extend(token_ids)</span><br><span class="line">    <span class="variable language_">self</span>._all_token_ids.extend(token_ids)</span><br></pre></td></tr></table></figure>
+
+<p>在 <code>__init__</code> 方法中，会设置 <code>num_prompt_tokens</code>，这个是不变的，<code>num_computed_tokens</code> 会初始化为 0。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="variable language_">self</span>.prompt = <span class="variable language_">self</span>.inputs.prompt</span><br><span class="line"><span class="variable language_">self</span>.prompt_token_ids = <span class="variable language_">self</span>.inputs.prompt_token_ids</span><br><span class="line"><span class="variable language_">self</span>.num_prompt_tokens = <span class="built_in">len</span>(<span class="variable language_">self</span>.prompt_token_ids)</span><br><span class="line"><span class="variable language_">self</span>.num_computed_tokens = <span class="number">0</span></span><br></pre></td></tr></table></figure>
+
+<p>所以在最开始时，<code>num_tokens</code> 和 <code>num_prompt_tokens</code> 是相等的。当 <code>prefill</code> 以后，<code>num_computed_tokens</code> 会逐渐（逐渐的原因是 prefill 可能会被 chunked 掉）等于 <code>num_prompt_tokens</code>。<code>decode</code> 以后，<code>num_tokens</code> 会等于 <code>num_prompt_tokens</code> 加上 <code>num_output_tokens</code>。如果 <code>computed_tokens</code> 等于 <code>num_tokens</code>，说明已经开始 decode 了，要开始一个 token 一个 token 计算了。</p>
+<p>在调度过程中没有直接用 <code>computed_tokens</code> 等于 <code>num_prompt_tokens</code> 的原因是：如果一个 request 被抢占掉，那么 <code>num_tokens</code> 在 request 恢复的时候其实应该是 <code>num_prompt_tokens</code> 加上 <code>num_output_tokens</code>，这里做了一个统一的判断。如果把preempted的request重新处理的话其实相当于多了一些output tokens的prompt的新request。</p>
+<h2 id="Scheduler"><a href="#Scheduler" class="headerlink" title="Scheduler"></a>Scheduler</h2><p>从 EngineCore 的 step 方法来看，目前的调度是同步的 <code>schedule | execute model | update_from_output | schedule | execute model | update_from_output</code>，这样会导致计算和调度之间的时间差，这个时间差会导致计算的时间没有充分利用，从而导致资源的浪费。后面的版本应该会有优化。</p>
+<p>Scheduler 的 V1 版本把一些 chunked prefill 还有 prefix caching 的内容拆离出去，做得比较通用。</p>
+<p>vLLM 实现了一种所有或无（all-or-nothing）驱逐策略，即要么驱逐一个序列中的所有块，要么不驱逐任何块。</p>
+<p>接下来看看来自 <code>v1/core/scheduler.py</code> 的 V1 版本的 <code>schedule</code> 实现。</p>
+<p>Scheduler 有个 waiting list 和 running list（位置代表权重，是 FIFO 的）。</p>
+<p>从 running list 中获取 request 然后通过 <code>kv_cache_manager</code> 执行 <code>append_slots</code> 把新的 block 追加到 request 的 block chain 当中。如果最后一个 block 的 slot 还够的话，就不会追加新的 block。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">new_blocks = <span class="variable language_">self</span>.kv_cache_manager.append_slots(</span><br><span class="line">    request, num_new_tokens)</span><br></pre></td></tr></table></figure>
+
+<p>如果当前的 <code>kv_cache</code> 的 block table 满了，则会抢占一个 running list 中的 request（放入 waiting list 中）并且把他的 cache block 都 free 掉，这里的 free 是引用计数的形式，如果引用计数为 0 就会被释放，但如果多个 request 共享了一个 block 就还不会被真正释放。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> new_blocks <span class="keyword">is</span> <span class="literal">None</span>:</span><br><span class="line">    <span class="comment"># The request cannot be scheduled.</span></span><br><span class="line">    <span class="comment"># Preempt the lowest-priority request.</span></span><br><span class="line">    preempted_req = <span class="variable language_">self</span>.running.pop()</span><br><span class="line">    <span class="variable language_">self</span>.kv_cache_manager.free(preempted_req)</span><br><span class="line">    preempted_req.status = RequestStatus.PREEMPTED</span><br><span class="line">    <span class="variable language_">self</span>.waiting.appendleft(preempted_req)</span><br><span class="line">    preempted_reqs.append(preempted_req)</span><br></pre></td></tr></table></figure>
+
+<p>加入到 <code>scheduled_running_reqs</code> 中，消耗这次调度的 token budget，这个 budget 用完以后就会停止调度了。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">scheduled_running_reqs.append(request)</span><br><span class="line">req_to_new_block_ids[request.request_id] = [</span><br><span class="line">    b.block_id <span class="keyword">for</span> b <span class="keyword">in</span> new_blocks</span><br><span class="line">]</span><br><span class="line">num_scheduled_tokens[request.request_id] = num_new_tokens</span><br><span class="line">token_budget -= num_new_tokens</span><br><span class="line">req_index += <span class="number">1</span></span><br></pre></td></tr></table></figure>
+
+<p>如果没有抢占请求则说明还是比较富裕的，尝试从 waiting list 中获取 request，waiting list 可能有新请求也可能有之前被抢占的请求，然后执行一遍上面的代码，不同的是需要从 <code>kv_cache_manager</code> 计算 <code>computed_tokens</code>，因为被之前被抢占的或者一些有共同前缀的 kv cache block 是已经缓存过的。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">request = <span class="variable language_">self</span>.waiting[<span class="number">0</span>]</span><br><span class="line"><span class="comment"># Get already-cached tokens.</span></span><br><span class="line">computed_blocks = <span class="variable language_">self</span>.kv_cache_manager.get_computed_blocks(</span><br><span class="line">    request)</span><br><span class="line"><span class="comment"># NOTE(woosuk): Since incomplete blocks are not eligible for</span></span><br><span class="line"><span class="comment"># sharing, `num_computed_tokens` is always a multiple of</span></span><br><span class="line"><span class="comment"># `block_size`.</span></span><br><span class="line">num_computed_tokens = <span class="built_in">len</span>(computed_blocks) * <span class="variable language_">self</span>.block_size</span><br></pre></td></tr></table></figure>
+
+<p>最后把每个 request 分配到的 tokens 数量记录到 <code>SchedulerOutput</code> 当中。</p>
+<p><code>update_from_output</code> 接受 <code>SchedulerOutput</code> 和 <code>ModelExecutorOutput</code>，更新 request 的状态，例如更新已经计算的 token 数量，更新 kv cache 的 block 等。对于每个请求都会检查 <code>request.num_computed_tokens == request.num_tokens</code> 从而判断是否已经开始 decode 的部分了。然后构造 <code>EngineCoreOutput</code>，并且检查是否需要停止这个 request。<code>_check_stop</code> 方法会检查是否已经生成了 eos token 或者已经达到了最大长度，并且 free 掉对应的 request。所有没有 stop 的 request 会重新加入到 running 队列中。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> request.num_computed_tokens == request.num_tokens:</span><br><span class="line">    req_index = model_runner_output.req_id_to_index[req_id]</span><br><span class="line">    <span class="comment"># NOTE(woosuk): Currently, we assume that each request</span></span><br><span class="line">    <span class="comment"># generates at most one token at each step.</span></span><br><span class="line">    token_id = sampled_token_ids[req_index]</span><br><span class="line">    request.append_output_token_ids(token_id)</span><br><span class="line">    num_new_tokens = <span class="number">1</span></span><br><span class="line">    <span class="comment"># <span class="doctag">TODO:</span> Update the KV cache manager for prefix caching.</span></span><br><span class="line"></span><br><span class="line">    <span class="comment"># Check for stop and update request state.</span></span><br><span class="line">    <span class="comment"># This must be called before me make the EngineCoreOutput.</span></span><br><span class="line">    stopped = <span class="variable language_">self</span>._check_stop(request)</span><br><span class="line"></span><br><span class="line">    <span class="comment"># Add EngineCoreOutput for this Request.</span></span><br><span class="line">    output = EngineCoreOutput(</span><br><span class="line">        request_id=req_id,</span><br><span class="line">        new_token_ids=request.output_token_ids[-num_new_tokens:],</span><br><span class="line">        finished=request.is_finished(),</span><br><span class="line">        finish_reason=request.get_finished_reason(),</span><br><span class="line">        stop_reason=request.stop_reason)</span><br><span class="line">    engine_core_outputs.append(output)</span><br><span class="line"></span><br><span class="line">    <span class="comment"># Breakout of the loop.</span></span><br><span class="line">    <span class="keyword">if</span> stopped:</span><br><span class="line">        <span class="keyword">continue</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="SchedulerOutput"><a href="#SchedulerOutput" class="headerlink" title="SchedulerOutput"></a>SchedulerOutput</h3><p>该类包含了调度器的输出信息。以下是各个字段的作用：</p>
+<ul>
+<li><p><strong>scheduled_new_reqs: List[NewRequestData]</strong></p>
+<ul>
+<li>作用：存储新请求的数据列表，这些请求是刚刚被调度的。</li>
+</ul>
+</li>
+<li><p><strong>scheduled_resumed_reqs: List[ResumedRequestData]</strong></p>
+<ul>
+<li>作用：存储恢复请求的数据列表，这些请求是之前被暂停，现在重新被调度的。</li>
+</ul>
+</li>
+<li><p><strong>scheduled_running_reqs: List[RunningRequestData]</strong></p>
+<ul>
+<li>作用：存储正在运行请求的数据列表，这些请求在当前调度周期内继续运行。</li>
+</ul>
+</li>
+<li><p><strong>num_scheduled_tokens: Dict[str, int]</strong></p>
+<ul>
+<li>作用：存储每个请求调度的token数量，键是请求的ID，值是对应的token数量。</li>
+</ul>
+</li>
+<li><p><strong>total_num_scheduled_tokens: int</strong></p>
+<ul>
+<li>作用：存储所有请求调度的token总数。</li>
+</ul>
+</li>
+<li><p><strong>scheduled_encoder_inputs: Dict[str, List[int]]</strong></p>
+<ul>
+<li>作用：存储每个请求的编码器输入，键是请求的ID，值是对应的编码器输入列表。</li>
+</ul>
+</li>
+<li><p><strong>preempted_req_ids: Set[str]</strong></p>
+<ul>
+<li>作用：存储被抢占的请求ID集合，这些请求在当前调度周期内被暂停。</li>
+</ul>
+</li>
+<li><p><strong>finished_req_ids: Set[str]</strong></p>
+<ul>
+<li>作用：存储已完成的请求ID集合，这些请求在当前调度周期内完成。</li>
+</ul>
+</li>
+<li><p><strong>free_encoder_input_ids: List[Tuple[str, int]]</strong></p>
+<ul>
+<li>作用：存储空闲的编码器输入ID列表，每个元素是一个元组，包含请求ID和对应的编码器输入ID。</li>
+</ul>
+</li>
+</ul>
+<p>这些字段共同描述了调度器在一个调度周期内的所有操作和状态变化。</p>
+<h2 id="KVCacheManager"><a href="#KVCacheManager" class="headerlink" title="KVCacheManager"></a>KVCacheManager</h2><p>来自<code>v1/core/kv_cache_manager.py</code>，这是v1版本的实现。</p>
+<p>kv cache比较简单，<br>这个<a target="_blank" rel="noopener" href="https://medium.com/my-musings-with-llms/understanding-kv-cache-and-paged-attention-in-llms-a-deep-dive-into-efficient-inference-62fa372432ce">博客</a>中的图片很好地阐述了kvcache的作用。</p>
+<img data-src="/zh-CN/2024/12/10/vLLM-%E5%88%86%E6%9E%902-%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E/kvcache.gif" class="" title="KV Cache">
+
+<p>但涉及PagedAttention的实现，就需要管理block。这类似于操作系统中的虚拟地址、页表和物理页的关系。</p>
+<p>PagedAttention的主要思想是基于操作系统中分页（paging）的经典概念。传统的注意力算法通常要求keys和values在内存空间中连续存储，<br>而PagedAttention则允许在非连续的内存空间中存储keys和values。</p>
+<p>PagedAttention将每个序列（sequence）的KV缓存（KV cache）分成固定大小的块（block）。<br>每个块包含一个固定数量的token的key和value向量。这意味着，即使keys和values不连续存储，也可以有效地访问和操作它们。</p>
+<p>block的管理会有一个类似于页表的结构，用于映射block的逻辑地址到物理地址。</p>
+<img data-src="/zh-CN/2024/12/10/vLLM-%E5%88%86%E6%9E%902-%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E/block_table.png" class="">
+
+<p>论文中的这个图很好的表示了他们的关系，如果新生成的token填满了当前block就会分配一个新的block用于新token的生成。</p>
+<p>共享的prefix cache指的是提示词的前缀一样的情况，他们的位置编码也不变的情况下可以在不同的sequence之间共享。<br>例如对于一个英语到法语翻译的提示词，前面有很多事可以共享的，对于跨请求的kv cache来说可以基于这个前缀来共享kv cache的block。</p>
+<table>
+<thead>
+<tr>
+<th>序列</th>
+<th>前缀 (Prefix)</th>
+<th>输入任务 (Task Input)</th>
+<th>完整提示 (Complete Prompt)</th>
+<th>LLM 输出 (LLM Output)</th>
+<th>输出任务 (Task Output)</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Sequence A</strong></td>
+<td>Translate English to French: <br> “sea otter” =&gt; “loutre de mer” <br> “peppermint” =&gt; “menthe poivrée” <br> “plush giraffe” =&gt; “girafe en peluche”</td>
+<td>“cheese” =&gt;</td>
+<td>Translate English to French: <br> “sea otter” =&gt; “loutre de mer” <br> “peppermint” =&gt; “menthe poivrée” <br> “plush giraffe” =&gt; “girafe en peluche” <br> “cheese” =&gt;</td>
+<td>fromage</td>
+<td>fromage</td>
+</tr>
+<tr>
+<td><strong>Sequence B</strong></td>
+<td>Translate English to French: <br> “sea otter” =&gt; “loutre de mer” <br> “peppermint” =&gt; “menthe poivrée” <br> “plush giraffe” =&gt; “girafe en peluche”</td>
+<td>“I love you” =&gt;</td>
+<td>Translate English to French: <br> “sea otter” =&gt; “loutre de mer” <br> “peppermint” =&gt; “menthe poivrée” <br> “plush giraffe” =&gt; “girafe en peluche” <br> “I love you” =&gt;</td>
+<td>Je t’aime</td>
+<td>Je t’aime</td>
+</tr>
+</tbody></table>
+<p><code>free_block_queue</code>是一个链表，用于分配block，初始化时将<code>block_pool</code>中的所有blocks串起来。它通过链表实现对<code>KVCacheBlock</code>的管理，删除操作是O(1)的，没有使用标准库中的dequeue。</p>
+<p><code>KVCacheBlock</code>除了prev和next指针，还有<code>ref_count</code>和<code>_block_hash</code>，用于prefix caching的计算。其key是父block的hash和当前block的tokens ids的hash。</p>
+<p><code>block_pool</code>代表物理block的映射关系，例如<code>0 -&gt; 第一块block</code>。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># A Block pool of all kv-cache blocks.</span></span><br><span class="line"><span class="variable language_">self</span>.block_pool: <span class="type">List</span>[KVCacheBlock] = [</span><br><span class="line">    KVCacheBlock(idx) <span class="keyword">for</span> idx <span class="keyword">in</span> <span class="built_in">range</span>(num_gpu_blocks)</span><br><span class="line">]</span><br></pre></td></tr></table></figure>
+
+<p><code>cached_block_hash_to_block</code> 保存的数据结构是 <code>&#123;block_hash: &#123;block ID: block&#125;&#125;</code></p>
+<p><code>req_to_blocks</code> 保存了 request到 block列表的映射关系，<code>&#123;request ID: [block ID]&#125;</code></p>
+<p>block的eviction的定义，<code>eviction candidate == in free queue and ref_cnt == 0</code>。</p>
+<h3 id="get-computed-blocks方法"><a href="#get-computed-blocks方法" class="headerlink" title="get_computed_blocks方法"></a><code>get_computed_blocks</code>方法</h3><p>根据request获取已经计算过（缓存过）的block，获取kv cache blocks的方式是通过block hash 从<code>cached_block_hash_to_block</code>寻找的。<br>hash的计算是之前的block hash加上当前token ids做一次hash，第一个block则没有父block只用当前自己的token ids做hash。</p>
+<h3 id="append-slots方法"><a href="#append-slots方法" class="headerlink" title="append_slots方法"></a><code>append_slots</code>方法</h3><p>会为需要新计算的token ids分配block（如果现有的block不够的话）。</p>
+<h2 id="Worker"><a href="#Worker" class="headerlink" title="Worker"></a>Worker</h2><h3 id="GPUModelRunner"><a href="#GPUModelRunner" class="headerlink" title="GPUModelRunner"></a>GPUModelRunner</h3><p><code>v1/worker</code>中的<code>gpu_runner.py</code>v1版本的实现。</p>
+<p>首先依赖一个大的config参数<code>vllm_config</code>，包含了<code>model_config</code>，<code>cache_config</code>，<code>scheduler_config</code>，<code>device_config</code>等。</p>
+<p>初始化kv cache的dtype，对照表如下，half就是fp16，float就是fp32，默认是和模型的dtype一样。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">STR_DTYPE_TO_TORCH_DTYPE = &#123;</span><br><span class="line">    <span class="string">&quot;half&quot;</span>: torch.half,</span><br><span class="line">    <span class="string">&quot;bfloat16&quot;</span>: torch.bfloat16,</span><br><span class="line">    <span class="string">&quot;float&quot;</span>: torch.<span class="built_in">float</span>,</span><br><span class="line">    <span class="string">&quot;fp8&quot;</span>: torch.uint8,</span><br><span class="line">    <span class="string">&quot;fp8_e4m3&quot;</span>: torch.uint8,</span><br><span class="line">    <span class="string">&quot;fp8_e5m2&quot;</span>: torch.uint8,</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>初始化<code>sliding_window</code>的配置，这个东西在Qwen里面才用到。</p>
+<p>初始化<code>block_size</code>，决定了kv cache中连续保存的token的数量，也就是PagedAttention中的那个block的大小，Prefix cache也是以block为维度的。</p>
+<p>初始化<code>kv_heads</code>，这个决定了kv head的数量，如果指定了 <code>tensor_parallel_size</code>，会根据这个参数平均分给每个GPU。</p>
+<p>初始化<code>head_size</code>，基于model config，是model config里面的<code>head_dim</code>。</p>
+<p>初始化<code>hidden_size</code>，就是model config里面的<code>hidden_size</code>，就是<code>d_model</code>或者<code>embed_dim</code>，代表同一个长度。</p>
+<p>初始化<code>kv_cache</code>。</p>
+<p>初始化<code>encoder_cache</code> encoder结果的缓存。</p>
+<p>初始化<code>input_registry</code> 和多模态的支持有关系。</p>
+<p>初始化<code>requests</code> dict用于request的状态保存，这里的request就是一个文本的sequence。</p>
+<p>初始化<code>InputBatch</code>，<code>max_num_seq</code>决定了batch的宽度，<code>max_model_len</code>决定了batch的长度。这个Batch对象负责管理在用于前向传播的batch当中的request的插入和删除。</p>
+<p>初始化<code>use_cuda_graph</code> 这个由 enforce_eager 决定，默认是会加载整个计算图。</p>
+<p>初始化<code>positions</code>: <code>torch.zeros(self.max_num_tokens, dtype=torch.int64, device=self.device)</code>。</p>
+<p>初始化<code>input_embeds</code>，可以看到，宽度是<code>max_num_tokens</code>，长度是<code>hidden_size</code>，这个是用来存储输入的embedding的。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="variable language_">self</span>.inputs_embeds = torch.zeros(</span><br><span class="line">    (<span class="variable language_">self</span>.max_num_tokens, <span class="variable language_">self</span>.hidden_size),</span><br><span class="line">    dtype=<span class="variable language_">self</span>.dtype,</span><br><span class="line">    device=<span class="variable language_">self</span>.device)</span><br></pre></td></tr></table></figure>
+
+<h3 id="InputBatch"><a href="#InputBatch" class="headerlink" title="InputBatch"></a>InputBatch</h3><p>InputBatch在整个工程中负责管理和处理批量输入请求，确保请求的高效处理和管理。</p>
+<h3 id="execute-model-方法"><a href="#execute-model-方法" class="headerlink" title="execute_model 方法"></a><code>execute_model</code> 方法</h3><p><code>execute_model</code>是整个<code>schedule | compute | update</code>循环中的核心部分，负责执行模型的前向传播。</p>
+<h4 id="update-states方法"><a href="#update-states方法" class="headerlink" title="_update_states方法"></a><code>_update_states</code>方法</h4><p>在每次运行一个 batch 时，会根据调度器（scheduler）的要求调整每个 batch 中请求的优先级。调度器会更新请求的状态缓存 <code>id -&gt; CachedRequestState</code> 和 <code>input_batch</code> 的缓存，移除被抢占和停止的请求，并将新加入的请求放入 batch 中。因此，runner 只负责执行，具体的策略由调度器决定。</p>
+<p><code>CachedRequestState</code> 记录了请求 ID、使用的缓存块 ID 以及已计算的 token 数量。</p>
+<h4 id="excute-encoder方法"><a href="#excute-encoder方法" class="headerlink" title="_excute_encoder方法"></a><code>_excute_encoder</code>方法</h4><p>执行多模态中的encoder，对于新的多模态的encode，调用<code>model.process_mm_inputs</code>存入到encoder_cache当中。</p>
+<p><code>self.model.compute_logits</code>使用<br><code>vllm/model_executor/layers/logits_processor.py</code>中的<code>LogitsProcessor</code>，从<code>hidden_states</code>计算<code>logits</code>。</p>
+<p><code>self.model.sample</code>使用<code>vllm/model_executor/layers/sampler.py</code>中的sampler进行sample。</p>
+<p>最终得到<code>sampled_token_ids = sampler_output.sampled_token_ids</code>。</p>
+<h4 id="gather-encoder-outputs-方法"><a href="#gather-encoder-outputs-方法" class="headerlink" title="_gather_encoder_outputs 方法"></a><code>_gather_encoder_outputs</code> 方法</h4><p>从<code>encoder_cache</code>中获取当前batch需要用到的encoder的输出。</p>
+<h4 id="prepare-inputs方法"><a href="#prepare-inputs方法" class="headerlink" title="_prepare_inputs方法"></a><code>_prepare_inputs</code>方法</h4><p><code>input_batch.block_table</code> 在 GPU 上，而 <code>input_batch.block_table_cpu_tensor</code> 在 CPU 上。<br>前面提到 batch 的整理是在 CPU 上进行的，这里是将要推理的部分拷贝到 GPU 上的 <code>block_table</code> 中。由于使用了 PagedAttention，因此所有的序列都是按 block 为粒度进行切分的。</p>
+<p>获取<code>input_ids</code>，构造出传给FlashAttention的数据，例如<code>block_table</code>，和<code>query_start_loc</code>和<code>seq_start_loc</code>用于定位query和seq的位置。</p>
+<p>input_ids, attn_metadata, logits_indices</p>
+<h4 id="prepare-sampling方法"><a href="#prepare-sampling方法" class="headerlink" title="_prepare_sampling方法"></a><code>_prepare_sampling</code>方法</h4><p>构造出sampling的参数，获取每个request的<code>temperature</code>，<code>top_k</code>，<code>top_p</code>等参数。</p>
+<h3 id="GPUWorker"><a href="#GPUWorker" class="headerlink" title="GPUWorker"></a>GPUWorker</h3><p><code>v1/worker</code>中的<code>gpu_worker.py</code>v1版本的实现。<br>初始化GPUModelRunner，如果开始了<code>VLLM_TORCH_PROFILER_DIR</code>就会调用<code>torch.profiler.profile</code>。</p>
+<p><code>determine_num_available_blocks</code>会通过profile的方式决定可以使用的block数量。<br>然后根据block数量调用Runner的<code>initialize_kv_cache</code>。</p>
+<p>做一些GPU的dtype支持检查，比如一些老的GPU是不支持bf16的。</p>
+<p>FlashAttentionMetadata 包含了input的结构和对应的block table的映射。</p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/LLM/" rel="tag"># LLM</a>
+              <a href="/tags/Python/" rel="tag"># Python</a>
+              <a href="/tags/vLLM/" rel="tag"># vLLM</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/zh-CN/2024/12/03/FlashAttention-%E8%A7%A3%E6%9E%90/" rel="prev" title="FlashAttention 解析">
+                  <i class="fa fa-angle-left"></i> FlashAttention 解析
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/zh-CN/2024/12/13/vLLM-%E5%88%86%E6%9E%90-3-%E6%8E%A8%E7%90%86%E4%BC%98%E5%8C%96/" rel="next" title="vLLM 分析 3 推理优化">
+                  vLLM 分析 3 推理优化 <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 2014 – 
+    <span itemprop="copyrightYear">2025</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+  </div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/mist/" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.umd.js" integrity="sha256-a+H7FYzJv6oU2hfsfDGM2Ohw/cR9v+hPfxHCLdmCrE8=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lozad.js/1.16.0/lozad.min.js" integrity="sha256-mOFREFhqmHeQbXpK2lp4nA3qooVgACfh88fpJftLBbc=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/sidebar.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+  <script src="/js/third-party/fancybox.js"></script>
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"ggaaooppeenngg","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

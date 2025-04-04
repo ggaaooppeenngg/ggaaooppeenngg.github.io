@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.3.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="_85tctgPWrqH2EPVuuD5IT6KE-tW8nH0hTISJDMnShg">
+  <meta name="baidu-site-verification" content="bb16c5b1fd3302c18e0015bef11eea42">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha256-dABdfBfUoC8vJUBOwGVdm8L9qlMWaHTIfXt+7GnZCIo=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.css" integrity="sha256-gkQVf8UKZgQ0HyuxL/VnacadJ+D2Kox2TCEBuNQg5+w=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="Peiyi Tang   计算机科学部   阿肯色州大学小石城分校  原论文 ##概要   Go语言是一门新的并发编程语言.它的目标之一就是应对多核并行编程的挑战.在这篇论文里面,我们展示了两个多核并行的Go程序和他们在八核微处理器上的性能和并行Go代码的效率. 1 介绍  直到2000年,计算机架构都可以把并发运算封装在硬件中,每18个月微处理器的性能就可以翻倍,而不需要丝毫地改动串行编程">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Go语言并行测试（论文翻译）">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2014/12/02/Multi-Core-Parallel-Programming-in-Go/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="Peiyi Tang   计算机科学部   阿肯色州大学小石城分校  原论文 ##概要   Go语言是一门新的并发编程语言.它的目标之一就是应对多核并行编程的挑战.在这篇论文里面,我们展示了两个多核并行的Go程序和他们在八核微处理器上的性能和并行Go代码的效率. 1 介绍  直到2000年,计算机架构都可以把并发运算封装在硬件中,每18个月微处理器的性能就可以翻倍,而不需要丝毫地改动串行编程">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2014/12/02/Multi-Core-Parallel-Programming-in-Go/figure2.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2014/12/02/Multi-Core-Parallel-Programming-in-Go/figure3.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2014/12/02/Multi-Core-Parallel-Programming-in-Go/figure5.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2014/12/02/Multi-Core-Parallel-Programming-in-Go/figure6.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2014/12/02/Multi-Core-Parallel-Programming-in-Go/figure8.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2014/12/02/Multi-Core-Parallel-Programming-in-Go/figure9.png">
+<meta property="article:published_time" content="2014-12-02T05:15:00.000Z">
+<meta property="article:modified_time" content="2025-03-28T10:39:05.172Z">
+<meta property="article:author" content="ggaaooppeenngg">
+<meta property="article:tag" content="Go">
+<meta property="article:tag" content="论文">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://ggaaooppeenngg.github.io/zh-CN/2014/12/02/Multi-Core-Parallel-Programming-in-Go/figure2.png">
+
+
+<link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2014/12/02/Multi-Core-Parallel-Programming-in-Go/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://ggaaooppeenngg.github.io/zh-CN/2014/12/02/Multi-Core-Parallel-Programming-in-Go/","path":"zh-CN/2014/12/02/Multi-Core-Parallel-Programming-in-Go/","title":"Go语言并行测试（论文翻译）"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>Go语言并行测试（论文翻译） | ggaaooppeenngg</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-62096626-1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"UA-62096626-1","only_pageview":false,"measure_protocol_api_secret":null}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+  <script src="/js/third-party/analytics/baidu-analytics.js"></script>
+  <script async src="https://hm.baidu.com/hm.js?bb16c5b1fd3302c18e0015bef11eea42"></script>
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">ggaaooppeenngg</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">为什么计算机科学是无限的但生命是有限的</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">134</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">14</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">78</span></a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#1-%E4%BB%8B%E7%BB%8D"><span class="nav-number">1.</span> <span class="nav-text">1 介绍</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-%E5%B9%B6%E8%A1%8C%E8%AE%A1%E7%AE%97%E7%A7%AF%E5%88%86"><span class="nav-number">2.</span> <span class="nav-text">2 并行计算积分</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-%E5%B9%B6%E5%8F%91%E7%9A%84%E5%8A%A8%E6%80%81%E8%A7%84%E5%88%92"><span class="nav-number">3.</span> <span class="nav-text">3 并发的动态规划</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%BC%95%E7%94%A8"><span class="nav-number">4.</span> <span class="nav-text">引用</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">78</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">14</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">134</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/ggaaooppeenngg" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;ggaaooppeenngg" rel="noopener me" target="_blank"><i class="github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:peng.gao.dut@gmail.com" title="E-Mail → mailto:peng.gao.dut@gmail.com" rel="noopener me" target="_blank"><i class="envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+        <div class="back-to-top animated" role="button" aria-label="返回顶部">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2014/12/02/Multi-Core-Parallel-Programming-in-Go/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="Go语言并行测试（论文翻译） | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Go语言并行测试（论文翻译）
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2014-12-02 13:15:00" itemprop="dateCreated datePublished" datetime="2014-12-02T13:15:00+08:00">2014-12-02</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2025-03-28 18:39:05" itemprop="dateModified" datetime="2025-03-28T18:39:05+08:00">2025-03-28</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/Go/" itemprop="url" rel="index"><span itemprop="name">Go</span></a>
+        </span>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2014/12/02/Multi-Core-Parallel-Programming-in-Go/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2014/12/02/Multi-Core-Parallel-Programming-in-Go/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><ul>
+<li>  Peiyi Tang</li>
+<li>  计算机科学部</li>
+<li>  阿肯色州大学小石城分校</li>
+</ul>
+<p><a target="_blank" rel="noopener" href="http://www.ualr.edu/pxtang/papers/acc10.pdf">原论文</a></p>
+<p>##概要</p>
+<p>  Go语言是一门新的并发编程语言.它的目标之一就是应对多核并行编程的挑战.在这篇论文里面,我们展示了两个多核并行的Go程序和他们在八核微处理器上的性能和并行Go代码的效率.</p>
+<h2 id="1-介绍"><a href="#1-介绍" class="headerlink" title="1 介绍"></a>1 介绍</h2><p>  直到2000年,计算机架构都可以把并发运算封装在硬件中,每18个月微处理器的性能就可以翻倍,而不需要丝毫地改动串行编程模型(sequential programming model).但有三个问题日益凸显,处理器和内存的速度在跨越式增长,指令级别的并发存在限制,高性能的计算能力也被提高,综合这三个原因,在2000年所有的微处理器厂商都转向了多核微处理器的开发.</p>
+<p>  多核处理器展现了非常好的性能,为了能够充分发挥这样的性能,就需要通过并行编程来解决.运行串行的代码只能够发挥单个处理器的性能,而浪费了其他处理器的资源.</p>
+<p>  最早和多核并行编程有关的书是_”multi-thread programming”<em>[1],然而在多线程模型上实现并行和并发程序是非常困难的.就像_Edward A.Lee</em>[2]指出的,多线程编程的问题是,这样的方式是一种落后的方式,使得程序在一开始就变得不确定,然后通过使用信号量,锁机制还有监视器来减少不确定性.</p>
+<p>  最近Google推出了一门新语言Go(这里的最近是指2009年).Go是并发的并且具有垃圾回收的系统编程语言[3],目标之一就是迎合多核编程的挑战使得并发编程更加简便.Go不使用多线程模型,而是通过Go的routine（基于CSP的communication通道).任何Go语言中的函数,能够作为串行编程模型中的普通routine或者用关键字<code>go</code>在前端执行一个Goroutine,在运行时里面一个被调用的Goroutine是和调用者routine并发执行的，而不管他们是否运行在同一个CPU上.从编程这的角度来说,Go routine是并发的归宿,而且对比于之前的锁方式等等，有更加良好的确定性.Go在CSP的communication通道的基础上,扩展了无缓冲区大小的通道来实现异步发送(或写)操作.通道是Go语言的预定义类型(first-class),能够从一个routine传递到另一个routine.Goroutine和CSP通道的结合提供了一个强大的机制来来保证达到一个期望的确定性的并发计算。</p>
+<p>  在这篇论文中,我们将通过两个例子展示Go语言在并行编程方面体现的多核利用率.第一个例子在第二节中讨论,是没有同步和通道的并行积分问题.第二段程序在第三节中讨论,是一个并发动态规划的问题,需要在多个并发任务中实现同步,第四节总结这篇论文.</p>
+<h2 id="2-并行计算积分"><a href="#2-并行计算积分" class="headerlink" title="2 并行计算积分"></a>2 并行计算积分</h2><p>  计算积分是一个用来展示并发编程和它本身加速度(表示的是多处理器执行时间和单处理器执行时间的比值)的常见例子,例如一个函数\(f(x)\),在\([a,b]\)上的积分.</p>
+<p>$$ \int_a^b f(x),dx $$</p>
+<p>  能够通过\(n\)个在曲线下方的长方形来求和估计计算\(f(x)\),</p>
+<p>$$ \sum\limits^{n-1}_{i=0} hf(a+h(i+\frac{1}{2})) $$</p>
+<p>  因为\(h = \frac{a-b}{n}\)是小长方体的宽度.因为只有有限个\(np\),并且\(np &lt;&lt; n\),所以只要创建\( np\)个计算组,每个计算组分配给一个处理器就可以得出结果.为了平衡处理器之间的计算,我们用阻塞公式(blocking formula)[5]来把n个矩形\(0,\cdots,n-1\)平均分配到\( np\)个计算组里.</p>
+<p>$$ \lfloor \frac{i*n}{np} \rfloor,\lfloor \frac{i*n}{np} \rfloor + 1,\cdots,\lfloor \frac{(i+1)*n}{np} \rfloor - 1  $$</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">func f(a float64) float64 &#123;</span><br><span class="line">	return 4.0/(1.0 + a * a)</span><br><span class="line">&#125;</span><br><span class="line">func chunk(start, end int64, c chan float64) &#123;</span><br><span class="line">	var sum float64 = 0.0</span><br><span class="line">	for i:= start; i &lt; end; i++ &#123;</span><br><span class="line">		x := h * (float64(i) + 0.5)</span><br><span class="line">		sum += f(x)</span><br><span class="line">	&#125;</span><br><span class="line">	c &lt;- sum * h</span><br><span class="line">&#125;</span><br><span class="line">func main() &#123;</span><br><span class="line">	runtime.GOMAXPROCS(np);</span><br><span class="line">	h = 1.0/float64(n)</span><br><span class="line">	..//start timing</span><br><span class="line">	c := make(chan float64, np)</span><br><span class="line">	for i:=0; i &lt; np; i++ &#123;</span><br><span class="line">		go chunk(int64(i)*n/int64(np),</span><br><span class="line">		(int64(i)+1)*n/int64(np), c)</span><br><span class="line">	&#125;</span><br><span class="line">	for i:=0; i &lt; np; i++ &#123;</span><br><span class="line">		pi += &lt;-c</span><br><span class="line">	&#125;</span><br><span class="line">	...//end timing</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>代码1:计算Pi的代码.</p>
+<p>  通过循环触发Goroutine来实现np个子算组的并行运算,代码1显示了被省略的Go代码来计算Pi的积分:</p>
+<p>$$ \pi=\int_0^1 \frac{4}{1+x^2},dx $$</p>
+<p>  计算一个计算组是通过 <code>chunk(start,end int,c chan float64)</code>这个函数实现的,这个函数计算从<em>start</em>到<em>end</em>之间的矩形面积.<code>Channel c</code>则是用来在结束的时候进行同步,并且把计算组的结果送到main routine.</p>
+<img data-src="/zh-CN/2014/12/02/Multi-Core-Parallel-Programming-in-Go/figure2.png" class="">
+<p>图2:执行时间</p>
+<p>  主routine 通过建立运行时来开始所有在\(np\)个处理器上的Go routine,通过调用<code>rutime.GOMAXPROCS(np)</code>就可以实现.<code>make</code>语句构造了一个有np大小缓存的通道,第一个循环是通过chunk开始所有的routine,并且把通道传递进去.这些routine和main routine并发执行.</p>
+<img data-src="/zh-CN/2014/12/02/Multi-Core-Parallel-Programming-in-Go/figure3.png" class="">
+<p>图3:积分的加速度 </p>
+<p><code>pi+= &lt;-c</code>会执行np次,累加以获得pi的结果,在第一个<code>chunck()</code>调用的时候,通道为空,从空的通道读取会阻塞main routine.第二个循环在接受了所有routine的</p>
+<p>  结果之后终止,pi就会得到最终结果.</p>
+<p>  我们在一个八核AMD Opteron(tm) 2.8GHz 1024KB cache的处理器上.我们把问题的n从\(10^4\)调整到\(10^10\)然后把处理器个数从1提升到8.图2 展示了,并行Go计算pi的效率.对于小的问题规模\( (n = 10^4,10^5) \),使用多核不能增加的执行时间,这是因为过多的调度和初始化routine导致的,大部分时间没有执行并行计算.当问题规模n变大的时候\((n = 10^8,10^9,10^10)\),使用多处理器能够显著的增加执行时间.</p>
+<p>  为了能够体现并发执行的加速度(speedup),我们可以通过下面的式子计算速度:</p>
+<p>$$ S_{np} = \frac{T_1}{T_{np}} $$</p>
+<p>  在这里 \(T_1\)和\(T_{np}\) 是1个处理器和np个处理器.他们对应的结果在图3中.注意,当问题规模非常大的时候,增长几乎就是线性的了,特别是问题规模达到\(n=10^9\)的时候,几乎能达到7.79,这个时候处理器的个数是8个.</p>
+<h2 id="3-并发的动态规划"><a href="#3-并发的动态规划" class="headerlink" title="3 并发的动态规划"></a>3 并发的动态规划</h2><p>  现在我们转向第二个多核并发的例子,这个例子是一个动态规划问题.动态规划旨在存在最优子结构的问题的解决,并且动态规划还要解决重叠问题[6],只计算一次子问题,然后把结果存在备忘录中,也就是一个用来查询结果的表结构.这种方式很多时候能把时间复杂度从指数级降低到多项式的级别.我们使用优化二分搜索树问题来展示动态规划的多核并行方式.</p>
+<p>  给出n个key,\(k_1,\cdots,k_n\)和他们的概率分布\(p_1,\cdots,p_n\),优化二分树搜索问题是找到二分搜索树(BST)的key的最小平均时间.</p>
+<p>  设\(BST_{i,j}\)为优化BST,存储了key,\(k_1,\cdots,k_n(j&gt;=i-1)\),并且\(MST_{i,j}\)代表最小搜索时间(mean search time,MST),\(BST_{i,i}\)是一个只有root \(k_i(1 &lt;= i &lt;= n)\) 的单一节点，它的最小搜索时间是\(MST_{i,i}\),也就是\(p_i\).另外\(BST_{i,i-1}\)是一颗空树\((1 &lt;= i &lt;= n)\),并且它的最小搜索时间是\(MST_{i,i-1}=0\)</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><span class="line">var (</span><br><span class="line">	cost [n+1][n+1]float</span><br><span class="line">	root [n+1][n+1]int</span><br><span class="line">	prob [n]float</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">func mst(i,j int) &#123;</span><br><span class="line">	var bestCost float = 1e9 + 0.0</span><br><span class="line">	var bestRoot int = -1</span><br><span class="line">	switch &#123;</span><br><span class="line">		case i &gt;= j:</span><br><span class="line">			// 如果是空树,代价为0,没有根节点,注意i==j也是空的,j-1,j才是本结点</span><br><span class="line">			cost[i][j] = 0.0</span><br><span class="line">			root[i][j] = -1</span><br><span class="line">		case i+1==j:</span><br><span class="line">			// 如果是单结点,就是自己的概率</span><br><span class="line">			cost[i][j] = prob[i]</span><br><span class="line">			root[i][j] = i+1</span><br><span class="line">		case i+1 &lt; j:</span><br><span class="line">			// 如果是非单结点树,这里要注意的是,如果子树增加了一个root深度就会+1</span><br><span class="line">			// 所以每个子树的期望就会增加这个子树的所有结点的概率和,再加上一个根节本身的深度时1所以期望也就是概率的值</span><br><span class="line">			// 所以整个增加的期望就是构成的整个树的结点的概率和,这就是为什么要算psum.</span><br><span class="line">			psum := 0.0</span><br><span class="line">			for k := i; k &lt;= j-1; k++ &#123;</span><br><span class="line">				psum += prob[k]</span><br><span class="line">			&#125;</span><br><span class="line">			// 计算出子树期望和最小的情况,这里利用了最优子结构.</span><br><span class="line">			for r := i; r &lt;= j-1; r++ &#123;</span><br><span class="line">				rcost := cost[i][r] + cost[r+1][j]</span><br><span class="line">				if rcost &lt; bestCost &#123;</span><br><span class="line">					bestCost = rcost</span><br><span class="line">					bestRoot = r+1</span><br><span class="line">			&#125;</span><br><span class="line">			cost[i][j] = bestCost + psum</span><br><span class="line">			root[i][j] = bestRoot</span><br><span class="line">		&#125;</span><br><span class="line">&#125;</span><br><span class="line">func main()&#123;</span><br><span class="line">	...// initialize prob[]</span><br><span class="line">	for i:=n; i&gt;=0; i-- &#123;</span><br><span class="line">		for j:=i; j &lt;= n; j++ &#123;</span><br><span class="line">			mst(i,j)</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>代码4: 动态规划算法</p>
+<p>  如果优化二叉搜索树\(k_1,\cdots,k_n \),把\( k_r ( 1 &lt;= r &lt;= n) \)作为根节点,那么左子树\(k_1,\cdots,k_{r-1}\)和右子树\(k_{r+1},\cdots,k_n\)必须也是最优化的(这个用反证法可以证明).因此,\(MST_{i,j}\)能够递归定义成</p>
+<p>$$ MST_{i,h} = \min_{i&lt;=r&lt;==j} (MST_{i,r-1} + MST_{r+1,h}) + \sum_{k=i}^jp_k $$</p>
+<p>  这个公式能够决定MST的最小子树的r对应的这棵树的根节点.</p>
+<p>  存储MST的结构是矩阵(n+1)X(n+1)的上三角部分,这个矩阵对应的是最小搜索时间MST的cost[n+1][n+1].特别地 MSTi,j 存储在cost[i-1][j].相似地,\(k_i,\cdots,k_j\)优化二叉搜索树的根节点存储在root[i-1][j],root是另外一个root[n+1][n+1]矩阵.时间的概率的分布存储在数组prob[n]中,\(p_i\)对应prob[i-1].</p>
+<img data-src="/zh-CN/2014/12/02/Multi-Core-Parallel-Programming-in-Go/figure5.png" class="">
+
+<p>图5:任务间的数据依赖.</p>
+<p>  寻找最优二叉搜索树的串行动态规划算法[7]的代码在 代码4 中展示.总得来说,这个算法计算cost[i][j](0 &lt;= i &lt;= j &lt;= n)时是需要递归使用cost[i][i],cost[i][i+1],…,cost[i][j-1]和cost[i+1][j],cost[i+2][j],…,cost[j][j]的值的.cost[i][j]的计算依赖于cost[i][j-1],cost[i+1][j]的依赖.<br>图5展示了用来计算cost[i][j]的数据结构.这是因为串行算法里面的嵌套循环从按照从下到上以及从左到右来计算cost[i][j]的,当并行化这个算法的时候,我们必须借助这个数据依赖.</p>
+<p>  原则上,我们可以构造(n+1)*(n+1)/2大小的矩阵,一个来记录cost,但是这个并行任务的粒度太小了,会使得调度和同步的代价过高,而挤占了并行计算的资源.为了能够控制并行计算的粒度,我们把任务空间切分成 vp(vp+1)/2 个块,并且把每个快分配给一个Goroutine作为一个运算单元.</p>
+<p>  在每个任务块内,Goroutine以自顶向下或者由下而上的顺序计算二维数组cost,root的一部分.为了能够实现数据块间的数据依赖,要使用channels进行同步.</p>
+<img data-src="/zh-CN/2014/12/02/Multi-Core-Parallel-Programming-in-Go/figure6.png" class="">
+
+<p>  图6展示了10个数据块,vp=4,数据规模n=11的一个用Gochannel同步的结果.每个点代表了数组cost的一个元素的计算称作point.任务块之间的箭头时Gochannel的同步.特别地,一个数据块左数据块和下数据块计算完毕才能够开始计算.每个任务块都有一个下标\((i,j)(0&lt;=i&lt;=j&lt;=vp-1)\).Channels能够通过发送给通道的任务块来识别.特别的,title(i,j)通过水平线上的channel \(h_{i,j}\)把信号传送给右边的title(i,j+1)(如果不是在最上面),或者通过水平的通道把信号发送到上面的title(i-1,j).在对角线上的title(i,j)(i==j)能够开始计算,因为他们没有依赖于任何其他的任务块的计算.最右上角的(vp-1,vp-1)时最后一个计算的.为了能够发送结束的信号,有另外一个finish通道用来告知main routine计算的结束.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br></pre></td><td class="code"><pre><span class="line">var h,v [vp][vp] chan int</span><br><span class="line">var finish chan int</span><br><span class="line">..//declare other variables and constants</span><br><span class="line">func creatChan() &#123;</span><br><span class="line">	for i:=0; i &lt; vp; i++ &#123;</span><br><span class="line">		for j:=i; j &lt; vp; j++ &#123;</span><br><span class="line">			if j &lt; vp-1 &#123;h[i][j] = make(chan int, 1)&#125;</span><br><span class="line">			if i &gt; 0</span><br><span class="line">			&#123;v[i][j] = make(chan int, 1)&#125;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line">func mst(i,j int) &#123;</span><br><span class="line">	... // the same as in the sequetial code</span><br><span class="line">&#125;</span><br><span class="line">func chunk(i,j int) &#123;</span><br><span class="line">	var bb int</span><br><span class="line">	il := (i * (n+1))/vp</span><br><span class="line">	//block-low for i</span><br><span class="line">	ih := ((i+1) * (n+1))/vp - 1</span><br><span class="line">	//block-high for i</span><br><span class="line">	jl := (j * (n+1))/vp</span><br><span class="line">	//block-low for j</span><br><span class="line">	jh := ((j+1) * (n+1))/vp - 1</span><br><span class="line">	//block-high for j</span><br><span class="line">	if i &lt; j &#123;</span><br><span class="line">		// not a tile on the diagonal</span><br><span class="line">		&lt;-h[i][j-1] // receive from the left</span><br><span class="line">		&lt;-v[i+1][j] // receive from below</span><br><span class="line">	&#125;</span><br><span class="line">	for ii:=ih; ii &gt;= il; ii-- &#123;</span><br><span class="line">		if i==j &#123; bb = ii &#125; else &#123; bb = jl &#125;</span><br><span class="line">		for jj:=bb; jj &lt;= jh; jj++ &#123;</span><br><span class="line">			mst(ii,jj)</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">	if j &lt; vp-1 &#123;// not a tile on the right border</span><br><span class="line">		h[i][j] &lt;- 1</span><br><span class="line">	&#125;</span><br><span class="line">	if i &gt; 0 &#123;</span><br><span class="line">		// not a tile on the top border</span><br><span class="line">		v[i][j] &lt;- 1</span><br><span class="line">	&#125;</span><br><span class="line">	if i==0 &amp;&amp; j==vp-1 &#123;//the last tile</span><br><span class="line">		finish &lt;- 1</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line">func main() &#123;</span><br><span class="line">	...//read flags</span><br><span class="line">	runtime.GOMAXPROCS(np)</span><br><span class="line">	... //start timing</span><br><span class="line">	creatChan()</span><br><span class="line">	finish = make(chan int, 1)</span><br><span class="line">	for d:=0; d &lt; vp; d++ &#123;//sub-diagonal of j=i+d</span><br><span class="line">		for i:=0; i+d&lt;vp; i++ &#123;</span><br><span class="line">			go chunk(i, i+d)</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">	&lt;-finish</span><br><span class="line">	....//end timing</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>代码7 Go语言并行动态规划</p>
+<img data-src="/zh-CN/2014/12/02/Multi-Core-Parallel-Programming-in-Go/figure8.png" class="">
+
+<p>图8 规模2000的执行时间</p>
+<p>  我们选择设定问题规模为2000来进行实验,来保证足够大的精确测量.我们需要在八核AMD Opteron(tm)微处理器运行图7中的并行代码,改变每个维度的block的数量,从1,2,4,8,…,1024和2001.当vp越大的时候,粒度越小.vp=1对应了粒度最大的情况,没有并行,只有一个数据块.这种情况只有一个Goroutine调用,一个channel finish.<br>执行时间几乎就像串行结果一样的,不管多少处理器被利用.vp=2001的时候对应粒度最小的最大任务块,每个点都有一个.<br>图8展示了不同的vp和不同处理器np的情况下并行执行时间.对于每种vp和np的组合,我们运行5次,用单用户模式,计算平均值并放入图8中.<br>注意np=1的时候执行时间.我们能够观察到执行时间会递减,当vp从1增加到32,这是因为vp的增加创造了更多的任务块并且增加了缓存的命中率.<br>当vp从32增加到2001的时候,执行时间却反而增加了,这是因为缓存命中率降低并且过多的创建和调度Goroutine的结果导致的.<br>我们运行另一个去除所有的channel和routine调用的串行但是分块的代码(这段代码没有展示),它的执行时间近似于图8 ¨seq-tile¨ 的曲线,这个时间真正的体现了没有goroutine的时候的缓存命中率的效果.因此¨seq-tile¨和¨np=1¨之间的距离就是Go调度和调用的代价.<br>对于vp=2001,右2,003,001 个Goroutine的调用,¨np=1¨和¨seq-title¨时62.318429-43.351857=18.966572秒.因此,创建和调度Goroutin的代价对于每个处理器来说平均时\( \frac{18.966572}{2003001} = 9.46*10^{-6}\)秒,也就时9.46us.<br>np&gt;1时的多核并行执行时间是小于np=1时的运行时间.但是np=1时,有goroutine的调用和调度的开销,这在串行执行的时候并不是完全需要的.我们用分块的串行时间¨seq-time¨作为基础来计算并行计算加速度.特别的,np&gt;=1的处理器</p>
+<p>$$ S_{np}=\frac{T_{ts}}{T_{np}} $$</p>
+<img data-src="/zh-CN/2014/12/02/Multi-Core-Parallel-Programming-in-Go/figure9.png" class="">
+
+<p>  \(T_{ts}\)和\(T_{np}\)分别对应串行时间和使用np处理器的并行时间.图9 显示了不同任务块大小的并行运行时间和串行时间的比较.最好的加速度vp=128的时候.对于8个处理器的时候,加速度是7.70.当vp从128增加的时候,粒度减小而Goroutine调度和调用拖累了执行过程,降低了加速度.图9(a)当vp从128降低的时候,粒度增加而且没有足够的任务块,因此降低了并发度,也降低了加速度.图9(b)展示了降低了的加速度.</p>
+<p>##4 总结</p>
+<p>  我们展示了Go的两个问题的并行代码,并行积分和并行动态规划问题.这些代码展示了Go在编写多核并行代码的简易性.我们同样测量了代码的性能.最高的加速度分别时7.79和7.70.初始化和调度Goroutine的代价在使用一个处理器的时候只有9.46us.因为并行计算倾向于计算大块的任务,Goroutine的量级如此之小,基本上可以忽略.</p>
+<h2 id="引用"><a href="#引用" class="headerlink" title="引用"></a>引用</h2><ul>
+<li> [1] Shameen Akhter and Jason Roberts. Mutli-Core Programming: Increasing Performance through Software Multi-threading. Intel Press, 2006.</li>
+<li> [2] Edward A. Lee. The problem with threads. IEEE Computer, 39(5):33–42, May 2006.</li>
+<li> [3] Go Team.The Go programming language specification.Technical Report <a target="_blank" rel="noopener" href="http://golang.org/doc/doc/go">http://golang.org/doc/doc/go</a> spec.html,Google Inc., 2009.</li>
+<li> [4] C.A.R. Hoare. Communication Sequential Processes.Prentice Hall, 1985.</li>
+<li> [5] Michael J. Quinn. Parallel Programming in C with MPI and OpenMP. McGraw-Hill, 2004.</li>
+<li> [6] Thomas H. Corman, Charles E. Leiserson, Ronald L.Rivest, and Clifford Stein. Introductions to Algorithms,2nd Edition. McGraw-Hill Book Company, 2001.</li>
+<li> [7] Sara Baase and Allen Van Gelder. Computer Algorithms: Introduction to Design and Analysis (3rd Ed).Addison-Wesley, 2000.</li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Go/" rel="tag"># Go</a>
+              <a href="/tags/%E8%AE%BA%E6%96%87/" rel="tag"># 论文</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+            </div>
+            <div class="post-nav-item">
+                <a href="/zh-CN/2015/04/20/first-post/" rel="next" title="hexo 搭建博客">
+                  hexo 搭建博客 <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 2014 – 
+    <span itemprop="copyrightYear">2025</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+  </div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/mist/" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.umd.js" integrity="sha256-a+H7FYzJv6oU2hfsfDGM2Ohw/cR9v+hPfxHCLdmCrE8=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lozad.js/1.16.0/lozad.min.js" integrity="sha256-mOFREFhqmHeQbXpK2lp4nA3qooVgACfh88fpJftLBbc=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/sidebar.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+  <script src="/js/third-party/fancybox.js"></script>
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"ggaaooppeenngg","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

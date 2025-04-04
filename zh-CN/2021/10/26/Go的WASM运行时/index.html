@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.3.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="_85tctgPWrqH2EPVuuD5IT6KE-tW8nH0hTISJDMnShg">
+  <meta name="baidu-site-verification" content="bb16c5b1fd3302c18e0015bef11eea42">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha256-dABdfBfUoC8vJUBOwGVdm8L9qlMWaHTIfXt+7GnZCIo=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.css" integrity="sha256-gkQVf8UKZgQ0HyuxL/VnacadJ+D2Kox2TCEBuNQg5+w=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="WASM 作为一种通用字节码可以让很多语言编译成 WASM 跑在沙箱VM环境当中：跑在浏览器的 V8 引擎上，让别的语言可以写前端、构建成 Istio 的代理 Envoy 的 WASM 插件形成一些过滤器或者日志插件（有点像内核的 eBPF）、作为各种语言的浇水层（让Rust调用Go编译出的WASM）。  The major problem is that, whilst the Go compi">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Go的WASM运行时">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2021/10/26/Go%E7%9A%84WASM%E8%BF%90%E8%A1%8C%E6%97%B6/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="WASM 作为一种通用字节码可以让很多语言编译成 WASM 跑在沙箱VM环境当中：跑在浏览器的 V8 引擎上，让别的语言可以写前端、构建成 Istio 的代理 Envoy 的 WASM 插件形成一些过滤器或者日志插件（有点像内核的 eBPF）、作为各种语言的浇水层（让Rust调用Go编译出的WASM）。  The major problem is that, whilst the Go compi">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2021-10-26T07:56:55.000Z">
+<meta property="article:modified_time" content="2025-03-28T10:39:05.135Z">
+<meta property="article:author" content="ggaaooppeenngg">
+<meta property="article:tag" content="Go">
+<meta property="article:tag" content="WASM">
+<meta property="article:tag" content="runtime">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2021/10/26/Go%E7%9A%84WASM%E8%BF%90%E8%A1%8C%E6%97%B6/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://ggaaooppeenngg.github.io/zh-CN/2021/10/26/Go%E7%9A%84WASM%E8%BF%90%E8%A1%8C%E6%97%B6/","path":"zh-CN/2021/10/26/Go的WASM运行时/","title":"Go的WASM运行时"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>Go的WASM运行时 | ggaaooppeenngg</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-62096626-1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"UA-62096626-1","only_pageview":false,"measure_protocol_api_secret":null}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+  <script src="/js/third-party/analytics/baidu-analytics.js"></script>
+  <script async src="https://hm.baidu.com/hm.js?bb16c5b1fd3302c18e0015bef11eea42"></script>
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">ggaaooppeenngg</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">为什么计算机科学是无限的但生命是有限的</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">134</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">14</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">78</span></a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%B0%83%E5%BA%A6"><span class="nav-number">1.</span> <span class="nav-text">调度</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%86%85%E5%AD%98%E5%88%86%E9%85%8D"><span class="nav-number">2.</span> <span class="nav-text">内存分配</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%B3%BB%E7%BB%9F%E8%B0%83%E7%94%A8"><span class="nav-number">3.</span> <span class="nav-text">系统调用</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">78</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">14</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">134</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/ggaaooppeenngg" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;ggaaooppeenngg" rel="noopener me" target="_blank"><i class="github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:peng.gao.dut@gmail.com" title="E-Mail → mailto:peng.gao.dut@gmail.com" rel="noopener me" target="_blank"><i class="envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+        <div class="back-to-top animated" role="button" aria-label="返回顶部">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2021/10/26/Go%E7%9A%84WASM%E8%BF%90%E8%A1%8C%E6%97%B6/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="Go的WASM运行时 | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Go的WASM运行时
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2021-10-26 15:56:55" itemprop="dateCreated datePublished" datetime="2021-10-26T15:56:55+08:00">2021-10-26</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2025-03-28 18:39:05" itemprop="dateModified" datetime="2025-03-28T18:39:05+08:00">2025-03-28</time>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2021/10/26/Go%E7%9A%84WASM%E8%BF%90%E8%A1%8C%E6%97%B6/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2021/10/26/Go的WASM运行时/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>WASM 作为一种通用字节码可以让很多语言编译成 WASM 跑在沙箱VM环境当中：跑在浏览器的 V8 引擎上，让别的语言可以写前端、<br>构建成 Istio 的代理 Envoy 的 WASM 插件形成一些过滤器或者日志插件（有点像内核的 eBPF）、作为各种语言的浇水层（让Rust调用Go编译出的WASM）。</p>
+<blockquote>
+<p>The major problem is that, whilst the Go compiler supports WebAssembly, it does not support WASI (WebAssembly System Interface). It generates an ABI that is deeply tied to JavaScript, and one needs to use the wasm_exec.js file provided by the Go toolchain, which doesn’t work outside a JavaScript host.</p>
+</blockquote>
+<p>Go 的 WASM 目前没有支持 WASI，类似于没有 native 的系统调用，所以很多文件、网络的请求不能通过系统执行，目前只能跑在浏览器通过浏览器的接口执行。<br><a target="_blank" rel="noopener" href="https://github.com/tinygo-org/tinygo">TinyGo</a> 是一个支持比较好的 WASM 的 Go 的运行时，有些需要WASI的项目就需要TinyGo来构建。</p>
+<h2 id="调度"><a href="#调度" class="headerlink" title="调度"></a>调度</h2><p>WASM 是一个单线程的环境，js 是一个基于事件的模型，对于 goroutine 的调度是如何进行的，本着这个好奇研究了一下 Go 本身的 WASM 运行时。比如下面这段代码就明确了 Go 的 WASM 没有多线程也就没有跑 sysmon。<br>没有sysmon就相当于sysmon的forcegc触发gc的部分也没有，只能靠主动GC和内存分配的时候触发超过阈值开始gc。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> GOARCH != <span class="string">&quot;wasm&quot;</span> &#123; <span class="comment">// no threads on wasm yet, so no sysmon</span></span><br><span class="line">        <span class="comment">// For runtime_syscall_doAllThreadsSyscall, we</span></span><br><span class="line">        <span class="comment">// register sysmon is not ready for the world to be</span></span><br><span class="line">        <span class="comment">// stopped.</span></span><br><span class="line">        atomic.Store(&amp;sched.sysmonStarting, <span class="number">1</span>)</span><br><span class="line">        systemstack(<span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;</span><br><span class="line">                newm(sysmon, <span class="literal">nil</span>, <span class="number">-1</span>)</span><br><span class="line">        &#125;)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在这里回忆一下 GMP 的关系。P的数量由启动时环境变量 $GOMAXPROCS 或者是由 runtime 的方法 GOMAXPROCS() 决定。这意味着在程序执行的任意时刻都只有 $GOMAXPROCS 个 goroutine 在同时运行。<br>M的数量可以通过 runtime/debug 中的 SetMaxThreads 函数，设置 M 的最大数量一个 M 阻塞了，会创建新的 M。<br>M 与 P 的数量没有绝对关系，一个 M 阻塞，P 就会去创建或者切换另一个 M，所以，即使 P 的默认数量是 1，也有可能会创建很多个 M 出来。<br>在确定了 P 的最大数量 n 后，运行时系统会根据这个数量创建 n 个 P。<br>没有足够的 M 来关联 P 并运行其中的可运行的 G。比如所有的 M 此时都阻塞住了，而 P 中还有很多就绪任务，就会去寻找空闲的 M，而没有空闲的，就会去创建新的 M。</p>
+<p>这个关系在对应的代码里面也有体现，在 osinit 的时候会强制将 P 设置为1，newosproc 也是空的，无法启动新进程。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">osinit</span><span class="params">()</span></span> &#123;</span><br><span class="line">        ncpu = <span class="number">1</span></span><br><span class="line">        getg().m.procid = <span class="number">2</span></span><br><span class="line">        physPageSize = <span class="number">64</span> * <span class="number">1024</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>没有 sysmon 也就没有异步抢占，只能靠 goroutine 之间的协作式抢占来切换 goroutine。</p>
+<p>在 schedule 里面也有一段专用的调度逻辑。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// wasm only:</span></span><br><span class="line"><span class="comment">// If a callback returned and no other goroutine is awake,</span></span><br><span class="line"><span class="comment">// then wake event handler goroutine which pauses execution</span></span><br><span class="line"><span class="comment">// until a callback was triggered.</span></span><br><span class="line">gp, otherReady := beforeIdle(now, pollUntil)</span><br><span class="line"><span class="keyword">if</span> gp != <span class="literal">nil</span> &#123;</span><br><span class="line">        casgstatus(gp, _Gwaiting, _Grunnable)</span><br><span class="line">        <span class="keyword">if</span> trace.enabled &#123;</span><br><span class="line">                traceGoUnpark(gp, <span class="number">0</span>)</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> gp, <span class="literal">false</span></span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">if</span> otherReady &#123;</span><br><span class="line">        <span class="keyword">goto</span> top</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>等于是在 wasm 中在找不到 G 的时候会启动一个 pause goroutine 占住当前的 P。</p>
+<p>Lock_js 有 handle event 的逻辑。</p>
+<h2 id="内存分配"><a href="#内存分配" class="headerlink" title="内存分配"></a>内存分配</h2><p>通过 WASM 的内存分配接口代替 linux 里面的 mmap 接管过来做内存分配。</p>
+<h2 id="系统调用"><a href="#系统调用" class="headerlink" title="系统调用"></a>系统调用</h2><p>系统调用是使用 js 实现的，而且也不是像 linux 那种完整一套系统调用这个可能需要 WASI 的支持。<br>没有系统调用 M 也不会阻塞，等于是一个完全的单 P 单 M 多 G 的模型。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">var</span> jsProcess = js.Global().Get(<span class="string">&quot;process&quot;</span>)</span><br><span class="line"><span class="keyword">var</span> jsFS = js.Global().Get(<span class="string">&quot;fs&quot;</span>)</span><br><span class="line"><span class="keyword">var</span> constants = jsFS.Get(<span class="string">&quot;constants&quot;</span>)</span><br></pre></td></tr></table></figure>
+
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Go/" rel="tag"># Go</a>
+              <a href="/tags/WASM/" rel="tag"># WASM</a>
+              <a href="/tags/runtime/" rel="tag"># runtime</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/zh-CN/2021/07/19/%E5%9C%A8goroutine%E4%B8%8A%E5%88%9B%E5%BB%BA%E5%8D%8F%E7%A8%8Bgogoroutine/" rel="prev" title="在goroutine上创建协程gogoroutine">
+                  <i class="fa fa-angle-left"></i> 在goroutine上创建协程gogoroutine
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/zh-CN/2021/12/02/Knative-%E6%9E%B6%E6%9E%84%E5%88%86%E6%9E%90/" rel="next" title="Knative 架构分析">
+                  Knative 架构分析 <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 2014 – 
+    <span itemprop="copyrightYear">2025</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+  </div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/mist/" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.umd.js" integrity="sha256-a+H7FYzJv6oU2hfsfDGM2Ohw/cR9v+hPfxHCLdmCrE8=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lozad.js/1.16.0/lozad.min.js" integrity="sha256-mOFREFhqmHeQbXpK2lp4nA3qooVgACfh88fpJftLBbc=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/sidebar.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+  <script src="/js/third-party/fancybox.js"></script>
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"ggaaooppeenngg","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

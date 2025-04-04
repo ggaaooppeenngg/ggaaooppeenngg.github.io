@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.3.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="_85tctgPWrqH2EPVuuD5IT6KE-tW8nH0hTISJDMnShg">
+  <meta name="baidu-site-verification" content="bb16c5b1fd3302c18e0015bef11eea42">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha256-dABdfBfUoC8vJUBOwGVdm8L9qlMWaHTIfXt+7GnZCIo=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.css" integrity="sha256-gkQVf8UKZgQ0HyuxL/VnacadJ+D2Kox2TCEBuNQg5+w=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="CacheBlend的主要目标是在一些RAG场景下，多个文档Chunk之间不能像多轮对话那样构成Prefix Cache。   对于位置编码来说，RoPE得到的注意力是绝对位置无关的，所以两个下三角放到对应的位置就可以。但是，两个Chunk之间的交叉注意力机制实际上是空的，如果单纯这样使用会丢失交叉注意力的信息。 论文中提到了一个例子。   在比较两个球员进球数的场景中，就损失了球员之间的交叉信息">
+<meta property="og:type" content="article">
+<meta property="og:title" content="CacheBlend分析">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2025/01/24/CacheBlend%E5%88%86%E6%9E%90/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="CacheBlend的主要目标是在一些RAG场景下，多个文档Chunk之间不能像多轮对话那样构成Prefix Cache。   对于位置编码来说，RoPE得到的注意力是绝对位置无关的，所以两个下三角放到对应的位置就可以。但是，两个Chunk之间的交叉注意力机制实际上是空的，如果单纯这样使用会丢失交叉注意力的信息。 论文中提到了一个例子。   在比较两个球员进球数的场景中，就损失了球员之间的交叉信息">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2025/01/24/CacheBlend%E5%88%86%E6%9E%90/attention.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2025/01/24/CacheBlend%E5%88%86%E6%9E%90/loss.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2025/01/24/CacheBlend%E5%88%86%E6%9E%90/r.png">
+<meta property="article:published_time" content="2025-01-24T08:55:33.000Z">
+<meta property="article:modified_time" content="2025-03-28T10:39:05.127Z">
+<meta property="article:author" content="ggaaooppeenngg">
+<meta property="article:tag" content="KVCache">
+<meta property="article:tag" content="CacheBlend">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://ggaaooppeenngg.github.io/zh-CN/2025/01/24/CacheBlend%E5%88%86%E6%9E%90/attention.png">
+
+
+<link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2025/01/24/CacheBlend%E5%88%86%E6%9E%90/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://ggaaooppeenngg.github.io/zh-CN/2025/01/24/CacheBlend%E5%88%86%E6%9E%90/","path":"zh-CN/2025/01/24/CacheBlend分析/","title":"CacheBlend分析"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>CacheBlend分析 | ggaaooppeenngg</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-62096626-1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"UA-62096626-1","only_pageview":false,"measure_protocol_api_secret":null}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+  <script src="/js/third-party/analytics/baidu-analytics.js"></script>
+  <script async src="https://hm.baidu.com/hm.js?bb16c5b1fd3302c18e0015bef11eea42"></script>
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">ggaaooppeenngg</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">为什么计算机科学是无限的但生命是有限的</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">134</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">14</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">78</span></a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-overview-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">78</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">14</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">134</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/ggaaooppeenngg" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;ggaaooppeenngg" rel="noopener me" target="_blank"><i class="github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:peng.gao.dut@gmail.com" title="E-Mail → mailto:peng.gao.dut@gmail.com" rel="noopener me" target="_blank"><i class="envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+        <div class="back-to-top animated" role="button" aria-label="返回顶部">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2025/01/24/CacheBlend%E5%88%86%E6%9E%90/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="CacheBlend分析 | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          CacheBlend分析
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2025-01-24 16:55:33" itemprop="dateCreated datePublished" datetime="2025-01-24T16:55:33+08:00">2025-01-24</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2025-03-28 18:39:05" itemprop="dateModified" datetime="2025-03-28T18:39:05+08:00">2025-03-28</time>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2025/01/24/CacheBlend%E5%88%86%E6%9E%90/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2025/01/24/CacheBlend分析/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>CacheBlend的主要目标是在一些RAG场景下，多个文档Chunk之间不能像多轮对话那样构成Prefix Cache。</p>
+<img data-src="/zh-CN/2025/01/24/CacheBlend%E5%88%86%E6%9E%90/attention.png" class="">
+
+<p>对于位置编码来说，RoPE得到的注意力是绝对位置无关的，所以两个下三角放到对应的位置就可以。但是，两个Chunk之间的交叉注意力机制实际上是空的，如果单纯这样使用会丢失交叉注意力的信息。</p>
+<p>论文中提到了一个例子。</p>
+<img data-src="/zh-CN/2025/01/24/CacheBlend%E5%88%86%E6%9E%90/loss.png" class="">
+
+<p>在比较两个球员进球数的场景中，就损失了球员之间的交叉信息。</p>
+<p>为了弥补下面那个空的矩形的注意力，同时尽量节省计算量，根据一些insights提出了一种选择性计算的方法。</p>
+<p>注意力矩阵是稀疏的，其中差异较大（颜色较深）的部分对最终结果贡献较大。另外，对于多层的Transformer，前几层的注意力差异往往会一直保持下去。因此，CacheBlend会完全重算第一层的注意力，然后标记差值较大的token，用它们的注意力来代表两个Chunk之间的完全注意力矩阵。当然，这还是有损的。</p>
+<p>其中的权衡在于选择多少比例的token来代表两个Chunk之间的注意力矩阵，这个比例是可以调整的。</p>
+
+
+<p>一个平衡点在于从异构存储中加载KVCache和重计算KVCache的时间。如果选择性计算token的时间大于加载的时间，则可以将这个过程流水线化。在计算当前层时，加载下一层的KVCache。</p>
+<p>比率<code>r%</code>刚好满足计算时间和加载时间相等。</p>
+<img data-src="/zh-CN/2025/01/24/CacheBlend%E5%88%86%E6%9E%90/r.png" class="">
+
+<p>尽管第一层高差异化的token的注意力比较重要，但只看第一层似乎不太合理。CacheBlend会用一个比<code>r%</code>更大的范围选择token，然后每一层逐渐递减<code>r%</code>，以容许更多的可能性。只从第一层选择<code>r%</code>可能会丢失一些重要信息。</p>
+<p>总体来说，利用交叉注意力的稀疏性选择性重计算Chunk之间的交叉注意力，并平衡加载和计算，使得计算过程和加载是并行的，时间损耗无影响。在精度上，选择一个较大的<code>r%</code>再每层缩小到理想<code>r%</code>来满足准确性。最终实验效果显示，与完全重算的交叉注意力相比，结果还是很接近的。</p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/KVCache/" rel="tag"># KVCache</a>
+              <a href="/tags/CacheBlend/" rel="tag"># CacheBlend</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/zh-CN/2025/01/23/vLLM%E7%9A%84PD%E5%88%86%E7%A6%BB/" rel="prev" title="vLLM的PD分离">
+                  <i class="fa fa-angle-left"></i> vLLM的PD分离
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/zh-CN/2025/02/16/AI-Infra-%E7%9A%84%E4%B8%BB%E8%A6%81%E6%8C%91%E6%88%98%E6%80%BB%E7%BB%93/" rel="next" title="AI Infra 的一些挑战">
+                  AI Infra 的一些挑战 <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 2014 – 
+    <span itemprop="copyrightYear">2025</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+  </div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/mist/" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.umd.js" integrity="sha256-a+H7FYzJv6oU2hfsfDGM2Ohw/cR9v+hPfxHCLdmCrE8=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lozad.js/1.16.0/lozad.min.js" integrity="sha256-mOFREFhqmHeQbXpK2lp4nA3qooVgACfh88fpJftLBbc=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/sidebar.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+  <script src="/js/third-party/fancybox.js"></script>
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"ggaaooppeenngg","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

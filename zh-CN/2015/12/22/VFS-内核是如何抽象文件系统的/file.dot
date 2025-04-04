@@ -1,0 +1,41 @@
+digraph file {
+
+graph [
+rankdir = "LR" // 竖着显示label
+];
+
+
+node [
+shape = "box"
+] "dentry:/","dentry:a","dentry:b",
+"dentry:ab","dentry:bc","dentry:bd",
+"inode:i1","inode:i2","inode:i3",
+"super_block";
+
+"process1" [
+label = "process1 |<p1f1> file1| <p1f2> file2"
+shape = "record"
+];
+
+"process2" [
+label = "process2 |<p2f1> file1| <p2f2> file2"
+shape = "record"
+];
+
+"dentry:/" -> "dentry:a"
+"dentry:/" -> "dentry:b"
+"dentry:a" -> "dentry:ab"
+"dentry:b" -> "dentry:bc"
+"dentry:b" -> "dentry:bd"
+
+"dentry:ab" -> "inode:i1"
+"dentry:bc" -> "inode:i1"
+"dentry:bd" -> "inode:i2"
+
+"process1":p1f1 -> "inode:i3"
+"process1":p1f2 -> "inode:i1"
+
+"process2":p2f1 -> "inode:i3"
+"process2":p2f2 -> "inode:i2"
+}
+

@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.3.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="_85tctgPWrqH2EPVuuD5IT6KE-tW8nH0hTISJDMnShg">
+  <meta name="baidu-site-verification" content="bb16c5b1fd3302c18e0015bef11eea42">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha256-dABdfBfUoC8vJUBOwGVdm8L9qlMWaHTIfXt+7GnZCIo=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.css" integrity="sha256-gkQVf8UKZgQ0HyuxL/VnacadJ+D2Kox2TCEBuNQg5+w=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="LLM推理的核心在于KVCache的调度。  尽可能多次重用KV缓存，以减少所需的计算资源； 每批次最大化token数量，从而改善Model FLOPs Utilization (MFU)。  如果从远程内存获取KVCache，会增加数据传输时间，从而延长TTFT（Time To First Token）。因此，当本地KVCache的增量计算时间少于传输时间时，可以复用本地的KVCache，即使它">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Mooncacke分析">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2024/12/25/Mooncacke%E5%88%86%E6%9E%90/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="LLM推理的核心在于KVCache的调度。  尽可能多次重用KV缓存，以减少所需的计算资源； 每批次最大化token数量，从而改善Model FLOPs Utilization (MFU)。  如果从远程内存获取KVCache，会增加数据传输时间，从而延长TTFT（Time To First Token）。因此，当本地KVCache的增量计算时间少于传输时间时，可以复用本地的KVCache，即使它">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2024/12/25/Mooncacke%E5%88%86%E6%9E%90/arch.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2024/12/25/Mooncacke%E5%88%86%E6%9E%90/kv_transfer.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2024/12/25/Mooncacke%E5%88%86%E6%9E%90/reject_policy.png">
+<meta property="article:published_time" content="2024-12-25T10:06:12.000Z">
+<meta property="article:modified_time" content="2025-03-28T10:39:05.165Z">
+<meta property="article:author" content="ggaaooppeenngg">
+<meta property="article:tag" content="Mooncake">
+<meta property="article:tag" content="kvcache">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://ggaaooppeenngg.github.io/zh-CN/2024/12/25/Mooncacke%E5%88%86%E6%9E%90/arch.png">
+
+
+<link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2024/12/25/Mooncacke%E5%88%86%E6%9E%90/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://ggaaooppeenngg.github.io/zh-CN/2024/12/25/Mooncacke%E5%88%86%E6%9E%90/","path":"zh-CN/2024/12/25/Mooncacke分析/","title":"Mooncacke分析"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>Mooncacke分析 | ggaaooppeenngg</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-62096626-1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"UA-62096626-1","only_pageview":false,"measure_protocol_api_secret":null}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+  <script src="/js/third-party/analytics/baidu-analytics.js"></script>
+  <script async src="https://hm.baidu.com/hm.js?bb16c5b1fd3302c18e0015bef11eea42"></script>
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">ggaaooppeenngg</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">为什么计算机科学是无限的但生命是有限的</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">134</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">14</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">78</span></a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%9E%B6%E6%9E%84"><span class="nav-number">1.</span> <span class="nav-text">架构</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#KVCache%E7%9A%84%E5%A4%8D%E5%88%B6"><span class="nav-number">2.</span> <span class="nav-text">KVCache的复制</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%B0%83%E5%BA%A6%E7%AE%97%E6%B3%95"><span class="nav-number">3.</span> <span class="nav-text">调度算法</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%8B%92%E7%BB%9D%E7%AD%96%E7%95%A5"><span class="nav-number">4.</span> <span class="nav-text">拒绝策略</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">78</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">14</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">134</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/ggaaooppeenngg" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;ggaaooppeenngg" rel="noopener me" target="_blank"><i class="github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:peng.gao.dut@gmail.com" title="E-Mail → mailto:peng.gao.dut@gmail.com" rel="noopener me" target="_blank"><i class="envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+        <div class="back-to-top animated" role="button" aria-label="返回顶部">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2024/12/25/Mooncacke%E5%88%86%E6%9E%90/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="Mooncacke分析 | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Mooncacke分析
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2024-12-25 18:06:12" itemprop="dateCreated datePublished" datetime="2024-12-25T18:06:12+08:00">2024-12-25</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2025-03-28 18:39:05" itemprop="dateModified" datetime="2025-03-28T18:39:05+08:00">2025-03-28</time>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2024/12/25/Mooncacke%E5%88%86%E6%9E%90/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2024/12/25/Mooncacke分析/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>LLM推理的核心在于KVCache的调度。</p>
+<ol>
+<li>尽可能多次重用KV缓存，以减少所需的计算资源；</li>
+<li>每批次最大化token数量，从而改善Model FLOPs Utilization (MFU)。</li>
+</ol>
+<p>如果从远程内存获取KVCache，会增加数据传输时间，从而延长TTFT（Time To First Token）。因此，当本地KVCache的增量计算时间少于传输时间时，可以复用本地的KVCache，即使它不是最匹配的。而增大batch意味着系统处理的大批量数据，导致TBT（Token Between Token）延长，可以将负载均衡到低负载的Decode Instance。</p>
+<h3 id="架构"><a href="#架构" class="headerlink" title="架构"></a>架构</h3><img data-src="/zh-CN/2024/12/25/Mooncacke%E5%88%86%E6%9E%90/arch.png" class="">
+
+<p>Mooncake的架构图主要分为三个部分：Prefill Instance，Decode Instance，Conductor。</p>
+<ol>
+<li>Cache-aware Prefill Scheduler：负责调度Request到Prefill Instance，主要考虑load和KVCache的复用率。</li>
+<li>KVCache Balance Scheduler：负责从匹配最多前缀的P2P传输KVCache到Instance（Decode和Prefill）。</li>
+<li>Load-balance Decoding Scheduler：负责负载均衡调度Request到Decode Instance。</li>
+</ol>
+<p>Prefill Instance要满足TTFT SLO，最小化MFU，保证KVCache &lt; DRAM。<br>Decode Instance要满足TBT SLO，保证KVCache &lt; VRAM。<br>Inter-Node Transfer基于RDMA的P2P，这也是一个较大的开销。</p>
+<p>Mooncake的方法总结如下：</p>
+<ol>
+<li>转移可重用的KVCache，将尽可能多的可重用KVCache转移至Prefill Instance，减少增量计算的时间。</li>
+<li>Prefill Instance Pool分层并分块处理，并持续输出给对应的Decode Instance。分层指的是Layer-wise KVCache的异步保存，分块指的是Chunked Pipeline Parallelism。</li>
+<li>独立的Decode Instance Pool加载KVCache，通过连续批处理解码tokens。</li>
+</ol>
+<p>Mooncake的主要特点是将prefill和decode拆开，并调度KVCache块。</p>
+<p>Reject Policy：如果一个请求不能在服务水平内完成其完整的执行，那么就应该尽早拒绝这个请求，基于这个理念需要设计一些拒绝策略，被称作Overloaded-Scheduling。</p>
+<h3 id="KVCache的复制"><a href="#KVCache的复制" class="headerlink" title="KVCache的复制"></a>KVCache的复制</h3><p>KVCache的调度主要是利用KV Cache（VRAM，DRAM），利用RDMA带宽。</p>
+<p>下图是一个Prefill和Decode分离的计算过程。</p>
+<img data-src="/zh-CN/2024/12/25/Mooncacke%E5%88%86%E6%9E%90/kv_transfer.png" class="">
+
+<p>如果了解vLLM中的prefill和decode以及管理block的方法，这个图其实很简单。</p>
+<p>首先通过Hash判断block是否相同，例如很多系统提示词都是一样的，这部分的复用率很高。</p>
+<p>Prefill Instance已经有了ABCDE（这里是一个P2P的过程，但我看开源的版本有个KVCache Store的WIP，不知道后面会不会有一个中心化的KVCache Store的组件）。然后计算了FGHI，存入了KV Cache（在CPU mem上），论文里面提到这个prefill在超过<code>prefill_chunk</code> tokens数量会做chunked prefill。</p>
+<p>接着通过Messenger以RDMA的方式发给Decode Instance。Decode Instance基于ABCDEFGHI的prompt对应的KV Cache开始decode的过程。</p>
+<p>根据请求模式，它可以使用缓存淘汰算法，如LRU（最近最少使用），LFU（最不常用的），或基于请求特征的算法。这些KVCache块在CPU和GPU之间的传输由一个独立的（GPUDirect）RDMA组件Messenger处理。这种架构还使我们能够为外部用户提供KVCache缓存API，从而实现更高的缓存重用性。</p>
+<p>Mooncake已经开源了他的<a target="_blank" rel="noopener" href="https://github.com/kvcache-ai/Mooncake">代码</a>，目前只有Transfer Engine。</p>
+<p>基于这个架构，Conductor的主要功能是：</p>
+<ol>
+<li>根据当前的KVCache分布和工作负载，分发请求。</li>
+<li>复制或交换某些KVCache块，以便于未来推理。如果某些块的数据在未来被频繁访问，Conductor可能会将其复制到其他节点上，从而提高推理效率。</li>
+</ol>
+<p>Mooncake的一个争论点是，是否需要在存在chunked prefill的情况下采用这种分离架构。毕竟，chunked prefill可以填补许多pipeline中的气泡，并且能让prefill和decode节点相对统一，只需要关心一种instance，对于scheduler比较友好。</p>
+<ol>
+<li><p>不分离的优点：</p>
+<ul>
+<li>所有节点被视为平等，使调度更简单；</li>
+<li>将chunked prefill内联到解码批处理中可以提高解码批次的计算强度，从而提高MFU。</li>
+</ul>
+</li>
+<li><p>分离的优点：</p>
+<ul>
+<li>长文本的跨节点并行和VRAM的节省。长文本输入是输出的10倍甚至100倍，对于相同的模型来说，prefill需要多节点配置才能满足显存需求。prefill阶段可以进行layer-wise prefill，每次保存大量KVCache，而decode阶段每次只需保存一个KVCache。因此，prefill阶段可以通过layer-wise prefill来减少VRAM占用。</li>
+</ul>
+</li>
+</ol>
+<blockquote>
+<p>是这么理解么？异步的Store KVCache可以节省保存的时间，但这是Prefill和Decode分离的理由么？Decode阶段应该是不保存KVCache?</p>
+</blockquote>
+<p>然而，经过仔细考虑，论文决定保持Mooncake的分离架构。只有在请求的prefill可以不进行chunking且不影响TBT SLO的情况下，才会将其内联到解码批次中。我们这样决定的主要原因有两个：</p>
+<ol>
+<li><p>Prefill节点需要不同的跨节点并行设置来处理长上下文 (§5.1)。</p>
+</li>
+<li><p>这为节省VRAM提供了独特的机会 (§5.2)。</p>
+</li>
+<li><p>大模型需要部署在多机上，进行TP后，每一层都需要进行一次基于RDMA的reduce，这个过程开销巨大。虽然有一些Sequence Parallelism的方法，但效果并不理想，且无法避免跨节点通信。而Mooncake采用的是CPP（Chunked Parallelism Pipeline），将序列按<code>prefill_chunk</code>大小切分，交给prefill pool的不同节点，这些节点被切分成更小的节点池（pipelined prefill node group）。</p>
+</li>
+</ol>
+<blockquote>
+<p>疑问：他们是pipe的不同部分？还是完全对等的？目前感觉是PP是分layer做Pipe，而CPP是sequence分chunked做pipe。24引用的论文中提到的Sequence Pipeline可以再看一下，应该对理解这个有帮助。</p>
+</blockquote>
+<ol start="2">
+<li>Layer-wise prefill，这有点像airllm项目，在计算过程中动态加载KVCache。在每次注意力计算时，KVCache是异步加载的，计算当前层时可以异步加载下一层，并且当前层结束后可以异步保存当前层。论文中认为KVCache的保存时间可以被完全省略（相较于加载计算保存的线性循环）。这样也可以降低VRAM的占用。</li>
+</ol>
+<h3 id="调度算法"><a href="#调度算法" class="headerlink" title="调度算法"></a>调度算法</h3><ol>
+<li><p><strong>选择Prefill实例</strong>：</p>
+<ul>
+<li>如果Prefill节点上缓存了足够的前缀（由<code>kvcache_balancing_threshold</code>控制），则选择预估TTFT最小的实例：<code>TTFT = min(T_queue + T_prefill)</code>。</li>
+<li>如果Prefill节点上缓存不足，则选择<code>TTFT = min(T_queue + T_prefill + T_transfer)</code>最小的实例，其中<code>T_transfer</code>指的是有最长匹配的KVCache的实例拷贝到当前实例的预估时间。</li>
+</ul>
+</li>
+<li><p><strong>选择Decode实例</strong>：</p>
+<ul>
+<li>通过负载均衡的方式预估TBT。</li>
+<li>如果TBT和TTFT不满足SLO，则拒绝请求，并触发KVCache的传输。</li>
+</ul>
+</li>
+<li><p><strong>预测模型</strong>：</p>
+<ul>
+<li>预估模型用于预测传输时间和决策传输。</li>
+<li>数据传输时间难以预测，因为它不仅取决于数据大小，还依赖于当前网络状态，特别是当发送节点处于拥塞状态时。</li>
+</ul>
+</li>
+<li><p><strong>KVCache复制</strong>：</p>
+<ul>
+<li>热门的KVCache块需要被复制以确保高可用性。</li>
+</ul>
+</li>
+<li><p><strong>调度器目标</strong>：</p>
+<ul>
+<li>保证低Cache负载和高Cache命中率。</li>
+</ul>
+</li>
+<li><p><strong>高负载情况下的策略</strong>：</p>
+<ul>
+<li>请求可能不会被直接发送给缓存最长前缀的实例，而是转发给备选实例。备选实例会主动从缓存持有者处检索KV缓存并存储本地。</li>
+<li>当最佳的远程前缀匹配长度不超过当前本地可重用前缀的阈值时，系统优先使用本地缓存，而不是从远程实例获取令牌。</li>
+</ul>
+</li>
+</ol>
+<p>这些策略不仅减少了请求的Prefill时间，还自动复制热点缓存，使其在多台机器上更广泛地分布。</p>
+<h3 id="拒绝策略"><a href="#拒绝策略" class="headerlink" title="拒绝策略"></a>拒绝策略</h3><p>论文提到了一种基于预测的拒绝策略。Prefill和Decode的负载节奏是相反的，可能在Decode负载高时，Prefill负载较低。此时如果拒绝请求，会导致Decode负载下降，而Prefill完成后Decode负载又会升高，进而再次拒绝请求。引入预测拒绝策略后，可以使Prefill过程更加平滑，减少频繁拒绝请求的情况，从而减小负载节奏的波动。</p>
+<img data-src="/zh-CN/2024/12/25/Mooncacke%E5%88%86%E6%9E%90/reject_policy.png" class="">
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Mooncake/" rel="tag"># Mooncake</a>
+              <a href="/tags/kvcache/" rel="tag"># kvcache</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/zh-CN/2024/12/23/Rust%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0llama/" rel="prev" title="Rust从零实现llama">
+                  <i class="fa fa-angle-left"></i> Rust从零实现llama
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/zh-CN/2024/12/26/Sequence-Parallelism/" rel="next" title="Sequence Parallelism">
+                  Sequence Parallelism <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 2014 – 
+    <span itemprop="copyrightYear">2025</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+  </div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/mist/" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.umd.js" integrity="sha256-a+H7FYzJv6oU2hfsfDGM2Ohw/cR9v+hPfxHCLdmCrE8=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lozad.js/1.16.0/lozad.min.js" integrity="sha256-mOFREFhqmHeQbXpK2lp4nA3qooVgACfh88fpJftLBbc=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/sidebar.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+  <script src="/js/third-party/fancybox.js"></script>
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"ggaaooppeenngg","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

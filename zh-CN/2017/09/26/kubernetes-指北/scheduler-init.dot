@@ -1,0 +1,20 @@
+digraph {
+    label="Scheduler 的 Run 流程"
+    "CreateScheduler"[shap="box", style=rounded];
+    "初始化 API client"[shap="box", style=rounded];
+    "初始化 event 发送器"[shap="box", style=rounded];
+    "构建各种资源的 informer"[shap="box", style=rounded];
+    "startHTTP"[shap="box", style=rounded];
+    "初始化 API client" -> "初始化 event 发送器";
+    "初始化 API client" -> "构建各种资源的 informer";
+    "初始化 event 发送器" -> "CreateScheduler";
+    "构建各种资源的 informer" -> "CreateScheduler";
+    "CreateScheduler" -> "startHTTP" [style=dotted];
+    "CreateScheduler" -> "podInformer.Informer().Run" [style=dotted];
+    "CreateScheduler" -> "informerFactory.Start";
+    "informerFactory.Start" -> "informerFactory.WaitForCacheSync";
+    "informerFactory.WaitForCacheSync" -> "podInformer.Informer().HasSynced";
+    "podInformer.Informer().Run" -> "podInformer.Informer().HasSynced" [style=dotted];
+    "podInformer.Informer().HasSynced" -> "resourcelock.New"
+    "resourcelock.New" -> "leaderelection.NewLeaderElector"
+}

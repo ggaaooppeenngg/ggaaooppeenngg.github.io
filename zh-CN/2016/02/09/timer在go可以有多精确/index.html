@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.3.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="_85tctgPWrqH2EPVuuD5IT6KE-tW8nH0hTISJDMnShg">
+  <meta name="baidu-site-verification" content="bb16c5b1fd3302c18e0015bef11eea42">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha256-dABdfBfUoC8vJUBOwGVdm8L9qlMWaHTIfXt+7GnZCIo=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.css" integrity="sha256-gkQVf8UKZgQ0HyuxL/VnacadJ+D2Kox2TCEBuNQg5+w=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="本文主要讨论 timer heap 在 Go 中的管理，以及运行时对于时间是如何获取的问题，从而引出一个结论，我们对于 timer 的准确度可以有多大的依赖。 首先我们看一下 Go 是如何获取时间的，找到time.Now, 发现最终调用的是下面这个汇编函数。 1234567891011121314151617181920212223242526272829303132&#x2F;&#x2F; func now() (">
+<meta property="og:type" content="article">
+<meta property="og:title" content="timer 在 Golang 中可以有多精确？">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2016/02/09/timer%E5%9C%A8go%E5%8F%AF%E4%BB%A5%E6%9C%89%E5%A4%9A%E7%B2%BE%E7%A1%AE/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="本文主要讨论 timer heap 在 Go 中的管理，以及运行时对于时间是如何获取的问题，从而引出一个结论，我们对于 timer 的准确度可以有多大的依赖。 首先我们看一下 Go 是如何获取时间的，找到time.Now, 发现最终调用的是下面这个汇编函数。 1234567891011121314151617181920212223242526272829303132&#x2F;&#x2F; func now() (">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2016-02-08T17:58:52.000Z">
+<meta property="article:modified_time" content="2025-03-28T10:39:05.379Z">
+<meta property="article:author" content="ggaaooppeenngg">
+<meta property="article:tag" content="Go">
+<meta property="article:tag" content="go">
+<meta property="article:tag" content="golang">
+<meta property="article:tag" content="timer">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2016/02/09/timer%E5%9C%A8go%E5%8F%AF%E4%BB%A5%E6%9C%89%E5%A4%9A%E7%B2%BE%E7%A1%AE/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://ggaaooppeenngg.github.io/zh-CN/2016/02/09/timer%E5%9C%A8go%E5%8F%AF%E4%BB%A5%E6%9C%89%E5%A4%9A%E7%B2%BE%E7%A1%AE/","path":"zh-CN/2016/02/09/timer在go可以有多精确/","title":"timer 在 Golang 中可以有多精确？"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>timer 在 Golang 中可以有多精确？ | ggaaooppeenngg</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-62096626-1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"UA-62096626-1","only_pageview":false,"measure_protocol_api_secret":null}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+  <script src="/js/third-party/analytics/baidu-analytics.js"></script>
+  <script async src="https://hm.baidu.com/hm.js?bb16c5b1fd3302c18e0015bef11eea42"></script>
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">ggaaooppeenngg</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">为什么计算机科学是无限的但生命是有限的</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">134</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">14</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">78</span></a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-overview-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">78</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">14</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">134</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/ggaaooppeenngg" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;ggaaooppeenngg" rel="noopener me" target="_blank"><i class="github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:peng.gao.dut@gmail.com" title="E-Mail → mailto:peng.gao.dut@gmail.com" rel="noopener me" target="_blank"><i class="envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+        <div class="back-to-top animated" role="button" aria-label="返回顶部">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2016/02/09/timer%E5%9C%A8go%E5%8F%AF%E4%BB%A5%E6%9C%89%E5%A4%9A%E7%B2%BE%E7%A1%AE/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="timer 在 Golang 中可以有多精确？ | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          timer 在 Golang 中可以有多精确？
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2016-02-09 01:58:52" itemprop="dateCreated datePublished" datetime="2016-02-09T01:58:52+08:00">2016-02-09</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2025-03-28 18:39:05" itemprop="dateModified" datetime="2025-03-28T18:39:05+08:00">2025-03-28</time>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2016/02/09/timer%E5%9C%A8go%E5%8F%AF%E4%BB%A5%E6%9C%89%E5%A4%9A%E7%B2%BE%E7%A1%AE/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2016/02/09/timer在go可以有多精确/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>本文主要讨论 timer heap 在 Go 中的管理，以及运行时对于时间是如何获取的问题，从而引出一个结论，我们对于 timer 的准确度可以有多大的依赖。</p>
+<p>首先我们看一下 Go 是如何获取时间的，找到<code>time.Now</code>, 发现最终调用的是下面这个汇编函数。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">// func now() (sec int64, nsec int32)</span><br><span class="line">TEXT time·now(SB),NOSPLIT,$16</span><br><span class="line">	// Be careful. We&#x27;re calling a function with gcc calling convention here.</span><br><span class="line">	// We&#x27;re guaranteed 128 bytes on entry, and we&#x27;ve taken 16, and the</span><br><span class="line">	// call uses another 8.</span><br><span class="line">	// That leaves 104 for the gettime code to use. Hope that&#x27;s enough!</span><br><span class="line">	// 这里只能保证调用 gettime 函数的时候有 104 个字节给这个函数作为栈</span><br><span class="line">	// 因为返回值用了 16 个字节，这个函数本身会用 8 个字节，到调用 gettime 的时候只剩 104 个字节可以用。</span><br><span class="line">	MOVQ	runtime·__vdso_clock_gettime_sym(SB), AX</span><br><span class="line">	CMPQ	AX, $0</span><br><span class="line">	JEQ	fallback</span><br><span class="line">	MOVL	$0, DI // CLOCK_REALTIME</span><br><span class="line">	LEAQ	0(SP), SI</span><br><span class="line">	CALL	AX</span><br><span class="line">	MOVQ	0(SP), AX	// sec</span><br><span class="line">	MOVQ	8(SP), DX	// nsec</span><br><span class="line">	MOVQ	AX, sec+0(FP)</span><br><span class="line">	MOVL	DX, nsec+8(FP)</span><br><span class="line">	RET</span><br><span class="line">fallback:</span><br><span class="line">	LEAQ	0(SP), DI</span><br><span class="line">	MOVQ	$0, SI</span><br><span class="line">	MOVQ	runtime·__vdso_gettimeofday_sym(SB), AX</span><br><span class="line">	CALL	AX</span><br><span class="line">	MOVQ	0(SP), AX	// sec</span><br><span class="line">	MOVL	8(SP), DX	// usec</span><br><span class="line">	IMULQ	$1000, DX</span><br><span class="line">	MOVQ	AX, sec+0(FP)</span><br><span class="line">	MOVL	DX, nsec+8(FP)</span><br><span class="line">	RET</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>第一行<code>TEXT time·now(SB),NOSPLIT,$16</code>, 其中<code>time·now(SB)</code>表示函数<code>now</code>的地址，<code>NOSPLIT</code>标志不依赖参数，<code>$16</code>表示返回的内容是 16 个字节，Go 的汇编语法具体可以参考 Go asm 文档 [1].</p>
+<p>首先是取出<code>__vdso_clock_gettime_sym(SB)</code>（这是一个符号，指向的其实是 clock_gettime 函数，man clock_gettime 可以看到 glibc 的定义）的地址，如果符号不为空的话就把栈顶的地址计算出来传入 SI(LEA 指令）. DI 和 SI 分别是<code>system call</code>的前两个参数的寄存器，这个相当于调用<code>clock_gettime(0,&amp;ret)</code>. fallback 分支是当对应的符号没有初始化就退而求其次调用<code>gettimeofday</code>(man gettimeofday 可以看到 libc 的定义）这个函数。</p>
+<p>Go 的函数调用确保会有至少 128 个字节的栈（注意不是 goroutine 的栈）, 具体可以参考<code>runtime/stack.go</code>里的<code>_StackSmall</code>, 但是进入对应的 c 函数以后，栈的增长就不能够由 Go 控制了，所以剩下的 104 个字节要确保这个调用不会栈溢出.（不过一般不会，因为这两个获取时间的函数不复杂）.</p>
+<p>先说函数符号的事，查阅相关资料可以看出来，VDSO 是 Virtual Dynamic Shared Object, 就是内核提供的虚拟的.so, 这个.so 文件不在磁盘上，而是在内核里头，映射到了用户空间。具体细节可以看 so 上的一个回答 [2]. 其中一个链接中有一些描述 [3].</p>
+<blockquote>
+<p> One way of obtaining a fast gettimeofday() is by writing the current time in a fixed place, on a page mapped into the memory of all applications, and updating this location on each clock interrupt.<br> These applications could then read this fixed location with a single instruction - no system call required.<br> Concerning gettimeofday(), a vsyscall version for the x86-64 is already part of the vanilla kernel.<br> Patches for i386 exist. (An example of the kind of timing differences: John Stultz reports on an experiment where he measures gettimeofday() and finds 1.67 us for the int 0x80 way, 1.24 us for the sysenter way, and 0.88 us for the vsyscall.)</p>
+</blockquote>
+<p>简单来说就是一种加速系统调用的机制加兼容模式。像<code>gettimeofday</code>这样的函数如果像普通系统调用一样的话，有太多的上下文切换，特别是一些频繁获取时间的程序，所以一般<code>gettimeofday</code>是通过这种机制调用的. 单独在用户空间映射了一段地址，在里面的是内核暴露的一些系统调用，具体可能是 syscall 或者 int 80 或者 systenter 的方式，由内核决定更快的调用方式，防止出现 glibc 版本和 kernel 版本不兼容的问题.(vDSO 是 vsyscall 的一个升级版本，避免了一些安全问题，映射不再静态固定）.</p>
+<p>从内核中可以看出获取系统调用是由时间中断更新的，其调用栈如下 [5].</p>
+<blockquote>
+<p> Hardware timer interrupt (generated by the Programmable Interrupt Timer - PIT)<br> -&gt; tick_periodic();<br>   -&gt; do_timer(1);<br>     -&gt; update_wall_time();<br>       -&gt; timekeeping_update(tk, false);<br>         -&gt; update_vsyscall(tk);</p>
+</blockquote>
+<p><code>update_wall_time</code>使用的是时钟源 (clock source) 的时间，精度能达到 ns 级别。<br>但是一般 Linux kernel 的时间中断是 100HZ, 高的也有 1000HZ 的，也就是说这个时间一般是在 10ms 或者 1ms 中断处理时更新一次。<br>从操作系统的角度看时间粒度大概是 ms 级别. 但是，这个只是一个基准值. 每次获取时间的时候还是会取得时钟源<br>的时间（时钟源有很多种 [9]，可能是硬件的计数器，也可能就是中断的 jiffy，一般是可以达到 ns）. 获取时间的精度还是能到 us 和几百 ns 之间。<br>因为系统调用本身还要花时间，理论上更精确的时间就不是通过这个系统调用获得了，而是需要直接用汇编指令”rdtsc”读 CPU 的 cycle 来得到精确时间。</p>
+<p>接下来说，获取时间的函数符号的寻找过程又涉及了 ELF 的一些内容，其实就是动态链接的过程，把.so 中的函数符号的地址解析到并且存入函数指针中，比如<code>__vdso_clock_gettime_sym</code>, 关于链接的内容可以阅读”程序员的自我修养”这本书 [4].</p>
+<p>其他函数例如<code>TEXT runtime·nanotime(SB),NOSPLIT,$16</code>也是类似的过程. 这个函数就能获取时间。</p>
+<p>看完时间获取的过程，再来看看 Go 运行时的部分，瞧瞧<code>timer heap</code>是如何管理的。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">// Package time knows the layout of this structure.</span><br><span class="line">// If this struct changes, adjust ../time/sleep.go:/runtimeTimer.</span><br><span class="line">// For GOOS=nacl, package syscall knows the layout of this structure.</span><br><span class="line">// If this struct changes, adjust ../syscall/net_nacl.go:/runtimeTimer.</span><br><span class="line">type timer struct &#123;</span><br><span class="line">        i int // heap index</span><br><span class="line"></span><br><span class="line">        // Timer wakes up at when, and then at when+period, ... (period &gt; 0 only)</span><br><span class="line">        // each time calling f(now, arg) in the timer goroutine, so f must be</span><br><span class="line">        // a well-behaved function and not block.</span><br><span class="line">        when   int64</span><br><span class="line">        period int64</span><br><span class="line">        f      func(interface&#123;&#125;, uintptr)</span><br><span class="line">        arg    interface&#123;&#125;</span><br><span class="line">        seq    uintptr</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>timer 是以 heap 的形式管理的，heap 是个完全二叉树，用数组就可以存下，i 是 heap 的 index.<br>when 是 goroutine 被唤醒的时间，period 是唤醒的间隙，下次唤醒的时间是 when+period, 依次类推。<br>调用函数<code>f(now, arg)</code>, now 是时间戳。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">var timers struct &#123;</span><br><span class="line">        lock         mutex</span><br><span class="line">        gp           *g</span><br><span class="line">        created      bool</span><br><span class="line">        sleeping     bool</span><br><span class="line">        rescheduling bool</span><br><span class="line">        waitnote     note</span><br><span class="line">        t            []*timer</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>整个的 timer heap 由<code>timers</code>管理.gp 指向的是一个<code>g</code>的指针，也就是调度器当中的 G 结构，一个 goroutine 的状态维护的结构，指向的是时间管理器的单独的一个 goroutine, 这个不属于用户而是运行时启动的 goroutine.（当然只有使用了 timer 才会启动，不然不会有这个 goroutine).<code>lock</code>保证 timers 的线程安全.waitnote 是一个条件变量。</p>
+<p>看一下<code>addtimer</code>函数，他是整个计时器开始的入口，当然本身只是加了锁。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">func addtimer(t *timer) &#123;</span><br><span class="line">        lock(&amp;timers.lock)</span><br><span class="line">        addtimerLocked(t)</span><br><span class="line">        unlock(&amp;timers.lock)</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>再看<code>addtimerLocked</code>可以看到就是入 heap 的过程了。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line">// Add a timer to the heap and start or kick the timer proc.</span><br><span class="line">// If the new timer is earlier than any of the others.</span><br><span class="line">// Timers are locked.</span><br><span class="line">func addtimerLocked(t *timer) &#123;</span><br><span class="line">        // when must never be negative; otherwise timerproc will overflow</span><br><span class="line">        // during its delta calculation and never expire other runtime·timers.</span><br><span class="line">        if t.when &lt; 0 &#123;</span><br><span class="line">                t.when = 1&lt;&lt;63 - 1</span><br><span class="line">        &#125;</span><br><span class="line">        t.i = len(timers.t)</span><br><span class="line">        timers.t = append(timers.t, t)</span><br><span class="line">        siftupTimer(t.i)</span><br><span class="line">        if t.i == 0 &#123;</span><br><span class="line">                // siftup moved to top: new earliest deadline.</span><br><span class="line">                if timers.sleeping &#123;</span><br><span class="line">                        timers.sleeping = false</span><br><span class="line">                        notewakeup(&amp;timers.waitnote)</span><br><span class="line">                &#125;</span><br><span class="line">                if timers.rescheduling &#123;</span><br><span class="line">                        timers.rescheduling = false</span><br><span class="line">                        goready(timers.gp, 0)</span><br><span class="line">                &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        if !timers.created &#123;</span><br><span class="line">                timers.created = true</span><br><span class="line">                go timerproc()</span><br><span class="line">        &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>先从下面的<code>if !timers.created</code>分支看起，如果 timers 对应没有创建就 go 一个 timerproc, timeproc 的定义如下。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br></pre></td><td class="code"><pre><span class="line">// Timerproc runs the time-driven events.</span><br><span class="line">// It sleeps until the next event in the timers heap.</span><br><span class="line">// If addtimer inserts a new earlier event, addtimer1 wakes timerproc early.</span><br><span class="line">func timerproc() &#123;</span><br><span class="line">        timers.gp = getg()</span><br><span class="line">        for &#123;</span><br><span class="line">                lock(&amp;timers.lock)</span><br><span class="line">                timers.sleeping = false</span><br><span class="line">                now := nanotime()</span><br><span class="line">                delta := int64(-1)</span><br><span class="line">                for &#123;</span><br><span class="line">                        if len(timers.t) == 0 &#123;</span><br><span class="line">                                delta = -1</span><br><span class="line">                                break</span><br><span class="line">                        &#125;</span><br><span class="line">                        t := timers.t[0]</span><br><span class="line">                        delta = t.when - now</span><br><span class="line">                        if delta &gt; 0 &#123;</span><br><span class="line">                                break</span><br><span class="line">                        &#125;</span><br><span class="line">                        if t.period &gt; 0 &#123;</span><br><span class="line">                                // leave in heap but adjust next time to fire</span><br><span class="line">                                t.when += t.period * (1 + -delta/t.period)</span><br><span class="line">                                siftdownTimer(0)</span><br><span class="line">                        &#125; else &#123;</span><br><span class="line">                                // remove from heap</span><br><span class="line">                                last := len(timers.t) - 1</span><br><span class="line">                                if last &gt; 0 &#123;</span><br><span class="line">                                        timers.t[0] = timers.t[last]</span><br><span class="line">                                        timers.t[0].i = 0</span><br><span class="line">                                &#125;</span><br><span class="line">                                timers.t[last] = nil</span><br><span class="line">                                timers.t = timers.t[:last]</span><br><span class="line">                                if last &gt; 0 &#123;</span><br><span class="line">                                        siftdownTimer(0)</span><br><span class="line">                                &#125;</span><br><span class="line">                                t.i = -1 // mark as removed</span><br><span class="line">                        &#125;</span><br><span class="line">                        f := t.f</span><br><span class="line">                        arg := t.arg</span><br><span class="line">                        seq := t.seq</span><br><span class="line">                        unlock(&amp;timers.lock)</span><br><span class="line">                        if raceenabled &#123;</span><br><span class="line">                                raceacquire(unsafe.Pointer(t))</span><br><span class="line">                        &#125;</span><br><span class="line">                        f(arg, seq)</span><br><span class="line">                        lock(&amp;timers.lock)</span><br><span class="line">                &#125;</span><br><span class="line">                if delta &lt; 0 || faketime &gt; 0 &#123;</span><br><span class="line">                        // No timers left - put goroutine to sleep.</span><br><span class="line">                        timers.rescheduling = true</span><br><span class="line">			// 如果没有 timers 剩余，就让 G 进入 sleep 状态。</span><br><span class="line">			// goparkunlock 的作用是解开 G 和 M 的联系，让 goroutine sleep 而 M</span><br><span class="line">			// 寻找下一个 G 来执行。</span><br><span class="line">                        goparkunlock(&amp;timers.lock, &quot;timer goroutine (idle)&quot;, traceEvGoBlock, 1)</span><br><span class="line">                        continue</span><br><span class="line">                &#125;</span><br><span class="line">                // At least one timer pending.  Sleep until then.</span><br><span class="line">                timers.sleeping = true</span><br><span class="line">		// 清零 waitnote.</span><br><span class="line">                noteclear(&amp;timers.waitnote)</span><br><span class="line">                unlock(&amp;timers.lock)</span><br><span class="line">		// 调用 M 结构对应的 OS-dependent, OS-thread 的信号量让 M 进入 sleep 状态。</span><br><span class="line">		// 只会在超时的时候或者条件变量 waitnote 触发才会被唤醒。</span><br><span class="line">                notetsleepg(&amp;timers.waitnote, delta)</span><br><span class="line">        &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>timeproc 的主体就是从最小堆中取出 timer 然后回调函数，如果 period 大于 0 就把 timer 的 when 修改并且存回 heap 并调整，如果小于 0 就直接删除（对应的分别是标准库的 ticker 和 timer), 进入 OS 信号量中睡眠等待下次处理，（当然可以被 waitnote 变量唤醒）, 这样一直循环，说白了就是靠信号量的超时机制来实现了运行时的 sleep[8]. 然后当完全没有 timer 剩余的时候，G 结构表示的 goroutine 进入睡眠状态，承载 goroutine 的 M 结构所代表的 OS-thread 会寻找其它可运行的 goroutine 执行. 具体关于运行时调度的细节可以参考雨痕大叔的笔记 [7].</p>
+<p>看完这一路 case, 回到<code>addtimerLocked</code>, 当加入一个新的<code>timer</code>时，会作依次检查，也就是说最新插入的<code>timer</code>是在堆顶的话，会唤醒睡眠的 timergorountine 开始从 heap 上检查过时的<code>timer</code>并执行. 这里的唤醒和之前的睡眠是两种对应的状态<code>timers.sleeping</code>是进入了 M 的 os 信号量睡眠。<br><code>timers.rescheduling</code>是进入了 G 的调度睡眠，而 M 并没有睡眠，让 G 重新进入可运行状态. 时间超时和新 timer 的加入，两者结合成为了<code>timer</code>运行时的驱动力。</p>
+<p>看完了 time 的实现，再回过头来回答文章最初的问题”timer 可以有多精确”, 其实和两个原因有关，一个是操作系统本身的时间粒度，一般是 us 级别的，时间基准更新是 ms 级别的，时间精度能到 us 级别，另外一个就是<code>timer</code>本身的 goroutine 的调度问题，如果运行时的负载过大或者操作系统本身的负载过大，会导致<code>timer</code>本身的 goroutine 响应不及时，导致 timer 触发并不及时，可能导致一个 20ms 的 timer 和一个 30ms 的 timer 之间像是并发的一样（这也是笔者碰到的问题，特别是一些被 cgroup 限制了的容器环境，cpu 时间分配很少的条件下）, 所以有时候我们不能过分相信 timer 的时序来保证程序的正常运行.<code>NewTimer</code>的注释也强调了”NewTimer creates a new Timer that will send the current time on its channel after <strong>at least</strong> duration d.”, 没有人能保证 timer 按点执行，当然如果你的间隔离谱的大的话其实就可以忽略这方面的影响了：)</p>
+<pre><code>
+参考链接：
+
+1.  Go Assembly https://golang.org/doc/asm
+2.  http://stackoverflow.com/questions/19938324/what-are-vdso-and-vsyscall
+3.  http://www.win.tue.nl/~aeb/linux/lk/lk-4.html
+4.  http://book.douban.com/subject/3652388/
+5.  http://linuxmogeb.blogspot.com/2013/10/how-does-clockgettime-work.html
+6.  时钟源 http://blog.csdn.net/droidphone/article/details/7975694
+7.  Go 源码剖析 https://github.com/qyuhen/book/blob/master
+    /Go%201.5%20%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90.pdf
+8.  带超时的信号量的实现 http://lxr.free-electrons.com/source/kernel/locking/semaphore.c#L204
+9.  内核的时钟源 http://blog.csdn.net/droidphone/article/details/7975694
+</code></pre>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Go/" rel="tag"># Go</a>
+              <a href="/tags/go/" rel="tag"># go</a>
+              <a href="/tags/golang/" rel="tag"># golang</a>
+              <a href="/tags/timer/" rel="tag"># timer</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/zh-CN/2016/01/04/aufs-%E5%A6%82%E4%BD%95%E8%87%AA%E5%B7%B1%E7%BC%96%E5%86%99%E4%B8%80%E4%B8%AA%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F/" rel="prev" title="aufs-如何自己编写一个文件系统">
+                  <i class="fa fa-angle-left"></i> aufs-如何自己编写一个文件系统
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/zh-CN/2016/03/18/git-commit-message-%E5%A6%82%E4%BD%95%E5%86%99%E5%A5%BD/" rel="next" title="git-commit-message- 如何写好">
+                  git-commit-message- 如何写好 <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 2014 – 
+    <span itemprop="copyrightYear">2025</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+  </div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/mist/" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.umd.js" integrity="sha256-a+H7FYzJv6oU2hfsfDGM2Ohw/cR9v+hPfxHCLdmCrE8=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lozad.js/1.16.0/lozad.min.js" integrity="sha256-mOFREFhqmHeQbXpK2lp4nA3qooVgACfh88fpJftLBbc=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/sidebar.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+  <script src="/js/third-party/fancybox.js"></script>
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"ggaaooppeenngg","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

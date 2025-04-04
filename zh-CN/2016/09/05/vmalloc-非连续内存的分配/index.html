@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.3.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="_85tctgPWrqH2EPVuuD5IT6KE-tW8nH0hTISJDMnShg">
+  <meta name="baidu-site-verification" content="bb16c5b1fd3302c18e0015bef11eea42">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha256-dABdfBfUoC8vJUBOwGVdm8L9qlMWaHTIfXt+7GnZCIo=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.css" integrity="sha256-gkQVf8UKZgQ0HyuxL/VnacadJ+D2Kox2TCEBuNQg5+w=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="主要结构为了解决外部碎片的问题, 需要有一种手段可以分配非连续的页映射到一段连续的虚拟地址上. 这就是vmalloc的目的, 本文基于4.7.2的代码对vmalloc的实现进行分析. 这里要提到一个重要的结构体 1234567891011struct vm_struct &#123;	struct vm_struct	*next;	void			*addr;	unsigned long		size">
+<meta property="og:type" content="article">
+<meta property="og:title" content="vmalloc-非连续内存的分配">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2016/09/05/vmalloc-%E9%9D%9E%E8%BF%9E%E7%BB%AD%E5%86%85%E5%AD%98%E7%9A%84%E5%88%86%E9%85%8D/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="主要结构为了解决外部碎片的问题, 需要有一种手段可以分配非连续的页映射到一段连续的虚拟地址上. 这就是vmalloc的目的, 本文基于4.7.2的代码对vmalloc的实现进行分析. 这里要提到一个重要的结构体 1234567891011struct vm_struct &#123;	struct vm_struct	*next;	void			*addr;	unsigned long		size">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2016/09/05/vmalloc-%E9%9D%9E%E8%BF%9E%E7%BB%AD%E5%86%85%E5%AD%98%E7%9A%84%E5%88%86%E9%85%8D/memory.jpeg">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2016/09/05/vmalloc-%E9%9D%9E%E8%BF%9E%E7%BB%AD%E5%86%85%E5%AD%98%E7%9A%84%E5%88%86%E9%85%8D/vmalloc-callgraph.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2016/09/05/vmalloc-%E9%9D%9E%E8%BF%9E%E7%BB%AD%E5%86%85%E5%AD%98%E7%9A%84%E5%88%86%E9%85%8D/vfree-callgraph.png">
+<meta property="article:published_time" content="2016-09-04T16:07:50.000Z">
+<meta property="article:modified_time" content="2025-03-28T10:39:05.416Z">
+<meta property="article:author" content="ggaaooppeenngg">
+<meta property="article:tag" content="kernel">
+<meta property="article:tag" content="内核">
+<meta property="article:tag" content="vmalloc">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://ggaaooppeenngg.github.io/zh-CN/2016/09/05/vmalloc-%E9%9D%9E%E8%BF%9E%E7%BB%AD%E5%86%85%E5%AD%98%E7%9A%84%E5%88%86%E9%85%8D/memory.jpeg">
+
+
+<link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2016/09/05/vmalloc-%E9%9D%9E%E8%BF%9E%E7%BB%AD%E5%86%85%E5%AD%98%E7%9A%84%E5%88%86%E9%85%8D/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://ggaaooppeenngg.github.io/zh-CN/2016/09/05/vmalloc-%E9%9D%9E%E8%BF%9E%E7%BB%AD%E5%86%85%E5%AD%98%E7%9A%84%E5%88%86%E9%85%8D/","path":"zh-CN/2016/09/05/vmalloc-非连续内存的分配/","title":"vmalloc-非连续内存的分配"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>vmalloc-非连续内存的分配 | ggaaooppeenngg</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-62096626-1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"UA-62096626-1","only_pageview":false,"measure_protocol_api_secret":null}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+  <script src="/js/third-party/analytics/baidu-analytics.js"></script>
+  <script async src="https://hm.baidu.com/hm.js?bb16c5b1fd3302c18e0015bef11eea42"></script>
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">ggaaooppeenngg</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">为什么计算机科学是无限的但生命是有限的</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">134</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">14</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">78</span></a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%BB%E8%A6%81%E7%BB%93%E6%9E%84"><span class="nav-number">1.</span> <span class="nav-text">主要结构</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#vmap-area-%E8%99%9A%E6%8B%9F%E5%9C%B0%E5%9D%80%E7%9A%84%E7%AE%A1%E7%90%86"><span class="nav-number">2.</span> <span class="nav-text">vmap_area 虚拟地址的管理</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%BB%BA%E7%AB%8B%E6%98%A0%E5%B0%84"><span class="nav-number">3.</span> <span class="nav-text">建立映射</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%87%8A%E6%94%BE"><span class="nav-number">4.</span> <span class="nav-text">释放</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">5.</span> <span class="nav-text">总结</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8F%82%E8%80%83"><span class="nav-number">6.</span> <span class="nav-text">参考</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">78</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">14</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">134</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/ggaaooppeenngg" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;ggaaooppeenngg" rel="noopener me" target="_blank"><i class="github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:peng.gao.dut@gmail.com" title="E-Mail → mailto:peng.gao.dut@gmail.com" rel="noopener me" target="_blank"><i class="envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+        <div class="back-to-top animated" role="button" aria-label="返回顶部">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2016/09/05/vmalloc-%E9%9D%9E%E8%BF%9E%E7%BB%AD%E5%86%85%E5%AD%98%E7%9A%84%E5%88%86%E9%85%8D/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="vmalloc-非连续内存的分配 | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          vmalloc-非连续内存的分配
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2016-09-05 00:07:50" itemprop="dateCreated datePublished" datetime="2016-09-05T00:07:50+08:00">2016-09-05</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2025-03-28 18:39:05" itemprop="dateModified" datetime="2025-03-28T18:39:05+08:00">2025-03-28</time>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2016/09/05/vmalloc-%E9%9D%9E%E8%BF%9E%E7%BB%AD%E5%86%85%E5%AD%98%E7%9A%84%E5%88%86%E9%85%8D/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2016/09/05/vmalloc-非连续内存的分配/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h2 id="主要结构"><a href="#主要结构" class="headerlink" title="主要结构"></a>主要结构</h2><p>为了解决外部碎片的问题, 需要有一种手段可以分配非连续的页映射到一段连续的虚拟地址上. 这就是vmalloc的目的, 本文基于4.7.2的代码对<code>vmalloc</code>的实现进行分析.</p>
+<p>这里要提到一个重要的结构体</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">struct vm_struct &#123;</span><br><span class="line">	struct vm_struct	*next;</span><br><span class="line">	void			*addr;</span><br><span class="line">	unsigned long		size;</span><br><span class="line">	unsigned long		flags;</span><br><span class="line">	struct page		**pages;</span><br><span class="line">	unsigned int		nr_pages;</span><br><span class="line">	phys_addr_t		phys_addr;</span><br><span class="line">	const void		*caller;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>这个结构用于描述每一段映射的内存.</p>
+<p>比起32位的结构, 64位结构有更大的寻址空间, 可以通过查看<code>Documentation/x86/x86_64/mm.txt</code> 获得64位的内存映射, 比起32位的变化就是跨度变大了很多.</p>
+<p>直接映射是64TB, 有一个1TB的空洞, 接着就是32TB的vmalloc空间,以<code>VMALLOC_START(64TB+1TB)</code>开始,<code>VMALLOC_END(64TB+1TB+32TB)</code>结尾.</p>
+<p>原来的32位时, 内核的虚拟空间只有1G, 直接映射的区间占896MB, 隔了一个8MB的空洞,   再接着是vmalloc的映射区, 大小一般是128MB.</p>
+<p>vmalloc和物理映射的空洞主要是一个安全区, 如果越过了这个hole说明程序有问题存在非法的访问.</p>
+<p><code>vm_struct</code>的组织是通过链表实现的,<br>其中<code>next</code>指向下一个<code>vm_struct</code>, <code>addr</code>指向的是虚拟地址, <code>size</code>对应分配的内存的大小,在有guard page(也就是flag的<code>VM_NO_GUARD</code>没有设置的话)的时候会多出一个PAGE_SIZE的大小(但没有映射内存), <code>pages</code>是页的地址, <code>nr_pages</code>是页的数量, <code>phy_addr</code>这个字段一般为0,当用于ioremap的时候会用到, <code>caller</code>是调用者的地址.</p>
+<p>上面说了, 每个<code>vm_struct</code>代表的区间之间会有一PAGE_SIZE大小的分隔,也是为了能够方便检查非法越界的情况.</p>
+<p>这是32位的一张分布图, 整体结构没变, 就是64位的区间变大了.</p>
+<img data-src="/zh-CN/2016/09/05/vmalloc-%E9%9D%9E%E8%BF%9E%E7%BB%AD%E5%86%85%E5%AD%98%E7%9A%84%E5%88%86%E9%85%8D/memory.jpeg" class=""> 
+
+<p><code>vmap_area</code>用于代表虚拟地址的区间, 和vm_struct是有对应关系的.<br>list 是按地址排序存的线性链表节点.<br>rb_node 是按地址存的红黑树节点.<br>这两个值都是在插入的时候修改的.<br>也就是为了方便搜索,它既存在红黑树上也存在链表里面.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">struct vmap_area &#123;</span><br><span class="line">	unsigned long va_start;</span><br><span class="line">	unsigned long va_end;</span><br><span class="line">	unsigned long flags;</span><br><span class="line">	struct rb_node rb_node;         /* address sorted rbtree */</span><br><span class="line">	struct list_head list;          /* address sorted list */</span><br><span class="line">	struct llist_node purge_list;    /* &quot;lazy purge&quot; list */</span><br><span class="line">	struct vm_struct *vm;</span><br><span class="line">	struct rcu_head rcu_head;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<h2 id="vmap-area-虚拟地址的管理"><a href="#vmap-area-虚拟地址的管理" class="headerlink" title="vmap_area 虚拟地址的管理"></a>vmap_area 虚拟地址的管理</h2><p>接下了说一下调用过程, 首先<code>vmalloc</code>会调用<code>__vmalloc_node_flags</code>,这是一层封装,指定了GFP的flag, 接着调用<code>__vmalloc_node</code>,它通过指定搜寻的区域(<code>VMALLOC_START</code>,<code>VMALLOC_END</code>)调用了<code>__vmalloc_node_range</code>, 然后通过<code>__get_vm_area_node</code>寻找合适的虚拟内存空间,并且分配<code>vm_struct</code>,最后调用<code>__vmalloc_area_node</code>根据<code>vm_struct</code>分配具体的物理页并在页表中建立虚拟地址的映射.</p>
+<p><code>__get_vm_area_node</code> 对<code>size</code>进行对齐, 分配<code>vmap_area</code>的内存, 然后增加一个<code>PAGE_SIZE</code>的guard page, 接着就是寻找一段合适的虚拟地址的区间来分配给<code>vmap_area</code>并且用它来初始化<code>vm_struct</code>.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line">static struct vm_struct *__get_vm_area_node(unsigned long size,</span><br><span class="line">		unsigned long align, unsigned long flags, unsigned long start,</span><br><span class="line">		unsigned long end, int node, gfp_t gfp_mask, const void *caller)</span><br><span class="line">&#123;</span><br><span class="line">	struct vmap_area *va;</span><br><span class="line">	struct vm_struct *area;</span><br><span class="line"></span><br><span class="line">	BUG_ON(in_interrupt());</span><br><span class="line">	if (flags &amp; VM_IOREMAP)</span><br><span class="line">		align = 1ul &lt;&lt; clamp_t(int, fls_long(size),</span><br><span class="line">				       PAGE_SHIFT, IOREMAP_MAX_ORDER);</span><br><span class="line"></span><br><span class="line">	size = PAGE_ALIGN(size);</span><br><span class="line">	if (unlikely(!size))</span><br><span class="line">		return NULL;</span><br><span class="line"></span><br><span class="line">	/* 分配vm_struct</span><br><span class="line">	 * 并且初始化全0</span><br><span class="line">	 */</span><br><span class="line">	area = kzalloc_node(sizeof(*area), gfp_mask &amp; GFP_RECLAIM_MASK, node);</span><br><span class="line">	if (unlikely(!area))</span><br><span class="line">		return NULL;</span><br><span class="line">    /* 如果没有标记，size要多算一个guard page用于分隔 */</span><br><span class="line">	if (!(flags &amp; VM_NO_GUARD))</span><br><span class="line">		size += PAGE_SIZE;</span><br><span class="line">	/* 分配vmap_area */</span><br><span class="line">	va = alloc_vmap_area(size, align, start, end, node, gfp_mask);</span><br><span class="line">	if (IS_ERR(va)) &#123;</span><br><span class="line">		kfree(area);</span><br><span class="line">		return NULL;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	/* 初始化 */</span><br><span class="line">	setup_vmalloc_vm(area, va, flags, caller);</span><br><span class="line"></span><br><span class="line">	return area;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p><code>alloc_vmap_area</code>会缓存上次一次搜索的节点到<code>free_vmap_cache</code>, 这样是认为一般虚拟内存是按顺序连续分配的, 如果通过缓存没有搜索到就要从全局的<code>vmap_area_root</code>开始搜索.</p>
+<p>这里说明一下<code>vmap_area</code>的分配过程, 主要是在红黑树中根据所指定的区间寻找合适的点,如果找到一个区间正好包含了<code>vstart</code>,那么在这个区间链表后面寻找合适的空洞进行分配就可以, 也有可能在红黑书上找到的就是空洞就不用接着遍历了, 总之搜索的过程是先红黑书然后再链表.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br></pre></td><td class="code"><pre><span class="line">/*</span><br><span class="line"> * Allocate a region of KVA of the specified size and alignment, within the</span><br><span class="line"> * vstart and vend.</span><br><span class="line"> */</span><br><span class="line">static struct vmap_area *alloc_vmap_area(unsigned long size,</span><br><span class="line">				unsigned long align,</span><br><span class="line">				unsigned long vstart, unsigned long vend,</span><br><span class="line">				int node, gfp_t gfp_mask)</span><br><span class="line">&#123;</span><br><span class="line">	struct vmap_area *va;</span><br><span class="line">	struct rb_node *n;</span><br><span class="line">	unsigned long addr;</span><br><span class="line">	int purged = 0;</span><br><span class="line">	struct vmap_area *first;</span><br><span class="line"></span><br><span class="line">	BUG_ON(!size);</span><br><span class="line">	BUG_ON(offset_in_page(size));</span><br><span class="line">	BUG_ON(!is_power_of_2(align));</span><br><span class="line"></span><br><span class="line">	might_sleep_if(gfpflags_allow_blocking(gfp_mask));</span><br><span class="line"></span><br><span class="line">	va = kmalloc_node(sizeof(struct vmap_area),</span><br><span class="line">			gfp_mask &amp; GFP_RECLAIM_MASK, node);</span><br><span class="line">	if (unlikely(!va))</span><br><span class="line">		return ERR_PTR(-ENOMEM);</span><br><span class="line"></span><br><span class="line">	/*</span><br><span class="line">	 * Only scan the relevant parts containing pointers to other objects</span><br><span class="line">	 * to avoid false negatives.</span><br><span class="line">	 */</span><br><span class="line">	kmemleak_scan_area(&amp;va-&gt;rb_node, SIZE_MAX, gfp_mask &amp; GFP_RECLAIM_MASK);</span><br><span class="line"></span><br><span class="line">retry:</span><br><span class="line">	spin_lock(&amp;vmap_area_lock);</span><br><span class="line">	/*</span><br><span class="line">	 * Invalidate cache if we have more permissive parameters.</span><br><span class="line">	 * cached_hole_size notes the largest hole noticed _below_</span><br><span class="line">	 * the vmap_area cached in free_vmap_cache: if size fits</span><br><span class="line">	 * into that hole, we want to scan from vstart to reuse</span><br><span class="line">	 * the hole instead of allocating above free_vmap_cache.</span><br><span class="line">	 * Note that __free_vmap_area may update free_vmap_cache</span><br><span class="line">	 * without updating cached_hole_size or cached_align.</span><br><span class="line">	 */</span><br><span class="line">	if (!free_vmap_cache || /* 缓存为空, 并且在下面条件满足的时候不使用缓存 */</span><br><span class="line">			size &lt; cached_hole_size || /* 至少有一个空洞可以复用, 直接从头开始搜索 */</span><br><span class="line">			vstart &lt; cached_vstart || /* 别缓存的起点小 */</span><br><span class="line">			align &lt; cached_align) &#123; /* 对齐大小比缓存的小 */</span><br><span class="line">nocache:</span><br><span class="line">		cached_hole_size = 0;</span><br><span class="line">		free_vmap_cache = NULL;</span><br><span class="line">	&#125;</span><br><span class="line">	/* record if we encounter less permissive parameters */</span><br><span class="line">	cached_vstart = vstart;</span><br><span class="line">	cached_align = align;</span><br><span class="line"></span><br><span class="line">	/* find starting point for our search */</span><br><span class="line">	if (free_vmap_cache) &#123; /* 这个地方是用缓存上次搜索的结果, 每次找到以后会存到这里 */</span><br><span class="line">		first = rb_entry(free_vmap_cache, struct vmap_area, rb_node);</span><br><span class="line">		addr = ALIGN(first-&gt;va_end, align);</span><br><span class="line">		if (addr &lt; vstart) /* 缓存的末尾对齐之后超出了范围从头开始搜索 */</span><br><span class="line">			goto nocache;</span><br><span class="line">		if (addr + size &lt; addr) /* 整数溢出 */</span><br><span class="line">			goto overflow;</span><br><span class="line"></span><br><span class="line">	&#125; else &#123;</span><br><span class="line">		addr = ALIGN(vstart, align);</span><br><span class="line">		if (addr + size &lt; addr)</span><br><span class="line">			goto overflow;</span><br><span class="line"></span><br><span class="line">		n = vmap_area_root.rb_node;</span><br><span class="line">		first = NULL;</span><br><span class="line"></span><br><span class="line">		while (n) &#123; /* 用对齐之后的vstart正好&lt;=va_ned&amp;&amp;&gt;=va_start的节点 */</span><br><span class="line">			struct vmap_area *tmp;</span><br><span class="line">			tmp = rb_entry(n, struct vmap_area, rb_node);</span><br><span class="line">			if (tmp-&gt;va_end &gt;= addr) &#123;</span><br><span class="line">				first = tmp;</span><br><span class="line">				if (tmp-&gt;va_start &lt;= addr)</span><br><span class="line">					break;</span><br><span class="line">				n = n-&gt;rb_left;</span><br><span class="line">			&#125; else</span><br><span class="line">				n = n-&gt;rb_right;</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		if (!first)</span><br><span class="line">			goto found;</span><br><span class="line">	&#125;</span><br><span class="line">	/* from the starting point, walk areas until a suitable hole is found */</span><br><span class="line">	while (addr + size &gt; first-&gt;va_start &amp;&amp; addr + size &lt;= vend) &#123;</span><br><span class="line">		if (addr + cached_hole_size &lt; first-&gt;va_start) /* cached_hole_size */</span><br><span class="line">			cached_hole_size = first-&gt;va_start - addr; /* 缓存最大的空洞大小 */</span><br><span class="line">		addr = ALIGN(first-&gt;va_end, align);</span><br><span class="line">		if (addr + size &lt; addr)</span><br><span class="line">			goto overflow;</span><br><span class="line"></span><br><span class="line">		if (list_is_last(&amp;first-&gt;list, &amp;vmap_area_list))</span><br><span class="line">			goto found;</span><br><span class="line"></span><br><span class="line">		first = list_next_entry(first, list);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">found:</span><br><span class="line">	if (addr + size &gt; vend)</span><br><span class="line">		goto overflow;</span><br><span class="line"></span><br><span class="line">	va-&gt;va_start = addr;</span><br><span class="line">	va-&gt;va_end = addr + size;</span><br><span class="line">	va-&gt;flags = 0;</span><br><span class="line">	__insert_vmap_area(va); /* 插入到红黑书和链表当中 */</span><br><span class="line">	free_vmap_cache = &amp;va-&gt;rb_node;</span><br><span class="line">	spin_unlock(&amp;vmap_area_lock);</span><br><span class="line"></span><br><span class="line">	BUG_ON(!IS_ALIGNED(va-&gt;va_start, align));</span><br><span class="line">	BUG_ON(va-&gt;va_start &lt; vstart);</span><br><span class="line">	BUG_ON(va-&gt;va_end &gt; vend);</span><br><span class="line"></span><br><span class="line">	return va;</span><br><span class="line"></span><br><span class="line">overflow:</span><br><span class="line">	spin_unlock(&amp;vmap_area_lock);</span><br><span class="line">	if (!purged) &#123;</span><br><span class="line">		purge_vmap_area_lazy();</span><br><span class="line">		purged = 1;</span><br><span class="line">		goto retry;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	if (gfpflags_allow_blocking(gfp_mask)) &#123;</span><br><span class="line">		unsigned long freed = 0;</span><br><span class="line">		blocking_notifier_call_chain(&amp;vmap_notify_list, 0, &amp;freed);</span><br><span class="line">		if (freed &gt; 0) &#123;</span><br><span class="line">			purged = 0;</span><br><span class="line">			goto retry;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	if (printk_ratelimit())</span><br><span class="line">		pr_warn(&quot;vmap allocation for size %lu failed: use vmalloc=&lt;size&gt; to increase size\n&quot;,</span><br><span class="line">			size);</span><br><span class="line">	kfree(va);</span><br><span class="line">	return ERR_PTR(-EBUSY);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<h2 id="建立映射"><a href="#建立映射" class="headerlink" title="建立映射"></a>建立映射</h2><p>成功分配好<code>vm_struct</code>之后就可以建立映射了.<br><code>__vmalloc_area_node</code>的过程首先是分配物理页,调用<code>alloc_kmem_pages</code>,这个函数和<code>alloc_pages</code>不同的是套了一层cgroup的kmem计数器,来限制内存分配, 然后再调用<code>map_vm_area</code>在页表上建立映射,内部调用的是<code>vmap_page_range</code>,指定了<code>vm_struct</code>的start和end, 而<code>vmap_page_range</code>则调用了<code>vmap_page_range_noflush</code>迭代去初始化各级页表. 内核的虚拟地址的映射就全部完成了.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line">/*</span><br><span class="line"> *</span><br><span class="line"> * Set up page tables in kva (addr, end). The ptes shall have prot &quot;prot&quot;, and</span><br><span class="line"> * will have pfns corresponding to the &quot;pages&quot; array.</span><br><span class="line"> * 这里的kva指的是kernel virtual address.</span><br><span class="line"> * Ie. pte at addr+N*PAGE_SIZE shall point to pfn corresponding to pages[N]</span><br><span class="line"> */</span><br><span class="line">static int vmap_page_range_noflush(unsigned long start, unsigned long end,</span><br><span class="line">				   pgprot_t prot, struct page **pages)</span><br><span class="line">&#123;</span><br><span class="line">	pgd_t *pgd;</span><br><span class="line">	unsigned long next;</span><br><span class="line">	unsigned long addr = start;</span><br><span class="line">	int err = 0;</span><br><span class="line">	int nr = 0;</span><br><span class="line"></span><br><span class="line">	BUG_ON(addr &gt;= end);</span><br><span class="line">	pgd = pgd_offset_k(addr); /* 把虚拟地址hash到pgd */</span><br><span class="line">	do &#123;</span><br><span class="line">		next = pgd_addr_end(addr, end); /* 获取下一个pgd */</span><br><span class="line">		err = vmap_pud_range(pgd, addr, next, prot, pages, &amp;nr); /* 再去初始化 pud pmd pte */</span><br><span class="line">		if (err)</span><br><span class="line">			return err;</span><br><span class="line">	&#125; while (pgd++, addr = next, addr != end);</span><br><span class="line"></span><br><span class="line">	return nr;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>对应的调用关系如图.</p>
+<img data-src="/zh-CN/2016/09/05/vmalloc-%E9%9D%9E%E8%BF%9E%E7%BB%AD%E5%86%85%E5%AD%98%E7%9A%84%E5%88%86%E9%85%8D/vmalloc-callgraph.png" class="">
+
+<h2 id="释放"><a href="#释放" class="headerlink" title="释放"></a>释放</h2><p>释放的入口是<code>vfree</code>, 这个函数首先通过<code>in_interrupt</code>检查是否在中断上下文, 如果是正处于中断中则使用<code>workqueue</code>传入<code>vfree_deferred</code>用workqueue进行释放, 不然就直接调用<code>__vunmap</code>来释放, 它会调用<code>remove_vm_area</code>, 最终调用用<code>unmap_vmap_area</code>重置页表, 然后用<code>free_vmap_area_noflush</code>把<code>vmp_area</code>加入到<code>vmap_purge_list</code>这个链表当中, 放入这个链表之后只有链表长度超过阈值才会尝试调用<code>try_purge_vmap_area_lazy</code>真正释放掉<code>vmap_area</code>,释放过程主要是从红黑树中移除, 然后把自己也给free掉, 这是一个延迟的释放过程, 最后把把<code>vm_struct</code>自己和它管理的物理页全部释放. 调用图如图所示.</p>
+<img data-src="/zh-CN/2016/09/05/vmalloc-%E9%9D%9E%E8%BF%9E%E7%BB%AD%E5%86%85%E5%AD%98%E7%9A%84%E5%88%86%E9%85%8D/vfree-callgraph.png" class="">
+
+
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>vmalloc主要是针对连续地址分配的需求, 涉及两个部分, 一个是虚拟地址的管理以及到物理地址的映射. 其中虚拟地址的管理比较麻烦一点, 用链表红黑树保存了每个<code>vmap_area</code>并且寻找合适的<code>空洞</code>用于分配虚拟地址. 而物理地址的分配之前我的博客已经讲过了, 建立映射只要设置对应的页表项就OK了.</p>
+<h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2><ol>
+<li><p> <a target="_blank" rel="noopener" href="http://blog.chinaunix.net/uid-25845340-id-3251137.html">《LINUX3.0内核源代码分析》第四章: 内存管理</a></p>
+</li>
+<li><p> <a target="_blank" rel="noopener" href="http://blog.chinaunix.net/uid-20786208-id-4888173.html">linux内存管理之vmalloc</a></p>
+</li>
+<li><p> <a target="_blank" rel="noopener" href="https://www.kernel.org/doc/gorman/html/understand/understand010.html">lkvm</a></p>
+</li>
+</ol>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/kernel/" rel="tag"># kernel</a>
+              <a href="/tags/%E5%86%85%E6%A0%B8/" rel="tag"># 内核</a>
+              <a href="/tags/vmalloc/" rel="tag"># vmalloc</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/zh-CN/2016/08/31/buddy-system-%E5%86%85%E6%A0%B8%E7%89%A9%E7%90%86%E9%A1%B5%E5%88%86%E9%85%8D%E7%9A%84%E5%AE%9E%E7%8E%B0/" rel="prev" title="buddy-system-内核物理页管理的实现">
+                  <i class="fa fa-angle-left"></i> buddy-system-内核物理页管理的实现
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/zh-CN/2016/09/07/golang-context%E4%BD%BF%E7%94%A8%E6%96%B9%E5%BC%8F/" rel="next" title="golang-context使用方式">
+                  golang-context使用方式 <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 2014 – 
+    <span itemprop="copyrightYear">2025</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+  </div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/mist/" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.umd.js" integrity="sha256-a+H7FYzJv6oU2hfsfDGM2Ohw/cR9v+hPfxHCLdmCrE8=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lozad.js/1.16.0/lozad.min.js" integrity="sha256-mOFREFhqmHeQbXpK2lp4nA3qooVgACfh88fpJftLBbc=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/sidebar.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+  <script src="/js/third-party/fancybox.js"></script>
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"ggaaooppeenngg","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

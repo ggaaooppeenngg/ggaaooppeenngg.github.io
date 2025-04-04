@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.3.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="_85tctgPWrqH2EPVuuD5IT6KE-tW8nH0hTISJDMnShg">
+  <meta name="baidu-site-verification" content="bb16c5b1fd3302c18e0015bef11eea42">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha256-dABdfBfUoC8vJUBOwGVdm8L9qlMWaHTIfXt+7GnZCIo=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.css" integrity="sha256-gkQVf8UKZgQ0HyuxL/VnacadJ+D2Kox2TCEBuNQg5+w=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="SSA概述SSA在Go1.7中被引入，这个特性对编译器的性能有很大的提高，但是也导致编译过程有些减速。下面来结合网上的资粮和书籍，简单说明一下SSA以及SSA的应用。 SSA 代表 static single-assignment，是一种IR(中间表示代码)，要保证每个变量只被赋值一次。这个能帮助简化编译器的优化算法。 123y :&#x3D; 1y :&#x3D; 2x :&#x3D; y 比如上面这段代码，y &#x3D; 1其实是">
+<meta property="og:type" content="article">
+<meta property="og:title" content="什么是SSA以及SSA的作用">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2017/01/22/SSA%E6%98%AF%E4%BB%80%E4%B9%88/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="SSA概述SSA在Go1.7中被引入，这个特性对编译器的性能有很大的提高，但是也导致编译过程有些减速。下面来结合网上的资粮和书籍，简单说明一下SSA以及SSA的应用。 SSA 代表 static single-assignment，是一种IR(中间表示代码)，要保证每个变量只被赋值一次。这个能帮助简化编译器的优化算法。 123y :&#x3D; 1y :&#x3D; 2x :&#x3D; y 比如上面这段代码，y &#x3D; 1其实是">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/01/22/SSA%E6%98%AF%E4%BB%80%E4%B9%88/example_1.jpg">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/01/22/SSA%E6%98%AF%E4%BB%80%E4%B9%88/example_2.jpg">
+<meta property="article:published_time" content="2017-01-21T17:14:50.000Z">
+<meta property="article:modified_time" content="2025-03-28T10:39:05.201Z">
+<meta property="article:author" content="ggaaooppeenngg">
+<meta property="article:tag" content="Go">
+<meta property="article:tag" content="编译">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/01/22/SSA%E6%98%AF%E4%BB%80%E4%B9%88/example_1.jpg">
+
+
+<link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2017/01/22/SSA%E6%98%AF%E4%BB%80%E4%B9%88/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://ggaaooppeenngg.github.io/zh-CN/2017/01/22/SSA%E6%98%AF%E4%BB%80%E4%B9%88/","path":"zh-CN/2017/01/22/SSA是什么/","title":"什么是SSA以及SSA的作用"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>什么是SSA以及SSA的作用 | ggaaooppeenngg</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-62096626-1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"UA-62096626-1","only_pageview":false,"measure_protocol_api_secret":null}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+  <script src="/js/third-party/analytics/baidu-analytics.js"></script>
+  <script async src="https://hm.baidu.com/hm.js?bb16c5b1fd3302c18e0015bef11eea42"></script>
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">ggaaooppeenngg</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">为什么计算机科学是无限的但生命是有限的</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">134</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">14</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">78</span></a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#SSA%E6%A6%82%E8%BF%B0"><span class="nav-number">1.</span> <span class="nav-text">SSA概述</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#SSA%E7%9A%84%E5%BA%94%E7%94%A8"><span class="nav-number">2.</span> <span class="nav-text">SSA的应用</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#DEAD-CODE-%E6%B6%88%E9%99%A4"><span class="nav-number">2.1.</span> <span class="nav-text">DEAD CODE 消除</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%AE%80%E5%8D%95%E7%9A%84%E5%B8%B8%E9%87%8F%E6%89%A9%E5%B1%95"><span class="nav-number">2.2.</span> <span class="nav-text">简单的常量扩展</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BB%8ESSA%E8%BD%AC%E6%8D%A2%E5%9B%9E%E5%8E%9F%E5%A7%8B%E4%BB%A3%E7%A0%81"><span class="nav-number">3.</span> <span class="nav-text">从SSA转换回原始代码</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">4.</span> <span class="nav-text">总结</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">78</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">14</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">134</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/ggaaooppeenngg" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;ggaaooppeenngg" rel="noopener me" target="_blank"><i class="github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:peng.gao.dut@gmail.com" title="E-Mail → mailto:peng.gao.dut@gmail.com" rel="noopener me" target="_blank"><i class="envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+        <div class="back-to-top animated" role="button" aria-label="返回顶部">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2017/01/22/SSA%E6%98%AF%E4%BB%80%E4%B9%88/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="什么是SSA以及SSA的作用 | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          什么是SSA以及SSA的作用
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2017-01-22 01:14:50" itemprop="dateCreated datePublished" datetime="2017-01-22T01:14:50+08:00">2017-01-22</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2025-03-28 18:39:05" itemprop="dateModified" datetime="2025-03-28T18:39:05+08:00">2025-03-28</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/Go/" itemprop="url" rel="index"><span itemprop="name">Go</span></a>
+        </span>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2017/01/22/SSA%E6%98%AF%E4%BB%80%E4%B9%88/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2017/01/22/SSA是什么/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h2 id="SSA概述"><a href="#SSA概述" class="headerlink" title="SSA概述"></a>SSA概述</h2><p>SSA在Go1.7中被引入，这个特性对编译器的性能有很大的提高，但是也导致编译过程有些减速。下面来结合网上的资粮和书籍，简单说明一下SSA以及SSA的应用。</p>
+<p>SSA 代表 static single-assignment，是一种IR(中间表示代码)，要保证每个变量只被赋值一次。这个能帮助简化编译器的优化算法。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">y := 1</span><br><span class="line">y := 2</span><br><span class="line">x := y</span><br></pre></td></tr></table></figure>
+<p>比如上面这段代码，<code>y = 1</code>其实是不可用的，这个要通过定义的可达分析来确定<code>y</code>是要用1还是2，而SSA有一个标识符可以称之为版本或者“代“。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">y1 := 1</span><br><span class="line">y2 := 2</span><br><span class="line">x1 := y2</span><br></pre></td></tr></table></figure>
+<p>这样就没有任何间接值了。用SSA表示的好处是对于同一个变量的无关使用表示成不同“代”，可以方便很多编译器的优化算法的实现。</p>
+<p>一个概念:</p>
+<p>Φ(读作fai) 函数，表示要根据控制流赋值的“代”。</p>
+<p>例子可以参考维基里的<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Static_single_assignment_form#Converting_to_SSA">这一段</a>。</p>
+<p>三个定义：</p>
+<p>A dominate B，如果从起点开始必须通过A到达B。也就是说A是到B的必经之路。</p>
+<p>A strictly dominate B，如果 A dominate B，并且A和B不相等。</p>
+<p>A 的 dominance frontier 含有B，如果A没有strictly dominate B，但是 dominate 了B的一个前驱节点。</p>
+<p>用遍历的方式确定 dominance frontier 的伪代码。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">for each node b</span><br><span class="line">    if the number of immediate predecessors of b ≥ 2</span><br><span class="line">        for each p in immediate predecessors of b</span><br><span class="line">            runner := p</span><br><span class="line">            while runner ≠ idom(b)</span><br><span class="line">                add b to runner’s dominance frontier set</span><br><span class="line">                runner := idom(runner)</span><br></pre></td></tr></table></figure>
+<p>idom(b) 代表相邻的strictly dominate b的结点。这样的点只有一个，因为相邻的点有两个的话就不会是必经之路了。</p>
+<img data-src="/zh-CN/2017/01/22/SSA%E6%98%AF%E4%BB%80%E4%B9%88/example_1.jpg" class="">
+
+<p>如图是一个例子，2的前驱是1和7，7没有sd(strictly dominate) 2，所以把2加入到7的DF(dominate frontiers)当中。3是7的相邻sd，然后3不是2的sd所以2加入到3的DF当中，接着2是3相邻的sd，然后2不是2的sd所以把2加入到2的DF中，最后遍历到7，5和6不是7的sd所以把7加入到5和6的df当中。</p>
+<p>df(A)可以认为是可以通过A到达的，但不是必经之路的点的集合。</p>
+<p>有了这个定义以后就可以插入Φ函数了和重命名了。如果X中有定义a那么所有df(X)都需要a的Φ函数。并且Φ函数本身也是一个定义。</p>
+<p>比如还是同一个例子。</p>
+<img data-src="/zh-CN/2017/01/22/SSA%E6%98%AF%E4%BB%80%E4%B9%88/example_2.jpg" class="">
+
+<p>1当中有j的定义，但是df(1)是空的，5当中有j的定义，并且5的df有7所以7当中要插入一个φ(j, j)。j现在在7中定义了(通过φ函数）所以df(7)中的2也要有φ(j, j)，6也有j的定义但是7已经有了φ函数了，2的df有2，但是2已经有φ函数了。类似的方式可以应用到i和k。接着对定义重命名就可以完成SSA的转换了。</p>
+<h2 id="SSA的应用"><a href="#SSA的应用" class="headerlink" title="SSA的应用"></a>SSA的应用</h2><p>上面只是通俗的解释了一下SSA，没有给出更多详细的理论和算法以及证明，因为证明实在难看懂，下面说一下SSA的应用。</p>
+<h3 id="DEAD-CODE-消除"><a href="#DEAD-CODE-消除" class="headerlink" title="DEAD CODE 消除"></a>DEAD CODE 消除</h3><p>因为每个变量都有“代”（因为大家都只被赋值一次），所以很容易检查出没有被使用的变量并且删除对应的定义。另外如果删除v=x这样的定义还要在x的use表中把这条语句删除。</p>
+<h3 id="简单的常量扩展"><a href="#简单的常量扩展" class="headerlink" title="简单的常量扩展"></a>简单的常量扩展</h3><p>比如<code>v = φ(c1,c2,...,cn)</code>这种格式，如果c都是相等的可以直接替换成c，或者<code>v=c</code>，如果c是常量的话也可以直接替换掉。在做这些的同时也可以做其他的优化，能够在一趟遍历中都完成，比如<code>copy propagation</code>，<code>x=y</code>或者<code>x=φ(y)</code>都可以直接用y替换掉x。比如<code>constant folding</code>，<code>x=a+b</code>如果<code>a+b</code>是常量的话，可以直接用常量赋值。</p>
+<p>当然还有其他的优化算法，出发点都是基于SSA的简单性。</p>
+<h2 id="从SSA转换回原始代码"><a href="#从SSA转换回原始代码" class="headerlink" title="从SSA转换回原始代码"></a>从SSA转换回原始代码</h2><p><code>y = φ(x1, x2, x3)</code>这样的形式要根据条件分支再拆分回原来的形态，比如满足1条件，使用<code>y=x1</code>这样的形式。并且可能会很自然的想把x1和x2变回使用同一个寄存器，但是通过优化过程中的一些手段(copy propagation)已经把大部分move指令给优化掉了，并且重新推回x可能会有生命周期的影响，所以还是保留了“代”。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>其实这个就是把def-use换成了use-def方便做代码优化呀：）害我看那么久</p>
+<p>参考文献</p>
+<ol>
+<li> 虎书第十九章</li>
+<li> <a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Static_single_assignment_form#Converting_to_SSA">维基百科</a></li>
+</ol>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Go/" rel="tag"># Go</a>
+              <a href="/tags/%E7%BC%96%E8%AF%91/" rel="tag"># 编译</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/zh-CN/2016/11/21/kernel-%E5%8D%8F%E8%AE%AE%E6%A0%88%E9%93%BE%E8%B7%AF%E5%B1%82%E5%88%86%E6%9E%90/" rel="prev" title="kernel-协议栈链路层分析">
+                  <i class="fa fa-angle-left"></i> kernel-协议栈链路层分析
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/zh-CN/2017/03/31/%E4%BB%8E%E6%9C%B4%E7%B4%A0%E8%A7%A3%E9%87%8A%E5%87%BA%E5%8F%91%E8%A7%A3%E9%87%8Aleveldb%E7%9A%84%E8%AE%BE%E8%AE%A1/" rel="next" title="从朴素解释出发解释leveldb的设计">
+                  从朴素解释出发解释leveldb的设计 <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 2014 – 
+    <span itemprop="copyrightYear">2025</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+  </div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/mist/" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.umd.js" integrity="sha256-a+H7FYzJv6oU2hfsfDGM2Ohw/cR9v+hPfxHCLdmCrE8=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lozad.js/1.16.0/lozad.min.js" integrity="sha256-mOFREFhqmHeQbXpK2lp4nA3qooVgACfh88fpJftLBbc=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/sidebar.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+  <script src="/js/third-party/fancybox.js"></script>
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"ggaaooppeenngg","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

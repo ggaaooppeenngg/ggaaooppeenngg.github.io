@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.3.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="_85tctgPWrqH2EPVuuD5IT6KE-tW8nH0hTISJDMnShg">
+  <meta name="baidu-site-verification" content="bb16c5b1fd3302c18e0015bef11eea42">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha256-dABdfBfUoC8vJUBOwGVdm8L9qlMWaHTIfXt+7GnZCIo=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.css" integrity="sha256-gkQVf8UKZgQ0HyuxL/VnacadJ+D2Kox2TCEBuNQg5+w=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="每一种语言都会有一个定义良好的语法结构.函数是由申明和语句构成的,而语句又是由表达式构成的.经常用来描述语法的是BNF[1].Go使用的是相应的变种,在Go的官方文档中有很详细的spec描述[2].一门语言的设计其实就在这份描述当中,这是一门语言的语法和规则的定义,是表面程序员可以接触到的部分,而运行时却可以改变,这相当于和程序员约定的接口,只要按照这个接口编写源代码,就能产生正常可以编译的二进制">
+<meta property="og:type" content="article">
+<meta property="og:title" content="go-parser-语法分析">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2016/04/06/go-parser-%E8%AF%AD%E6%B3%95%E5%88%86%E6%9E%90/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="每一种语言都会有一个定义良好的语法结构.函数是由申明和语句构成的,而语句又是由表达式构成的.经常用来描述语法的是BNF[1].Go使用的是相应的变种,在Go的官方文档中有很详细的spec描述[2].一门语言的设计其实就在这份描述当中,这是一门语言的语法和规则的定义,是表面程序员可以接触到的部分,而运行时却可以改变,这相当于和程序员约定的接口,只要按照这个接口编写源代码,就能产生正常可以编译的二进制">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2016-04-06T03:04:37.000Z">
+<meta property="article:modified_time" content="2025-03-28T10:39:05.291Z">
+<meta property="article:author" content="ggaaooppeenngg">
+<meta property="article:tag" content="Go">
+<meta property="article:tag" content="编译">
+<meta property="article:tag" content="parser">
+<meta property="article:tag" content="compiler">
+<meta property="article:tag" content="go">
+<meta property="article:tag" content="golang">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2016/04/06/go-parser-%E8%AF%AD%E6%B3%95%E5%88%86%E6%9E%90/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://ggaaooppeenngg.github.io/zh-CN/2016/04/06/go-parser-%E8%AF%AD%E6%B3%95%E5%88%86%E6%9E%90/","path":"zh-CN/2016/04/06/go-parser-语法分析/","title":"go-parser-语法分析"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>go-parser-语法分析 | ggaaooppeenngg</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-62096626-1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"UA-62096626-1","only_pageview":false,"measure_protocol_api_secret":null}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+  <script src="/js/third-party/analytics/baidu-analytics.js"></script>
+  <script async src="https://hm.baidu.com/hm.js?bb16c5b1fd3302c18e0015bef11eea42"></script>
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">ggaaooppeenngg</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">为什么计算机科学是无限的但生命是有限的</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">134</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">14</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">78</span></a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-overview-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">78</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">14</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">134</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/ggaaooppeenngg" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;ggaaooppeenngg" rel="noopener me" target="_blank"><i class="github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:peng.gao.dut@gmail.com" title="E-Mail → mailto:peng.gao.dut@gmail.com" rel="noopener me" target="_blank"><i class="envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+        <div class="back-to-top animated" role="button" aria-label="返回顶部">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2016/04/06/go-parser-%E8%AF%AD%E6%B3%95%E5%88%86%E6%9E%90/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="go-parser-语法分析 | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          go-parser-语法分析
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2016-04-06 11:04:37" itemprop="dateCreated datePublished" datetime="2016-04-06T11:04:37+08:00">2016-04-06</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2025-03-28 18:39:05" itemprop="dateModified" datetime="2025-03-28T18:39:05+08:00">2025-03-28</time>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2016/04/06/go-parser-%E8%AF%AD%E6%B3%95%E5%88%86%E6%9E%90/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2016/04/06/go-parser-语法分析/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>每一种语言都会有一个定义良好的语法结构.函数是由申明和语句构成的,而语句又是由表达式构成的.<br>经常用来描述语法的是BNF[1].Go使用的是相应的变种,在Go的官方文档中有很详细的spec描述[2].一门语言的设计其实就在这份描述当中,这是一门语言的语法和规则的定义,是表面程序员可以接触到的部分,而运行时却可以改变,这相当于和程序员约定的接口,只要按照这个接口编写源代码,就能产生正常可以编译的二进制文件,但是最后的二进制文件如何运行,对于每条语法转换成了什么,有什么优化都是编译器优化和运行时的工作.所以一门语言必须有一个详尽的描述,这和一个网络协议一样,是非常重要的部分.</p>
+<p>语法分析器也是有工具可以自动生成的,比如yacc[3].我在之前提到过使用工具的利弊,就不赘述了.</p>
+<p>本文主要看一下Go的语法分析是如何进行.Go的parser接受的输入是源文件,内嵌了一个scanner,最后把scanner生成的token变成一颗抽象语法树(AST).<br>编译时的错误也是在这个时候报告的,但是大部分编译器编译时的错误系统并不是很完美,有时候报的错误文不对题,这主要是因为写对的方式有几种<br>但是写错的方式有很多种,编译器只能把一些错误进行归类,并且指出当前认为可疑的地方,并不能完完全全的知道到底是什么语法错误.这个需要结合给出的错误进行判断,clang作为一个C编译器做得好很多,这都是开发者不断地添加错误处理的结果,比gcc的报错完善很多.然而Go的编译时的错误处理也是秉承了gcc的风格,并不明确,但是会指出可疑的地方,在大多数场景下或者对语言标准熟悉的情况下也不是很麻烦.<br>下面看一下Go是怎么定义这些语法结构.这些结构都在<code>go/ast</code>当中.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">// All node types implement the Node interface.</span><br><span class="line">type Node interface &#123;</span><br><span class="line">        Pos() token.Pos // position of first character belonging to the node</span><br><span class="line">        End() token.Pos // position of first character immediately after the node</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">// All expression nodes implement the Expr interface.</span><br><span class="line">type Expr interface &#123;</span><br><span class="line">        Node</span><br><span class="line">        exprNode()</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">// All statement nodes implement the Stmt interface.</span><br><span class="line">type Stmt interface &#123;</span><br><span class="line">        Node</span><br><span class="line">        stmtNode()</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">// All declaration nodes implement the Decl interface.</span><br><span class="line">type Decl interface &#123;</span><br><span class="line">        Node</span><br><span class="line">        declNode()</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>语法有三个主体,表达式(expression),语句(statement),声明(declaration),Node是基类,用于标记该节点的位置的开始和结束.<br>而三个主体的函数没有实际意义,只是用三个interface来划分不同的语法单位,如果某个语法是Stmt的话,就实现一个空的<code>stmtNode</code>函数即可.<br>这样的好处是可以对语法单元进行<code>comma,ok</code>来判断类型,并且保证只有这些变量可以赋值给对应的interface.但是实际上这个划分不是很严格,比如</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">func (*ArrayType) exprNode()     &#123;&#125;</span><br><span class="line">func (*StructType) exprNode()    &#123;&#125;</span><br><span class="line">func (*FuncType) exprNode()      &#123;&#125;</span><br><span class="line">func (*InterfaceType) exprNode() &#123;&#125;</span><br></pre></td></tr></table></figure>
+<p>就是类型,但是属于Expr,而真正的表达式比如</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">func (*BasicLit) exprNode()       &#123;&#125;</span><br><span class="line">func (*FuncLit) exprNode()        &#123;&#125;</span><br></pre></td></tr></table></figure>
+<p>是可以赋值给Exprt的.</p>
+<p>了解了这个设计,再来看整个内容其实就是定义了源文件中可能出现的语法结构.列表如下,这个列表很长,扫一眼就可以,具体可以再回来看.</p>
+<ol>
+<li>普通Node,不是特定语法结构,属于某个语法结构的一部分.<ul>
+<li>  Comment 表示一行注释 // 或者 /* */</li>
+<li>  CommentGroup 表示多行注释</li>
+<li>  Field 表示结构体中的一个定义或者变量,或者函数签名当中的参数或者返回值</li>
+<li>  FieldList 表示以”{}”或者”()”包围的Filed列表</li>
+</ul>
+</li>
+<li>Expression &amp; Types (都划分成Expr接口)<ul>
+<li>  BadExpr 用来表示错误表达式的占位符</li>
+<li>  Ident 比如报名,函数名,变量名</li>
+<li>  Ellipsis 省略号表达式,比如参数列表的最后一个可以写成<code>arg...</code></li>
+<li>  BasicLit 基本字面值,数字或者字符串</li>
+<li>  FuncLit 函数定义</li>
+<li>  CompositeLit 构造类型,比如{1,2,3,4}</li>
+<li>  ParenExpr 括号表达式,被括号包裹的表达式</li>
+<li>  SelectorExpr 选择结构,类似于a.b的结构</li>
+<li>  IndexExpr 下标结构,类似这样的结构 expr[expr]</li>
+<li>  SliceExpr 切片表达式,类似这样 expr[low:mid:high]</li>
+<li>  TypeAssertExpr 类型断言类似于 X.(type)</li>
+<li>  CallExpr 调用类型,类似于 expr()</li>
+<li>  StarExpr *表达式,类似于 *X</li>
+<li>  UnaryExpr 一元表达式</li>
+<li>  BinaryExpr 二元表达式</li>
+<li>  KeyValueExp 键值表达式 key:value</li>
+<li>  ArrayType 数组类型</li>
+<li>  StructType  结构体类型</li>
+<li>  FuncType 函数类型</li>
+<li>  InterfaceType 接口类型</li>
+<li>  MapType map类型</li>
+<li>  ChanType 管道类型</li>
+</ul>
+</li>
+<li>Statements<ul>
+<li>  BadStmt 错误的语句</li>
+<li>  DeclStmt 在语句列表里的申明</li>
+<li>  EmptyStmt 空语句</li>
+<li>  LabeledStmt 标签语句类似于 indent:stmt</li>
+<li>  ExprStmt 包含单独的表达式语句</li>
+<li>  SendStmt chan发送语句</li>
+<li>  IncDecStmt 自增或者自减语句</li>
+<li>  AssignStmt 赋值语句</li>
+<li>  GoStmt Go语句</li>
+<li>  DeferStmt 延迟语句</li>
+<li>  ReturnStmt return 语句</li>
+<li>  BranchStmt 分支语句 例如break continue </li>
+<li>  BlockStmt 块语句 {} 包裹</li>
+<li>  IfStmt If 语句</li>
+<li>  CaseClause case 语句</li>
+<li>  SwitchStmt switch 语句</li>
+<li>  TypeSwitchStmt 类型switch 语句 switch x:=y.(type)</li>
+<li>  CommClause 发送或者接受的case语句,类似于 case x &lt;-: </li>
+<li>  SelectStmt select 语句</li>
+<li>  ForStmt for 语句</li>
+<li>  RangeStmt range 语句</li>
+</ul>
+</li>
+<li>Declarations<ul>
+<li>Spec type<ul>
+<li>  Import Spec</li>
+<li>  Value Spec</li>
+<li>  Type Spec</li>
+</ul>
+</li>
+<li>  BadDecl 错误申明</li>
+<li>  GenDecl 一般申明(和Spec相关,比如 import “a”,var a,type a)</li>
+<li>  FuncDecl 函数申明</li>
+</ul>
+</li>
+<li>Files and Packages<ul>
+<li>  File 代表一个源文件节点,包含了顶级元素.</li>
+<li>  Package 代表一个包,包含了很多文件.</li>
+</ul>
+</li>
+</ol>
+<p>上面就是整个源代码的所有组成元素,接下来就来看一下语法分析是如何进行的,也就是最后的AST是如何构建出来的.</p>
+<p>先看一下<code>parser</code>结构体的定义,parser是以file为单位的.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br></pre></td><td class="code"><pre><span class="line">// The parser structure holds the parser&#x27;s internal state.</span><br><span class="line">type parser struct &#123;</span><br><span class="line">        file    *token.File</span><br><span class="line">        errors  scanner.ErrorList // 解析过程中遇到的错误列表</span><br><span class="line">        scanner scanner.Scanner // 词法分析器.</span><br><span class="line"></span><br><span class="line">        // Tracing/debugging</span><br><span class="line">        mode   Mode // parsing mode // 解析模式</span><br><span class="line">        trace  bool // == (mode &amp; Trace != 0)</span><br><span class="line">        indent int  // indentation used for tracing output</span><br><span class="line"></span><br><span class="line">        // Comments 列表</span><br><span class="line">        comments    []*ast.CommentGroup</span><br><span class="line">        leadComment *ast.CommentGroup // last lead comment</span><br><span class="line">        lineComment *ast.CommentGroup // last line comment</span><br><span class="line"></span><br><span class="line">        // Next token</span><br><span class="line">        pos token.Pos   // token position</span><br><span class="line">        tok token.Token // one token look-ahead</span><br><span class="line">        lit string      // token literal</span><br><span class="line"></span><br><span class="line">        // Error recovery</span><br><span class="line">        // (used to limit the number of calls to syncXXX functions</span><br><span class="line">        // w/o making scanning progress - avoids potential endless</span><br><span class="line">        // loops across multiple parser functions during error recovery)</span><br><span class="line">        syncPos token.Pos // last synchronization position 解析错误的同步点.</span><br><span class="line">        syncCnt int       // number of calls to syncXXX without progress</span><br><span class="line"></span><br><span class="line">        // Non-syntactic parser control</span><br><span class="line">        // 非语法性的控制</span><br><span class="line">        // &lt;0 在控制语句中, &gt;= 在表达式中.</span><br><span class="line">        exprLev int  // &lt; 0: in control clause, &gt;= 0: in expression</span><br><span class="line">        // 正在解析右值表达式</span><br><span class="line">        inRhs   bool // if set, the parser is parsing a rhs expression</span><br><span class="line"></span><br><span class="line">        // Ordinary identifier scopes</span><br><span class="line">        pkgScope   *ast.Scope        // pkgScope.Outer == nil</span><br><span class="line">        topScope   *ast.Scope        // top-most scope; may be pkgScope</span><br><span class="line">        unresolved []*ast.Ident      // unresolved identifiers</span><br><span class="line">        imports    []*ast.ImportSpec // list of imports</span><br><span class="line"></span><br><span class="line">        // Label scopes</span><br><span class="line">        // (maintained by open/close LabelScope)</span><br><span class="line">        labelScope  *ast.Scope     // label scope for current function</span><br><span class="line">        targetStack [][]*ast.Ident // stack of unresolved labels</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>解析的入口是<code>ParseFile</code>,首先调用<code>init</code>,再调用<code>parseFile</code>进行解析.<br>整个解析是一个递归向下的过程也就是最low但是最实用的手写实现的方式.像yacc[4]生成的是我们编译里学的LALR[5]文法,牛逼的一逼,但是<br>gcc和Go都没用自动生成的解析器,也就是手写个几千行代码的事,所以为了更好的掌握编译器的细节,都选择了手写最简单的递归向下的方式.</p>
+<p>通过<code>init</code>初始化<code>scanner</code>等.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">func (p *parser) init(fset *token.FileSet, filename string, src []byte, mode Mode) &#123;</span><br><span class="line">        p.file = fset.AddFile(filename, -1, len(src))</span><br><span class="line">        var m scanner.Mode</span><br><span class="line">        if mode&amp;ParseComments != 0 &#123;</span><br><span class="line">                m = scanner.ScanComments</span><br><span class="line">        &#125;</span><br><span class="line">        // 错误处理函数是在错误列表中添加错误.</span><br><span class="line">        eh := func(pos token.Position, msg string) &#123; p.errors.Add(pos, msg) &#125;</span><br><span class="line">        p.scanner.Init(p.file, src, eh, m)</span><br><span class="line"></span><br><span class="line">        p.mode = mode</span><br><span class="line">        p.trace = mode&amp;Trace != 0 // for convenience (p.trace is used frequently)</span><br><span class="line"></span><br><span class="line">        p.next()</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p><code>parseFile</code>的简化流程:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><span class="line">       // package clause</span><br><span class="line">       // 获取源文件开头的doc注释,从这里递归向下的解析开始了</span><br><span class="line">       doc := p.leadComment</span><br><span class="line">       // expect 从scanner获取一个token,并且返回位置pos.</span><br><span class="line">       pos := p.expect(token.PACKAGE)</span><br><span class="line">       // parseIdent 获取一个token并且转化为indent,如果不是报错.</span><br><span class="line">       ident := p.parseIdent()</span><br><span class="line">       if ident.Name == &quot;_&quot; &amp;&amp; p.mode&amp;DeclarationErrors != 0 &#123;</span><br><span class="line">               p.error(p.pos, &quot;invalid package name _&quot;)</span><br><span class="line">       &#125;</span><br><span class="line">       // 作用域开始,标记解释器当前开始一个新的作用域</span><br><span class="line">       p.openScope()</span><br><span class="line">       // pkgScope 就是现在进入的作用域</span><br><span class="line">       p.pkgScope = p.topScope </span><br><span class="line">       // 解析 import 申明</span><br><span class="line">       for p.tok == token.IMPORT &#123;</span><br><span class="line">	// parseGenDecl解析的是 </span><br><span class="line">	// import (</span><br><span class="line">	// )</span><br><span class="line">	// 这样的结构,如果有括号就用parseImportSpec解析列表</span><br><span class="line">	// 没有就单独解析.</span><br><span class="line">	// 而parseImportSpec解析的是 一个可选的indent token和一个字符串token.</span><br><span class="line">	// 并且加入到imports列表中.</span><br><span class="line">               decls = append(decls, p.parseGenDecl(token.IMPORT, p.parseImportSpec))</span><br><span class="line">       &#125;</span><br><span class="line">// 解析全局的申明,包括函数申明</span><br><span class="line">       if p.mode&amp;ImportsOnly == 0 &#123;</span><br><span class="line">               // rest of package body</span><br><span class="line">               for p.tok != token.EOF &#123;</span><br><span class="line">                       decls = append(decls, p.parseDecl(syncDecl))</span><br><span class="line">               &#125;</span><br><span class="line">       &#125;</span><br><span class="line">// 标记从当前作用域离开.</span><br><span class="line">p.closeScope()</span><br><span class="line">// 最后返回ast.File文件对象.</span><br><span class="line">       return &amp;ast.File&#123;</span><br><span class="line">               Doc:        doc,</span><br><span class="line">               Package:    pos,</span><br><span class="line">               Name:       ident,</span><br><span class="line">               Decls:      decls,</span><br><span class="line">               Scope:      p.pkgScope,</span><br><span class="line">               Imports:    p.imports,</span><br><span class="line">               Unresolved: p.unresolved[0:i],</span><br><span class="line">               Comments:   p.comments,</span><br><span class="line">       &#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>看一下<code>parseDecl</code>主要是根据类型的不同调用不同的解析函数,<code>parseValueSpec</code>解析Value类型,<code>parseTypeSpec</code>解析Type类型,<code>parseFuncDecl</code>解析函数.<br>解析定义和解析类型的都是解析了,类似于<code>var|type ( ident valueSpec|typeSpec)</code>的token结构.因为<code>parseFuncDecl</code>里面也会解析这些内容,所以直接从函数解析来看也可以.<br>因为外一层的top scope其实就是相当于一个抽象的函数作用域而已,这样是为什么<code>len</code>和<code>new</code>这样的内嵌函数在函数内是可以做变量名的原因,因为可以在子作用域覆盖top作用域.整个解析过程简化过程如下.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">// 解析一个func.</span><br><span class="line">       pos := p.expect(token.FUNC)</span><br><span class="line">// 开一个新的作用域,topScope作为父Scope.</span><br><span class="line">       scope := ast.NewScope(p.topScope) // function scope</span><br><span class="line">// 解析一个ident作为函数名</span><br><span class="line">ident := p.parseIdent()	</span><br><span class="line">// 解析函数签名,也就是参数和返回值</span><br><span class="line">params, results := p.parseSignature(scope)</span><br><span class="line">// 再解析body</span><br><span class="line">body = p.parseBody(scope)</span><br><span class="line">// 最后返回函数申明.</span><br><span class="line">       decl := &amp;ast.FuncDecl&#123;</span><br><span class="line">               Doc:  doc,</span><br><span class="line">               Recv: recv,</span><br><span class="line">               Name: ident,</span><br><span class="line">               Type: &amp;ast.FuncType&#123;</span><br><span class="line">                       Func:    pos,</span><br><span class="line">                       Params:  params,</span><br><span class="line">                       Results: results,</span><br><span class="line">               &#125;,</span><br><span class="line">               Body: body,</span><br><span class="line">       &#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>解析参数和返回值就是解析(filed,filed)这样的格式,每个filed是<code>indent type</code>的token,最后构造成函数签名.然后来到<code>parseBody</code>,这个函数其实就是解析了左右花括号,然后向下开始解析Statement列表,类似于body -&gt; { stmt_list },然后进入stmt_list的解析,不断地解析statement.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">for p.tok != token.CASE &amp;&amp; p.tok != token.DEFAULT &amp;&amp; p.tok != token.RBRACE &amp;&amp; p.tok != token.EOF &#123;</span><br><span class="line">        list = append(list, p.parseStmt())</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>parseStmt</code>最后会进入到语句的解析,然后根据不同的token选择进入不同的解析流程,比如看到<code>var</code>,<code>type</code>,<code>const</code>就是申明,碰到标识符和数字等等可能就是单独的表达式,<br>如果碰到<code>go</code>,就知道是一个go语句,如果看到defer和return都能判断出相应的语句并按规则解析,看到<code>break</code>等条件关键字就解析条件语句,看到<code>&#123;</code>就解析块语句.都是可以递归去解析的.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line">func (p *parser) parseStmt() (s ast.Stmt) &#123;</span><br><span class="line">        if p.trace &#123;</span><br><span class="line">                defer un(trace(p, &quot;Statement&quot;))</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        switch p.tok &#123;</span><br><span class="line">        case token.CONST, token.TYPE, token.VAR:</span><br><span class="line">                s = &amp;ast.DeclStmt&#123;Decl: p.parseDecl(syncStmt)&#125;</span><br><span class="line">        case</span><br><span class="line">                // tokens that may start an expression</span><br><span class="line">                token.IDENT, token.INT, token.FLOAT, token.IMAG, token.CHAR, token.STRING, token.FUNC, token.LPAREN, // operands</span><br><span class="line">                token.LBRACK, token.STRUCT, token.MAP, token.CHAN, token.INTERFACE, // composite types</span><br><span class="line">                token.ADD, token.SUB, token.MUL, token.AND, token.XOR, token.ARROW, token.NOT: // unary operators</span><br><span class="line">                s, _ = p.parseSimpleStmt(labelOk)</span><br><span class="line">                // because of the required look-ahead, labeled statements are</span><br><span class="line">                // parsed by parseSimpleStmt - don&#x27;t expect a semicolon after</span><br><span class="line">                // them</span><br><span class="line">                if _, isLabeledStmt := s.(*ast.LabeledStmt); !isLabeledStmt &#123;</span><br><span class="line">                        p.expectSemi()</span><br><span class="line">                &#125;</span><br><span class="line">        case token.GO:</span><br><span class="line">                s = p.parseGoStmt()</span><br><span class="line">        case token.DEFER:</span><br><span class="line">                s = p.parseDeferStmt()</span><br><span class="line">        case token.RETURN:</span><br><span class="line">                s = p.parseReturnStmt()</span><br><span class="line">        case token.BREAK, token.CONTINUE, token.GOTO, token.FALLTHROUGH:</span><br><span class="line">                s = p.parseBranchStmt(p.tok)</span><br><span class="line">        case token.LBRACE:</span><br><span class="line">                s = p.parseBlockStmt()</span><br><span class="line">	...省略</span><br></pre></td></tr></table></figure>
+
+<p>举个例子看一下<code>parseSimpleStmt()</code>的简化流程</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br></pre></td><td class="code"><pre><span class="line">       // 解析左列表 一般是 l := r 或者 l1,l2 = r1,r2 或者 l &lt;- r 或者 l++</span><br><span class="line">       x := p.parseLhsList()</span><br><span class="line">       switch p.tok &#123;</span><br><span class="line">       case</span><br><span class="line">               token.DEFINE, token.ASSIGN, token.ADD_ASSIGN,</span><br><span class="line">               token.SUB_ASSIGN, token.MUL_ASSIGN, token.QUO_ASSIGN,</span><br><span class="line">               token.REM_ASSIGN, token.AND_ASSIGN, token.OR_ASSIGN,</span><br><span class="line">               token.XOR_ASSIGN, token.SHL_ASSIGN, token.SHR_ASSIGN, token.AND_NOT_ASSIGN:</span><br><span class="line">	// 如果看到range,range作为一种运算符按照range rhs来解析</span><br><span class="line">	// 如果没看到就按正常赋值语句解析 lhs op rhs 来解析op可以是上面那些token中的一种.</span><br><span class="line">               pos, tok := p.pos, p.tok</span><br><span class="line">               p.next()</span><br><span class="line">               var y []ast.Expr</span><br><span class="line">               isRange := false</span><br><span class="line">               if mode == rangeOk &amp;&amp; p.tok == token.RANGE &amp;&amp; (tok == token.DEFINE || tok == token.ASSIGN) &#123;</span><br><span class="line">                       pos := p.pos</span><br><span class="line">                       p.next()</span><br><span class="line">                       y = []ast.Expr&#123;&amp;ast.UnaryExpr&#123;OpPos: pos, Op: token.RANGE, X: p.parseRhs()&#125;&#125;</span><br><span class="line">                       isRange = true</span><br><span class="line">               &#125; else &#123;</span><br><span class="line">                       y = p.parseRhsList()</span><br><span class="line">               &#125;</span><br><span class="line">               as := &amp;ast.AssignStmt&#123;Lhs: x, TokPos: pos, Tok: tok, Rhs: y&#125;</span><br><span class="line"></span><br><span class="line">// 碰到&quot;:&quot;找一个ident, 构成 goto: indent 之类的语句.</span><br><span class="line">case token.COLON:</span><br><span class="line">               colon := p.pos</span><br><span class="line">               p.next()</span><br><span class="line">               if label, isIdent := x[0].(*ast.Ident); mode == labelOk &amp;&amp; isIdent &#123;</span><br><span class="line">                       // Go spec: The scope of a label is the body of the function</span><br><span class="line">                       // in which it is declared and excludes the body of any nested</span><br><span class="line">                       // function.</span><br><span class="line">                       stmt := &amp;ast.LabeledStmt&#123;Label: label, Colon: colon, Stmt: p.parseStmt()&#125;</span><br><span class="line">                       p.declare(stmt, nil, p.labelScope, ast.Lbl, label)</span><br><span class="line">                       return stmt, false</span><br><span class="line">               &#125;</span><br><span class="line">// 碰到&quot;&lt;-&quot;,就构成 &lt;- rhs 这样的语句.</span><br><span class="line">       case token.ARROW:</span><br><span class="line">               // send statement</span><br><span class="line">               arrow := p.pos</span><br><span class="line">               p.next()</span><br><span class="line">               y := p.parseRhs()</span><br><span class="line">               return &amp;ast.SendStmt&#123;Chan: x[0], Arrow: arrow, Value: y&#125;, false</span><br><span class="line"></span><br><span class="line">// 碰到&quot;++&quot;或者&quot;--&quot;就构成一个单独的自增语句.</span><br><span class="line">       case token.INC, token.DEC:</span><br><span class="line">               // increment or decrement</span><br><span class="line">               s := &amp;ast.IncDecStmt&#123;X: x[0], TokPos: p.pos, Tok: p.tok&#125;</span><br><span class="line">               p.next()</span><br><span class="line">               return s, false</span><br><span class="line">       &#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>接下来就不一一解释每段代码了,具体情况具体看就可以.这里举个例子.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">package main</span><br><span class="line"></span><br><span class="line">import (</span><br><span class="line">        &quot;go/ast&quot;</span><br><span class="line">        &quot;go/parser&quot;</span><br><span class="line">        &quot;go/token&quot;</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line">func main() &#123;</span><br><span class="line">        fset := token.NewFileSet()</span><br><span class="line">        f, err := parser.ParseFile(fset, &quot;&quot;, ` </span><br><span class="line">package main</span><br><span class="line">func main()&#123;</span><br><span class="line">        // comments</span><br><span class="line">        x:=1</span><br><span class="line">        go println(x)</span><br><span class="line"></span><br><span class="line">&#125;</span><br><span class="line">        `, parser.ParseComments)</span><br><span class="line">        if err != nil &#123;</span><br><span class="line">                panic(err)</span><br><span class="line">        &#125;</span><br><span class="line">        ast.Print(fset, f)</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>产生的结果是</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br></pre></td><td class="code"><pre><span class="line"> 0  *ast.File &#123;</span><br><span class="line"> 1  .  Package: 2:1						|PACKAGE token</span><br><span class="line"> 2  .  Name: *ast.Ident &#123;					|IDENT token</span><br><span class="line"> 3  .  .  NamePos: 2:9					|</span><br><span class="line"> 4  .  .  Name: &quot;main&quot;					|</span><br><span class="line"> 5  .  &#125;							|整个构成了顶部的 package main</span><br><span class="line"> 6  .  Decls: []ast.Decl (len = 1) &#123;			|最上层的申明列表</span><br><span class="line"> 7  .  .  0: *ast.FuncDecl &#123;				|func main的函数申明</span><br><span class="line"> 8  .  .  .  Name: *ast.Ident &#123;				|IDENT token</span><br><span class="line"> 9  .  .  .  .  NamePos: 3:6				|</span><br><span class="line">10  .  .  .  .  Name: &quot;main&quot;				|</span><br><span class="line">11  .  .  .  .  Obj: *ast.Object &#123;				|Objec是一个用于表达语法对象的结构</span><br><span class="line">12  .  .  .  .  .  Kind: func				|表示之前存在过,Decl指向了7,也就是第7行的FuncDecl.</span><br><span class="line">13  .  .  .  .  .  Name: &quot;main&quot;				|</span><br><span class="line">14  .  .  .  .  .  Decl: *(obj @ 7)				|</span><br><span class="line">15  .  .  .  .  &#125;						|</span><br><span class="line">16  .  .  .  &#125;						|</span><br><span class="line">17  .  .  .  Type: *ast.FuncType &#123;				|函数类型,也就是函数签名</span><br><span class="line">18  .  .  .  .  Func: 3:1					|参数和返回值都是空的</span><br><span class="line">19  .  .  .  .  Params: *ast.FieldList &#123;			|</span><br><span class="line">20  .  .  .  .  .  Opening: 3:10</span><br><span class="line">21  .  .  .  .  .  Closing: 3:11</span><br><span class="line">22  .  .  .  .  &#125;</span><br><span class="line">23  .  .  .  &#125;</span><br><span class="line">24  .  .  .  Body: *ast.BlockStmt &#123;				|块语句,也就是main的body</span><br><span class="line">25  .  .  .  .  Lbrace: 3:12</span><br><span class="line">26  .  .  .  .  List: []ast.Stmt (len = 2) &#123;		|语句列表</span><br><span class="line">27  .  .  .  .  .  0: *ast.AssignStmt &#123;			|赋值语句</span><br><span class="line">28  .  .  .  .  .  .  Lhs: []ast.Expr (len = 1) &#123;		|左值是x</span><br><span class="line">29  .  .  .  .  .  .  .  0: *ast.Ident &#123;</span><br><span class="line">30  .  .  .  .  .  .  .  .  NamePos: 5:2			|</span><br><span class="line">31  .  .  .  .  .  .  .  .  Name: &quot;x&quot;</span><br><span class="line">32  .  .  .  .  .  .  .  .  Obj: *ast.Object &#123;		|</span><br><span class="line">33  .  .  .  .  .  .  .  .  .  Kind: var</span><br><span class="line">34  .  .  .  .  .  .  .  .  .  Name: &quot;x&quot;			|</span><br><span class="line">35  .  .  .  .  .  .  .  .  .  Decl: *(obj @ 27)</span><br><span class="line">36  .  .  .  .  .  .  .  .  &#125;</span><br><span class="line">37  .  .  .  .  .  .  .  &#125;					|</span><br><span class="line">38  .  .  .  .  .  .  &#125;</span><br><span class="line">39  .  .  .  .  .  .  TokPos: 5:3				|:=和它的位置</span><br><span class="line">40  .  .  .  .  .  .  Tok: :=</span><br><span class="line">41  .  .  .  .  .  .  Rhs: []ast.Expr (len = 1) &#123;		|右边是一个数字类型的token</span><br><span class="line">42  .  .  .  .  .  .  .  0: *ast.BasicLit &#123;</span><br><span class="line">43  .  .  .  .  .  .  .  .  ValuePos: 5:5</span><br><span class="line">44  .  .  .  .  .  .  .  .  Kind: INT</span><br><span class="line">45  .  .  .  .  .  .  .  .  Value: &quot;1&quot;</span><br><span class="line">46  .  .  .  .  .  .  .  &#125;</span><br><span class="line">47  .  .  .  .  .  .  &#125;</span><br><span class="line">48  .  .  .  .  .  &#125;</span><br><span class="line">49  .  .  .  .  .  1: *ast.GoStmt &#123;				|接下来是go语句</span><br><span class="line">50  .  .  .  .  .  .  Go: 6:2</span><br><span class="line">51  .  .  .  .  .  .  Call: *ast.CallExpr &#123;			|一个调用表达式</span><br><span class="line">52  .  .  .  .  .  .  .  Fun: *ast.Ident &#123;			|IDENT token是println</span><br><span class="line">53  .  .  .  .  .  .  .  .  NamePos: 6:5</span><br><span class="line">54  .  .  .  .  .  .  .  .  Name: &quot;println&quot;</span><br><span class="line">55  .  .  .  .  .  .  .  &#125;</span><br><span class="line">56  .  .  .  .  .  .  .  Lparen: 6:12			|左括号的位置</span><br><span class="line">57  .  .  .  .  .  .  .  Args: []ast.Expr (len = 1) &#123;	|参数列表</span><br><span class="line">58  .  .  .  .  .  .  .  .  0: *ast.Ident &#123;			|是一个符号INDENT,并且指向的是32行的x</span><br><span class="line">59  .  .  .  .  .  .  .  .  .  NamePos: 6:13</span><br><span class="line">60  .  .  .  .  .  .  .  .  .  Name: &quot;x&quot;</span><br><span class="line">61  .  .  .  .  .  .  .  .  .  Obj: *(obj @ 32)</span><br><span class="line">62  .  .  .  .  .  .  .  .  &#125;</span><br><span class="line">63  .  .  .  .  .  .  .  &#125;</span><br><span class="line">64  .  .  .  .  .  .  .  Ellipsis: -</span><br><span class="line">65  .  .  .  .  .  .  .  Rparen: 6:14			|右括号的位置</span><br><span class="line">66  .  .  .  .  .  .  &#125;</span><br><span class="line">67  .  .  .  .  .  &#125;</span><br><span class="line">68  .  .  .  .  &#125;</span><br><span class="line">69  .  .  .  .  Rbrace: 8:1</span><br><span class="line">70  .  .  .  &#125;</span><br><span class="line">71  .  .  &#125;</span><br><span class="line">72  .  &#125;</span><br><span class="line">73  .  Scope: *ast.Scope &#123;					|最顶级的作用域</span><br><span class="line">74  .  .  Objects: map[string]*ast.Object (len = 1) &#123;</span><br><span class="line">75  .  .  .  &quot;main&quot;: *(obj @ 11)</span><br><span class="line">76  .  .  &#125;</span><br><span class="line">77  .  &#125;</span><br><span class="line">78  .  Unresolved: []*ast.Ident (len = 1) &#123;			|这里有个没有定义的符号println,是因为是内置符号,会另外处理</span><br><span class="line">79  .  .  0: *(obj @ 52)					|从源文件上是表现不出来的.</span><br><span class="line">80  .  &#125;</span><br><span class="line">81  .  Comments: []*ast.CommentGroup (len = 1) &#123;		|评论列表,以及位置和内容.</span><br><span class="line">82  .  .  0: *ast.CommentGroup &#123;</span><br><span class="line">83  .  .  .  List: []*ast.Comment (len = 1) &#123;</span><br><span class="line">84  .  .  .  .  0: *ast.Comment &#123;</span><br><span class="line">85  .  .  .  .  .  Slash: 4:2</span><br><span class="line">86  .  .  .  .  .  Text: &quot;// comments&quot;</span><br><span class="line">87  .  .  .  .  &#125;</span><br><span class="line">88  .  .  .  &#125;</span><br><span class="line">89  .  .  &#125;</span><br><span class="line">90  .  &#125;</span><br><span class="line">91  &#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>这就是Go的整个语法分析和最后产生的语法树的结构.</p>
+<p>废话说了这么多其实实现很简单,问题是如何把一个语言的spec定义好,很重要,早期语言设计不是很固定的.都是慢慢尝试不断改进的过程.最早的一次spec文档[6]其实和现在差了很多很多.就是把TOKEN记号流从左至右匹配规则(可能会向前看几个token),然后递归解析语法树,最后得到AST.<br>我在我的字符画转换器里用的也是类似的方式[7],做了自顶向下递归解析语法的方式,但是错误处理都是速错,不会做错误恢复找到一个可以同步的节点继续分析.<br>所以这里补充一点,Go是如何进行错误处理的同步问题,寄希望于能够向使用者提供更多的错误.主要是parser当中的两个结构</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">syncPos token.Pos // last synchronization position</span><br><span class="line">syncCnt int       // number of calls to syncXXX without progress</span><br></pre></td></tr></table></figure>
+
+<p><code>syncPos</code>错误的同步位置,也就类似于游戏的存档点,如果发生错误那就从这个地方开始跳过(BadStmt|BadExpr)继续解析,在每次完成语句,申明或者表达式的解析之后就会保存一个同步点.虽然这种继续解析的行为不一定能够给出很精确的错误提示,但的确够用了.当然如果错误实在太多了,从同步点恢复也没有太大意义,就会主动放弃,所以记录了没有成功解析而同步的次数.</p>
+<p>因为之前造过轮子了,所以我发现其实编译器的前端用手写是一个很繁琐并且需要花很多时间去做的一件事情,如果语言有设计良好,那么也至少需要花实现的时间,如果设计不好,实现也要跟着修修补补,那就更麻烦,虽然整个编译器的前端也就不到万行代码,但是的确是很考验耐心的一件事情,而且用递归向下的方式解析也没什么效率问题,编译器编译慢一点也不是很要紧,所以有轮子还是用轮子吧,这只是一件苦力活,的确没什么高科技.</p>
+<p>最后附带一个用Go实现的Go语法的子集的动态语言版本,只有几十行.</p>
+<p><a target="_blank" rel="noopener" href="https://gist.github.com/ggaaooppeenngg/dff0fff8f0c9194d93c70550d50edbfa">https://gist.github.com/ggaaooppeenngg/dff0fff8f0c9194d93c70550d50edbfa</a></p>
+<p>参考:</p>
+<ol>
+<li> <a target="_blank" rel="noopener" href="http://en.wikipedia.org/wiki/Backus%E2%80%93Naur_Form">http://en.wikipedia.org/wiki/Backus%E2%80%93Naur_Form</a></li>
+<li> <a target="_blank" rel="noopener" href="https://golang.org/ref/spec">https://golang.org/ref/spec</a></li>
+<li> <a target="_blank" rel="noopener" href="https://zh.wikipedia.org/wiki/Yacc">https://zh.wikipedia.org/wiki/Yacc</a></li>
+<li> <a target="_blank" rel="noopener" href="https://zh.wikipedia.org/zh-cn/Yacc">https://zh.wikipedia.org/zh-cn/Yacc</a></li>
+<li> <a target="_blank" rel="noopener" href="https://zh.wikipedia.org/wiki/LALR%E8%AF%AD%E6%B3%95%E5%88%86%E6%9E%90%E5%99%A8">https://zh.wikipedia.org/wiki/LALR语法分析器</a></li>
+<li> <a target="_blank" rel="noopener" href="https://github.com/golang/go/commit/18c5b488a3b2e218c0e0cf2a7d4820d9da93a554">https://github.com/golang/go/commit/18c5b488a3b2e218c0e0cf2a7d4820d9da93a554</a></li>
+</ol>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Go/" rel="tag"># Go</a>
+              <a href="/tags/%E7%BC%96%E8%AF%91/" rel="tag"># 编译</a>
+              <a href="/tags/parser/" rel="tag"># parser</a>
+              <a href="/tags/compiler/" rel="tag"># compiler</a>
+              <a href="/tags/go/" rel="tag"># go</a>
+              <a href="/tags/golang/" rel="tag"># golang</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/zh-CN/2016/04/01/go-lexer-%E8%AF%8D%E6%B3%95%E5%88%86%E6%9E%90/" rel="prev" title="go-lexer-词法分析">
+                  <i class="fa fa-angle-left"></i> go-lexer-词法分析
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/zh-CN/2016/04/23/qlang-%E6%BA%90%E4%BB%A3%E7%A0%81%E5%88%B0%E5%AD%97%E8%8A%82%E7%A0%81%E7%9A%84%E8%BD%AC%E6%8D%A2/" rel="next" title="language-vm-给编程语言加入虚拟机作为后端">
+                  language-vm-给编程语言加入虚拟机作为后端 <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 2014 – 
+    <span itemprop="copyrightYear">2025</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+  </div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/mist/" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.umd.js" integrity="sha256-a+H7FYzJv6oU2hfsfDGM2Ohw/cR9v+hPfxHCLdmCrE8=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lozad.js/1.16.0/lozad.min.js" integrity="sha256-mOFREFhqmHeQbXpK2lp4nA3qooVgACfh88fpJftLBbc=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/sidebar.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+  <script src="/js/third-party/fancybox.js"></script>
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"ggaaooppeenngg","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

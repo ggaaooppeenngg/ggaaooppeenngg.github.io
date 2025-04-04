@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.3.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="_85tctgPWrqH2EPVuuD5IT6KE-tW8nH0hTISJDMnShg">
+  <meta name="baidu-site-verification" content="bb16c5b1fd3302c18e0015bef11eea42">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha256-dABdfBfUoC8vJUBOwGVdm8L9qlMWaHTIfXt+7GnZCIo=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.css" integrity="sha256-gkQVf8UKZgQ0HyuxL/VnacadJ+D2Kox2TCEBuNQg5+w=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="neighbor 在协议栈里指的是同一个 LAN 下面的邻居，也就是他们在 L3 上通过媒介或者点对点连接在了一起。邻居子系统同时也可以理解为一个 L2 和 L3 地址的转换器。邻居子系统的目的就在于上层协议不应该关心下层的地址信息，我发送过来的 IP 地址应该让下层来决定发送到哪个 MAC 地址。neighbor solicitation and neighbor advertisement，可">
+<meta property="og:type" content="article">
+<meta property="og:title" content="neighboring subsystem 浅析">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2017/08/07/neighboring-subsystem-%E6%B5%85%E6%9E%90/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="neighbor 在协议栈里指的是同一个 LAN 下面的邻居，也就是他们在 L3 上通过媒介或者点对点连接在了一起。邻居子系统同时也可以理解为一个 L2 和 L3 地址的转换器。邻居子系统的目的就在于上层协议不应该关心下层的地址信息，我发送过来的 IP 地址应该让下层来决定发送到哪个 MAC 地址。neighbor solicitation and neighbor advertisement，可">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/08/07/neighboring-subsystem-%E6%B5%85%E6%9E%90/p1.jpg">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/08/07/neighboring-subsystem-%E6%B5%85%E6%9E%90/p2.jpg">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/08/07/neighboring-subsystem-%E6%B5%85%E6%9E%90/p3.jpg">
+<meta property="article:published_time" content="2017-08-06T16:11:36.000Z">
+<meta property="article:modified_time" content="2025-03-28T10:39:05.334Z">
+<meta property="article:author" content="ggaaooppeenngg">
+<meta property="article:tag" content="内核">
+<meta property="article:tag" content="网络">
+<meta property="article:tag" content="Linux">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/08/07/neighboring-subsystem-%E6%B5%85%E6%9E%90/p1.jpg">
+
+
+<link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2017/08/07/neighboring-subsystem-%E6%B5%85%E6%9E%90/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://ggaaooppeenngg.github.io/zh-CN/2017/08/07/neighboring-subsystem-%E6%B5%85%E6%9E%90/","path":"zh-CN/2017/08/07/neighboring-subsystem-浅析/","title":"neighboring subsystem 浅析"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>neighboring subsystem 浅析 | ggaaooppeenngg</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-62096626-1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"UA-62096626-1","only_pageview":false,"measure_protocol_api_secret":null}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+  <script src="/js/third-party/analytics/baidu-analytics.js"></script>
+  <script async src="https://hm.baidu.com/hm.js?bb16c5b1fd3302c18e0015bef11eea42"></script>
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">ggaaooppeenngg</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">为什么计算机科学是无限的但生命是有限的</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">134</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">14</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">78</span></a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%82%BB%E5%B1%85%E7%8A%B6%E6%80%81%E4%BF%A1%E6%81%AF-NUD-Netowork-Unreachablility-%E7%8A%B6%E6%80%81"><span class="nav-number">1.</span> <span class="nav-text">邻居状态信息 NUD(Netowork Unreachablility) 状态</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%A1%AE%E8%AE%A4%E9%82%BB%E5%B1%85%E4%BF%A1%E6%81%AF"><span class="nav-number">2.</span> <span class="nav-text">确认邻居信息</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%9B%B4%E6%96%B0%E9%82%BB%E5%B1%85%E4%BF%A1%E6%81%AF"><span class="nav-number">3.</span> <span class="nav-text">更新邻居信息</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#ARP"><span class="nav-number">4.</span> <span class="nav-text">ARP</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#gARP-gratuitous-ARP"><span class="nav-number">4.1.</span> <span class="nav-text">gARP (gratuitous ARP)</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">5.</span> <span class="nav-text">总结</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">78</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">14</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">134</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/ggaaooppeenngg" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;ggaaooppeenngg" rel="noopener me" target="_blank"><i class="github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:peng.gao.dut@gmail.com" title="E-Mail → mailto:peng.gao.dut@gmail.com" rel="noopener me" target="_blank"><i class="envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+        <div class="back-to-top animated" role="button" aria-label="返回顶部">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2017/08/07/neighboring-subsystem-%E6%B5%85%E6%9E%90/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="neighboring subsystem 浅析 | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          neighboring subsystem 浅析
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2017-08-07 00:11:36" itemprop="dateCreated datePublished" datetime="2017-08-07T00:11:36+08:00">2017-08-07</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2025-03-28 18:39:05" itemprop="dateModified" datetime="2025-03-28T18:39:05+08:00">2025-03-28</time>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2017/08/07/neighboring-subsystem-%E6%B5%85%E6%9E%90/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2017/08/07/neighboring-subsystem-浅析/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>neighbor 在协议栈里指的是同一个 LAN 下面的邻居，也就是他们在 L3 上通过媒介或者点对点连接在了一起。邻居子系统同时也可以理解为一个 L2 和 L3 地址的转换器。邻居子系统的目的就在于上层协议不应该关心下层的地址信息，我发送过来的 IP 地址应该让下层来决定发送到哪个 MAC 地址。neighbor solicitation and neighbor advertisement，可以分别对应 ARP 的 request 请求和 ARP 的 reply 请求。</p>
+<p>邻居子系统主要缓存两大块的内容，一个是 L3 到 L2 的映射解析的缓存，一个是 L2 头的缓存，缓存 L2 头的原因是大部分 L2 的头基本上是重复的，所以通过缓存头部可以加快协议的封装。</p>
+<p>以下有几个相关结构体需要介绍一下。</p>
+<p><code>struct neighbour</code> 代表的是一个邻居的信息，比如 L2 和 L3 地址等。</p>
+<p><code>struct neigh_table</code> 代表的是一种邻居协议的接口(比如 ARP)。</p>
+<p><code>struct neigh_params</code> 代表的是邻居协议在每个设备上的不同参数。</p>
+<p><code>struct neigh_ops</code>  邻居对应的一些操作函数。</p>
+<p><code>struct hh_cache</code> 缓存 L2 的头部，不是所有的设备都支持头部缓存。</p>
+<p><code>struct rttable</code> 和 <code>struct dst_enry</code>， IPv4 的路由缓存信息是通过 <code>struct rttable</code> 缓存的。</p>
+<img data-src="/zh-CN/2017/08/07/neighboring-subsystem-%E6%B5%85%E6%9E%90/p1.jpg" class="">
+
+<p>这是 <code>dst_entry</code>, <code>hh_cache</code> 和 <code>neighbour</code> 之间的关系。</p>
+<p>neighbor 结构是用 hash 存储的，key 是 L3 地址加设备（对应的 device 结构体）加一个随机值。hash 表通过 <code>neigh_hash_alloc</code> 和 <code>neigh_hash_free</code> 来分配和释放。<code>neigh_lookup</code> 就是通过 key 从 hash table 中找到对应的 neighbour 结构体，实现都不复杂，这里理解就可以了。</p>
+<img data-src="/zh-CN/2017/08/07/neighboring-subsystem-%E6%B5%85%E6%9E%90/p2.jpg" class="">
+
+
+<p>一般邻居子系统的缓存流程是这样的，如果 L3 的请求到达，地址解析缓存没有命中，把 L3 packet 入队，开始neighbor solicitation 等收到 neighbor advertisement 之后再出队并且发送。</p>
+<h2 id="邻居状态信息-NUD-Netowork-Unreachablility-状态"><a href="#邻居状态信息-NUD-Netowork-Unreachablility-状态" class="headerlink" title="邻居状态信息 NUD(Netowork Unreachablility) 状态"></a>邻居状态信息 NUD(Netowork Unreachablility) 状态</h2><p>NUD state 本来是 IPv6 协议里的邻居关系的定义，但是在内核中沿用到了 IPv4 里面。</p>
+<ul>
+<li>NUD_NONE 这个 neighbour 刚开始建立，没有相关状态</li>
+<li>NUD_INCOMPLETE 发送了获取 L2 地址的请求（通过 ARP 或者其他协议），但是没收到回复，并且之前不存在老缓存</li>
+<li>NUD_REACHABLE neighbour 地址被缓存了，并且是可达的</li>
+<li>NUD_FAILED 因为发送地址解析请求失败了，标志邻居不可达</li>
+<li>NUD_STALE NUD_DELAY NUD_PROBE 是解析请求确认邻居可达的过程中的中间状态</li>
+<li>NUD_NOARP 标志不需要用解析协议（虽然是 NOARP，但是别的协议也用这个标记），这是一个特殊情况。</li>
+<li>NUD_PERMANET 标志邻居的地址解析是静态配置的</li>
+</ul>
+<p>这些是基本状态，根据这些基本状态组合了几个相对有语义的状态。</p>
+<ul>
+<li><p>NUD_VALID 表示该地址会是一个有效的地址</p>
+<p> NUD_PERMANENT NUD_NOARP NUD_REACHABLE NUD_PROBE NUD_STALE NUD_DELAY</p>
+</li>
+<li><p>NUD_CONNECTED 是 NUD_VALID 的子集，去除了待决的中间状态</p>
+<p> NUD_PERMANENT NUD_NOARP NUD_REACHABLE</p>
+</li>
+<li><p>NUD_IN_TIMER 表示在这个状态下正在执行一个定时任务，一般是状态不明了的时候</p>
+<p> NUD_INCOMPLETE NUD_DELAY NUD_PROBE</p>
+</li>
+</ul>
+<p>邻居的可达性可以通过两点来确认，收到了一个地址解析协议的单播回复，或者通过外部信息确认（比如收到了这个邻居的 TCP 报文，当然这个 IP 可能不是自己的邻居，但是可以可以确定对应网关『作为邻居』的可达性）。</p>
+<h2 id="确认邻居信息"><a href="#确认邻居信息" class="headerlink" title="确认邻居信息"></a>确认邻居信息</h2><p>IP 层会调用<code>ipv4_confirm_neigh</code> 来确认映射地址，如果有 gateway 用 gateway，没有 gateway 开始查缓存。在 <code>net/ipv4/ip_output.c</code> 中的对应代码，就是查缓存的 neighbour 结构体，如果这个结构体不存在的话就要开始<code>confirm</code> 了。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">neigh = __ipv4_neigh_lookup_noref(dev, nexthop);</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> (unlikely(!neigh))</span><br><span class="line">	neigh = __neigh_create(&amp;arp_tbl, &amp;nexthop, dev, <span class="literal">false</span>);</span><br><span class="line"><span class="keyword">if</span> (!IS_ERR(neigh)) &#123;</span><br><span class="line">	<span class="type">int</span> res;</span><br><span class="line"></span><br><span class="line">	sock_confirm_neigh(skb, neigh);</span><br><span class="line">	res = neigh_output(neigh, skb);</span><br><span class="line"></span><br><span class="line">	rcu_read_unlock_bh();</span><br><span class="line">	<span class="keyword">return</span> res;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>当 TCP 收到报文（比如对端的 SYN/ACK 时），这种外部信息说明其实这个节点是可达的（不是来自 gateway），也可以更新缓存。</p>
+<p>另外，<code>neigh_connect</code> 和 <code>neigh_suspect</code> 是两个状态转换时会调用的函数。</p>
+<p>当 neigh 进入 <code>NUD_REACHABLE</code> ， <code>neigh_connect</code> 把 <code>neigh-&gt;output</code> 的函数指向 <code>connected_output</code> 这个函数，它会在调用 <code>dev_queue_xmit</code> 之前填充 L2 头部，把包直接发出去。</p>
+<p>当从 <code>NUD_REACHBLE</code> 转换成 <code>NUD_STALE</code> 或者 <code>NUD_DELAY</code>，<code>neigh_suspect</code> 会强制进行可达性的确认，通过把 <code>neighbor-&gt;output</code> 指向 <code>neigh_ops-&gt;output</code>， 也就是 <code>neigh_resolve_output</code>，它会在调用 <code>dev_queue_xmit</code> 之前先把地址解析出来，等把地址解析完成以后再把缓存的包发送出去。</p>
+<h2 id="更新邻居信息"><a href="#更新邻居信息" class="headerlink" title="更新邻居信息"></a>更新邻居信息</h2><p>邻居信息更新的入口函数就是 <code>neigh_update</code>，这个函数定义如下。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> <span class="title function_">neigh_update</span><span class="params">(<span class="keyword">struct</span> neighbour *neigh, <span class="type">const</span> u8 *lladdr, u8 new,</span></span><br><span class="line"><span class="params">		 u32 flags, u32 nlmsg_pid)</span></span><br></pre></td></tr></table></figure>
+
+<p>首先做一些预先检查，如果是管理员配置，原来的配置就不能是 PERMANENT 或者 NOARP 的。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (!(flags &amp; NEIGH_UPDATE_F_ADMIN) &amp;&amp;</span><br><span class="line">    (old &amp; (NUD_NOARP | NUD_PERMANENT)))</span><br><span class="line">	<span class="keyword">goto</span> out;</span><br></pre></td></tr></table></figure>
+
+<p>标记为 dead，然后 goto out</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (neigh-&gt;dead)</span><br><span class="line">	<span class="keyword">goto</span> out;</span><br></pre></td></tr></table></figure>
+<p>如果更新为无效的标记的话，删除 timer，并且 supect 一下，如果是 NUD_CONNECTED 状态。<br>如果是需要标记为失败的 neigh(之前是 INCOMPLETE|NUD_PROBE)，则调用 <code>neigh_invalidate</code>，让这个 neigh 无效。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (!(new &amp; NUD_VALID)) &#123;</span><br><span class="line">	neigh_del_timer(neigh);</span><br><span class="line">	<span class="keyword">if</span> (old &amp; NUD_CONNECTED)</span><br><span class="line">		neigh_suspect(neigh);</span><br><span class="line">	neigh-&gt;nud_state = new;</span><br><span class="line">	err = <span class="number">0</span>;</span><br><span class="line">	notify = old &amp; NUD_VALID;</span><br><span class="line">	<span class="keyword">if</span> ((old &amp; (NUD_INCOMPLETE | NUD_PROBE)) &amp;&amp;</span><br><span class="line">	    (new &amp; NUD_FAILED)) &#123;</span><br><span class="line">		neigh_invalidate(neigh);</span><br><span class="line">		notify = <span class="number">1</span>;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">goto</span> out;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>接下来是三个条件，一个是 device 没有硬件地址，用 neigh-&gt;ha，如果 lladdr 提供了并且老的是有效的，使用老的地址，如果 lladdr 没有提供，直接使用老的地址。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/* Compare new lladdr with cached one */</span></span><br><span class="line"><span class="keyword">if</span> (!dev-&gt;addr_len) &#123;</span><br><span class="line">	<span class="comment">/* First case: device needs no address. */</span></span><br><span class="line">	lladdr = neigh-&gt;ha;</span><br><span class="line">&#125; <span class="keyword">else</span> <span class="keyword">if</span> (lladdr) &#123;</span><br><span class="line">	<span class="comment">/* The second case: if something is already cached</span></span><br><span class="line"><span class="comment">	   and a new address is proposed:</span></span><br><span class="line"><span class="comment">	   - compare new &amp; old</span></span><br><span class="line"><span class="comment">	   - if they are different, check override flag</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="keyword">if</span> ((old &amp; NUD_VALID) &amp;&amp;</span><br><span class="line">	    !<span class="built_in">memcmp</span>(lladdr, neigh-&gt;ha, dev-&gt;addr_len))</span><br><span class="line">		lladdr = neigh-&gt;ha;</span><br><span class="line">&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">	<span class="comment">/* No address is supplied; if we know something,</span></span><br><span class="line"><span class="comment">	   use it, otherwise discard the request.</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	err = -EINVAL;</span><br><span class="line">	<span class="keyword">if</span> (!(old &amp; NUD_VALID))</span><br><span class="line">		<span class="keyword">goto</span> out;</span><br><span class="line">	lladdr = neigh-&gt;ha;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>如果<code>NUD_CONNECTED</code> 更新 confirm 的时间，更新『更新』的时间。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (new &amp; NUD_CONNECTED)</span><br><span class="line">	neigh-&gt;confirmed = jiffies;</span><br><span class="line">neigh-&gt;updated = jiffies;</span><br></pre></td></tr></table></figure>
+<p><code>NEIGH_UPDATE_F_OVERRIDE_ISROUTER</code> 标记的是当前 neigh 是一个 router。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/* If entry was valid and address is not changed,</span></span><br><span class="line"><span class="comment">   do not change entry state, if new one is STALE.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line">err = <span class="number">0</span>;</span><br><span class="line">update_isrouter = flags &amp; NEIGH_UPDATE_F_OVERRIDE_ISROUTER;</span><br><span class="line"><span class="keyword">if</span> (old &amp; NUD_VALID) &#123;</span><br><span class="line">	<span class="keyword">if</span> (lladdr != neigh-&gt;ha &amp;&amp; !(flags &amp; NEIGH_UPDATE_F_OVERRIDE)) &#123;</span><br><span class="line">		update_isrouter = <span class="number">0</span>;</span><br><span class="line">		<span class="keyword">if</span> ((flags &amp; NEIGH_UPDATE_F_WEAK_OVERRIDE) &amp;&amp;</span><br><span class="line">		    (old &amp; NUD_CONNECTED)) &#123;</span><br><span class="line">			lladdr = neigh-&gt;ha;</span><br><span class="line">			new = NUD_STALE;</span><br><span class="line">		&#125; <span class="keyword">else</span></span><br><span class="line">			<span class="keyword">goto</span> out;</span><br><span class="line">	&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">		<span class="keyword">if</span> (lladdr == neigh-&gt;ha &amp;&amp; new == NUD_STALE &amp;&amp;</span><br><span class="line">		    !(flags &amp; NEIGH_UPDATE_F_ADMIN))</span><br><span class="line">			new = old;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>如果是更新操作，删除老的 timer，如果需要 timer，更新新的 timer，并且设置新状态。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (new != old) &#123;</span><br><span class="line">	neigh_del_timer(neigh);</span><br><span class="line">	<span class="keyword">if</span> (new &amp; NUD_PROBE)</span><br><span class="line">		<span class="type">atomic_set</span>(&amp;neigh-&gt;probes, <span class="number">0</span>);</span><br><span class="line">	<span class="keyword">if</span> (new &amp; NUD_IN_TIMER)</span><br><span class="line">		neigh_add_timer(neigh, (jiffies +</span><br><span class="line">					((new &amp; NUD_REACHABLE) ?</span><br><span class="line">					 neigh-&gt;parms-&gt;reachable_time :</span><br><span class="line">					 <span class="number">0</span>)));</span><br><span class="line">	neigh-&gt;nud_state = new;</span><br><span class="line">	notify = <span class="number">1</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>更新 <code>neigh-&gt;ha</code>，如果 <code>lladdr</code> 和 <code>neigh-&gt;ha</code> 不同的话。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (lladdr != neigh-&gt;ha) &#123;</span><br><span class="line">	write_seqlock(&amp;neigh-&gt;ha_lock);</span><br><span class="line">	<span class="built_in">memcpy</span>(&amp;neigh-&gt;ha, lladdr, dev-&gt;addr_len);</span><br><span class="line">	write_sequnlock(&amp;neigh-&gt;ha_lock);</span><br><span class="line">	neigh_update_hhs(neigh);</span><br><span class="line">	<span class="keyword">if</span> (!(new &amp; NUD_CONNECTED))</span><br><span class="line">		neigh-&gt;confirmed = jiffies -</span><br><span class="line">			      (NEIGH_VAR(neigh-&gt;parms, BASE_REACHABLE_TIME) &lt;&lt; <span class="number">1</span>);</span><br><span class="line">	notify = <span class="number">1</span>;</span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">if</span> (new == old)</span><br><span class="line">	<span class="keyword">goto</span> out;</span><br></pre></td></tr></table></figure>
+<p>根据状态调用 connect 和 suspect</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (new &amp; NUD_CONNECTED)</span><br><span class="line">	neigh_connect(neigh);</span><br><span class="line"><span class="keyword">else</span></span><br><span class="line">	neigh_suspect(neigh);</span><br></pre></td></tr></table></figure>
+<p>如果之前老的不是 <code>NUD_VALID</code>，就会把 skb 从 arp_queue，并且释放 arp_queue。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (!(old &amp; NUD_VALID)) &#123;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">sk_buff</span> *<span class="title">skb</span>;</span></span><br><span class="line"></span><br><span class="line">	<span class="comment">/* Again: avoid dead loop if something went wrong */</span></span><br><span class="line"></span><br><span class="line">	<span class="keyword">while</span> (neigh-&gt;nud_state &amp; NUD_VALID &amp;&amp;</span><br><span class="line">	       (skb = __skb_dequeue(&amp;neigh-&gt;arp_queue)) != <span class="literal">NULL</span>) &#123;</span><br><span class="line">		<span class="class"><span class="keyword">struct</span> <span class="title">dst_entry</span> *<span class="title">dst</span> =</span> skb_dst(skb);</span><br><span class="line">		<span class="class"><span class="keyword">struct</span> <span class="title">neighbour</span> *<span class="title">n2</span>, *<span class="title">n1</span> =</span> neigh;</span><br><span class="line">		write_unlock_bh(&amp;neigh-&gt;lock);</span><br><span class="line"></span><br><span class="line">		rcu_read_lock();</span><br><span class="line"></span><br><span class="line">		<span class="comment">/* Why not just use &#x27;neigh&#x27; as-is?  The problem is that</span></span><br><span class="line"><span class="comment">		 * things such as shaper, eql, and sch_teql can end up</span></span><br><span class="line"><span class="comment">		 * using alternative, different, neigh objects to output</span></span><br><span class="line"><span class="comment">		 * the packet in the output path.  So what we need to do</span></span><br><span class="line"><span class="comment">		 * here is re-lookup the top-level neigh in the path so</span></span><br><span class="line"><span class="comment">		 * we can reinject the packet there.</span></span><br><span class="line"><span class="comment">		 */</span></span><br><span class="line">		n2 = <span class="literal">NULL</span>;</span><br><span class="line">		<span class="keyword">if</span> (dst) &#123;</span><br><span class="line">			n2 = dst_neigh_lookup_skb(dst, skb);</span><br><span class="line">			<span class="keyword">if</span> (n2)</span><br><span class="line">				n1 = n2;</span><br><span class="line">		&#125;</span><br><span class="line">		n1-&gt;output(n1, skb);</span><br><span class="line">		<span class="keyword">if</span> (n2)</span><br><span class="line">			neigh_release(n2);</span><br><span class="line">		rcu_read_unlock();</span><br><span class="line"></span><br><span class="line">		write_lock_bh(&amp;neigh-&gt;lock);</span><br><span class="line">	&#125;</span><br><span class="line">	__skb_queue_purge(&amp;neigh-&gt;arp_queue);</span><br><span class="line">	neigh-&gt;arp_queue_len_bytes = <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>更新 flag，发送 notify 通过 rtnetlink 通知 nlmsg_pid 对应的进程，</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">out:</span><br><span class="line"><span class="keyword">if</span> (update_isrouter) &#123;</span><br><span class="line">	neigh-&gt;flags = (flags &amp; NEIGH_UPDATE_F_ISROUTER) ?</span><br><span class="line">		(neigh-&gt;flags | NTF_ROUTER) :</span><br><span class="line">		(neigh-&gt;flags &amp; ~NTF_ROUTER);</span><br><span class="line">&#125;</span><br><span class="line">write_unlock_bh(&amp;neigh-&gt;lock);</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> (notify)</span><br><span class="line">	neigh_update_notify(neigh, nlmsg_pid);</span><br></pre></td></tr></table></figure>
+<p>这就是邻居信息的更新流程。</p>
+<p>当然还有一个缓存项是 L2 header 的缓存这里就简单略过了。</p>
+<h2 id="ARP"><a href="#ARP" class="headerlink" title="ARP"></a>ARP</h2><p>接下来说一下 ARP 相关的内容，ARP 本身的格式其实很简单。</p>
+<p>邻居子系统有一个比较关键的协议就是 ARP，这里简单介绍一下 ARP 协议，我们来看一下 ARP 的格式。</p>
+<img data-src="/zh-CN/2017/08/07/neighboring-subsystem-%E6%B5%85%E6%9E%90/p3.jpg" class="">
+
+<p>先是两个字节的 L2 类型，然后是两个字节的 L3 类型。一般 L2 是 1 (以太网)，L3 是 0x0800 (IPV4)，接着跟着的是 L2 类型的长度和 L3 类型的长度，这里 Ethernet 的 MAC 地址是 6 个字节，IPV4 的 IP 地址是 4 个字节，接着是两个字节的操作，1 表示请求，2 表示回复，然后是发送端 L2 的地址，L3 的地址，接着是接收端 L2 和 L3 的地址。整个翻译过来就是『我（MAC 是 0a:00:27:00:00:00 IP 是 192.168.56.1）广而告之（MAC 广播地址），问一下谁知道 192.168.56.102 的地址』。</p>
+<h3 id="gARP-gratuitous-ARP"><a href="#gARP-gratuitous-ARP" class="headerlink" title="gARP (gratuitous ARP)"></a>gARP (gratuitous ARP)</h3><p>听起来像是一个无理由的 ARP 请求，实际上是一种主动通知的 ARP 请求。gARP 本身不是一个查询请求，而是一个通知请求，主要运用于主动通知 L2 地址改变，重复地址发现（请求解析自己的地址，如果收到回复说明有地址重复）。</p>
+<p>还有就是 VIP，一般的作用是在本地网路中有两台机器，一台作为备机，一台作为主机，当主机 failover 的时候，备机可以继续『冒充』主机的 IP 地址，具体的做法就是主动发送请求，解析的 MAC 和 IP 都和 source 一样，老的 server 肯定不会回答这个 ARP，交换机上已经没有这个端口的缓存，会进行广播，让所有的接收者都会更新自己的缓存。也就是发送了一个一去不复返的请求，让所有的邻居更新了自己的 ARP 缓存，从而替代了老 server 的 IP，这就是 VIP 通过 ARP 实现的 failover。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>邻居子系统很大一部分的作用就是解析和缓存地址映射，主要是通过 ARP 来完成，而且 ARP 本身也有很多使用的姿势，也就上面说到的 gARP，邻居子系统是沟通路由子系统，以及 L2 和 L3 的桥梁。</p>
+<p>参考：</p>
+<ol>
+<li> <em>Understanding Linux Network Internals</em></li>
+</ol>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E5%86%85%E6%A0%B8/" rel="tag"># 内核</a>
+              <a href="/tags/%E7%BD%91%E7%BB%9C/" rel="tag"># 网络</a>
+              <a href="/tags/Linux/" rel="tag"># Linux</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/zh-CN/2017/07/10/IP-%E7%9A%84%E5%88%86%E7%89%87%E4%B8%8E%E9%87%8D%E7%BB%84/" rel="prev" title="IP 的分片与重组">
+                  <i class="fa fa-angle-left"></i> IP 的分片与重组
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/zh-CN/2017/09/05/LC-trie-%E5%BF%AB%E9%80%9F%E8%B7%AF%E7%94%B1%E6%9F%A5%E6%89%BE%E7%AE%97%E6%B3%95/" rel="next" title="LC-trie 快速路由查找算法">
+                  LC-trie 快速路由查找算法 <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 2014 – 
+    <span itemprop="copyrightYear">2025</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+  </div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/mist/" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.umd.js" integrity="sha256-a+H7FYzJv6oU2hfsfDGM2Ohw/cR9v+hPfxHCLdmCrE8=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lozad.js/1.16.0/lozad.min.js" integrity="sha256-mOFREFhqmHeQbXpK2lp4nA3qooVgACfh88fpJftLBbc=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/sidebar.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+  <script src="/js/third-party/fancybox.js"></script>
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"ggaaooppeenngg","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

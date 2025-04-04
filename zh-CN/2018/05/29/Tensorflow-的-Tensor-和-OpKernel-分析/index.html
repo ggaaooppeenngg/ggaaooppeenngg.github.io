@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.3.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="_85tctgPWrqH2EPVuuD5IT6KE-tW8nH0hTISJDMnShg">
+  <meta name="baidu-site-verification" content="bb16c5b1fd3302c18e0015bef11eea42">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha256-dABdfBfUoC8vJUBOwGVdm8L9qlMWaHTIfXt+7GnZCIo=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.css" integrity="sha256-gkQVf8UKZgQ0HyuxL/VnacadJ+D2Kox2TCEBuNQg5+w=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="Tensor 的用户 API 可以参考这里，这里做一下简单介绍。Tensor 是各种维度的向量和矩阵的统称，分 Tensor 和 SparseTensor。和 Tensor 不同，SparseTensor 存的是值以及值对应的 index，而 Tensor 存的是完整的矩阵。 举个例子。 12345678import tensorflow as tfa &#x3D; tf.constant([1, 1])b">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Tensorflow 的 Tensor 和 OpKernel 分析">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2018/05/29/Tensorflow-%E7%9A%84-Tensor-%E5%92%8C-OpKernel-%E5%88%86%E6%9E%90/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="Tensor 的用户 API 可以参考这里，这里做一下简单介绍。Tensor 是各种维度的向量和矩阵的统称，分 Tensor 和 SparseTensor。和 Tensor 不同，SparseTensor 存的是值以及值对应的 index，而 Tensor 存的是完整的矩阵。 举个例子。 12345678import tensorflow as tfa &#x3D; tf.constant([1, 1])b">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2018/05/29/Tensorflow-%E7%9A%84-Tensor-%E5%92%8C-OpKernel-%E5%88%86%E6%9E%90/class.png">
+<meta property="article:published_time" content="2018-05-28T16:58:26.000Z">
+<meta property="article:modified_time" content="2025-03-28T10:39:05.248Z">
+<meta property="article:author" content="ggaaooppeenngg">
+<meta property="article:tag" content="机器学习">
+<meta property="article:tag" content="Tensorflow">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://ggaaooppeenngg.github.io/zh-CN/2018/05/29/Tensorflow-%E7%9A%84-Tensor-%E5%92%8C-OpKernel-%E5%88%86%E6%9E%90/class.png">
+
+
+<link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2018/05/29/Tensorflow-%E7%9A%84-Tensor-%E5%92%8C-OpKernel-%E5%88%86%E6%9E%90/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://ggaaooppeenngg.github.io/zh-CN/2018/05/29/Tensorflow-%E7%9A%84-Tensor-%E5%92%8C-OpKernel-%E5%88%86%E6%9E%90/","path":"zh-CN/2018/05/29/Tensorflow-的-Tensor-和-OpKernel-分析/","title":"Tensorflow 的 Tensor 和 OpKernel 分析"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>Tensorflow 的 Tensor 和 OpKernel 分析 | ggaaooppeenngg</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-62096626-1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"UA-62096626-1","only_pageview":false,"measure_protocol_api_secret":null}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+  <script src="/js/third-party/analytics/baidu-analytics.js"></script>
+  <script async src="https://hm.baidu.com/hm.js?bb16c5b1fd3302c18e0015bef11eea42"></script>
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">ggaaooppeenngg</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">为什么计算机科学是无限的但生命是有限的</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">134</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">14</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">78</span></a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Tensor-%E7%9A%84%E5%AE%9E%E7%8E%B0"><span class="nav-number">1.</span> <span class="nav-text">Tensor 的实现</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#OpKernel"><span class="nav-number">2.</span> <span class="nav-text">OpKernel</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#CUDA"><span class="nav-number">2.1.</span> <span class="nav-text">CUDA</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">3.</span> <span class="nav-text">总结</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8F%82%E8%80%83%E6%96%87%E7%8C%AE"><span class="nav-number">4.</span> <span class="nav-text">参考文献</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">78</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">14</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">134</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/ggaaooppeenngg" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;ggaaooppeenngg" rel="noopener me" target="_blank"><i class="github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:peng.gao.dut@gmail.com" title="E-Mail → mailto:peng.gao.dut@gmail.com" rel="noopener me" target="_blank"><i class="envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+        <div class="back-to-top animated" role="button" aria-label="返回顶部">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2018/05/29/Tensorflow-%E7%9A%84-Tensor-%E5%92%8C-OpKernel-%E5%88%86%E6%9E%90/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="Tensorflow 的 Tensor 和 OpKernel 分析 | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Tensorflow 的 Tensor 和 OpKernel 分析
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2018-05-29 00:58:26" itemprop="dateCreated datePublished" datetime="2018-05-29T00:58:26+08:00">2018-05-29</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2025-03-28 18:39:05" itemprop="dateModified" datetime="2025-03-28T18:39:05+08:00">2025-03-28</time>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2018/05/29/Tensorflow-%E7%9A%84-Tensor-%E5%92%8C-OpKernel-%E5%88%86%E6%9E%90/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2018/05/29/Tensorflow-的-Tensor-和-OpKernel-分析/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>Tensor 的用户 API 可以参考<a target="_blank" rel="noopener" href="https://www.tensorflow.org/api_docs/python/tf/Tensor">这里</a>，这里做一下简单介绍。<strong>Tensor</strong> 是各种维度的向量和矩阵的统称，分 Tensor 和 SparseTensor。和 Tensor 不同，SparseTensor 存的是值以及值对应的 index，而 Tensor 存的是完整的矩阵。</p>
+<p>举个例子。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> tensorflow <span class="keyword">as</span> tf</span><br><span class="line">a = tf.constant([<span class="number">1</span>, <span class="number">1</span>])</span><br><span class="line">b = tf.constant([<span class="number">2</span>, <span class="number">2</span>])</span><br><span class="line">c = tf.add(a, b)</span><br><span class="line">sess = tf.InteractiveSession()</span><br><span class="line"><span class="built_in">print</span>(<span class="string">&quot;a[0]=%s, a[1]=%s&quot;</span> % (a[<span class="number">0</span>].<span class="built_in">eval</span>(), a[<span class="number">1</span>].<span class="built_in">eval</span>()))</span><br><span class="line"><span class="built_in">print</span>(<span class="string">&quot;c = %s&quot;</span> % c.<span class="built_in">eval</span>())</span><br><span class="line">sess.close()</span><br></pre></td></tr></table></figure>
+
+<p>输出对应如下。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">a[<span class="number">0</span>]=<span class="number">1</span>, a[<span class="number">1</span>]=<span class="number">1</span></span><br><span class="line">c = [<span class="number">3</span> <span class="number">3</span>]</span><br></pre></td></tr></table></figure>
+
+<p>Tensor 只有 eval 以后才能获得结果，是懒计算的。</p>
+<h2 id="Tensor-的实现"><a href="#Tensor-的实现" class="headerlink" title="Tensor 的实现"></a>Tensor 的实现</h2><p>Tensor (<code>tensorflow/tensorflow/core/framework/tensor.h</code>) 依赖 TensorShape（<code>tensorflow/tensorflow/tensorflow/core/framework/tensor_shape.h</code>) 和 TensorBuffer (<code>tensorflow/tensorflow/core/framework/tensor.h</code>) 两个成员。</p>
+<p>TensorShape 主要负责记录张量的形状。</p>
+<p>而 <code>TensorBuffer</code> 主要负责管理 <code>Tensor</code> 的内存，<code>TensorBuffer</code> 继承自 <code>RefCounted</code> (<code>tensorflow/tensorflow/core/lib/core/refcount.h</code>)，具有引用计数的功能，用于对内存进行管理。</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// Interface to access the raw ref-counted data buffer.</span></span><br><span class="line"><span class="keyword">class</span> <span class="title class_">TensorBuffer</span> : <span class="keyword">public</span> core::RefCounted &#123;</span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">  ~<span class="built_in">TensorBuffer</span>() <span class="keyword">override</span> &#123;&#125;</span><br><span class="line">  ...</span><br></pre></td></tr></table></figure>
+
+<p>他们的对应的关系如下。</p>
+<img data-src="/zh-CN/2018/05/29/Tensorflow-%E7%9A%84-Tensor-%E5%92%8C-OpKernel-%E5%88%86%E6%9E%90/class.png" class="" title="[Tensor]">
+
+<p>Tensor 从下往上看，其实就是一个带”形状“的内存，和 NumPy 的数组是差不多的。</p>
+<h2 id="OpKernel"><a href="#OpKernel" class="headerlink" title="OpKernel"></a>OpKernel</h2><p>对于一个线性回归来说，是最简单也最好理解的模型，方便分析底层的代码实现。</p>
+<p>$$ Y=XW+b $$</p>
+<p>损失函数用平方差定义的，优化器是提督下降，这样一个模型可以用一下的 Python 代码实现，这个代码片段是截取的，如果要完整运行这个例子可以在<a target="_blank" rel="noopener" href="https://www.kesci.com/apps/home/project/5af5be99cb6ed25ca32804e9">这里</a>复现。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> tensorflow <span class="keyword">as</span> tf</span><br><span class="line">sess = tf.InteractiveSession()</span><br><span class="line">x = tf.placeholder(tf.float32,[<span class="literal">None</span>, x_train.shape[<span class="number">1</span>]])</span><br><span class="line">y = tf.placeholder(tf.float32,[<span class="literal">None</span>, <span class="number">1</span>])</span><br><span class="line">w = tf.Variable(tf.zeros([x_train.shape[<span class="number">1</span>],<span class="number">1</span>]))</span><br><span class="line">b = tf.Variable(tf.zeros([<span class="number">1</span>])) <span class="comment"># placeholder 不用加 None</span></span><br><span class="line">pred = tf.add(tf.matmul(x, w), b)</span><br><span class="line"></span><br><span class="line">init = tf.global_variables_initializer()</span><br><span class="line">cost = tf.reduce_mean(tf.square(y - pred))</span><br><span class="line">optimizer = tf.train.GradientDescentOptimizer(learning_rate=<span class="number">0.001</span>).minimize(cost)</span><br><span class="line">epochs = <span class="number">3000</span></span><br><span class="line"></span><br><span class="line">init.run()</span><br><span class="line"></span><br><span class="line"><span class="keyword">for</span> epoch <span class="keyword">in</span> <span class="built_in">range</span>(<span class="number">0</span>, epochs):</span><br><span class="line">    optimizer.run(feed_dict=&#123;x:x_train, y:y_train&#125;)</span><br><span class="line">    c = cost.<span class="built_in">eval</span>(feed_dict = &#123;x:x_train,y:y_train&#125;)</span><br><span class="line">    <span class="keyword">if</span> epoch%<span class="number">100</span> == <span class="number">0</span>:</span><br><span class="line">        print_percentage(<span class="built_in">int</span>(c*<span class="number">100</span>))</span><br><span class="line"></span><br><span class="line"><span class="built_in">print</span>(<span class="string">&#x27;\nEpoch: &#123;0&#125;, Error: &#123;1&#125;&#x27;</span>.<span class="built_in">format</span>(epoch+<span class="number">1</span>, c))</span><br><span class="line"></span><br><span class="line">b_value = b.<span class="built_in">eval</span>()</span><br><span class="line">w_value = w.<span class="built_in">eval</span>()</span><br><span class="line"></span><br><span class="line"><span class="comment"># Predicted Labels</span></span><br><span class="line">y_pred = pred.<span class="built_in">eval</span>(feed_dict=&#123;x: x_test&#125;)</span><br><span class="line"></span><br><span class="line"><span class="comment"># Mean Squared Error</span></span><br><span class="line">mse = tf.reduce_mean(tf.square(y_pred - y_test))</span><br><span class="line"><span class="built_in">print</span>(<span class="string">&quot;MSE&quot;</span>, mse.<span class="built_in">eval</span>())</span><br><span class="line">sess.close()</span><br></pre></td></tr></table></figure>
+
+<p>对应的训练结果。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">Epoch: 3000, Error: 0.25882452726364136</span><br><span class="line">MSE 0.30620116674806463</span><br></pre></td></tr></table></figure>
+
+<p>可以看到，线性回归的模型主要依赖的两个 Operation 分别是 <code>tf.add</code> 和 <code>tf.matmul</code>，其他的复杂模型也是类似的逻辑，对应的 <code>OpKernel</code> 分别是 <code>AddOp</code>  和 <code>MatMulOp</code>，这里可以看一下具体的实现。</p>
+<p>如果有源代码，可以连着源代码用 bazel 编译，可以参照<a target="_blank" rel="noopener" href="https://www.tensorflow.org/extend/adding_an_op">这里</a>自己编写一个 Op。</p>
+<p><code>MatMulOp</code> 的实现在 <code>/tensorflow/core/kernels/matmul_op.cc</code> 下面，定义在<code>tensorflow/tensorflow/core/ops/math_ops.cc</code> 下面。<code>AddOp</code> 在  <code>/tensorflow/core/kernels/matmul_op.cc</code>，实现在 <code>/tensorflow/core/kernels/cwise_op_add_1.cc</code> 下面，依赖 <code>/tensorflow/tensorflow/core/kernels/cwise_ops_common.h</code> 的 <code>common</code> 的定义。</p>
+<p><code>Add</code> 用的是 <code>Eigen</code> 的 <code>add</code> <code>/tensorflow/tensorflow/core/kernels/cwise_ops.h</code>，依赖<code>third_party/Eigen/src/Core/functors/BinaryFunctors.h</code>。</p>
+<p>举个例子，看一下 <code>MatMulOp</code>， <code>MatMulOp</code> 的构造函数里面有一个 <code>OpKernelConstruction</code> 可以初始化 <code>OpKernel</code>，通过 <code>OpKernel</code> 可以获得这个 <code>Op</code> 的参数比如<code>transpose_a</code> 等等。</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> Device, <span class="keyword">typename</span> T, <span class="type">bool</span> USE_CUBLAS&gt;</span><br><span class="line"><span class="keyword">class</span> <span class="title class_">MatMulOp</span> : <span class="keyword">public</span> OpKernel &#123;</span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">  <span class="function"><span class="keyword">explicit</span> <span class="title">MatMulOp</span><span class="params">(OpKernelConstruction* ctx)</span></span></span><br><span class="line"><span class="function">      : OpKernel(ctx), algorithms_set_already_(false) &#123;</span> <span class="comment">// 在执行构造函数之前，执行两个成员的构造函数</span></span><br><span class="line">    <span class="built_in">OP_REQUIRES_OK</span>(ctx, ctx-&gt;<span class="built_in">GetAttr</span>(<span class="string">&quot;transpose_a&quot;</span>, &amp;transpose_a_));</span><br><span class="line">    <span class="built_in">OP_REQUIRES_OK</span>(ctx, ctx-&gt;<span class="built_in">GetAttr</span>(<span class="string">&quot;transpose_b&quot;</span>, &amp;transpose_b_));</span><br><span class="line"></span><br><span class="line">    LaunchMatMul&lt;Device, T, USE_CUBLAS&gt;::<span class="built_in">GetBlasGemmAlgorithm</span>(</span><br><span class="line">        ctx, &amp;algorithms_, &amp;algorithms_set_already_);</span><br><span class="line">    use_autotune_ = <span class="built_in">MatmulAutotuneEnable</span>();</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+
+<p>每个 OpKernel 都要实现一个 Compute 函数，可以看到这个 Compute 函数首先检查了两个 Tensor 是否是矩阵，然后检查两个矩阵的形状是否符合矩阵相乘的条件，然后根据形状分配 <code>TensorShape</code> 并且根据 <code>TensorShape</code> 分配新的 <code>Tensor</code> (其实顺便分配的 <code>TensorBuffer</code> 的内存空间)。然后通过 <code>LaunchMatMul</code> 真正执行相乘操作，因为这个计算过程，可能是用了 GPU，所以模版是带 Device 的（GPUDevice/CPUDevice）。</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">Compute</span><span class="params">(OpKernelContext* ctx)</span> <span class="keyword">override</span> </span>&#123;</span><br><span class="line">  <span class="type">const</span> Tensor&amp; a = ctx-&gt;<span class="built_in">input</span>(<span class="number">0</span>);</span><br><span class="line">  <span class="type">const</span> Tensor&amp; b = ctx-&gt;<span class="built_in">input</span>(<span class="number">1</span>);</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Check that the dimensions of the two matrices are valid.</span></span><br><span class="line">  <span class="built_in">OP_REQUIRES</span>(ctx, TensorShapeUtils::<span class="built_in">IsMatrix</span>(a.<span class="built_in">shape</span>()),</span><br><span class="line">              errors::<span class="built_in">InvalidArgument</span>(<span class="string">&quot;In[0] is not a matrix&quot;</span>));</span><br><span class="line">  <span class="built_in">OP_REQUIRES</span>(ctx, TensorShapeUtils::<span class="built_in">IsMatrix</span>(b.<span class="built_in">shape</span>()),</span><br><span class="line">              errors::<span class="built_in">InvalidArgument</span>(<span class="string">&quot;In[1] is not a matrix&quot;</span>));</span><br><span class="line">  Eigen::array&lt;Eigen::IndexPair&lt;Eigen::DenseIndex&gt;, <span class="number">1</span>&gt; dim_pair;</span><br><span class="line">  dim_pair[<span class="number">0</span>].first = transpose_a_ ? <span class="number">0</span> : <span class="number">1</span>;</span><br><span class="line">  dim_pair[<span class="number">0</span>].second = transpose_b_ ? <span class="number">1</span> : <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">  <span class="built_in">OP_REQUIRES</span>(</span><br><span class="line">      ctx, a.<span class="built_in">dim_size</span>(dim_pair[<span class="number">0</span>].first) == b.<span class="built_in">dim_size</span>(dim_pair[<span class="number">0</span>].second),</span><br><span class="line">      errors::<span class="built_in">InvalidArgument</span>(</span><br><span class="line">          <span class="string">&quot;Matrix size-incompatible: In[0]: &quot;</span>, a.<span class="built_in">shape</span>().<span class="built_in">DebugString</span>(),</span><br><span class="line">          <span class="string">&quot;, In[1]: &quot;</span>, b.<span class="built_in">shape</span>().<span class="built_in">DebugString</span>()));</span><br><span class="line">  <span class="type">int</span> a_dim_remaining = <span class="number">1</span> - dim_pair[<span class="number">0</span>].first;</span><br><span class="line">  <span class="type">int</span> b_dim_remaining = <span class="number">1</span> - dim_pair[<span class="number">0</span>].second;</span><br><span class="line">  <span class="function">TensorShape <span class="title">out_shape</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">      &#123;a.dim_size(a_dim_remaining), b.dim_size(b_dim_remaining)&#125;)</span></span>;</span><br><span class="line">  Tensor* out = <span class="literal">nullptr</span>;</span><br><span class="line">  <span class="built_in">OP_REQUIRES_OK</span>(ctx, ctx-&gt;<span class="built_in">allocate_output</span>(<span class="number">0</span>, out_shape, &amp;out));</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (out-&gt;<span class="built_in">NumElements</span>() == <span class="number">0</span>) &#123;</span><br><span class="line">    <span class="comment">// If a has shape [0, x] or b has shape [x, 0], the output shape</span></span><br><span class="line">    <span class="comment">// is a 0-element matrix, so there is nothing to do.</span></span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (a.<span class="built_in">NumElements</span>() == <span class="number">0</span> || b.<span class="built_in">NumElements</span>() == <span class="number">0</span>) &#123;</span><br><span class="line">    <span class="comment">// If a has shape [x, 0] and b has shape [0, y], the</span></span><br><span class="line">    <span class="comment">// output shape is [x, y] where x and y are non-zero, so we fill</span></span><br><span class="line">    <span class="comment">// the output with zeros.</span></span><br><span class="line">    functor::SetZeroFunctor&lt;Device, T&gt; f;</span><br><span class="line">    <span class="built_in">f</span>(ctx-&gt;<span class="built_in">eigen_device</span>&lt;Device&gt;(), out-&gt;<span class="built_in">flat</span>&lt;T&gt;());</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  LaunchMatMul&lt;Device, T, USE_CUBLAS&gt;::<span class="built_in">launch</span>(</span><br><span class="line">      ctx, a, b, dim_pair, &amp;algorithms_, use_autotune_, out);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>LaunchMatMul</code>  继承自<code> LaunchMatMulBase</code>，在 <code>LaunchMatMulBase</code> 当中调用了 <code>functor::MatMulFunctor</code>，这个 functor 主要就会执行乘法操作，在这之前会检查一下是否其中一个元素是 vector，这样可以直接优化算出来，而不用 Eigen 库来算，这样更快，这个目前看到的是 CPU 的路径。</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> Device, <span class="keyword">typename</span> T&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">LaunchMatMulBase</span> &#123;</span><br><span class="line"><span class="meta">#<span class="keyword">if</span> GOOGLE_CUDA</span></span><br><span class="line">  <span class="keyword">typedef</span> se::blas::AlgorithmType AlgorithmType;</span><br><span class="line"><span class="meta">#<span class="keyword">else</span></span></span><br><span class="line">  <span class="keyword">typedef</span> int64 AlgorithmType;</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span>  <span class="comment">// GOOGLE_CUDA</span></span></span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="type">static</span> <span class="type">void</span> <span class="title">launch</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">      OpKernelContext* ctx, <span class="type">const</span> Tensor&amp; a, <span class="type">const</span> Tensor&amp; b,</span></span></span><br><span class="line"><span class="params"><span class="function">      <span class="type">const</span> Eigen::array&lt;Eigen::IndexPair&lt;Eigen::DenseIndex&gt;, <span class="number">1</span>&gt;&amp; dim_pair,</span></span></span><br><span class="line"><span class="params"><span class="function">      std::vector&lt;AlgorithmType&gt;* algorithms, <span class="type">bool</span> use_aututone, Tensor* out)</span> </span>&#123;</span><br><span class="line"><span class="meta">#<span class="keyword">ifndef</span> TENSORFLOW_USE_SYCL</span></span><br><span class="line">    <span class="comment">// An explicit vector-matrix multiply is much better optimized than an</span></span><br><span class="line">    <span class="comment">// implicit one and this is a bottleneck during non-batched inference.</span></span><br><span class="line">    <span class="type">bool</span> was_vector = <span class="built_in">ExplicitVectorMatrixOptimization</span>&lt;T&gt;(a, b, dim_pair, out);</span><br><span class="line">    <span class="keyword">if</span> (!was_vector) &#123;</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span>  <span class="comment">// TENSORFLOW_USE_SYCL</span></span></span><br><span class="line">      functor::<span class="built_in">MatMulFunctor</span>&lt;Device, T&gt;()(ctx-&gt;<span class="built_in">eigen_device</span>&lt;Device&gt;(),</span><br><span class="line">                                          out-&gt;<span class="built_in">matrix</span>&lt;T&gt;(), a.<span class="built_in">matrix</span>&lt;T&gt;(),</span><br><span class="line">                                          b.<span class="built_in">matrix</span>&lt;T&gt;(), dim_pair);</span><br><span class="line"><span class="meta">#<span class="keyword">ifndef</span> TENSORFLOW_USE_SYCL</span></span><br><span class="line">    &#125;</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span>  <span class="comment">// TENSORFLOW_USE_SYCL</span></span></span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="type">static</span> <span class="type">void</span> <span class="title">GetBlasGemmAlgorithm</span><span class="params">(OpKernelConstruction* ctx,</span></span></span><br><span class="line"><span class="params"><span class="function">                                   std::vector&lt;int64&gt;* algorithms,</span></span></span><br><span class="line"><span class="params"><span class="function">                                   <span class="type">bool</span>* algorithm_set_flag)</span> </span>&#123;&#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p><code>MatMulFunctor</code> 在设备  <code>d</code> 上计算矩阵相乘的结果，其中调用的是 <code>MatMul&lt;CPUDevice&gt;</code>。 </p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> Device, <span class="keyword">typename</span> In0, <span class="keyword">typename</span> In1, <span class="keyword">typename</span> Out,</span><br><span class="line">          <span class="keyword">typename</span> DimPair&gt;</span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">MatMul</span><span class="params">(<span class="type">const</span> Device&amp; d, Out out, In0 in0, In1 in1,</span></span></span><br><span class="line"><span class="params"><span class="function">            <span class="type">const</span> DimPair&amp; dim_pair)</span> </span>&#123;</span><br><span class="line">  out.<span class="built_in">device</span>(d) = in<span class="number">0.</span><span class="built_in">contract</span>(in1, dim_pair);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这里的 <code>contract</code> 调用的是 <code>TensorContractionOp</code> (<code>third_party/unsupported/Eigen/CXX11/src/Tensor/TensorContraction.h</code>)，跟之前说的一样，这个 <code>Op</code> 是计算图的一部分，要通过 <code>eval</code> 来做计算，计算结果是 <code>eval</code> 驱动的。<code>TensorContractionOp</code> 的构造函数就是，这负责构建左表达式和右表达式。</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">EIGEN_DEVICE_FUNC EIGEN_STRONG_INLINE <span class="title">TensorContractionOp</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> LhsXprType&amp; lhs, <span class="type">const</span> RhsXprType&amp; rhs, <span class="type">const</span> Indices&amp; dims)</span></span></span><br><span class="line"><span class="function">    : m_lhs_xpr(lhs), m_rhs_xpr(rhs), m_indices(dims) &#123;</span>&#125;</span><br></pre></td></tr></table></figure>
+
+<p>真正的计算过程在 <code>TensorContractionEvaluatorBase</code> 里面，真正执行计算过程，计算细节就省略了主要是矩阵相乘。</p>
+<h3 id="CUDA"><a href="#CUDA" class="headerlink" title="CUDA"></a>CUDA</h3><p>如果条件编译 <code>GOOGLE_CUDA</code> 的话，会使用 GPU 的代码，对应会调用到 steam executor，这个以后具体分析。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>Tensorflow 基于图模型的，并且是懒计算的，通过扩展可以自己用 C++ 实现新的 Op，并且也可以观察默认自带的 OpKernel 是如何实现的，对于理解 Tensorflow 的工作流程会有很大的帮助。Tensorflow 本身依赖了 Eigen，CUDA 等线性代数库或者 GPU 计算库，要看懂代码还是要多学一点线代的知识，比如 <code>Contraction</code> 这个概念我也是第一次晓得。</p>
+<h2 id="参考文献"><a href="#参考文献" class="headerlink" title="参考文献"></a>参考文献</h2><ol>
+<li> <a target="_blank" rel="noopener" href="https://www.amazon.cn/dp/B07CLVXGLH">深入理解 Tensorflow 架构设计与原理实现</a></li>
+</ol>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0/" rel="tag"># 机器学习</a>
+              <a href="/tags/Tensorflow/" rel="tag"># Tensorflow</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/zh-CN/2018/05/27/raft-%E8%A7%A3%E8%AF%BB/" rel="prev" title="Raft 解读">
+                  <i class="fa fa-angle-left"></i> Raft 解读
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/zh-CN/2018/08/06/glusterfs-writev-%E4%B8%BB%E8%A6%81%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/" rel="next" title="glusterfs writev 的主要流程单分析">
+                  glusterfs writev 的主要流程单分析 <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 2014 – 
+    <span itemprop="copyrightYear">2025</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+  </div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/mist/" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.umd.js" integrity="sha256-a+H7FYzJv6oU2hfsfDGM2Ohw/cR9v+hPfxHCLdmCrE8=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lozad.js/1.16.0/lozad.min.js" integrity="sha256-mOFREFhqmHeQbXpK2lp4nA3qooVgACfh88fpJftLBbc=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/sidebar.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+  <script src="/js/third-party/fancybox.js"></script>
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"ggaaooppeenngg","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

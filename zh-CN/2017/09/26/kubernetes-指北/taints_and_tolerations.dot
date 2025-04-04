@@ -1,0 +1,30 @@
+digraph {
+    label="PodToleratesNodeTaints 流程"
+ 
+    "如果 NoExecute taint 存在并且 tolerate NoExecute"[shape="diamond", style=""];
+    "如果 pod 在 node 上会被踢出不然就不会被调度到 node 上"[shape="box", style=rounded];
+    "如果 NoSchedule taint 存在并且不 tolerate NoSchedule"[shape="diamond", style=""];
+    "pod 在 node 上"[shape="diamond", style=""];
+
+    "pod 是否已经调度到 node 上"[shape="diamond", style=""];
+    "NoExecute"[shape="diamond", style=""];
+    "NoSchedule"[shape="diamond", style=""];
+    
+
+    end[shape="box", style=rounded];
+    
+    if_valid[shape="diamond", style=""];
+    message[shape="parallelogram", style=""]
+    input[shape="parallelogram", style=""]
+ 
+    "如果 NoExecute taint 存在并且不 tolerate NoExecute" -> "如果 pod 在 node 上会被踢出不然就不会被调度到 node 上"[label="yes"];
+    "如果 NoExecute taint 存在并且不 tolerate NoExecute" -> "如果 NoSchedule taint 存在并且 tolerate NoSchedule"[label="no"];
+
+    "如果没有 tolerate taint" -> "pod 是否已经调度到 node 上"
+    "pod 是否已经调度到 node 上" -> "NoExecute"[label="yes"];
+    "pod 是否已经调度到 node 上" -> "PreferNoSchedule"[label="no"];
+    input -> if_valid;
+    if_valid -> message[label="no"];
+    if_valid -> end[label="yes"];
+    message -> input;
+}

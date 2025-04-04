@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.3.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="_85tctgPWrqH2EPVuuD5IT6KE-tW8nH0hTISJDMnShg">
+  <meta name="baidu-site-verification" content="bb16c5b1fd3302c18e0015bef11eea42">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha256-dABdfBfUoC8vJUBOwGVdm8L9qlMWaHTIfXt+7GnZCIo=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.css" integrity="sha256-gkQVf8UKZgQ0HyuxL/VnacadJ+D2Kox2TCEBuNQg5+w=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="贝叶斯优化(BO)贝叶斯优化是一种黑盒优化方法，一般有几个特征： 输入纬度不大，一般小于 20 个，时间复杂度是$O(n^3)$有设定的取值空间目标函数需要是连续的（我觉得这个好像不是必须的，离散的也可以）目标函数的计算非常消耗成本（时间等等）目标函数是黑盒的，没有明确的结构目标函数（derivative-free）没有一阶二阶导数（不然就可以用梯度下降去算了） 因为这些特性，在做机器学习的超参数">
+<meta property="og:type" content="article">
+<meta property="og:title" content="贝叶斯优化之高斯过程和应用">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2019/10/14/%E8%B4%9D%E5%8F%B6%E6%96%AF%E4%BC%98%E5%8C%96%E4%B9%8B%E9%AB%98%E6%96%AF%E8%BF%87%E7%A8%8B%E5%92%8C%E5%BA%94%E7%94%A8/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="贝叶斯优化(BO)贝叶斯优化是一种黑盒优化方法，一般有几个特征： 输入纬度不大，一般小于 20 个，时间复杂度是$O(n^3)$有设定的取值空间目标函数需要是连续的（我觉得这个好像不是必须的，离散的也可以）目标函数的计算非常消耗成本（时间等等）目标函数是黑盒的，没有明确的结构目标函数（derivative-free）没有一阶二阶导数（不然就可以用梯度下降去算了） 因为这些特性，在做机器学习的超参数">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2019/10/14/%E8%B4%9D%E5%8F%B6%E6%96%AF%E4%BC%98%E5%8C%96%E4%B9%8B%E9%AB%98%E6%96%AF%E8%BF%87%E7%A8%8B%E5%92%8C%E5%BA%94%E7%94%A8/GP.gif">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2019/10/14/%E8%B4%9D%E5%8F%B6%E6%96%AF%E4%BC%98%E5%8C%96%E4%B9%8B%E9%AB%98%E6%96%AF%E8%BF%87%E7%A8%8B%E5%92%8C%E5%BA%94%E7%94%A8/bo_1d_opt.gif">
+<meta property="article:published_time" content="2019-10-13T17:21:32.000Z">
+<meta property="article:modified_time" content="2025-03-28T10:39:05.432Z">
+<meta property="article:author" content="ggaaooppeenngg">
+<meta property="article:tag" content="贝叶斯">
+<meta property="article:tag" content="GP">
+<meta property="article:tag" content="BO">
+<meta property="article:tag" content="超参数">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://ggaaooppeenngg.github.io/zh-CN/2019/10/14/%E8%B4%9D%E5%8F%B6%E6%96%AF%E4%BC%98%E5%8C%96%E4%B9%8B%E9%AB%98%E6%96%AF%E8%BF%87%E7%A8%8B%E5%92%8C%E5%BA%94%E7%94%A8/GP.gif">
+
+
+<link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2019/10/14/%E8%B4%9D%E5%8F%B6%E6%96%AF%E4%BC%98%E5%8C%96%E4%B9%8B%E9%AB%98%E6%96%AF%E8%BF%87%E7%A8%8B%E5%92%8C%E5%BA%94%E7%94%A8/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://ggaaooppeenngg.github.io/zh-CN/2019/10/14/%E8%B4%9D%E5%8F%B6%E6%96%AF%E4%BC%98%E5%8C%96%E4%B9%8B%E9%AB%98%E6%96%AF%E8%BF%87%E7%A8%8B%E5%92%8C%E5%BA%94%E7%94%A8/","path":"zh-CN/2019/10/14/贝叶斯优化之高斯过程和应用/","title":"贝叶斯优化之高斯过程和应用"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>贝叶斯优化之高斯过程和应用 | ggaaooppeenngg</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-62096626-1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"UA-62096626-1","only_pageview":false,"measure_protocol_api_secret":null}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+  <script src="/js/third-party/analytics/baidu-analytics.js"></script>
+  <script async src="https://hm.baidu.com/hm.js?bb16c5b1fd3302c18e0015bef11eea42"></script>
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">ggaaooppeenngg</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">为什么计算机科学是无限的但生命是有限的</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">134</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">14</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">78</span></a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%B4%9D%E5%8F%B6%E6%96%AF%E4%BC%98%E5%8C%96-BO"><span class="nav-number">1.</span> <span class="nav-text">贝叶斯优化(BO)</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%AB%98%E6%96%AF%E8%BF%87%E7%A8%8B-GP"><span class="nav-number">2.</span> <span class="nav-text">高斯过程(GP)</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%87%87%E6%A0%B7%E5%87%BD%E6%95%B0"><span class="nav-number">3.</span> <span class="nav-text">采样函数</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%BA%94%E7%94%A8"><span class="nav-number">4.</span> <span class="nav-text">应用</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8F%82%E8%80%83"><span class="nav-number">5.</span> <span class="nav-text">参考</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">78</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">14</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">134</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/ggaaooppeenngg" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;ggaaooppeenngg" rel="noopener me" target="_blank"><i class="github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:peng.gao.dut@gmail.com" title="E-Mail → mailto:peng.gao.dut@gmail.com" rel="noopener me" target="_blank"><i class="envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+        <div class="back-to-top animated" role="button" aria-label="返回顶部">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2019/10/14/%E8%B4%9D%E5%8F%B6%E6%96%AF%E4%BC%98%E5%8C%96%E4%B9%8B%E9%AB%98%E6%96%AF%E8%BF%87%E7%A8%8B%E5%92%8C%E5%BA%94%E7%94%A8/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="贝叶斯优化之高斯过程和应用 | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          贝叶斯优化之高斯过程和应用
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2019-10-14 01:21:32" itemprop="dateCreated datePublished" datetime="2019-10-14T01:21:32+08:00">2019-10-14</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2025-03-28 18:39:05" itemprop="dateModified" datetime="2025-03-28T18:39:05+08:00">2025-03-28</time>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2019/10/14/%E8%B4%9D%E5%8F%B6%E6%96%AF%E4%BC%98%E5%8C%96%E4%B9%8B%E9%AB%98%E6%96%AF%E8%BF%87%E7%A8%8B%E5%92%8C%E5%BA%94%E7%94%A8/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2019/10/14/贝叶斯优化之高斯过程和应用/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h2 id="贝叶斯优化-BO"><a href="#贝叶斯优化-BO" class="headerlink" title="贝叶斯优化(BO)"></a>贝叶斯优化(BO)</h2><p>贝叶斯优化是一种黑盒优化方法，一般有几个特征：</p>
+<p>输入纬度不大，一般小于 20 个，时间复杂度是$O(n^3)$<br>有设定的取值空间<br>目标函数需要是连续的（我觉得这个好像不是必须的，离散的也可以）<br>目标函数的计算非常消耗成本（时间等等）<br>目标函数是黑盒的，没有明确的结构<br>目标函数（derivative-free）没有一阶二阶导数（不然就可以用梯度下降去算了）</p>
+<p>因为这些特性，在做机器学习的超参数调优的时候特别合适。</p>
+<blockquote>
+<p>BayesOpt consists of two main components: a Bayesian statistical model for modeling the objective function, and an acquisition function for deciding where to sample next.</p>
+</blockquote>
+<p>贝叶斯优化主要是要两个部分，一个是统计模型比如高斯过程(GP)，一个是采样函数(AC)决定下一个样本从拿里获取。</p>
+<h2 id="高斯过程-GP"><a href="#高斯过程-GP" class="headerlink" title="高斯过程(GP)"></a>高斯过程(GP)</h2><p>高斯过程是贝叶斯优化中的一种统计模型，先抛开具体的数学问题，简单讲一下就是，假设我在一个变量空间（比如多个超参数）采样了一个目标函数（我们训练结果的 evaluation），然后我们会得到一个后验分布，这就类似条件概率里面，我们知道了某个事情发生以后，如果随机变量是相关的，我们有更大的概率确定其他变量的分布。例如下图，绿色是我们的分布空间，每次采样以后，分布的空间就会缩小，进而接近我们的曲线。</p>
+<img data-src="/zh-CN/2019/10/14/%E8%B4%9D%E5%8F%B6%E6%96%AF%E4%BC%98%E5%8C%96%E4%B9%8B%E9%AB%98%E6%96%AF%E8%BF%87%E7%A8%8B%E5%92%8C%E5%BA%94%E7%94%A8/GP.gif" class="">
+
+<p>从数学上描述这件事情就需要高斯分布和高斯过程了。高斯分布我相信大家都耳熟能详，他由平均值 $\mu$ 还有标准差 $\sigma$ 决定分布。高斯过程的本质是一个多元高斯分布，只不过他是无限空间上的，定义高斯过程需要一个核函数定义他的协方差矩阵，也就是一个矩阵定义多个随机变量的相关性。当然了，有限的离散点用协方差矩阵可以，如果取值是连续的就需要核函数描述这个“无限”的协方差矩阵了。</p>
+<p>协方差的核函数就很多选项，<a target="_blank" rel="noopener" href="https://distill.pub/2019/visual-exploration-gaussian-processes/">A Visual Exploration of Gaussian Processes</a> 提供了一个非常 intuitive 的可视化来解释 GP 和各种描述协方差矩阵的核函数。</p>
+<p>高斯过程被定义为一个<a target="_blank" rel="noopener" href="https://zh.wikipedia.org/wiki/%E9%9A%8F%E6%9C%BA%E8%BF%87%E7%A8%8B">随机过程</a>，相当于每个样本点自己也是个随机函数，对于高斯分布来说，每个样本点也是一个高斯分布函数就是高斯过程，<a target="_blank" rel="noopener" href="http://www.cs.cornell.edu/courses/cs4780/2018fa/lectures/lecturenote15.html">cs4780 的 Lecture 15</a>有非常详细的解释。</p>
+<blockquote>
+<p>Definition: A GP is a (potentially infinte) collection of random variables (RV) such that the joint distribution of every finite subset of RVs is multivariate Gaussian:<br>$ f \sim GP(\mu, k), $<br>where $\mu(\mathbf{x})$ and $k(\mathbf{x}, \mathbf{x}’)$ are the mean resp. covariance function! Now, in order to model the predictive distribution $P(f_* \mid \mathbf{x}_*, D)$ we can use a Bayesian approach by using a GP prior: $P(f\mid \mathbf{x}) \sim \mathcal{N}(\mu, \Sigma)$ and condition it on the training data $D$ to model the joint distribution of $f=f(X)$ (vector of training observations) and $f_* = f(\mathbf{x}_*)$ (prediction at test input).</p>
+</blockquote>
+<h2 id="采样函数"><a href="#采样函数" class="headerlink" title="采样函数"></a>采样函数</h2><p>采样函数一般有 expected improvement(EI)，当然还有 probability improvement(PI), upper confidence bound(UCB), knowledge gradient(KG),entropy search and predictive entropy search 等等。<br>采样的策略有两种：<br>Explore：探索新的点，这种采样有助于估计更准确的；<br>Exploit：利用已有结果附近的点进行采样，从而希望找到更大的；</p>
+<p>这两个标准是互相矛盾的，如何在这两者之间寻找一个平衡点可以说是采样函数面对的主要挑战。</p>
+<blockquote>
+<p>Expected improvement is a popular acquisition function owing to its good practical performance and an analytic form that is easy to compute. As the name suggests it rewards evaluation of the objective $f$ based on the expected improvement relative to the current best. If $f^* = \max_i y_i$ is the current best observed outcome and our goal is to maximize $f$, then EI is defined as</p>
+</blockquote>
+<blockquote>
+<p>$\text{EI}(x) = \mathbb{E}\bigl[\max((f(x) - f^*), 0)\bigr]$</p>
+</blockquote>
+<p>在 Facebook 的 Ax 在<a target="_blank" rel="noopener" href="https://ax.dev/docs/bayesopt">这里</a>提到使用了 PyTorch 的一个 BoTorch 用的就是 EI，就是期望的增加度。</p>
+<p>高斯分布式的期望就是 $\mu$ 所以是很好算的，$f^*$ 是已知的定值，<a target="_blank" rel="noopener" href="http://ash-aldujaili.github.io/blog/2018/02/01/ei/">这里</a>有一个计算的推导。</p>
+<p>BoTorch 提供了一个优化的 EI 叫 Noisy EI，主要功能是抗噪。</p>
+<blockquote>
+<p>The above definition of the EI function assumes that the objective function is observed free of noise. In many types of experiments, such as those found in A/B testing and reinforcement learning, the observations are typically noisy. For these cases, BoTorch implements an efficient variant of EI, called Noisy EI, which allow for optimization of highly noisy outcomes, along with any number of constraints (i.e., ensuring that auxiliary outcomes do not increase or decrease too much). For more on Noisy EI, see our <a target="_blank" rel="noopener" href="https://research.fb.com/efficient-tuning-of-online-systems-using-bayesian-optimization/">blog post</a>.</p>
+</blockquote>
+<p>这是采样的过程的一个示例：</p>
+<img data-src="/zh-CN/2019/10/14/%E8%B4%9D%E5%8F%B6%E6%96%AF%E4%BC%98%E5%8C%96%E4%B9%8B%E9%AB%98%E6%96%AF%E8%BF%87%E7%A8%8B%E5%92%8C%E5%BA%94%E7%94%A8/bo_1d_opt.gif" class="">
+
+
+<h2 id="应用"><a href="#应用" class="headerlink" title="应用"></a>应用</h2><p>高斯过程本身可以用来回归和分类，使用高斯过程的贝叶斯优化有很多具体的应用场景，除了超参数优化之外，对于网络结果（层数，数据并行度）等等也是可以使用的。<br>除此之外像 horovod 也使用了贝叶斯优化，在这个目录<a target="_blank" rel="noopener" href="https://github.com/horovod/horovod/tree/master/horovod/common/optim">下面</a>。</p>
+<blockquote>
+<p>Horovod comes with several adjustable “knobs” that can affect runtime performance, including –fusion-threshold-mb and –cycle-time-ms (tensor fusion), –cache-capacity (response cache), and hierarchical collective algorithms –hierarchical-allreduce and –hierarchical-allgather.</p>
+</blockquote>
+<p>他主要是服务于一些 Tensor Fusion 和 response cache 等参数以及层级 collective 通信选择，<a target="_blank" rel="noopener" href="https://horovod.readthedocs.io/en/latest/autotune.html">文档</a>提到了通过设置一些参数细致控制调优的过程。</p>
+<h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2><ol>
+<li> <a target="_blank" rel="noopener" href="https://blog.csdn.net/qq_23947237/article/details/78265026">一个例子搞清楚（先验分布/后验分布/似然估计）</a></li>
+<li> <a target="_blank" rel="noopener" href="https://arxiv.org/abs/1807.02811">A Tutorial on Bayesian Optimization</a></li>
+<li> <a target="_blank" rel="noopener" href="https://papers.nips.cc/paper/4522-practical-bayesian-optimization-of-machine-learning-algorithms.pdf">Practical Bayesian Optimization of Machine Learning Algorithms</a></li>
+<li> <a target="_blank" rel="noopener" href="https://github.com/hibayesian/awesome-automl-papers">Awesome-AutoML-Papers</a></li>
+<li> <a target="_blank" rel="noopener" href="http://www.gaussianprocess.org/gpml/chapters/RW.pdf">Gaussian Processes for Machine Learning</a></li>
+</ol>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E8%B4%9D%E5%8F%B6%E6%96%AF/" rel="tag"># 贝叶斯</a>
+              <a href="/tags/GP/" rel="tag"># GP</a>
+              <a href="/tags/BO/" rel="tag"># BO</a>
+              <a href="/tags/%E8%B6%85%E5%8F%82%E6%95%B0/" rel="tag"># 超参数</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/zh-CN/2019/08/30/horovod-%E5%AE%9E%E7%8E%B0%E5%88%86%E6%9E%90/" rel="prev" title="horovod 实现分析">
+                  <i class="fa fa-angle-left"></i> horovod 实现分析
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/zh-CN/2020/05/13/Spark-Ray-PS-MPI%E7%AD%89%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E%E5%92%8C%E6%A1%86%E6%9E%B6%E7%9A%84%E6%80%BB%E7%BB%93/" rel="next" title="Spark/Ray/PS/MPI等计算引擎和框架的小总结">
+                  Spark/Ray/PS/MPI等计算引擎和框架的小总结 <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 2014 – 
+    <span itemprop="copyrightYear">2025</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+  </div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/mist/" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.umd.js" integrity="sha256-a+H7FYzJv6oU2hfsfDGM2Ohw/cR9v+hPfxHCLdmCrE8=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lozad.js/1.16.0/lozad.min.js" integrity="sha256-mOFREFhqmHeQbXpK2lp4nA3qooVgACfh88fpJftLBbc=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/sidebar.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+  <script src="/js/third-party/fancybox.js"></script>
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"ggaaooppeenngg","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

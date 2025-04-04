@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.3.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="_85tctgPWrqH2EPVuuD5IT6KE-tW8nH0hTISJDMnShg">
+  <meta name="baidu-site-verification" content="bb16c5b1fd3302c18e0015bef11eea42">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha256-dABdfBfUoC8vJUBOwGVdm8L9qlMWaHTIfXt+7GnZCIo=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.css" integrity="sha256-gkQVf8UKZgQ0HyuxL/VnacadJ+D2Kox2TCEBuNQg5+w=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="首先公钥念“gongyue”，而不是公钥，拼音打字打多了就发现得这么读。 HTTPS 是基于 SSL&#x2F;TLS 的安全 HTTP 协议，其实 HTTPS 主要还是看安全套接字层，在这之上还是一个 HTTP 协议，这里主要总结一下我们现在主流用到的加密体系，比如我们经常看到的 .pem、.crt、.key、.csr 还有 CA 啊之类的是啥东西，并且这些东西都如何工作和应用的。 在密码学里面，有几个">
+<meta property="og:type" content="article">
+<meta property="og:title" content="HTTPS 加密体系">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2018/04/26/HTTPS-%E7%9A%84%E5%85%AC%E9%92%A5%E4%BD%93%E7%B3%BB/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="首先公钥念“gongyue”，而不是公钥，拼音打字打多了就发现得这么读。 HTTPS 是基于 SSL&#x2F;TLS 的安全 HTTP 协议，其实 HTTPS 主要还是看安全套接字层，在这之上还是一个 HTTP 协议，这里主要总结一下我们现在主流用到的加密体系，比如我们经常看到的 .pem、.crt、.key、.csr 还有 CA 啊之类的是啥东西，并且这些东西都如何工作和应用的。 在密码学里面，有几个">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2018/04/26/HTTPS-%E7%9A%84%E5%85%AC%E9%92%A5%E4%BD%93%E7%B3%BB/symmetric-encryption.gif">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2018/04/26/HTTPS-%E7%9A%84%E5%85%AC%E9%92%A5%E4%BD%93%E7%B3%BB/asymmetric-encryption.gif">
+<meta property="article:published_time" content="2018-04-26T14:39:00.000Z">
+<meta property="article:modified_time" content="2025-03-28T10:39:05.136Z">
+<meta property="article:author" content="ggaaooppeenngg">
+<meta property="article:tag" content="HTTPS">
+<meta property="article:tag" content="PKI">
+<meta property="article:tag" content="公钥">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://ggaaooppeenngg.github.io/zh-CN/2018/04/26/HTTPS-%E7%9A%84%E5%85%AC%E9%92%A5%E4%BD%93%E7%B3%BB/symmetric-encryption.gif">
+
+
+<link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2018/04/26/HTTPS-%E7%9A%84%E5%85%AC%E9%92%A5%E4%BD%93%E7%B3%BB/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://ggaaooppeenngg.github.io/zh-CN/2018/04/26/HTTPS-%E7%9A%84%E5%85%AC%E9%92%A5%E4%BD%93%E7%B3%BB/","path":"zh-CN/2018/04/26/HTTPS-的公钥体系/","title":"HTTPS 加密体系"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>HTTPS 加密体系 | ggaaooppeenngg</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-62096626-1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"UA-62096626-1","only_pageview":false,"measure_protocol_api_secret":null}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+  <script src="/js/third-party/analytics/baidu-analytics.js"></script>
+  <script async src="https://hm.baidu.com/hm.js?bb16c5b1fd3302c18e0015bef11eea42"></script>
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">ggaaooppeenngg</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">为什么计算机科学是无限的但生命是有限的</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">134</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">14</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">78</span></a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AF%B9%E7%A7%B0%E5%8A%A0%E5%AF%86"><span class="nav-number">1.</span> <span class="nav-text">对称加密</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%88%86%E7%BB%84%E5%AF%86%E7%A0%81"><span class="nav-number">2.</span> <span class="nav-text">分组密码</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%93%88%E5%B8%8C%E5%87%BD%E6%95%B0"><span class="nav-number">3.</span> <span class="nav-text">哈希函数</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#MAC"><span class="nav-number">3.1.</span> <span class="nav-text">MAC</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%9D%9E%E5%AF%B9%E7%A7%B0%E5%8A%A0%E5%AF%86"><span class="nav-number">4.</span> <span class="nav-text">非对称加密</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%95%B0%E5%AD%97%E7%AD%BE%E5%90%8D"><span class="nav-number">5.</span> <span class="nav-text">数字签名</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#TLS-%E7%9A%84%E5%85%B7%E4%BD%93%E5%8D%8F%E8%AE%AE"><span class="nav-number">6.</span> <span class="nav-text">TLS 的具体协议</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#PKI-%E5%85%AC%E9%92%A5%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD"><span class="nav-number">7.</span> <span class="nav-text">PKI 公钥基础设施</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%AF%81%E4%B9%A6"><span class="nav-number">7.1.</span> <span class="nav-text">证书</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%BA%94%E7%94%A8"><span class="nav-number">7.2.</span> <span class="nav-text">应用</span></a></li></ol></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">78</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">14</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">134</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/ggaaooppeenngg" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;ggaaooppeenngg" rel="noopener me" target="_blank"><i class="github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:peng.gao.dut@gmail.com" title="E-Mail → mailto:peng.gao.dut@gmail.com" rel="noopener me" target="_blank"><i class="envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+        <div class="back-to-top animated" role="button" aria-label="返回顶部">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2018/04/26/HTTPS-%E7%9A%84%E5%85%AC%E9%92%A5%E4%BD%93%E7%B3%BB/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="HTTPS 加密体系 | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          HTTPS 加密体系
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2018-04-26 22:39:00" itemprop="dateCreated datePublished" datetime="2018-04-26T22:39:00+08:00">2018-04-26</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2025-03-28 18:39:05" itemprop="dateModified" datetime="2025-03-28T18:39:05+08:00">2025-03-28</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/https/" itemprop="url" rel="index"><span itemprop="name">https</span></a>
+        </span>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2018/04/26/HTTPS-%E7%9A%84%E5%85%AC%E9%92%A5%E4%BD%93%E7%B3%BB/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2018/04/26/HTTPS-的公钥体系/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>首先公钥念“gongyue”，而不是公钥，拼音打字打多了就发现得这么读。</p>
+<p>HTTPS 是基于 SSL/TLS 的安全 HTTP 协议，其实 HTTPS 主要还是看安全套接字层，在这之上还是一个 HTTP 协议，这里主要总结一下我们现在主流用到的加密体系，比如我们经常看到的 <code>.pem</code>、<code>.crt</code>、<code>.key</code>、<code>.csr</code> 还有 <code>CA</code> 啊之类的是啥东西，并且这些东西都如何工作和应用的。</p>
+<p>在密码学里面，有几个角色，类似于中国的甲乙丙丁，一个是 Alice 和 Bob，这是正常通信的两个人，还有一个是 Eve，是信道上具备窃听能力的人，另外一个是 Mallory，这个人可以妨碍网络流量，主动攻击。</p>
+<h2 id="对称加密"><a href="#对称加密" class="headerlink" title="对称加密"></a>对称加密</h2><p>其实最简单的加密算法就是对称加密</p>
+<img data-src="/zh-CN/2018/04/26/HTTPS-%E7%9A%84%E5%85%AC%E9%92%A5%E4%BD%93%E7%B3%BB/symmetric-encryption.gif" class="" title="[symmetric encryption]">
+
+<p>Alice 和 Bob 有一个共有的密码，也就是只有两个人拥有，相互传输的密文只能通过这个密钥解开。</p>
+<p>首先加密需要基于密钥，凯撒密码可不可以，可以是可以，但是被人知道算法以后，就可以被所有人破解，并且优秀的加密算法应该被人验证，如果不是公开的算法就没有办法验证，当然一些保守的加密方法会不公开，这样其实也很难解密，但是互联网的加密协议很显然是用在千家万户的，所以一定要是经得起推敲的加密算法。</p>
+<h2 id="分组密码"><a href="#分组密码" class="headerlink" title="分组密码"></a>分组密码</h2><p>分组密码的作用是，一般会用 128 位一个分组，这样加密的好处是即使一个小的变化也会导致输出大量的变化，这样攻击者很难通过出现频率分析加密方式（比如 HTTP 开头都是一样的，所以使用顺序加密，很容易用 HTTP 的通用开头做输入得出加密方法）。但是分组密码的小影响会导致大改变的特性导致攻击者没办法这么做。</p>
+<p>（如果攻击者把有的流量都记录下来，等有一天通过方法获得密钥就能解开这些数据了，可能是未来算力提高，或者通过法律手段，斯诺登的加密信箱就是 FBI 让加密邮箱公司强制提供的）</p>
+<h2 id="哈希函数"><a href="#哈希函数" class="headerlink" title="哈希函数"></a>哈希函数</h2><p>哈希函数其实很熟悉了，解释一下 MAC。</p>
+<h3 id="MAC"><a href="#MAC" class="headerlink" title="MAC"></a>MAC</h3><p>MAC 是 message authetication code，是密钥的哈希函数，因为普通哈希函数，如果 Mallory 可以直接用假的数据用哈希算出结果发给 Bob，缺少身份验证，MAC 就是带密钥的哈希函数，HMAC 其实就是把密钥和消息组合在一起的协议。</p>
+<h2 id="非对称加密"><a href="#非对称加密" class="headerlink" title="非对称加密"></a>非对称加密</h2><p>非对称加密又叫做公钥加密，对称加密固然好，但是对称密钥在团体中使用的话，大家都要共享，密钥给来给去的很容易出问题。对称加密就没有这个问题，可以方便传播，对称密钥分私钥和公钥，一个用于加密一个用于解密，私钥加密的数据只能用公钥解密。公钥的出现使得密钥可以大范围传播。</p>
+<img data-src="/zh-CN/2018/04/26/HTTPS-%E7%9A%84%E5%85%AC%E9%92%A5%E4%BD%93%E7%B3%BB/asymmetric-encryption.gif" class="" title="[symmetric encryption]">
+
+<h2 id="数字签名"><a href="#数字签名" class="headerlink" title="数字签名"></a>数字签名</h2><p>数字签名主要验证消息的真实性，对消息进行验证。主要是对消息进行哈希，然后用私钥加密，追加到文档中做身份验证，这样用公钥解的开的话就能证明消息的发送者。</p>
+<h2 id="TLS-的具体协议"><a href="#TLS-的具体协议" class="headerlink" title="TLS 的具体协议"></a>TLS 的具体协议</h2><h2 id="PKI-公钥基础设施"><a href="#PKI-公钥基础设施" class="headerlink" title="PKI 公钥基础设施"></a>PKI 公钥基础设施</h2><p>PKI 主要是用来保证公钥的可信，通过中间的权威机构（CA）签发的公钥也就是证书才能被认可是合法的证书。</p>
+<h3 id="证书"><a href="#证书" class="headerlink" title="证书"></a>证书</h3><p>证书包含了版本、序列号、签名算法、颁发者、有效期、使用者、公钥。证书也有证书链，比如 root CA 可以签发 中间 CA 的证书。根证书一般是跟着操作系统一起造就装好了的，大公司的操作系统和浏览器都有自己的根证书库，自带就在电脑上。</p>
+<h3 id="应用"><a href="#应用" class="headerlink" title="应用"></a>应用</h3><p>RSA 是目前最广泛应用的密钥算法，破解 1024 位的 RSA 密钥的成本大约是 1000 万人民币，现在一般用 2048 位的 RSA，基本无解。</p>
+<p>其实公钥体系已经很完全了，但是大部分出问题都情况是私钥泄漏，管理自己的私钥非常重要。</p>
+<p>1. 不要用 CA 生成的私钥，尽量自己生成。<br>2. 不要用刚开机的机器生成随机数，这台机器获得的外界熵不够多。<br>3. 定期更换私钥<br>4. 不要随意传播私钥<br>5. 安全存储私钥，这个主要是中间 CA 可能要用，普通服务直接换私钥就可以。</p>
+<p>下面就用 OpenSSL 进行一些实验。</p>
+<p>首先我们生成一个 RSA 密钥，前面提到了最好用 2048 位的，用 AES-128 算法来加密保存，会让你输入密码，这个密钥基于这个密码保存，这个文件的格式叫 <code>PEM</code> 所以如果看到 <code>PEM</code> 格式的文件就知道是私钥了。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">$openssl genrsa -aes128 -out test.key 2048</span><br><span class="line">Generating RSA private key, 2048 bit long modulus</span><br><span class="line">...+++</span><br><span class="line">.............................+++</span><br><span class="line">e is 65537 (0x10001)</span><br><span class="line">Enter pass phrase for test.key:</span><br><span class="line">Verifying - Enter pass phrase for test.key:</span><br></pre></td></tr></table></figure>
+<p>可以看这个文件，看起来一通乱七八糟的东西，但是根据开头的信息，我们有办法用密码把私钥解析出来。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line">$cat test.key</span><br><span class="line">-----BEGIN RSA PRIVATE KEY-----</span><br><span class="line">Proc-Type: 4,ENCRYPTED</span><br><span class="line">DEK-Info: AES-128-CBC,52551A2438582E22358335433B7BAEE0</span><br><span class="line"></span><br><span class="line">GiVITGQMbkGxzBYestzFNX4KMUgP84A2p49mOBozQWkAol+zU5llumFXrj/bzATq</span><br><span class="line">OiH01+UN7sqKXD+lNwXsvL2bhhWFGe4h80CbCaVhPYnAtNtxU4HNTbAnCFZPmTHg</span><br><span class="line">wC5JCHlJvt6TGIOeOeyTj9qnCeIKd1XJGYypG8syzzaKuNbSwlKN8DrUKGJP/w/8</span><br><span class="line">gCPKT2AA2l53ysxBI6i2jHAxQSs1Y+K1jFrZjgObT3QDN4eqT1Io/waSDAiB8tkl</span><br><span class="line">rW35ZYO0Toe3iJgTOp325v5dvC6mCOvL0QAQWDz7y239l8fAdyDJUO2tSzjXfIii</span><br><span class="line">FM12NaHfw5m+GcT6brqlwbAOL6BSMX8Q+Dj/fdeDoPOF+pKnG4AGW3LPEY6LJgq0</span><br><span class="line">pkExHJ5cl/nEL2Q2H3yekvPjW40XDZfjyQSivwEJGhsmAq3+tfis/7h5f5Rg/2yh</span><br><span class="line">Vb8kkPQTu0SofS1VFkSQN6iJe5A3imjMkacKDoKtafORR1lWu0noaOqr757orcgI</span><br><span class="line">hK847ijdFdwjstycrGBdN1INr0Yx/FnyaPYNR2XZhWD4uQwZ1tMVge5duw8jgHrH</span><br><span class="line">ZwCeBAgfpSynbMy/1GTru1sO2T6qpZj9pfao59jVcN1fka+YKI5oEdxFFc97wcgk</span><br><span class="line">XVX9lVrcPrI0bMyuhje5Vi04HbOxpd4GmtnNPKTwtmMbDsSVVIX+hlFltSBl+0in</span><br><span class="line">PsKlUeBGjAmUapT3x1v7OP5K7K8YvszHMehbctDS2E9bZstCwhnsMog3b+Jxhw40</span><br><span class="line">gXsOc6Vb3kJljkPXu6k7qGGkqzVqUuUMSaWlE87s5Cm4ZyS8c5IPQvmQk4S/1AJP</span><br><span class="line">v5sD3TObRlJAIw0MEItPY4daQBMyIXPr+UXUAKfMoFK8bXG9aNpACKm/pQ1pVMj1</span><br><span class="line">eE0+lzQ1UZUVM0GotBZGce+TtbrU/I/dbhGLA2KKyoohsCSH2yV+wGIMrmmbUiqH</span><br><span class="line">a46FYwJLtFdDZ9m3ZVj1KCMza9/B2ylIetCX98C3/fVd81L3rxpSmbpWvzWYhw+Y</span><br><span class="line">205t8p26WUloAQrkP+kqw0HDsiDeEU2QilvNwtA5qlfd8666rJEJpBg50jM8Sb0R</span><br><span class="line">JYsG8Mc2a9CNpXt5pVi2kHdoRRkiSeGDh9xTnOlvnCc77p4MMlvcC3bqHwGe85ON</span><br><span class="line">0q5xVJMyLwzAXR82X0FunRiiDNBO3Pg6k+UBALmLNrgieet57Jdva90OnkEA0Ihg</span><br><span class="line">sYHHnfsMMJ6EnW4mNov8tdVi7mExK8K+RRe1vu+zAqzx/UuKkjekW0NdzQjHv4Hs</span><br><span class="line">mX/9XzVE2cLG9GLWVojyTS5XUg16NBn7qM3HRQmQoAgXHlfCJUx33xMjTL3glbNH</span><br><span class="line">65jpvG1S7l6U45BGMI3d2eQ0XfiSUHOHh/zHOIGRl7JcHyoK082IzivPbHkrlolv</span><br><span class="line">o1E+4sgpFc09rQYgcW2cb6Nr3H3aYOlC86iPn4Ecxj8M/wznH/JNjjfoKKhmFWcU</span><br><span class="line">EtmrreXjR8QlUCXCHZCA3DOi/MujcPU0qGZkaz+Ttii4NACZoHpedL+XQ9EcXci7</span><br><span class="line">xkFO4NxsezDunpvXNHgkzES+as5lNxSa4wC4tUbC9h4zhgbeiOGBSTL8Aq0MxwX3</span><br><span class="line">-----END RSA PRIVATE KEY-----</span><br></pre></td></tr></table></figure>
+<p>解析私钥</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br></pre></td><td class="code"><pre><span class="line">$openssl rsa -text -in test.key</span><br><span class="line">Enter pass phrase for test.key:</span><br><span class="line">Private-Key: (2048 bit)</span><br><span class="line">modulus:</span><br><span class="line">    00:a0:18:a6:70:ce:65:64:ea:f1:43:30:35:ff:cf:</span><br><span class="line">    b4:5a:8e:20:52:04:84:bf:bf:3a:b4:a7:65:94:a5:</span><br><span class="line">    df:b5:14:09:61:ba:79:8a:43:d1:fe:cc:d9:96:d3:</span><br><span class="line">    81:5b:82:d7:63:e1:e9:6f:30:5e:b0:3f:fe:65:c4:</span><br><span class="line">    e1:d5:b2:e3:ce:ba:fc:7b:5e:b2:83:f0:9f:3f:c2:</span><br><span class="line">    15:39:b4:fa:e7:3c:ff:42:96:e7:a6:7a:29:e1:ba:</span><br><span class="line">    0b:c7:99:aa:ac:07:2a:2b:74:b3:f8:10:8d:0f:91:</span><br><span class="line">    44:a4:fa:48:c1:aa:88:0e:86:ff:c1:da:59:c8:dd:</span><br><span class="line">    32:d5:5b:15:f4:80:3e:2f:d7:d3:92:09:63:54:d0:</span><br><span class="line">    01:46:78:cd:5c:5d:f1:1c:ad:a7:ab:84:5c:86:e1:</span><br><span class="line">    25:69:6d:6c:6c:df:90:5f:af:ca:6f:43:17:50:05:</span><br><span class="line">    b0:77:3d:92:e9:e7:4c:66:c3:58:08:96:60:7a:16:</span><br><span class="line">    02:d3:6f:56:cb:df:41:69:eb:83:f3:28:b7:82:0a:</span><br><span class="line">    c2:c6:b4:a3:6e:f1:2d:7f:ec:ea:87:7b:94:4b:8b:</span><br><span class="line">    b8:e1:72:0d:00:c1:8d:9f:cc:03:32:de:74:6e:26:</span><br><span class="line">    29:0b:4f:f4:41:93:1c:9c:ae:22:41:81:71:b6:9c:</span><br><span class="line">    8c:17:15:63:d5:86:ce:74:b2:99:fb:7f:ff:37:c8:</span><br><span class="line">    03:7b</span><br><span class="line">publicExponent: 65537 (0x10001)</span><br><span class="line">privateExponent:</span><br><span class="line">    1a:ae:40:fe:c7:c6:ea:1c:a5:7c:97:0a:48:c9:aa:</span><br><span class="line">    ba:f4:b8:ba:32:7a:95:22:1f:7c:7f:f1:53:e6:98:</span><br><span class="line">    f3:aa:95:2d:ae:50:17:14:da:68:66:67:54:d5:86:</span><br><span class="line">    d7:63:64:d6:06:8e:4a:b3:7a:f4:50:95:eb:0b:f6:</span><br><span class="line">    bf:10:83:1a:ae:da:e9:0c:8d:1f:a3:f8:46:3d:e8:</span><br><span class="line">    1f:a7:e3:b0:a9:df:b8:8f:41:a7:e2:f0:1b:e8:4f:</span><br><span class="line">    92:42:2f:c9:5f:a0:4d:81:b3:84:81:ed:a0:4c:8b:</span><br><span class="line">    6e:1b:30:08:e6:8c:aa:2f:21:6c:83:21:37:72:75:</span><br><span class="line">    c8:4c:d7:c9:d9:9d:83:87:67:05:4d:6d:28:72:71:</span><br><span class="line">    63:3b:b6:82:f8:42:0f:94:af:f2:b1:d8:c5:d3:3f:</span><br><span class="line">    50:bf:13:61:b2:0b:de:6b:34:42:cd:29:27:04:c9:</span><br><span class="line">    ff:49:14:75:d0:d5:e5:5c:4b:29:a1:95:c3:c5:e5:</span><br><span class="line">    34:46:9e:81:d4:9d:c3:c4:06:c9:96:90:39:90:fb:</span><br><span class="line">    db:06:77:fa:46:73:38:60:0e:e3:40:7b:d0:5d:a0:</span><br><span class="line">    97:0d:6e:0b:39:d6:99:63:a6:ee:67:b7:94:35:e2:</span><br><span class="line">    63:cf:02:a1:eb:0a:f0:50:99:6f:30:ae:6b:ef:1e:</span><br><span class="line">    14:a0:1a:f4:8e:ed:cd:81:bf:3d:2b:9d:b5:9e:b8:</span><br><span class="line">    21</span><br><span class="line">prime1:</span><br><span class="line">    00:cc:ff:e2:f4:39:5d:33:de:96:15:e6:7c:d2:e6:</span><br><span class="line">    a3:56:a9:6a:09:0c:e9:26:94:36:41:92:b9:db:c9:</span><br><span class="line">    09:20:28:9d:bc:c6:76:60:88:93:97:81:16:86:da:</span><br><span class="line">    4d:65:0e:87:ec:ef:15:6d:c9:06:f7:99:12:eb:4a:</span><br><span class="line">    a6:7e:49:9d:1a:68:ca:35:57:5c:4b:2f:32:2e:e4:</span><br><span class="line">    76:87:a5:02:94:27:1a:1f:38:28:58:77:68:2d:5d:</span><br><span class="line">    fa:c2:fd:c4:09:80:e4:eb:14:84:cc:73:06:96:4b:</span><br><span class="line">    08:8e:da:1c:55:38:8d:8c:7f:19:01:fa:54:b3:62:</span><br><span class="line">    d4:cb:4c:df:01:e0:02:d8:c3</span><br><span class="line">prime2:</span><br><span class="line">    00:c7:ec:f1:2b:83:26:d1:35:e3:55:00:3e:a9:7d:</span><br><span class="line">    2e:f0:68:4d:27:77:3f:d5:1c:99:ef:a0:98:3c:fd:</span><br><span class="line">    fd:d7:8f:51:f5:82:e7:8f:37:34:a7:1a:1f:c4:83:</span><br><span class="line">    44:ab:11:62:54:7a:5e:5c:a4:7f:d6:dd:f8:45:3c:</span><br><span class="line">    b6:bc:1e:b5:56:df:60:65:66:aa:43:82:f5:7a:7c:</span><br><span class="line">    72:3b:3d:fe:33:d4:27:b2:c5:9a:07:36:b4:ca:bc:</span><br><span class="line">    1d:a7:7a:5f:9c:1a:75:2b:2c:57:97:5a:b8:a9:de:</span><br><span class="line">    0e:8a:8c:84:ff:51:e9:12:e9:d4:8b:bf:de:5f:98:</span><br><span class="line">    52:9c:08:55:42:e1:70:be:e9</span><br><span class="line">exponent1:</span><br><span class="line">    15:76:dd:7e:90:db:0f:69:48:f1:b6:16:6f:c6:b2:</span><br><span class="line">    67:8a:89:8d:b5:0a:5c:7d:bc:48:95:62:5c:7e:ea:</span><br><span class="line">    33:b1:cd:02:4d:0d:6c:02:20:e2:06:24:23:ae:8b:</span><br><span class="line">    d7:fe:f3:80:7d:70:12:f4:af:84:11:45:07:d9:e3:</span><br><span class="line">    20:e9:f8:47:21:9d:ba:84:11:27:d6:23:3d:01:b2:</span><br><span class="line">    df:75:09:96:15:9a:08:96:ca:b2:a8:9e:01:d2:0b:</span><br><span class="line">    45:8b:68:91:4e:2b:a9:e9:96:16:0a:1d:30:73:5e:</span><br><span class="line">    cc:06:4e:5d:25:f4:bc:37:3a:99:18:6a:f1:f5:71:</span><br><span class="line">    2e:70:38:11:6c:31:20:1d</span><br><span class="line">exponent2:</span><br><span class="line">    00:a6:f0:8f:21:4a:4e:6b:7b:97:ec:2e:5c:24:a2:</span><br><span class="line">    c7:43:2f:94:dd:53:92:15:9d:e0:5c:5b:b9:43:94:</span><br><span class="line">    c3:15:f0:32:fb:d2:e7:10:8b:84:87:d4:24:9a:af:</span><br><span class="line">    11:f3:d6:7c:49:16:35:1d:1e:af:30:f8:00:8b:af:</span><br><span class="line">    fa:d6:72:bd:f1:60:6c:d9:bf:34:85:53:21:2f:ba:</span><br><span class="line">    22:98:9d:57:5a:67:d9:0e:4a:3a:27:b3:e2:9b:37:</span><br><span class="line">    21:7b:eb:8f:52:86:35:38:6b:ba:68:43:f4:d6:c2:</span><br><span class="line">    f9:59:6f:a4:ce:9d:d3:05:5c:03:82:fe:1f:ed:aa:</span><br><span class="line">    ff:b0:12:b5:3f:37:88:31:a1</span><br><span class="line">coefficient:</span><br><span class="line">    09:97:9e:dc:20:fe:c5:e2:34:47:d8:64:de:bb:ad:</span><br><span class="line">    70:65:4d:08:49:c8:cf:28:40:f6:87:43:09:c9:63:</span><br><span class="line">    bc:d8:cd:11:53:78:ba:ad:1a:f0:8b:e7:fa:1c:5f:</span><br><span class="line">    c9:9d:5f:ae:e1:2a:7f:87:7a:7f:1a:e3:c8:b5:8d:</span><br><span class="line">    eb:b2:af:18:c6:1e:07:43:f0:e7:be:4e:bc:c6:1b:</span><br><span class="line">    77:b8:43:36:58:3a:b5:8a:2c:f7:76:37:c7:97:4c:</span><br><span class="line">    8c:fd:47:71:09:f8:76:fe:8d:0f:e1:3a:30:56:5c:</span><br><span class="line">    2b:70:60:9d:fa:53:74:8a:db:b9:04:78:ce:1c:1d:</span><br><span class="line">    28:ca:78:81:53:07:de:5e</span><br><span class="line">writing RSA key</span><br><span class="line">-----BEGIN RSA PRIVATE KEY-----</span><br><span class="line">MIIEowIBAAKCAQEAoBimcM5lZOrxQzA1/8+0Wo4gUgSEv786tKdllKXftRQJYbp5</span><br><span class="line">ikPR/szZltOBW4LXY+HpbzBesD/+ZcTh1bLjzrr8e16yg/CfP8IVObT65zz/Qpbn</span><br><span class="line">pnop4boLx5mqrAcqK3Sz+BCND5FEpPpIwaqIDob/wdpZyN0y1VsV9IA+L9fTkglj</span><br><span class="line">VNABRnjNXF3xHK2nq4RchuElaW1sbN+QX6/Kb0MXUAWwdz2S6edMZsNYCJZgehYC</span><br><span class="line">029Wy99BaeuD8yi3ggrCxrSjbvEtf+zqh3uUS4u44XINAMGNn8wDMt50biYpC0/0</span><br><span class="line">QZMcnK4iQYFxtpyMFxVj1YbOdLKZ+3//N8gDewIDAQABAoIBABquQP7HxuocpXyX</span><br><span class="line">CkjJqrr0uLoyepUiH3x/8VPmmPOqlS2uUBcU2mhmZ1TVhtdjZNYGjkqzevRQlesL</span><br><span class="line">9r8Qgxqu2ukMjR+j+EY96B+n47Cp37iPQafi8BvoT5JCL8lfoE2Bs4SB7aBMi24b</span><br><span class="line">MAjmjKovIWyDITdydchM18nZnYOHZwVNbShycWM7toL4Qg+Ur/Kx2MXTP1C/E2Gy</span><br><span class="line">C95rNELNKScEyf9JFHXQ1eVcSymhlcPF5TRGnoHUncPEBsmWkDmQ+9sGd/pGczhg</span><br><span class="line">DuNAe9BdoJcNbgs51pljpu5nt5Q14mPPAqHrCvBQmW8wrmvvHhSgGvSO7c2Bvz0r</span><br><span class="line">nbWeuCECgYEAzP/i9DldM96WFeZ80uajVqlqCQzpJpQ2QZK528kJICidvMZ2YIiT</span><br><span class="line">l4EWhtpNZQ6H7O8VbckG95kS60qmfkmdGmjKNVdcSy8yLuR2h6UClCcaHzgoWHdo</span><br><span class="line">LV36wv3ECYDk6xSEzHMGlksIjtocVTiNjH8ZAfpUs2LUy0zfAeAC2MMCgYEAx+zx</span><br><span class="line">K4Mm0TXjVQA+qX0u8GhNJ3c/1RyZ76CYPP39149R9YLnjzc0pxofxINEqxFiVHpe</span><br><span class="line">XKR/1t34RTy2vB61Vt9gZWaqQ4L1enxyOz3+M9QnssWaBza0yrwdp3pfnBp1KyxX</span><br><span class="line">l1q4qd4OioyE/1HpEunUi7/eX5hSnAhVQuFwvukCgYAVdt1+kNsPaUjxthZvxrJn</span><br><span class="line">iomNtQpcfbxIlWJcfuozsc0CTQ1sAiDiBiQjrovX/vOAfXAS9K+EEUUH2eMg6fhH</span><br><span class="line">IZ26hBEn1iM9AbLfdQmWFZoIlsqyqJ4B0gtFi2iRTiup6ZYWCh0wc17MBk5dJfS8</span><br><span class="line">NzqZGGrx9XEucDgRbDEgHQKBgQCm8I8hSk5re5fsLlwkosdDL5TdU5IVneBcW7lD</span><br><span class="line">lMMV8DL70ucQi4SH1CSarxHz1nxJFjUdHq8w+ACLr/rWcr3xYGzZvzSFUyEvuiKY</span><br><span class="line">nVdaZ9kOSjons+KbNyF7649ShjU4a7poQ/TWwvlZb6TOndMFXAOC/h/tqv+wErU/</span><br><span class="line">N4gxoQKBgAmXntwg/sXiNEfYZN67rXBlTQhJyM8oQPaHQwnJY7zYzRFTeLqtGvCL</span><br><span class="line">5/ocX8mdX67hKn+Hen8a48i1jeuyrxjGHgdD8Oe+TrzGG3e4QzZYOrWKLPd2N8eX</span><br><span class="line">TIz9R3EJ+Hb+jQ/hOjBWXCtwYJ36U3SK27kEeM4cHSjKeIFTB95e</span><br><span class="line">-----END RSA PRIVATE KEY-----</span><br></pre></td></tr></table></figure>
+<p>这个私钥是我自己生成的，没用来干什么，所以直接展示了，但是生产环境的私钥要妥善保管，现在我们生成共钥，输入密码，读取密钥，然后 <code>-pubout</code> 表示生成公钥。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">$openssl rsa -in test.key -pubout -out test-public.key</span><br><span class="line">Enter pass phrase for test.key:</span><br><span class="line">writing RSA key</span><br><span class="line">$cat test-public.key</span><br><span class="line">-----BEGIN PUBLIC KEY-----</span><br><span class="line">MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAoBimcM5lZOrxQzA1/8+0</span><br><span class="line">Wo4gUgSEv786tKdllKXftRQJYbp5ikPR/szZltOBW4LXY+HpbzBesD/+ZcTh1bLj</span><br><span class="line">zrr8e16yg/CfP8IVObT65zz/Qpbnpnop4boLx5mqrAcqK3Sz+BCND5FEpPpIwaqI</span><br><span class="line">Dob/wdpZyN0y1VsV9IA+L9fTkgljVNABRnjNXF3xHK2nq4RchuElaW1sbN+QX6/K</span><br><span class="line">b0MXUAWwdz2S6edMZsNYCJZgehYC029Wy99BaeuD8yi3ggrCxrSjbvEtf+zqh3uU</span><br><span class="line">S4u44XINAMGNn8wDMt50biYpC0/0QZMcnK4iQYFxtpyMFxVj1YbOdLKZ+3//N8gD</span><br><span class="line">ewIDAQAB</span><br><span class="line">-----END PUBLIC KEY-----</span><br></pre></td></tr></table></figure>
+<p>创建证书需要发起 CSR(certificate signing request)，到 CA 那里，这个 csr 包含了申请者的信息和申请者的公钥。下面就是创建 csr 的命令，其中比较重要的是要配置好 Common Name，这个会拿来和访问的 host 进行匹配。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">$openssl req -new -key test.key -out test.csr</span><br><span class="line">Enter pass phrase for test.key:</span><br><span class="line">You are about to be asked to enter information that will be incorporated</span><br><span class="line">into your certificate request.</span><br><span class="line">What you are about to enter is what is called a Distinguished Name or a DN.</span><br><span class="line">There are quite a few fields but you can leave some blank</span><br><span class="line">For some fields there will be a default value,</span><br><span class="line">If you enter &#x27;.&#x27;, the field will be left blank.</span><br><span class="line">-----</span><br><span class="line">Country Name (2 letter code) []:CN</span><br><span class="line">State or Province Name (full name) []:SH</span><br><span class="line">Locality Name (eg, city) []:SH</span><br><span class="line">Organization Name (eg, company) []:.</span><br><span class="line">Organizational Unit Name (eg, section) []:.</span><br><span class="line">Common Name (eg, fully qualified host name) []:www.example.com</span><br><span class="line">Email Address []:</span><br><span class="line"></span><br><span class="line">Please enter the following &#x27;extra&#x27; attributes</span><br><span class="line">to be sent with your certificate request</span><br><span class="line">A challenge password []:1234</span><br></pre></td></tr></table></figure>
+<p>可以查看里面的信息是否正确，req 表示处理 csr 文件，-text 一般是用于展示文件内容。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><span class="line">$openssl req -text -in test.csr -noout</span><br><span class="line">Certificate Request:</span><br><span class="line">    Data:</span><br><span class="line">        Version: 0 (0x0)</span><br><span class="line">        Subject: C=CN, ST=SH, L=SH, CN=www.example.com</span><br><span class="line">        Subject Public Key Info:</span><br><span class="line">            Public Key Algorithm: rsaEncryption</span><br><span class="line">                Public-Key: (2048 bit)</span><br><span class="line">                Modulus:</span><br><span class="line">                    00:a0:18:a6:70:ce:65:64:ea:f1:43:30:35:ff:cf:</span><br><span class="line">                    b4:5a:8e:20:52:04:84:bf:bf:3a:b4:a7:65:94:a5:</span><br><span class="line">                    df:b5:14:09:61:ba:79:8a:43:d1:fe:cc:d9:96:d3:</span><br><span class="line">                    81:5b:82:d7:63:e1:e9:6f:30:5e:b0:3f:fe:65:c4:</span><br><span class="line">                    e1:d5:b2:e3:ce:ba:fc:7b:5e:b2:83:f0:9f:3f:c2:</span><br><span class="line">                    15:39:b4:fa:e7:3c:ff:42:96:e7:a6:7a:29:e1:ba:</span><br><span class="line">                    0b:c7:99:aa:ac:07:2a:2b:74:b3:f8:10:8d:0f:91:</span><br><span class="line">                    44:a4:fa:48:c1:aa:88:0e:86:ff:c1:da:59:c8:dd:</span><br><span class="line">                    32:d5:5b:15:f4:80:3e:2f:d7:d3:92:09:63:54:d0:</span><br><span class="line">                    01:46:78:cd:5c:5d:f1:1c:ad:a7:ab:84:5c:86:e1:</span><br><span class="line">                    25:69:6d:6c:6c:df:90:5f:af:ca:6f:43:17:50:05:</span><br><span class="line">                    b0:77:3d:92:e9:e7:4c:66:c3:58:08:96:60:7a:16:</span><br><span class="line">                    02:d3:6f:56:cb:df:41:69:eb:83:f3:28:b7:82:0a:</span><br><span class="line">                    c2:c6:b4:a3:6e:f1:2d:7f:ec:ea:87:7b:94:4b:8b:</span><br><span class="line">                    b8:e1:72:0d:00:c1:8d:9f:cc:03:32:de:74:6e:26:</span><br><span class="line">                    29:0b:4f:f4:41:93:1c:9c:ae:22:41:81:71:b6:9c:</span><br><span class="line">                    8c:17:15:63:d5:86:ce:74:b2:99:fb:7f:ff:37:c8:</span><br><span class="line">                    03:7b</span><br><span class="line">                Exponent: 65537 (0x10001)</span><br><span class="line">        Attributes:</span><br><span class="line">            challengePassword        :unable to print attribute</span><br><span class="line">    Signature Algorithm: sha256WithRSAEncryption</span><br><span class="line">         33:83:fa:d3:a1:7d:1b:5c:cc:cb:b1:19:99:79:e4:b8:29:fc:</span><br><span class="line">         0e:ac:e6:40:f5:13:f0:d7:f7:2b:67:d4:32:39:78:3f:0b:f0:</span><br><span class="line">         5e:2c:f4:5c:c1:14:f0:f7:82:5d:1e:c5:bf:00:3e:87:d2:b5:</span><br><span class="line">         ed:a7:46:75:70:da:db:53:f1:19:37:15:63:09:63:a8:4d:74:</span><br><span class="line">         19:ed:c5:3a:50:7b:db:5a:68:f0:88:37:54:23:0d:bb:4d:c3:</span><br><span class="line">         b6:1a:3f:1d:93:24:17:f3:c5:66:c8:9c:43:67:e8:3b:cc:48:</span><br><span class="line">         20:8e:9e:da:a6:a0:48:90:6d:b1:bc:ff:0d:39:62:7b:8c:5c:</span><br><span class="line">         cb:ec:ce:e1:de:0c:f3:5b:51:3e:5c:ab:ad:6f:f5:96:9c:e5:</span><br><span class="line">         12:9e:1b:a7:27:90:fe:d3:9f:f9:c2:9d:7e:b5:62:ac:f9:45:</span><br><span class="line">         33:6a:a7:b5:c2:ab:b7:18:a8:a6:91:15:26:27:a4:c9:84:26:</span><br><span class="line">         88:85:3e:68:99:8c:f4:c6:32:8d:61:71:83:cb:86:96:92:2e:</span><br><span class="line">         c7:bc:76:e0:59:82:e8:fe:47:39:da:f0:57:72:f7:59:c4:ba:</span><br><span class="line">         7a:51:23:13:bc:8c:75:07:d7:2d:cf:2b:69:07:20:80:27:6d:</span><br><span class="line">         6d:ae:cb:27:5d:ef:0c:92:99:a4:02:45:5b:58:ac:e9:71:1e:</span><br><span class="line">         ee:5f:54:78</span><br></pre></td></tr></table></figure>
+<p>可以看到里面的信息，还有签名算法，以及公钥等等。</p>
+<p>我们可以用自己的私钥给自己签名，比如 x509 是证书的格式。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">$openssl x509 -req -days 365 -in test.csr -signkey test.key -out test.crt</span><br><span class="line">Signature ok</span><br><span class="line">subject=/C=CN/ST=SH/L=SH/CN=www.example.com</span><br><span class="line">Getting Private key</span><br><span class="line">Enter pass phrase for test.key:</span><br></pre></td></tr></table></figure>
+<p>也可以把两步结合起来，直接创建自签名的证书，<code>openssl req -new -x509 -days 365 -key test.key -out test.crt</code>，如果不想要交互式的可以直接</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">openssl req -new -x509 -days 365 -key test.key -out test.crt \</span><br><span class="line">-subj &quot;/C=CN/L=BJ/O=HaiDian/CN=www.example.com&quot;</span><br></pre></td></tr></table></figure>
+<p>CN 只能写一个，虽然可以写泛域名，但是要支持多个域名可以通过扩展字段 SAN（Subject Alternative Name)来解决。</p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/HTTPS/" rel="tag"># HTTPS</a>
+              <a href="/tags/PKI/" rel="tag"># PKI</a>
+              <a href="/tags/%E5%85%AC%E9%92%A5/" rel="tag"># 公钥</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/zh-CN/2018/04/21/CUDA-%E7%9A%84%E8%AE%A1%E7%AE%97%E6%A8%A1%E5%9E%8B/" rel="prev" title="CUDA 的计算模型">
+                  <i class="fa fa-angle-left"></i> CUDA 的计算模型
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/zh-CN/2018/04/30/k8s-%E5%9F%BA%E4%BA%8E-kubeadm-%E7%9A%84%E5%AE%89%E5%85%A8%E9%85%8D%E7%BD%AE%E5%92%8C%E9%AB%98%E5%8F%AF%E7%94%A8/" rel="next" title="k8s 基于 kubeadm 的安全配置和高可用">
+                  k8s 基于 kubeadm 的安全配置和高可用 <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 2014 – 
+    <span itemprop="copyrightYear">2025</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+  </div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/mist/" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.umd.js" integrity="sha256-a+H7FYzJv6oU2hfsfDGM2Ohw/cR9v+hPfxHCLdmCrE8=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lozad.js/1.16.0/lozad.min.js" integrity="sha256-mOFREFhqmHeQbXpK2lp4nA3qooVgACfh88fpJftLBbc=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/sidebar.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+  <script src="/js/third-party/fancybox.js"></script>
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"ggaaooppeenngg","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

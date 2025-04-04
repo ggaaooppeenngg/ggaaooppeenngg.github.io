@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.3.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="_85tctgPWrqH2EPVuuD5IT6KE-tW8nH0hTISJDMnShg">
+  <meta name="baidu-site-verification" content="bb16c5b1fd3302c18e0015bef11eea42">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha256-dABdfBfUoC8vJUBOwGVdm8L9qlMWaHTIfXt+7GnZCIo=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.css" integrity="sha256-gkQVf8UKZgQ0HyuxL/VnacadJ+D2Kox2TCEBuNQg5+w=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="在分析net_cls和net_prio之前先要解释几个东西，一个是网络的 QoS 以及 netfilter。 网络 QoSIP 服务模型是尽力而为的，这样的模型不能体现某些流量的重要性，所以诞生了QOS技术，Linux 很早就提供了流量控制接口，命令行工具是tc。 协议栈的 QoS 主要由三部分组成。 qdisc 队列规则（queueing discipline)，class 控制策略，filte">
+<meta property="og:type" content="article">
+<meta property="og:title" content="cgroup 子系统之 net_cls 和 net_prio">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2017/05/19/cgroup-%E5%AD%90%E7%B3%BB%E7%BB%9F%E4%B9%8B-net-cls-%E5%92%8C-net-prio/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="在分析net_cls和net_prio之前先要解释几个东西，一个是网络的 QoS 以及 netfilter。 网络 QoSIP 服务模型是尽力而为的，这样的模型不能体现某些流量的重要性，所以诞生了QOS技术，Linux 很早就提供了流量控制接口，命令行工具是tc。 协议栈的 QoS 主要由三部分组成。 qdisc 队列规则（queueing discipline)，class 控制策略，filte">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://linux-ip.net/articles/Traffic-Control-HOWTO/images/pfifo_fast-qdisc.png">
+<meta property="og:image" content="http://www.cisco.com/c/dam/en/us/support/docs/quality-of-service-qos/qos-link-efficiency-mechanisms/24906-152-n.gif">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/05/19/cgroup-%E5%AD%90%E7%B3%BB%E7%BB%9F%E4%B9%8B-net-cls-%E5%92%8C-net-prio/map.jpg">
+<meta property="og:image" content="http://luxik.cdi.cz/~devik/qos/htb/manual/feed1.gif">
+<meta property="og:image" content="http://luxik.cdi.cz/~devik/qos/htb/manual/feed2.gif">
+<meta property="og:image" content="http://luxik.cdi.cz/~devik/qos/htb/manual/feed3.gif">
+<meta property="og:image" content="http://luxik.cdi.cz/~devik/qos/htb/manual/feed4.gif">
+<meta property="og:image" content="http://luxik.cdi.cz/~devik/qos/htb/manual/feed5.gif">
+<meta property="og:image" content="http://luxik.cdi.cz/~devik/qos/htb/manual/feed6.gif">
+<meta property="og:image" content="http://linux-ip.net/articles/Traffic-Control-HOWTO/images/htb-class.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/05/19/cgroup-%E5%AD%90%E7%B3%BB%E7%BB%9F%E4%B9%8B-net-cls-%E5%92%8C-net-prio/qdisc.jpeg">
+<meta property="og:image" content="https://upload.wikimedia.org/wikipedia/commons/thumb/3/37/Netfilter-packet-flow.svg/1600px-Netfilter-packet-flow.svg.png">
+<meta property="article:published_time" content="2017-05-18T18:21:03.000Z">
+<meta property="article:modified_time" content="2025-03-28T10:39:05.278Z">
+<meta property="article:author" content="ggaaooppeenngg">
+<meta property="article:tag" content="kernel">
+<meta property="article:tag" content="内核">
+<meta property="article:tag" content="网络">
+<meta property="article:tag" content="network">
+<meta property="article:tag" content="cgroup">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://linux-ip.net/articles/Traffic-Control-HOWTO/images/pfifo_fast-qdisc.png">
+
+
+<link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2017/05/19/cgroup-%E5%AD%90%E7%B3%BB%E7%BB%9F%E4%B9%8B-net-cls-%E5%92%8C-net-prio/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://ggaaooppeenngg.github.io/zh-CN/2017/05/19/cgroup-%E5%AD%90%E7%B3%BB%E7%BB%9F%E4%B9%8B-net-cls-%E5%92%8C-net-prio/","path":"zh-CN/2017/05/19/cgroup-子系统之-net-cls-和-net-prio/","title":"cgroup 子系统之 net_cls 和 net_prio"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>cgroup 子系统之 net_cls 和 net_prio | ggaaooppeenngg</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-62096626-1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"UA-62096626-1","only_pageview":false,"measure_protocol_api_secret":null}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+  <script src="/js/third-party/analytics/baidu-analytics.js"></script>
+  <script async src="https://hm.baidu.com/hm.js?bb16c5b1fd3302c18e0015bef11eea42"></script>
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">ggaaooppeenngg</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">为什么计算机科学是无限的但生命是有限的</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">134</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">14</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">78</span></a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%BD%91%E7%BB%9C-QoS"><span class="nav-number">1.</span> <span class="nav-text">网络 QoS</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#pfifo"><span class="nav-number">1.1.</span> <span class="nav-text">pfifo</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#HTB-Hierarchical-Token-Bucket"><span class="nav-number">1.2.</span> <span class="nav-text">HTB (Hierarchical Token Bucket)</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BD%BF%E7%94%A8"><span class="nav-number">1.3.</span> <span class="nav-text">使用</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AE%9E%E7%8E%B0"><span class="nav-number">1.4.</span> <span class="nav-text">实现</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%A1%A5%E5%85%85"><span class="nav-number">2.</span> <span class="nav-text">补充</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#netfilter"><span class="nav-number">2.1.</span> <span class="nav-text">netfilter</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#iptables"><span class="nav-number">2.2.</span> <span class="nav-text">iptables</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#cgroup-%E5%AD%90%E7%B3%BB%E7%BB%9F-net-cls-Network-classifier-cgroup"><span class="nav-number">3.</span> <span class="nav-text">cgroup 子系统 net_cls (Network classifier cgroup)</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#cgroup-net-prio-%E5%AD%90%E7%B3%BB%E7%BB%9F"><span class="nav-number">4.</span> <span class="nav-text">cgroup net_prio 子系统</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">78</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">14</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">134</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/ggaaooppeenngg" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;ggaaooppeenngg" rel="noopener me" target="_blank"><i class="github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:peng.gao.dut@gmail.com" title="E-Mail → mailto:peng.gao.dut@gmail.com" rel="noopener me" target="_blank"><i class="envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+        <div class="back-to-top animated" role="button" aria-label="返回顶部">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2017/05/19/cgroup-%E5%AD%90%E7%B3%BB%E7%BB%9F%E4%B9%8B-net-cls-%E5%92%8C-net-prio/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="cgroup 子系统之 net_cls 和 net_prio | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          cgroup 子系统之 net_cls 和 net_prio
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2017-05-19 02:21:03" itemprop="dateCreated datePublished" datetime="2017-05-19T02:21:03+08:00">2017-05-19</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2025-03-28 18:39:05" itemprop="dateModified" datetime="2025-03-28T18:39:05+08:00">2025-03-28</time>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2017/05/19/cgroup-%E5%AD%90%E7%B3%BB%E7%BB%9F%E4%B9%8B-net-cls-%E5%92%8C-net-prio/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2017/05/19/cgroup-子系统之-net-cls-和-net-prio/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>在分析<code>net_cls</code>和<code>net_prio</code>之前先要解释几个东西，一个是网络的 QoS 以及 netfilter。</p>
+<h2 id="网络-QoS"><a href="#网络-QoS" class="headerlink" title="网络 QoS"></a>网络 QoS</h2><p>IP 服务模型是尽力而为的，这样的模型不能体现某些流量的重要性，所以诞生了<code>QOS</code>技术，Linux 很早就提供了流量控制接口，命令行工具是<code>tc</code>。</p>
+<p>协议栈的 QoS 主要由三部分组成。</p>
+<p>qdisc 队列规则（queueing discipline)，class 控制策略，filter 根据 filter 划入具体的控制策略（class）。</p>
+<p>一般由流程是这样的，当一个 qdisc 被入队的时候，会循环匹配其中的 filter 如果匹配到了的话，就会将 packet 入队到对应的 class 当中，大部分情况下被 class 的“所有者”代表的 qdisc 入队。一些没有匹配的 packet 会进入默认的 class。下面将会介绍几种常用的 queue discpline。</p>
+<h3 id="pfifo"><a href="#pfifo" class="headerlink" title="pfifo"></a>pfifo</h3><p>默认 qdisc 就是 pfifo，实现在 <code>net/sched/sch_prio.c</code>。</p>
+<p>设有三个优先级的队列，优先级由高到低分别是</p>
+<ol start="0">
+<li>“interactive”</li>
+<li>“best effort”</li>
+<li>“bulk”</li>
+</ol>
+<p>先消费 0 队列再消费 1 队列，依次类推，一般的<code>packet</code>都是属于 1。</p>
+<p><img data-src="http://linux-ip.net/articles/Traffic-Control-HOWTO/images/pfifo_fast-qdisc.png" alt="pfifo"></p>
+<p>用 IP 的 ToS 可以映射到这些队列，对应的关系如图。</p>
+<p><img data-src="http://www.cisco.com/c/dam/en/us/support/docs/quality-of-service-qos/qos-link-efficiency-mechanisms/24906-152-n.gif" alt="tos"></p>
+<img data-src="/zh-CN/2017/05/19/cgroup-%E5%AD%90%E7%B3%BB%E7%BB%9F%E4%B9%8B-net-cls-%E5%92%8C-net-prio/map.jpg" class="">
+
+<p>他的实现依赖下面这个结构，bands 一般是 3 个，代表三个不同优先级的队列，然后<code>filter_list</code>是他的过滤器列表，最后<code>prio2band</code>就是上图的<code>ToS To Queue</code> 的映射中的<code>Linux priority 到 Band</code>的那部分，<code>queues</code>保存的是三个<code>fifo</code>的<code>qdisc</code>，也就是三个最简单的队列。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">struct prio_sched_data &#123;</span><br><span class="line">	int bands;</span><br><span class="line">	struct tcf_proto __rcu *filter_list;</span><br><span class="line">	u8  prio2band[TC_PRIO_MAX+1];</span><br><span class="line">	struct Qdisc *queues[TCQ_PRIO_BANDS];</span><br><span class="line">&#125;;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>这里虽然和 IP 的 ToS 暂时没有关系，但是最后<code>cgroup</code>的部分会提到怎么联系起来的。</p>
+<p>pfifo enqueue 的时候会调用<code>prio_classify</code>根据<code>skb-&gt;priority</code>来选择队列进行入队，dequeue 的时候则 round robin 每次依次从优先级高到低取出一个 packet。</p>
+<h3 id="HTB-Hierarchical-Token-Bucket"><a href="#HTB-Hierarchical-Token-Bucket" class="headerlink" title="HTB (Hierarchical Token Bucket)"></a>HTB (Hierarchical Token Bucket)</h3><p>HTB 是一个层级令牌桶的 qdisc，而且可以加入 class，HTB 的整体结构如下，HTB 的作者在<a target="_blank" rel="noopener" href="http://luxik.cdi.cz/~devik/qos/htb/manual/theory.htm">这里</a> 解释了他的设计。</p>
+<p>这里简单解释一下，每个 class 有一个 AR（保障速率）CR（最大速率），P（优先级），level（在树中的层次），quantum（量子，一个动态参数），和实际的速率 R，中间层的 class 通过计算子层的速率获得。</p>
+<p>Leaf 没有子节点，并且只有 Leaf 有传输功能的 queue，其他只是帮助构造层级关系。</p>
+<p>Mode class 的状态</p>
+<ol>
+<li><p> Red ( R &gt; CR ) 也就是超速</p>
+</li>
+<li><p> Yellow (R &lt;= CR &amp;&amp; R &gt; AR) 也就是合理超速</p>
+</li>
+<li><p> Green 就是没有超过保障速率</p>
+</li>
+</ol>
+<p>下面我们有几个等式</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Rc = min(CRc, ARc + Bc)        [eq1]</span><br></pre></td></tr></table></figure>
+
+<p>Bc 表示从祖先那里借到的速率，下面这段公式表示的意思是，如果我是当前 prio 最小的，从优先级的兄弟节点中加权平均借到父节点的速率，其他的 prio 更大的节点都不能借到速率。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">       Qc Rp</span><br><span class="line">Bc = -----------------------------  iff min[Pi over D(p)]&gt;=Pc  [eq2]</span><br><span class="line">     sum[Qi over D(p) where Pi=Pc]</span><br><span class="line"></span><br><span class="line">Bc = 0   otherwise      [eq3]</span><br></pre></td></tr></table></figure>
+
+<p>如果没有父节点的话，Bc 就是 0。这样算出来代表的意义是什么呢，就是说先服务优先级更高的节点，并且按照量子的大小在同优先级的节点中分配速率。</p>
+<p>然后我们具体看一下 HTB 调度器是如何工作的。</p>
+<p><img data-src="http://luxik.cdi.cz/~devik/qos/htb/manual/feed1.gif" alt="htb_sch_1"></p>
+<p><img data-src="http://luxik.cdi.cz/~devik/qos/htb/manual/feed2.gif" alt="htb_sch_2"></p>
+<p>每个 class 有个 slot 包含不同的 prio 级别，指向 yellow 的子节点，然后每个层级包含一个 slot 也有不同的 prio 级别指向这一层中 green 的节点，上图展示了的是有两个 prio 的 slot，右边的 self slot 有个白色的是用于 yellow red 的 wait list。</p>
+<p>假设当前如图 1 的状态，所有节点都是绿的没有 packet 到来，现在有有两个包到达 C 和 D，然后激活它们，并且它们现在都是绿的，所以 self slot 指向他们，然后因为 D 的优先级更高，所以先把 D 出队。所以你可以发现，出队的顺序很简答，就是按照优先级从 self slot 里面把绿色的包按顺序取出来就可以。</p>
+<p><img data-src="http://luxik.cdi.cz/~devik/qos/htb/manual/feed3.gif" alt="feed3"></p>
+<p><img data-src="http://luxik.cdi.cz/~devik/qos/htb/manual/feed4.gif" alt="feed4"></p>
+<p>然后我们看一下更复杂的情况，在图 3 中，我们从 D 中出队一个 packet(<code>htb_dequeue</code>)，然后<code>htb_charge_class</code>会增加 D 的速率，导致 D 变成 yellow，离开 self slot （通过<code>htb_deactivate_prios</code>和<code>htb_remove_class_from_row</code>)，然后添加到 B 的 slot 里面 (<code>htb_activate_prios</code>)，并且递归向上添加<code>htb_add_class_to_row</code>，D 会在一段时间后进入 self slot 的白色等待区，然后 D 又会变回绿色。现在如果选择的话，就会从 C 出队，因为虽然 C 的优先级低但是 C 不需要借别人的速率。</p>
+<p>在图 4，假设 C 已经完全消耗了速率达到了最大限速，这个时候 D 就会开始工作然后把 B 消耗完，B 被消耗了以后就会去消耗 A，从这里就可以看到一个借取的过程。</p>
+<p><img data-src="http://luxik.cdi.cz/~devik/qos/htb/manual/feed5.gif" alt="htb_sch_5"></p>
+<p><img data-src="http://luxik.cdi.cz/~devik/qos/htb/manual/feed6.gif" alt="htb_sch_6"></p>
+<p>现在说一个更复杂一点的例子，在图 5 中，A 已经被消耗光了，E 开始工作，然后 C 也能开始工作，变成图 6 的样子。注意即使 D 没有被使用但是他的优先级还会被 class slot 维持，也就是红线。但是 C 和 E 都是同一个优先级，这样的话，就要使用 DRR 算法（也就是在 RR 算法上给每个变量加一个权重，也就是之前的那个量子 quantom)。然后也可以发现一个 class 可以对不同的优先级（红色和蓝色）保持 active。</p>
+<p>下面是一个 HTB 的全貌图，抽象的可以理解成一个从父 class 中根据优先级带权重的分享令牌的一个算法。</p>
+<p><img data-src="http://linux-ip.net/articles/Traffic-Control-HOWTO/images/htb-class.png" alt="htb arch"></p>
+<p>下面三个值对应的就是三种颜色。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">/* used internaly to keep status of single class */</span><br><span class="line">enum htb_cmode &#123;</span><br><span class="line">	HTB_CANT_SEND,		/* class can&#x27;t send and can&#x27;t borrow */</span><br><span class="line">	HTB_MAY_BORROW,		/* class can&#x27;t send but may borrow */</span><br><span class="line">	HTB_CAN_SEND		/* class can send */</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>HTB 的实现依赖于</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line">struct htb_sched &#123;</span><br><span class="line">	struct Qdisc_class_hash clhash;</span><br><span class="line">	int			defcls;		/* class where unclassified flows go to */</span><br><span class="line">	int			rate2quantum;	/* quant = rate / rate2quantum */</span><br><span class="line"></span><br><span class="line">	/* filters for qdisc itself */</span><br><span class="line">	struct tcf_proto __rcu	*filter_list;</span><br><span class="line"></span><br><span class="line">#define HTB_WARN_TOOMANYEVENTS	0x1</span><br><span class="line">	unsigned int		warned;	/* only one warning */</span><br><span class="line">	int			direct_qlen;</span><br><span class="line">	struct work_struct	work;</span><br><span class="line"></span><br><span class="line">	/* non shaped skbs; let them go directly thru */</span><br><span class="line">	struct qdisc_skb_head	direct_queue;</span><br><span class="line">	long			direct_pkts;</span><br><span class="line"></span><br><span class="line">	struct qdisc_watchdog	watchdog;</span><br><span class="line"></span><br><span class="line">	s64			now;	/* cached dequeue time */</span><br><span class="line">	struct list_head	drops[TC_HTB_NUMPRIO];/* active leaves (for drops) */</span><br><span class="line"></span><br><span class="line">	/* time of nearest event per level (row) */</span><br><span class="line">	s64			near_ev_cache[TC_HTB_MAXDEPTH];</span><br><span class="line"></span><br><span class="line">	int			row_mask[TC_HTB_MAXDEPTH];</span><br><span class="line"></span><br><span class="line">	struct htb_level	hlevel[TC_HTB_MAXDEPTH];</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>其中<code>hlevel</code>对应的就是<code>self slot</code>，而<code>clhash</code> 可以通过 classid 找到 <code>hub_class</code>，其中的<code>-&gt;un.inner</code>就是对应的<code>class slot</code>，<code>-&gt;un.leaf</code>对应的就是叶子结点。</p>
+<h3 id="使用"><a href="#使用" class="headerlink" title="使用"></a>使用</h3><p>qdisc 参数</p>
+<p>parent major:minor  或者 <em>root</em>。</p>
+<p>一个 qdisc 是根节点就是 root，否则其他的情况指定 parent。其中 major:minor 是 class 的 handle id，每个 class 都要指定一个 id 用于标识。</p>
+<p><em>handle major:</em> ，这个语法有点奇怪，是可选的，如果 qdisc 下面还要分类（多个 class)，则需要指定这个 hanlde。对于 root，通常是”1:”。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">// handle 是一组用户指定的标示符，格式为 major:minor。</span><br><span class="line">// 如果是一条 queueing discipline，minor 需要一直为 0。</span><br><span class="line"># tc qdisc add dev eth0 root handle 1: htb</span><br><span class="line"></span><br><span class="line">// parent 指明该新增的 class 添加到那一个父 handle 上去</span><br><span class="line">// classid 指明该 class handle 的唯一 ID，minor 需要是非零值</span><br><span class="line">// ceil 定义 rate 的上界</span><br><span class="line"># tc class add dev eth0 parent 1:1 classid 1:6 htb rate 256kbit ceil 512kbit</span><br><span class="line"></span><br><span class="line">// 新建一个带宽为 100kbps 的 root class, 其 classid 为 1:1</span><br><span class="line"># tc class add dev eth0 parent 1: classid 1:1 htb rate 100kbps ceil 100kbps</span><br><span class="line">// 接着建立两个子 class，指定其 parent 为 1:1，ceil 用来限制子类最大的带宽</span><br><span class="line"># tc class add dev eth0 parent 1:1 classid 1:10 htb rate 40kbps ceil 100kbps</span><br><span class="line"># tc class add dev eth0 parent 1:1 classid 1:11 htb rate 60kbps ceil 100kbps</span><br><span class="line">// 随后建立 filter 指定哪些类型的 packet 进入那个 class</span><br><span class="line"># tc filter add dev eth0 protocol ip parent 1:0 prio 1 u32 match ip src 1.2.3.4 match ip dport 80 0xffff flowid 1:10</span><br><span class="line"># tc filter add dev eth0 protocol ip parent 1:0 prio 1 u32 match ip src 1.2.3.4 flow 1:11</span><br><span class="line">// 最后为这些 class 添加 queuing disciplines</span><br><span class="line"># tc qdisc add dev eth0 parent 1:10 handle 20: pfifo limit 5</span><br><span class="line"># tc qdisc add dev eth0 parent 1:11 handle 30: sfq perturb 10</span><br></pre></td></tr></table></figure>
+
+<h3 id="实现"><a href="#实现" class="headerlink" title="实现"></a>实现</h3><p>用 rtnetlink 接口实现 API。</p>
+<p>在<code>include/net/sch_generic.h</code>下有<code>Qdisc_ops</code>,<code>Qdisc_class_ops</code>,<code>tcf_proto_ops</code>的定义。</p>
+<p>同一个文件下还有<code>Qdisc_class_ops</code>的定义。</p>
+<p><code>qdisc_run</code>首先检查设备的运行状态然后调用<code>__qdisc_run</code>，这个函数的主体就是调用 <code>qdisc_restart</code>, 直到超过限制或者需要让出时间 CPU 了，最后清空 <code>qdisc</code>的 <code>RUNNING</code>状态。</p>
+<p>在此结构中，enqueue 和 dequeue 两个函数是整个 QoS 调度的入口函数。其中的<code>Qdisc_class_ops</code>用于对此 <code>Qdisc</code>的 filter list 进行操作，添加删除等，通过对 Qdisc 添加 fliter，filter 对 enqueue 到此 Qdisc 的 pkt 进行分类，从而归类到此 Qdisc 的子 class 中，而每个子 class 都有自己的 Qdisc 进行 pkt enqueue 的管理，因此实现一个树形的 filter 结构。</p>
+<p>callgraph Qdisc 在从来自上层的<code>dev_queue_xmit</code>主动发送开始起作用，对出口数据包作限制。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">dev_queue_xmit -&gt;</span><br><span class="line">	__dev_queue_xmit -&gt;</span><br><span class="line">    	__dev_xmit_skb -&gt;</span><br><span class="line">    		qdisc-&gt;enqueue</span><br><span class="line">    		__qdisc_run -&gt;</span><br><span class="line">    		  qdisc_restart -&gt;</span><br><span class="line">    		    qdisc-&gt;dequeue -&gt;</span><br><span class="line">    		      sch_direct_xmit</span><br></pre></td></tr></table></figure>
+
+<p>在<code>enqueue</code>的时候会主动唤起<code>dequeue</code>也可能是硬件发送就绪会唤醒发送软中断来<code>dequeue</code>，描述的整个过程大概是图中的这部分。</p>
+<img data-src="/zh-CN/2017/05/19/cgroup-%E5%AD%90%E7%B3%BB%E7%BB%9F%E4%B9%8B-net-cls-%E5%92%8C-net-prio/qdisc.jpeg" class="">
+
+<h2 id="补充"><a href="#补充" class="headerlink" title="补充"></a>补充</h2><h3 id="netfilter"><a href="#netfilter" class="headerlink" title="netfilter"></a>netfilter</h3><p>netfilter 在数据包传输中有一些 hook 可以在其中注册回调函数。</p>
+<p><img data-src="https://upload.wikimedia.org/wikipedia/commons/thumb/3/37/Netfilter-packet-flow.svg/1600px-Netfilter-packet-flow.svg.png" alt="netfilter"></p>
+<h3 id="iptables"><a href="#iptables" class="headerlink" title="iptables"></a>iptables</h3><p>主要是四表五链，是 netfilter 的用户态工具。</p>
+<p><a target="_blank" rel="noopener" href="https://www.digitalocean.com/community/tutorials/a-deep-dive-into-iptables-and-netfilter-architecture">deep dive</a></p>
+<h2 id="cgroup-子系统-net-cls-Network-classifier-cgroup"><a href="#cgroup-子系统-net-cls-Network-classifier-cgroup" class="headerlink" title="cgroup 子系统 net_cls (Network classifier cgroup)"></a>cgroup 子系统 net_cls (Network classifier cgroup)</h2><p>net_cls 可以给 packet 打上 classid 的标签，用于过滤分类，有了上面的详细解释，这个 classid 的作用也非常明显了，就是用于标记<code>skb</code>所属的 qdisc class 的。</p>
+<p>有了这个标签，流量控制器（tc）可以对不同的 cgroup 的 packet 起作用，Netfilter（iptables）也可以基于这个标签有对应的动作。创建一个 net_cls cgroup 对应的是创建一个 net_cls.classid 文件，这个文件初始化为 0。可以写 16 进制的 0xAAAABBBB 到这个文件里面，AAAA 是 major 号，BBBB 是 minor 号。读这个文件返回的是十进制的数字。</p>
+<p>例子</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">mkdir /sys/fs/cgroup/net_cls</span><br><span class="line">mount -t cgroup -onet_cls net_cls /sys/fs/cgroup/net_cls</span><br><span class="line">mkdir /sys/fs/cgroup/net_cls/0</span><br><span class="line">echo 0x100001 &gt;  /sys/fs/cgroup/net_cls/0/net_cls.classid</span><br></pre></td></tr></table></figure>
+<p>设置一个 10:1 handle.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">cat /sys/fs/cgroup/net_cls/0/net_cls.classid</span><br><span class="line">1048577</span><br></pre></td></tr></table></figure>
+
+<p>配置  tc:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">tc qdisc add dev eth0 root handle 10: htb</span><br><span class="line">tc class add dev eth0 parent 10: classid 10:1 htb rate 40mbit</span><br></pre></td></tr></table></figure>
+
+<p>创建 traffic class 10:1</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">tc filter add dev eth0 parent 10: protocol ip prio 10 handle 1: cgroup</span><br></pre></td></tr></table></figure>
+<p>配置 iptables，也可以用于这个 classid。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">iptables -A OUTPUT -m cgroup ! --cgroup 0x100001 -j DROP</span><br></pre></td></tr></table></figure>
+<p>对应的实现在<code>net/core/netclassid_cgroup.c</code>下面。起作用的方式是<code>css_cls_state</code>的<code>classid</code>并且<code>sock_cgroup_set_classid(&amp;sock-&gt;sk-&gt;sk_cgrp_data,(unsigned long)v)</code>来设置<code>sock</code>的<code>classid</code>。</p>
+<h2 id="cgroup-net-prio-子系统"><a href="#cgroup-net-prio-子系统" class="headerlink" title="cgroup net_prio 子系统"></a>cgroup net_prio 子系统</h2><p>网络优先权（net_prio）子系统可以为各个 cgroup 中的应用程序动态配置每个网络接口的流量优先级。</p>
+<p>net_prio.prioidx</p>
+<p>只读文件。它包含一个特有整数值，kernel 使用该整数值作为这个 cgroup 的内部代表。</p>
+<p>net_prio.ifpriomap</p>
+<p>包含优先级图谱，这些优先级被分配给源于此群组进程的流量以及通过不同接口离开系统的流量。回顾<code>pfifo</code>里优先级映射，对应的就是这个值。该图用 <em><network_interface> <priority></em> 的形式以成对列表表示：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">~]# cat /cgroup/net_prio/iscsi/net_prio.ifpriomap</span><br><span class="line">eth0 5</span><br><span class="line">eth1 4</span><br><span class="line">eth2 6</span><br></pre></td></tr></table></figure>
+
+<p><code>net_prio.ifpriomap</code> 文件的目录可以使用上述格式，通过将字符串回显至文件的方式来修改。例如：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">~]# echo &quot;eth0 5&quot; &gt; /cgroup/net_prio/iscsi/net_prio.ifpriomap</span><br></pre></td></tr></table></figure>
+
+<p>上述指令将强制设定任何源于 <code>iscsi</code> <code>net_prio</code> cgroup 进程的流量和 <code>eth0</code> 网络接口传出的流量的优先级为 <code>5</code>。父 cgroup 也有可写入的 <code>net_prio.ifpriomap</code> 文件，可以设定系统默认优先级。</p>
+<p>对应的实现在<code>net/core/netprio_cgroup.c</code>下面。实现方式是通过扩展<code>dev-&gt;priomap</code>的<code>prioid-&gt;prio</code>的映射记录这个优先级和 cgroup 的关系。</p>
+<p>net_prio 使用每个 cgroup 的 id（cgroupo-&gt;id）作为 sequence number，并将这个存储在 sk_cgrp_prioidx 中。sk_cgrp_prioidx 这个是单纯的用于设置网络包的优先级，使用这个之后将会覆盖之前通过 SO_PRIORITY socket 选项或者其他方式设置的值。</p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/kernel/" rel="tag"># kernel</a>
+              <a href="/tags/%E5%86%85%E6%A0%B8/" rel="tag"># 内核</a>
+              <a href="/tags/%E7%BD%91%E7%BB%9C/" rel="tag"># 网络</a>
+              <a href="/tags/network/" rel="tag"># network</a>
+              <a href="/tags/cgroup/" rel="tag"># cgroup</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/zh-CN/2017/05/07/cgroups-%E5%88%86%E6%9E%90%E4%B9%8B%E5%86%85%E5%AD%98%E5%92%8CCPU/" rel="prev" title="cgroup 分析之CPU和内存部分">
+                  <i class="fa fa-angle-left"></i> cgroup 分析之CPU和内存部分
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/zh-CN/2017/06/05/VFIO-%E2%80%94%E2%80%94%E5%B0%86-DMA-%E6%98%A0%E5%B0%84%E6%9A%B4%E9%9C%B2%E7%BB%99%E7%94%A8%E6%88%B7%E6%80%81/" rel="next" title="VFIO ——将 DMA 映射暴露给用户态">
+                  VFIO ——将 DMA 映射暴露给用户态 <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 2014 – 
+    <span itemprop="copyrightYear">2025</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+  </div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/mist/" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.umd.js" integrity="sha256-a+H7FYzJv6oU2hfsfDGM2Ohw/cR9v+hPfxHCLdmCrE8=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lozad.js/1.16.0/lozad.min.js" integrity="sha256-mOFREFhqmHeQbXpK2lp4nA3qooVgACfh88fpJftLBbc=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/sidebar.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+  <script src="/js/third-party/fancybox.js"></script>
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"ggaaooppeenngg","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

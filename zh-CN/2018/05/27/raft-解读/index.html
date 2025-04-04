@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.3.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="_85tctgPWrqH2EPVuuD5IT6KE-tW8nH0hTISJDMnShg">
+  <meta name="baidu-site-verification" content="bb16c5b1fd3302c18e0015bef11eea42">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha256-dABdfBfUoC8vJUBOwGVdm8L9qlMWaHTIfXt+7GnZCIo=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.css" integrity="sha256-gkQVf8UKZgQ0HyuxL/VnacadJ+D2Kox2TCEBuNQg5+w=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="Raft 的作者其实对 Paxos 研究得很深，毕竟 Paxos 基本上就是共识算法的代名词，建议在了解 Raft 之前先看看 Paxos，因为 Paxos 里面有一段从单点开始完整的推断共识算法的正确性和必要性的过程，方便建立一种对共识算法上直觉的认同。Raft 论文最好看作者的博士论文，那个比较完整。 leader electionRaft 有 Term 的概念，把时间每分成了一个个的任期，每">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Raft 解读">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2018/05/27/raft-%E8%A7%A3%E8%AF%BB/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="Raft 的作者其实对 Paxos 研究得很深，毕竟 Paxos 基本上就是共识算法的代名词，建议在了解 Raft 之前先看看 Paxos，因为 Paxos 里面有一段从单点开始完整的推断共识算法的正确性和必要性的过程，方便建立一种对共识算法上直觉的认同。Raft 论文最好看作者的博士论文，那个比较完整。 leader electionRaft 有 Term 的概念，把时间每分成了一个个的任期，每">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2018/05/27/raft-%E8%A7%A3%E8%AF%BB/raft-server-state.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2018/05/27/raft-%E8%A7%A3%E8%AF%BB/raft-terms.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2018/05/27/raft-%E8%A7%A3%E8%AF%BB/raft-log-conflict.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2018/05/27/raft-%E8%A7%A3%E8%AF%BB/raft-not-commited.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2018/05/27/raft-%E8%A7%A3%E8%AF%BB/raft-conflict-2.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2018/05/27/raft-%E8%A7%A3%E8%AF%BB/raft-conf-change.png">
+<meta property="article:published_time" content="2018-05-27T13:36:31.000Z">
+<meta property="article:modified_time" content="2025-03-28T10:39:05.364Z">
+<meta property="article:author" content="ggaaooppeenngg">
+<meta property="article:tag" content="raft">
+<meta property="article:tag" content="分布式">
+<meta property="article:tag" content="etcd">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://ggaaooppeenngg.github.io/zh-CN/2018/05/27/raft-%E8%A7%A3%E8%AF%BB/raft-server-state.png">
+
+
+<link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2018/05/27/raft-%E8%A7%A3%E8%AF%BB/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://ggaaooppeenngg.github.io/zh-CN/2018/05/27/raft-%E8%A7%A3%E8%AF%BB/","path":"zh-CN/2018/05/27/raft-解读/","title":"Raft 解读"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>Raft 解读 | ggaaooppeenngg</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-62096626-1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"UA-62096626-1","only_pageview":false,"measure_protocol_api_secret":null}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+  <script src="/js/third-party/analytics/baidu-analytics.js"></script>
+  <script async src="https://hm.baidu.com/hm.js?bb16c5b1fd3302c18e0015bef11eea42"></script>
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">ggaaooppeenngg</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">为什么计算机科学是无限的但生命是有限的</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">134</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">14</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">78</span></a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#leader-election"><span class="nav-number">1.</span> <span class="nav-text">leader election</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#log-replication"><span class="nav-number">2.</span> <span class="nav-text">log replication</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#safety"><span class="nav-number">3.</span> <span class="nav-text">safety</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#commit-from-previous-entry"><span class="nav-number">3.1.</span> <span class="nav-text">commit from previous entry</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%8C%81%E4%B9%85%E5%8C%96%E6%95%B0%E6%8D%AE"><span class="nav-number">3.2.</span> <span class="nav-text">持久化数据</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#membership-change"><span class="nav-number">4.</span> <span class="nav-text">membership change</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">78</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">14</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">134</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/ggaaooppeenngg" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;ggaaooppeenngg" rel="noopener me" target="_blank"><i class="github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:peng.gao.dut@gmail.com" title="E-Mail → mailto:peng.gao.dut@gmail.com" rel="noopener me" target="_blank"><i class="envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+        <div class="back-to-top animated" role="button" aria-label="返回顶部">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2018/05/27/raft-%E8%A7%A3%E8%AF%BB/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="Raft 解读 | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Raft 解读
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2018-05-27 21:36:31" itemprop="dateCreated datePublished" datetime="2018-05-27T21:36:31+08:00">2018-05-27</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2025-03-28 18:39:05" itemprop="dateModified" datetime="2025-03-28T18:39:05+08:00">2025-03-28</time>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2018/05/27/raft-%E8%A7%A3%E8%AF%BB/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2018/05/27/raft-解读/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>Raft 的作者其实对 Paxos 研究得很深，毕竟 Paxos 基本上就是共识算法的代名词，建议在了解 Raft 之前先看看 Paxos，因为 Paxos 里面有一段从单点开始完整的推断共识算法的正确性和必要性的过程，方便建立一种对共识算法上直觉的认同。Raft 论文最好看作者的博士论文，那个比较完整。</p>
+<h2 id="leader-election"><a href="#leader-election" class="headerlink" title="leader election"></a>leader election</h2><p>Raft 有 Term 的概念，把时间每分成了一个个的任期，每个任期开始是选举过程。Raft server 有三种角色，Candidate 就是选举中的状态，Leader 是当选的状态，Follower 是服从并选择接受 Leader 的 Log 的状态。</p>
+<img data-src="/zh-CN/2018/05/27/raft-%E8%A7%A3%E8%AF%BB/raft-server-state.png" class="" title="[raft server state]">
+
+<p>其实可以把选主看作一个 basic Paxos，大家对 leader=? 达成一致，触发的条件是超时和初始化的时候，term 就是类似于 Paxos 的 propose number，和 basic Paxos 不一样的是每个 term 只能投一个人，所以每个 term 不会有冲突，只有一个人会当选，但是会有平票的问题，大家用同一个 term 选举的情况下就会发生（比如说大家都投自己，谁都不接受谁），所以为了减少冲突，把重试的时间随机化，快速超时的人能拿到高 term，并且其他慢速超时的 candidate 会服从这个先拿到下一个 term 的 leader。成为 leader 的标志是收到了大部分人的服从(3/5 或者 2/3)。</p>
+<img data-src="/zh-CN/2018/05/27/raft-%E8%A7%A3%E8%AF%BB/raft-terms.png" class="" title="[raft terms]">
+
+<h2 id="log-replication"><a href="#log-replication" class="headerlink" title="log replication"></a>log replication</h2><img data-src="/zh-CN/2018/05/27/raft-%E8%A7%A3%E8%AF%BB/raft-log-conflict.png" class="" title="[raft log conflicts]">
+
+<p>log 不一致的就以上几种情况，可能少了 entry，可能多了没 commited 的 entry，可能又少了 entry 还多了没 commited 的 entry，log 不一致的情况就这几种。index term 能唯一确定一个 entry，如果一个 entry  确定，之前的也确定了。基于上面的性质，如果 entry commited 之前的就是都 commited 了。这个通过 append 的 prev index prev term，来保证这个特性。解决方法是在 AppendRequest 里面带上新的 entry 前的 index 和 term（在 leader 那里存的前一个），如果这个 entry 不在 follower 里面的话，就拒绝追加新 entry，然后 leader 就要用前一个 index 尝试，直到开始出现 match 的点，有点像 git tree 里面开始产生分支的那个 base，这个过程一直减少自己保存的 follower 的 nextIndex，一直到获得和自己 match 的最后一个 index 开始追加复制自己的 log。也就是说这样会强迫所有的 follower 复制主节点的 log，这里有一个按 term 回溯 base 的方法，但是这个优化作者认为有点多此一举，毕竟错误发生的情况比较少。这里会有一个问题（啥问题），后面会通过选举的时候加上限制解决。</p>
+<p>这个问题就是，新的 leader 可能没有之前 commited 的 log，然后修改了其他 follower 的 log，导致每个 state machine 执行的命令是不一致的，所以要加一个约束，在投票的时候，新的 leader 必须包含之前 commited 的 log，这个保证就需要通过定义 entry 的 update-to-date，在投票的时候拒绝比自己老的 leader 当选。</p>
+<h2 id="safety"><a href="#safety" class="headerlink" title="safety"></a>safety</h2><p>这个问题被称作 <code>safety</code>，为了解决这个问题 update-to-date 怎么定义呢？比如下面这个例子，如果 S3 挂了，其实 index 5 已经 commited 了，但是没有办法确定 index 5 的这个 log 是否 commited 了。所以要选个最可能包含所有 log 的做 leader。</p>
+<img data-src="/zh-CN/2018/05/27/raft-%E8%A7%A3%E8%AF%BB/raft-not-commited.png" class="" title="[raft not commited]">
+
+<p>先比 term，再比 log 数量，按顺序比，有点像字符串比较，这样可以确保 leader 有其他 follower 的 entry。没有大多数人的又新又全就无法成为 leader。</p>
+<h3 id="commit-from-previous-entry"><a href="#commit-from-previous-entry" class="headerlink" title="commit from previous entry"></a>commit from previous entry</h3><p>如果一个 leader 在 commit 之前 crash 了，并且新的 leader 没有已经在大多数节点上的 entry 可能会覆盖掉本该 commit 的 entry。</p>
+<p>比如这图，如果是 (d1) 的情况，3 就会把 2 盖掉，但是实际上 2 本该 commited 了，但是在 commit 之前 S5 可能在 term 5 成为了主（这个没有违背上面的 upda-to-date 因为 3 确实比 2 要新，并且可以从 S2, S3, S4 那里获得选票）。</p>
+<img data-src="/zh-CN/2018/05/27/raft-%E8%A7%A3%E8%AF%BB/raft-conflict-2.png" class="" title="[raft conflict 2]">
+
+<p>光看数量，没办法替之前 term 的 entry commit，因为 d1 的情况，可能就把 2 盖掉了。只有 term 4 的时候 4 commit 了（当前的 term 可以 commit）才能替之前 term 的 entry commit（实际上间接 commit 了，这个可以证明），这样 term 3 就不会成为主，就不可能盖掉 2。</p>
+<p><strong>总结一下，在 Raft 中 leader 不会 commit 之前 term 的 entry，只 commit 当前 term 的 entry。当前 term 的 entry commit 了，之前 term 的 entry 就间接 commit 了。</strong></p>
+<h3 id="持久化数据"><a href="#持久化数据" class="headerlink" title="持久化数据"></a>持久化数据</h3><p>当前的 term 和 vote 。</p>
+<h2 id="membership-change"><a href="#membership-change" class="headerlink" title="membership change"></a>membership change</h2><img data-src="/zh-CN/2018/05/27/raft-%E8%A7%A3%E8%AF%BB/raft-conf-change.png" class="" title="[raft conf change]">
+
+<p>raft conf change 有几个主要阶段，其中 C(old)+c(new) 的情况下，需要服从两个 conf 的大多数，并且，每次只能一个一个的增加 server 和 减少 server。</p>
+<p>参考文献</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://raft.github.io/">Raft Algorithm</a></li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/raft/" rel="tag"># raft</a>
+              <a href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F/" rel="tag"># 分布式</a>
+              <a href="/tags/etcd/" rel="tag"># etcd</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/" rel="prev" title="Paxos 总结">
+                  <i class="fa fa-angle-left"></i> Paxos 总结
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/zh-CN/2018/05/29/Tensorflow-%E7%9A%84-Tensor-%E5%92%8C-OpKernel-%E5%88%86%E6%9E%90/" rel="next" title="Tensorflow 的 Tensor 和 OpKernel 分析">
+                  Tensorflow 的 Tensor 和 OpKernel 分析 <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 2014 – 
+    <span itemprop="copyrightYear">2025</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+  </div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/mist/" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.umd.js" integrity="sha256-a+H7FYzJv6oU2hfsfDGM2Ohw/cR9v+hPfxHCLdmCrE8=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lozad.js/1.16.0/lozad.min.js" integrity="sha256-mOFREFhqmHeQbXpK2lp4nA3qooVgACfh88fpJftLBbc=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/sidebar.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+  <script src="/js/third-party/fancybox.js"></script>
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"ggaaooppeenngg","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

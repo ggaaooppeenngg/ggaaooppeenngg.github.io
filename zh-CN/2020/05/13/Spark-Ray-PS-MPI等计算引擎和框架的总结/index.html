@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.3.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="_85tctgPWrqH2EPVuuD5IT6KE-tW8nH0hTISJDMnShg">
+  <meta name="baidu-site-verification" content="bb16c5b1fd3302c18e0015bef11eea42">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha256-dABdfBfUoC8vJUBOwGVdm8L9qlMWaHTIfXt+7GnZCIo=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.css" integrity="sha256-gkQVf8UKZgQ0HyuxL/VnacadJ+D2Kox2TCEBuNQg5+w=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="大规模的并发并行计算考虑的问题主要关于数据、计算的吞吐量还有容错。不管是设计者还是使用者，关心的是在期望上（因为可能会失败）运行任务的效率，从设计者的角度来讲要提供一个可靠高效的环境，从使用者的角度来讲这个东西需要足够的简单，简单意味着编程效率也保证了可靠性。大数据的整套技术栈在解决一些吞吐量大的批处理问题时得心应手，但是到了深度学习的场景，计算吞吐的要求反而提高了，比较现实点的情况是很多时候我们">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Spark&#x2F;Ray&#x2F;PS&#x2F;MPI等计算引擎和框架的小总结">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2020/05/13/Spark-Ray-PS-MPI%E7%AD%89%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E%E5%92%8C%E6%A1%86%E6%9E%B6%E7%9A%84%E6%80%BB%E7%BB%93/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="大规模的并发并行计算考虑的问题主要关于数据、计算的吞吐量还有容错。不管是设计者还是使用者，关心的是在期望上（因为可能会失败）运行任务的效率，从设计者的角度来讲要提供一个可靠高效的环境，从使用者的角度来讲这个东西需要足够的简单，简单意味着编程效率也保证了可靠性。大数据的整套技术栈在解决一些吞吐量大的批处理问题时得心应手，但是到了深度学习的场景，计算吞吐的要求反而提高了，比较现实点的情况是很多时候我们">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2020/05/13/Spark-Ray-PS-MPI%E7%AD%89%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E%E5%92%8C%E6%A1%86%E6%9E%B6%E7%9A%84%E6%80%BB%E7%BB%93/spark.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2020/05/13/Spark-Ray-PS-MPI%E7%AD%89%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E%E5%92%8C%E6%A1%86%E6%9E%B6%E7%9A%84%E6%80%BB%E7%BB%93/rdd.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2020/05/13/Spark-Ray-PS-MPI%E7%AD%89%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E%E5%92%8C%E6%A1%86%E6%9E%B6%E7%9A%84%E6%80%BB%E7%BB%93/ray.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2020/05/13/Spark-Ray-PS-MPI%E7%AD%89%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E%E5%92%8C%E6%A1%86%E6%9E%B6%E7%9A%84%E6%80%BB%E7%BB%93/ps_worker_arch.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2020/05/13/Spark-Ray-PS-MPI%E7%AD%89%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E%E5%92%8C%E6%A1%86%E6%9E%B6%E7%9A%84%E6%80%BB%E7%BB%93/mpi.png">
+<meta property="article:published_time" content="2020-05-13T15:29:47.000Z">
+<meta property="article:modified_time" content="2025-03-28T10:39:05.206Z">
+<meta property="article:author" content="ggaaooppeenngg">
+<meta property="article:tag" content="Spark">
+<meta property="article:tag" content="Ray">
+<meta property="article:tag" content="PS">
+<meta property="article:tag" content="MPI">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://ggaaooppeenngg.github.io/zh-CN/2020/05/13/Spark-Ray-PS-MPI%E7%AD%89%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E%E5%92%8C%E6%A1%86%E6%9E%B6%E7%9A%84%E6%80%BB%E7%BB%93/spark.png">
+
+
+<link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2020/05/13/Spark-Ray-PS-MPI%E7%AD%89%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E%E5%92%8C%E6%A1%86%E6%9E%B6%E7%9A%84%E6%80%BB%E7%BB%93/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://ggaaooppeenngg.github.io/zh-CN/2020/05/13/Spark-Ray-PS-MPI%E7%AD%89%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E%E5%92%8C%E6%A1%86%E6%9E%B6%E7%9A%84%E6%80%BB%E7%BB%93/","path":"zh-CN/2020/05/13/Spark-Ray-PS-MPI等计算引擎和框架的总结/","title":"Spark/Ray/PS/MPI等计算引擎和框架的小总结"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>Spark/Ray/PS/MPI等计算引擎和框架的小总结 | ggaaooppeenngg</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-62096626-1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"UA-62096626-1","only_pageview":false,"measure_protocol_api_secret":null}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+  <script src="/js/third-party/analytics/baidu-analytics.js"></script>
+  <script async src="https://hm.baidu.com/hm.js?bb16c5b1fd3302c18e0015bef11eea42"></script>
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">ggaaooppeenngg</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">为什么计算机科学是无限的但生命是有限的</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">134</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">14</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">78</span></a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Spark-MapReduce"><span class="nav-number">1.</span> <span class="nav-text">Spark(MapReduce)</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Ray"><span class="nav-number">2.</span> <span class="nav-text">Ray</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#PS%E5%92%8CMPI"><span class="nav-number">3.</span> <span class="nav-text">PS和MPI</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">4.</span> <span class="nav-text">总结</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">78</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">14</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">134</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/ggaaooppeenngg" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;ggaaooppeenngg" rel="noopener me" target="_blank"><i class="github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:peng.gao.dut@gmail.com" title="E-Mail → mailto:peng.gao.dut@gmail.com" rel="noopener me" target="_blank"><i class="envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+        <div class="back-to-top animated" role="button" aria-label="返回顶部">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2020/05/13/Spark-Ray-PS-MPI%E7%AD%89%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E%E5%92%8C%E6%A1%86%E6%9E%B6%E7%9A%84%E6%80%BB%E7%BB%93/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="Spark/Ray/PS/MPI等计算引擎和框架的小总结 | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Spark/Ray/PS/MPI等计算引擎和框架的小总结
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2020-05-13 23:29:47" itemprop="dateCreated datePublished" datetime="2020-05-13T23:29:47+08:00">2020-05-13</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2025-03-28 18:39:05" itemprop="dateModified" datetime="2025-03-28T18:39:05+08:00">2025-03-28</time>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2020/05/13/Spark-Ray-PS-MPI%E7%AD%89%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E%E5%92%8C%E6%A1%86%E6%9E%B6%E7%9A%84%E6%80%BB%E7%BB%93/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2020/05/13/Spark-Ray-PS-MPI等计算引擎和框架的总结/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>大规模的并发并行计算考虑的问题主要关于数据、计算的吞吐量还有容错。不管是设计者还是使用者，关心的是在期望上（因为可能会失败）运行任务的效率，从设计者的角度来讲要提供一个可靠高效的环境，从使用者的角度来讲这个东西需要足够的简单，简单意味着编程效率也保证了可靠性。大数据的整套技术栈在解决一些吞吐量大的批处理问题时得心应手，但是到了深度学习的场景，计算吞吐的要求反而提高了，比较现实点的情况是很多时候我们考虑的是能处理多大的数据量的日志，和多快能把一个ImageNet ResNet50训练完。这个区别在于 Spark 或者 Hadoop 的 MapReduce 的设计和 Tensorflow 以及 PyTorch 的设计理念不同以及对应的计算场景的不同。到了强化学习的场景又是一个大融合，强化学习的场景不光有迭代式的反向误差传播的计算，同时也包含了大规模的仿真环境的计算，Ray主要是在这方面提供了一个一站式的解决框架。分布式系统的问题某种程度上和操作系统的问题其实很类似，都是要考量如何从整个系统的角度充分利用物理资源，从错误中恢复，满足效率。这篇文章主要是比较一下几种主流的计算引擎或者框架或者说是算法的异同。</p>
+<h1 id="Spark-MapReduce"><a href="#Spark-MapReduce" class="headerlink" title="Spark(MapReduce)"></a>Spark(MapReduce)</h1><p>我把Spark和MapReduce都归于大数据栈这一类，RDD(Resillient Distributed Dataset) 和 MapReduce<br>这两者的区别没有和MPI/PS的区别大那么多。</p>
+<img data-src="/zh-CN/2020/05/13/Spark-Ray-PS-MPI%E7%AD%89%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E%E5%92%8C%E6%A1%86%E6%9E%B6%E7%9A%84%E6%80%BB%E7%BB%93/spark.png" class="">
+
+<p>MapReduce 有 JobTracker，Spark 有 Driver</p>
+<p>MapReduce 有 TaskTracker，Spark 有 Executor</p>
+<p>MapReduce 中间结果是基于 HDFS，会落盘，Spark 中间结果是基于内存的，也可以落盘，主要是利用内存做缓存</p>
+<p>MapReduce 计算抽象由Map和Reduce构成，Spark 的 RDD 有一系列的Transform和Action，封装程度更高</p>
+<p>MapReduce 的错误处理比较简单，把失败的Map重试就好了，重试是一种非常好理解的错误处理。<br>Spark 的重试是根据 RDD 的有向无环图中的血缘关系计算的，可以理解为从失败的拓扑序上重新计算，也可以有中间的checkpoint。</p>
+<img data-src="/zh-CN/2020/05/13/Spark-Ray-PS-MPI%E7%AD%89%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E%E5%92%8C%E6%A1%86%E6%9E%B6%E7%9A%84%E6%80%BB%E7%BB%93/rdd.png" class="">
+
+<p>RDD 的特性是只读的，在机器学习场景下参数不大的时候 MLLib 通过把参数存到 Driver 上来计算，当参数比较大特别是深度网络的参数大得吓人 Driver 存不下的时候,<br>只能通过新增 RDD，对于要频繁更新的模型参数要生成非常多的 RDD，这是 Spark 在深度学习上设计的缺陷。<br>一般来说一些简单的机器学习任务通过 sklearn 就能完成，当数据量比较大的时候就需要通过 Spark 的MLLib来处理。<br>当然 MLLib 现在也在开始从RDD-based转向SparkSQL用的Dataframe-based，从大的角度上讲两者互相融合是可行的，可能需要一些时间。<br>上 Spark 用 Yarn 调度 Tensorflow，还是用 Kuberenetes 调度 Spark 和 Tensorflow，我个人支持后者，而且这种分层是我比较喜欢的一种分层。</p>
+<h1 id="Ray"><a href="#Ray" class="headerlink" title="Ray"></a>Ray</h1><p>Ray 的基本抽象就是 Remote 或者 Actor，一个是分布式调用函数，一个式分布式调用类。Ray 和 Ray 的 RLlib 主要面对的问题是强化学习有大量的 simulating 的环境，比如仿真一局Dota，涉及到模拟一局Dota，反馈Agent的神经网络，是并行计算和神经网络训练的结合。当然 Ray 本身的抽象就是个分布式 goroutine，所以某种程度上可以完成的事情不光是强化学习一种任务，比如HypterTunning等一些并行计算的模型也是试用的。</p>
+<img data-src="/zh-CN/2020/05/13/Spark-Ray-PS-MPI%E7%AD%89%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E%E5%92%8C%E6%A1%86%E6%9E%B6%E7%9A%84%E6%80%BB%E7%BB%93/ray.png" class="">
+
+<p>反过来想，如果没有 Ray 的话，如何做这个系统呢，要构建大批量的仿真计算环境，然后能根据仿真的反馈训练神经网络。<br>这两个任务的调度控制就是一个问题，当然放到 k8s 的调度器里做似乎也可以，然后涉及这些分布式任务的同步问题，<br>需要构建这些任务的关系和信息传输，似乎用一些 DAG （比如 argo）的 workflow 也能解决，但他们之间通信的高效性似乎会是一个问题，需要<br>选择一种高效的远程调用传输方式，肯能gRPC也可以，还有他们的元数据管理用什么呢，自己搞个Redis似乎也行。<br>Ray 从这些方面综合考虑了这些问题提供了一个一站式的RL训练平台。</p>
+<h1 id="PS和MPI"><a href="#PS和MPI" class="headerlink" title="PS和MPI"></a>PS和MPI</h1><p>MPI和PS的介绍有很多，我也不需要费篇幅唠叨。</p>
+<p>PS和MPI是比较常用的分布式深度学习的训练方式，两者的主要区别在于Paramater Server，在PS的场景下参数统一走一个或者shard多个PS更新。</p>
+<img data-src="/zh-CN/2020/05/13/Spark-Ray-PS-MPI%E7%AD%89%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E%E5%92%8C%E6%A1%86%E6%9E%B6%E7%9A%84%E6%80%BB%E7%BB%93/ps_worker_arch.png" class="">
+
+<p>在MPI的场景下每个Worker是对等的（或者分层级对等，比如主机上的四张卡走NVLink，主机之间走万兆网卡）工作节点，使用AllReduce参数的同步在Worker之间进行。</p>
+<img data-src="/zh-CN/2020/05/13/Spark-Ray-PS-MPI%E7%AD%89%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E%E5%92%8C%E6%A1%86%E6%9E%B6%E7%9A%84%E6%80%BB%E7%BB%93/mpi.png" class="">
+
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>MPI在我出生前应该就有了，但是MapReduce之所以能火起来主要还是在 fault-tolerance 上，MPI的抽象比较基础，但是MapReduce和Spark在廉价大集群上的表现非常亮眼，对于没那么并行化理想的场景能够tolerate，时间到了深度学习的场景这玩意儿又冒出来了，一方面是深度学习的计算资源好得不得了，因为配备GPU的机器和传统的机器比起来好很多，对于这种纯粹的并行计算框架来说非常友好，错误处理的问题就没那么严重，即使是这样也慢慢开始有人着手优化MPI/PS的fault tolerance，在一些并行化退化的场景下能够把训练并行度降级不至于完全失败的工作。</p>
+<p>从长远来看 Ray 还会有很多进化的空间，Spark 也会更好地适配深度学习场景，深度学习本身在System上的优化也层出不穷，大家对于大规模的并发并行计算系统的方方面面的要求都会越来越高。</p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Spark/" rel="tag"># Spark</a>
+              <a href="/tags/Ray/" rel="tag"># Ray</a>
+              <a href="/tags/PS/" rel="tag"># PS</a>
+              <a href="/tags/MPI/" rel="tag"># MPI</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/zh-CN/2019/10/14/%E8%B4%9D%E5%8F%B6%E6%96%AF%E4%BC%98%E5%8C%96%E4%B9%8B%E9%AB%98%E6%96%AF%E8%BF%87%E7%A8%8B%E5%92%8C%E5%BA%94%E7%94%A8/" rel="prev" title="贝叶斯优化之高斯过程和应用">
+                  <i class="fa fa-angle-left"></i> 贝叶斯优化之高斯过程和应用
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/zh-CN/2021/07/19/%E5%9C%A8goroutine%E4%B8%8A%E5%88%9B%E5%BB%BA%E5%8D%8F%E7%A8%8Bgogoroutine/" rel="next" title="在goroutine上创建协程gogoroutine">
+                  在goroutine上创建协程gogoroutine <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 2014 – 
+    <span itemprop="copyrightYear">2025</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+  </div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/mist/" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.umd.js" integrity="sha256-a+H7FYzJv6oU2hfsfDGM2Ohw/cR9v+hPfxHCLdmCrE8=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lozad.js/1.16.0/lozad.min.js" integrity="sha256-mOFREFhqmHeQbXpK2lp4nA3qooVgACfh88fpJftLBbc=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/sidebar.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+  <script src="/js/third-party/fancybox.js"></script>
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"ggaaooppeenngg","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

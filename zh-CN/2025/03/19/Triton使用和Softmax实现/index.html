@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.3.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="_85tctgPWrqH2EPVuuD5IT6KE-tW8nH0hTISJDMnShg">
+  <meta name="baidu-site-verification" content="bb16c5b1fd3302c18e0015bef11eea42">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha256-dABdfBfUoC8vJUBOwGVdm8L9qlMWaHTIfXt+7GnZCIo=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.css" integrity="sha256-gkQVf8UKZgQ0HyuxL/VnacadJ+D2Kox2TCEBuNQg5+w=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="参考 OpenAI Triton 主页 参考 Triton论文  参考 GPU MODE Lecture 14: Practitioners Guide to Triton 从Trinton主页引用的话 现代 GPU 的架构大致可以分为三个主要组件 ——DRAM、SRAM 和 ALU—— 在优化 CUDA 代码时必须考虑每个组件：  来自 DRAM 的内存传输必须合并为更大的事务，以利用现代内存接">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Triton使用和Softmax实现">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2025/03/19/Triton%E4%BD%BF%E7%94%A8%E5%92%8CSoftmax%E5%AE%9E%E7%8E%B0/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="参考 OpenAI Triton 主页 参考 Triton论文  参考 GPU MODE Lecture 14: Practitioners Guide to Triton 从Trinton主页引用的话 现代 GPU 的架构大致可以分为三个主要组件 ——DRAM、SRAM 和 ALU—— 在优化 CUDA 代码时必须考虑每个组件：  来自 DRAM 的内存传输必须合并为更大的事务，以利用现代内存接">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2025/03/19/Triton%E4%BD%BF%E7%94%A8%E5%92%8CSoftmax%E5%AE%9E%E7%8E%B0/gpu-architecture.svg">
+<meta property="article:published_time" content="2025-03-19T07:04:18.000Z">
+<meta property="article:modified_time" content="2025-03-28T10:39:05.250Z">
+<meta property="article:author" content="ggaaooppeenngg">
+<meta property="article:tag" content="cuda">
+<meta property="article:tag" content="triton">
+<meta property="article:tag" content="softmax">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://ggaaooppeenngg.github.io/zh-CN/2025/03/19/Triton%E4%BD%BF%E7%94%A8%E5%92%8CSoftmax%E5%AE%9E%E7%8E%B0/gpu-architecture.svg">
+
+
+<link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2025/03/19/Triton%E4%BD%BF%E7%94%A8%E5%92%8CSoftmax%E5%AE%9E%E7%8E%B0/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://ggaaooppeenngg.github.io/zh-CN/2025/03/19/Triton%E4%BD%BF%E7%94%A8%E5%92%8CSoftmax%E5%AE%9E%E7%8E%B0/","path":"zh-CN/2025/03/19/Triton使用和Softmax实现/","title":"Triton使用和Softmax实现"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>Triton使用和Softmax实现 | ggaaooppeenngg</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-62096626-1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"UA-62096626-1","only_pageview":false,"measure_protocol_api_secret":null}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+  <script src="/js/third-party/analytics/baidu-analytics.js"></script>
+  <script async src="https://hm.baidu.com/hm.js?bb16c5b1fd3302c18e0015bef11eea42"></script>
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">ggaaooppeenngg</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">为什么计算机科学是无限的但生命是有限的</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">134</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">14</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">78</span></a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Triton%E7%9A%84%E4%BD%BF%E7%94%A8"><span class="nav-number">1.</span> <span class="nav-text">Triton的使用</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%9F%A9%E9%98%B5%E4%B9%98%E6%B3%95"><span class="nav-number">2.</span> <span class="nav-text">矩阵乘法</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#BLOCK-SIZE-%E5%92%8C-GROUP-SIZE-%E7%9A%84%E4%BC%98%E5%8C%96%E3%80%82"><span class="nav-number">2.1.</span> <span class="nav-text">BLOCK_SIZE 和 GROUP_SIZE 的优化。</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Softmax"><span class="nav-number">3.</span> <span class="nav-text">Softmax</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">78</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">14</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">134</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/ggaaooppeenngg" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;ggaaooppeenngg" rel="noopener me" target="_blank"><i class="github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:peng.gao.dut@gmail.com" title="E-Mail → mailto:peng.gao.dut@gmail.com" rel="noopener me" target="_blank"><i class="envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+        <div class="back-to-top animated" role="button" aria-label="返回顶部">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2025/03/19/Triton%E4%BD%BF%E7%94%A8%E5%92%8CSoftmax%E5%AE%9E%E7%8E%B0/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="Triton使用和Softmax实现 | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Triton使用和Softmax实现
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2025-03-19 15:04:18" itemprop="dateCreated datePublished" datetime="2025-03-19T15:04:18+08:00">2025-03-19</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2025-03-28 18:39:05" itemprop="dateModified" datetime="2025-03-28T18:39:05+08:00">2025-03-28</time>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2025/03/19/Triton%E4%BD%BF%E7%94%A8%E5%92%8CSoftmax%E5%AE%9E%E7%8E%B0/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2025/03/19/Triton使用和Softmax实现/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>参考 <a target="_blank" rel="noopener" href="https://openai.com/index/triton/">OpenAI Triton 主页</a></p>
+<p>参考 <a target="_blank" rel="noopener" href="https://www.eecs.harvard.edu/~htk/publication/2019-mapl-tillet-kung-cox.pdf">Triton论文</a> </p>
+<p>参考 <a target="_blank" rel="noopener" href="https://christianjmills.com/posts/cuda-mode-notes/lecture-014/">GPU MODE Lecture 14: Practitioners Guide to Triton</a></p>
+<p>从Trinton主页引用的话</p>
+<p>现代 GPU 的架构大致可以分为三个主要组件 ——DRAM、SRAM 和 ALU—— 在优化 CUDA 代码时必须考虑每个组件：</p>
+<ol>
+<li>来自 DRAM 的内存传输必须合并为更大的事务，以利用现代内存接口的大型总线宽度。</li>
+<li>数据在被再次使用之前，必须手动存储到SRAM中，并且要对数据进行管理，以便在检索数据时尽量减少共享内存存储体冲突的情况。</li>
+<li>计算必须在流式多处理器（SM）之间和内部仔细分区和调度，以促进指令 / 线程级并行性并利用专用 ALU（例如Tensor Core）。</li>
+</ol>
+<p>这几句话可能比较抽象，下面给一下这几个组件的指标可能感受更直观，参考<a target="_blank" rel="noopener" href="https://timdettmers.com/2023/01/30/which-gpu-for-deep-learning/">Which GPU(s) to Get for Deep Learning: My Experience and Advice for Using GPUs in Deep Learning</a>。<br>其中指出：</p>
+<ul>
+<li>全局内存访问（高达 80GB）：<code>~380</code> 个周期 </li>
+<li>L2 缓存：<code>~200</code> 个周期 </li>
+<li>L1 缓存或共享内存访问（每个流式多处理器高达 128 kb）：<code>~34</code> 个周期</li>
+<li>融合乘法和加法，ab+c（FFMA）： 4 个周期</li>
+<li>Tensor Core 矩阵乘法：1 个周期</li>
+</ul>
+<p>每个操作总是由 32 个线程组成的Warp执行，Warp中的线程必须相互等待。GPU 上的所有内存操作都针对warp进行了优化。 </p>
+<p>根据<a target="_blank" rel="noopener" href="https://arunjitha.medium.com/simplifying-cuda-kernels-with-triton-a-pythonic-approach-to-gpu-programming-79bb7121e974">Simplifying CUDA kernels with Triton: A Pythonic Approach to GPU Programming</a>的说法，GPU中的HBM（High Bandwidth Memory）等价于我们讲的Global Memory，SRAM对应的是L1和L2 Cache对应的是Shared Memory，这几个词在一些文档中可能会有不同的叫法，但是意思是一样的。</p>
+<p>A100中的内存带宽约为 2TB/s，L1 缓存带宽：<code>~100-200</code> TB/s 理论带宽，L2 缓存带宽：<code>~4-7 TB/s</code> 理论带宽。</p>
+<p>再看OpenAI的三条说明的意思就是：</p>
+<ol>
+<li>因为DRAM很大，比较容易占满总线带宽，所以尽量合并传输的事务可以减少传输的时间，让高速公路跑满。</li>
+<li>如果数据要重复利用，反复参与计算，尽量让他们在SRAM当中能够缓存住，比如L1的读取只要34个cyle，能比从L2中快6到7倍。</li>
+<li>尽量跑满并行度，并且利用更高效的计算单元，比如Tensor Core。</li>
+</ol>
+<img data-src="/zh-CN/2025/03/19/Triton%E4%BD%BF%E7%94%A8%E5%92%8CSoftmax%E5%AE%9E%E7%8E%B0/gpu-architecture.svg" class="">
+
+<p>这个是OpenAI给出的GPU架构的简图，我们需要明确不同内存，缓存，和执行单元的周期之间的关系就比较好理解GPU计算当中的性能瓶颈。</p>
+<p>Triton的目标其实就是优化 <code>HBM -&gt; SRAM -&gt; 寄存器</code> 的带宽，这在Torch里面直接实现不了，通过一些融合算子是可以减少写回到HBM的。</p>
+<p>Triton的文档给出的很多实现的代码，可能都不太奏效了，笔者自己测试下来并没有超过torch本身的实现，<br>可能torch本身也再不断改进吧，这些差别很快就超越了，但是在一些写自定义融合算子方面应该还是比较有优势的。</p>
+<h2 id="Triton的使用"><a href="#Triton的使用" class="headerlink" title="Triton的使用"></a>Triton的使用</h2><p>和CUDA对应的关系：</p>
+<ul>
+<li>程序（Program）：处理数据块的kernel实例。</li>
+<li>PID（程序 ID）：等同于 CUDA 中的块 ID。</li>
+<li>向量化操作：在多个数据点上同时操作（triton不需要用户关心向量操作的并行化）。</li>
+</ul>
+<p>先给出变量和修饰器的解释，大部分文档都混在注释里面不是很好阅读，我觉得先介绍一些简单概念再看代码会比较好一点。</p>
+<p><code>@triton.jit</code> 装饰器表示这个函数会被编译。<br><code>tl.constexpr</code>  代表常量表达式，可以让编译器在编译期间直接求值，可以当作常量使用了。<br><code>BLOCK_SIZE</code>对于GPU来说是比较固定的，因为一个block是有threads数上限的。<br>通过执行<a target="_blank" rel="noopener" href="https://github.com/NVIDIA/cuda-samples">cuda-samples</a>中的<code>deviceQuery</code><br>可以发现L40的显卡BLOCK_SIZE最大是1024，大部分显卡应该都是这个固定大小。  </p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">Total number of registers available per block: 65536  </span><br><span class="line">Warp size:                                     32  </span><br><span class="line">L2 Cache Size:                                 100663296 bytes（96MB）</span><br><span class="line">Maximum number of threads per multiprocessor:  1536  </span><br><span class="line">Maximum number of threads per block:           1024  </span><br><span class="line">Max dimension size of a thread block (x,y,z): (1024, 1024, 64)  </span><br><span class="line">Max dimension size of a grid size    (x,y,z): (2147483647, 65535, 65535)  </span><br><span class="line">Total amount of shared memory per block:       49152 bytes（48KB）</span><br><span class="line">Total shared memory per multiprocessor:        102400 bytes (100KB)</span><br><span class="line">Total number of registers available per block: 65536</span><br></pre></td></tr></table></figure>
+
+<p><code>pid = tl.program_id(axis=0)</code> 应该是对应的CUDA中的<code>threadIdx.x</code>的作用，对应block的一维下标，<br><code>pid = tl.program_id(axis=1)</code> 应该是对应的CUDA中的<code>threadIdx.y</code>的作用，对应block的二维下标。</p>
+<p><code>autotune</code>是一个黑盒优化，通过内部的小benchmark的方式去基于key的变量，优化configs里面的参数。<br>下面是一个只有两个配置的搜索空间，当<code>n_elements</code>的值发生变化的时候，会自动选择最优的配置。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">@triton.autotune(configs = [</span><br><span class="line">    triton.Config(&#123;&#x27;BLOCK_SIZE&#x27;: 128&#125;, num_warps = 4, pre_hook = clone_inplace_updated_params),</span><br><span class="line">    triton.Config(&#123;&#x27;BLOCK_SIZE&#x27;: 1024&#125;, num_warps = 8, pre_hook = clone_inplace_updated_params),</span><br><span class="line">], key = [&#x27;n_elements&#x27;])</span><br><span class="line">@triton.jit</span><br></pre></td></tr></table></figure>
+
+<p>BLOCK_SIZE表示的是一个<code>program</code>负责的BLOCK大小，放在triton的语境下更像是L2 Cache的<code>大小</code>。<br>但是cuda当中的block是包含n个thread的，表示的是并行线程的<code>大小</code>。<br>笔者的这个说法可能不太精准，但是这两种风格导致Cuda写一些element wise的操作比较合适.<br>每个element wise的操作都是一个thread，这样可以充分利用GPU的并行性。<br>而triton比较适合一些Reduce操作，例如对数据（也就是矩阵）切BLOCK，然后每个kernel去负责一个block，<br>他的好处就是比如softmax这样的在行上做reduce操作会比较直观，而矩阵乘法也可以沿着MxK,KxN的维度，沿着不同的维度切块。<br>Triton能够帮你把矩阵乘法优化得很不错，虽然可能还比不上精准手写的Cuda算子。</p>
+<p>Triton的范式和CUDA的Single Instruction, Multiple Thread (SIMT)不一样，官网给出了一个简化的例子。</p>
+<p>这是CUDA like的写法，每个<code>threadId.x</code>代表的线程只算一个<code>element</code>。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">BLOCK = <span class="number">512</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># This is a GPU kernel in Numba.</span></span><br><span class="line"><span class="comment"># Different instances of this</span></span><br><span class="line"><span class="comment"># function may run in parallel.</span></span><br><span class="line"><span class="meta">@jit</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">add</span>(<span class="params">X, Y, Z, N</span>):</span><br><span class="line">   <span class="comment"># In Numba/CUDA, each kernel </span></span><br><span class="line">   <span class="comment"># instance itself uses an SIMT execution</span></span><br><span class="line">   <span class="comment"># model, where instructions are executed in</span></span><br><span class="line">   <span class="comment"># parallel for different values of threadIdx</span></span><br><span class="line">   tid = threadIdx.x</span><br><span class="line">   bid = blockIdx.x</span><br><span class="line">   <span class="comment"># scalar index</span></span><br><span class="line">   idx = bid * BLOCK + tid</span><br><span class="line">   <span class="keyword">if</span> <span class="built_in">id</span> &lt; N:</span><br><span class="line">     <span class="comment"># There is no pointer in Numba.</span></span><br><span class="line">     <span class="comment"># Z,X,Y are dense tensors</span></span><br><span class="line">     Z[idx] = X[idx] + Y[idx]</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">...</span><br><span class="line">grid = (ceil_div(N, BLOCK),)</span><br><span class="line">block = (BLOCK,)</span><br><span class="line">add[grid, block](x, y, z, x.shape[<span class="number">0</span>])</span><br></pre></td></tr></table></figure>
+
+<p>Triton<a target="_blank" rel="noopener" href="https://triton-lang.org/main/getting-started/tutorials/03-matrix-multiplication.html">文档</a>中的Matrix乘法简化来说就是并行计算M*N个block（沿着K所代表的维度）。<br>这是Triton的写法，每个Program负责了一个block，他就少了一个block的切分维度：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line">BLOCK = <span class="number">512</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># This is a GPU kernel in Triton.</span></span><br><span class="line"><span class="comment"># Different instances of this</span></span><br><span class="line"><span class="comment"># function may run in parallel.</span></span><br><span class="line"><span class="meta">@jit</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">add</span>(<span class="params">X, Y, Z, N</span>):</span><br><span class="line">   <span class="comment"># In Triton, each kernel instance</span></span><br><span class="line">   <span class="comment"># executes block operations on a</span></span><br><span class="line">   <span class="comment"># single thread: there is no construct</span></span><br><span class="line">   <span class="comment"># analogous to threadIdx</span></span><br><span class="line">   pid = program_id(<span class="number">0</span>)</span><br><span class="line">   <span class="comment"># block of indices</span></span><br><span class="line">   idx = pid * BLOCK + arange(BLOCK)</span><br><span class="line">   mask = idx &lt; N</span><br><span class="line">   <span class="comment"># Triton uses pointer arithmetics  </span></span><br><span class="line">   <span class="comment"># rather than indexing operators</span></span><br><span class="line">   x = load(X + idx, mask=mask)</span><br><span class="line">   y = load(Y + idx, mask=mask)</span><br><span class="line">   store(Z + idx, x + y, mask=mask)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">...</span><br><span class="line">grid = (ceil_div(N, BLOCK),)</span><br><span class="line"><span class="comment"># no thread-block</span></span><br><span class="line">add[grid](x, y, z, x.shape[<span class="number">0</span>])</span><br></pre></td></tr></table></figure>
+
+<p>笔者比较疑惑，单就这两个代码他们的并行度貌似是不一样的，难道是把block那一层隐式的放在了<code>load</code>和<code>store</code>当中，他的<code>load</code>和<code>store</code>其实是隐含了并行能力的。<br>援引知乎的<a target="_blank" rel="noopener" href="https://zhuanlan.zhihu.com/p/671434808">文章</a>，<strong>Triton中一直是以Block为中心来计算，直到Lowering到LLVM和PTX才会转为Thread为中心的计算，而这些对于使用Block抽象进行编程的用户来说都是无感的</strong>。是符合笔者预期的，triton简化了CUDA的写法，block具体的线程数的，每个线程处理多少元素，triton自己会去帮你处理。</p>
+<p>当使用 triton 的时候,<code>x = tl.load(x_ptr + offsets, mask=mask)</code>时，我们正在加载到 L2 缓存 或者叫 SRAM 中。</p>
+<p>根据Torch的<a target="_blank" rel="noopener" href="https://pytorch.org/blog/triton-kernel-compilation-stages/">blog</a>，以及参考 <a target="_blank" rel="noopener" href="https://superjomn.github.io/posts/triton-mlir-publish/">OpenAI/Triton MLIR 迁移工作简介</a>，Triton编译的过程是<code>@triton.jit</code>装饰器通过遍历提供的 Python 函数的抽象语法树（AST）来工作，以便使用通用的 SSA 构造算法即时生成 Triton-IR。<br>然后，生成的 IR 代码被我们的编译器后端简化、优化和自动并行化，最后被转换成高质量的 LLVM IR，最终是 PTX（Nvidia GPU的汇编），可以在最近的Nvidia GPU上执行。</p>
+<h2 id="矩阵乘法"><a href="#矩阵乘法" class="headerlink" title="矩阵乘法"></a>矩阵乘法</h2><p>这段代码是基于K切BLOCK，比上面的代码要好理解一点。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@triton.jit</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">simple_mm</span>(<span class="params">a, b, o, k, n,</span></span><br><span class="line"><span class="params">              K_BLOCK_SIZE: tl.constexpr = <span class="number">64</span>,</span></span><br><span class="line"><span class="params">              </span>) -&gt; <span class="literal">None</span>:</span><br><span class="line">    <span class="comment"># a -&gt; Matrix of size M x K and b -&gt; Matrix of size K x N</span></span><br><span class="line">    <span class="comment"># K is the common inner dimension</span></span><br><span class="line">    num_blocks = k//K_BLOCK_SIZE + <span class="number">1</span></span><br><span class="line">    row_id = tl.program_id(<span class="number">0</span>)</span><br><span class="line">    col_id = tl.program_id(<span class="number">1</span>)</span><br><span class="line"></span><br><span class="line">    <span class="comment"># Lets pick one column and one row and do a dot product</span></span><br><span class="line">    <span class="comment"># Like the 1-D example we dont want to look at the entire row/column</span></span><br><span class="line">    <span class="comment"># We are making use of the fact that each row/column will be of the size</span></span><br><span class="line">    <span class="comment"># &#x27;k&#x27; which is the inner common dimension of these matrices</span></span><br><span class="line">    <span class="comment"># But this will only be a part of the dot product so we have to keep track of many to cover the entire column or row.</span></span><br><span class="line">    </span><br><span class="line">    <span class="comment"># What we are going to do is to access block size elements from the column</span></span><br><span class="line">    <span class="comment"># and the row and compute the dot product and keep adding to a value till</span></span><br><span class="line">    <span class="comment"># we run out of numbers</span></span><br><span class="line">    value = <span class="number">0.</span></span><br><span class="line">    <span class="keyword">for</span> k_id <span class="keyword">in</span> <span class="built_in">range</span>(num_blocks):</span><br><span class="line">        row_start = row_id * k + k_id * K_BLOCK_SIZE</span><br><span class="line">        row_offsets = tl.arange(<span class="number">0</span>, K_BLOCK_SIZE) + row_start</span><br><span class="line">        <span class="comment"># The masks are a little more trickier as we cant just see if its</span></span><br><span class="line">        <span class="comment"># less than &#x27;k&#x27;. We need to account for the row we are in</span></span><br><span class="line">        row_masks = row_offsets &lt; (row_id + <span class="number">1</span>) * k</span><br><span class="line">        row = tl.load(a + row_offsets, mask=row_masks) <span class="comment"># Load this into the GPU SRAM</span></span><br><span class="line"></span><br><span class="line">        col_start = (K_BLOCK_SIZE * k_id)</span><br><span class="line">        col_offsets = n * (tl.arange(<span class="number">0</span>, K_BLOCK_SIZE) + col_start) + col_id <span class="comment"># 0, n, 2n || 3n, 4n, 5n for a block size of 3 for eg</span></span><br><span class="line">        col_masks = col_offsets/n &lt; k</span><br><span class="line">        col = tl.load(b + col_offsets, mask=col_masks)</span><br><span class="line">        value += tl.<span class="built_in">sum</span>(row * col)</span><br><span class="line">    </span><br><span class="line">    output_offset = row_id * n + col_id</span><br><span class="line">    tl.store(o + output_offset, value)</span><br></pre></td></tr></table></figure>
+
+<h3 id="BLOCK-SIZE-和-GROUP-SIZE-的优化。"><a href="#BLOCK-SIZE-和-GROUP-SIZE-的优化。" class="headerlink" title="BLOCK_SIZE 和 GROUP_SIZE 的优化。"></a>BLOCK_SIZE 和 GROUP_SIZE 的优化。</h3><p>一次计算的时候尽量用满L2 Cache，所以可以把多个BLOCK放到一个GROUP里面，这个GROUP变成了grid的切分，但在GROUP里面我们<br>再去做BLOCK级别的计算，要计算好对应的线性空间中的stride。</p>
+<h2 id="Softmax"><a href="#Softmax" class="headerlink" title="Softmax"></a>Softmax</h2><p>下面的代码只能在<code>n_cols</code>小于<code>BLOCK_SIZE</code>的数据上运行。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> triton</span><br><span class="line"><span class="keyword">import</span> triton.language <span class="keyword">as</span> tl</span><br><span class="line"></span><br><span class="line"><span class="meta">@triton.jit</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">softmax</span>(<span class="params">Y, stride_ym, stride_yn, X, stride_xm, stride_xn, M, N</span>):</span><br><span class="line">    <span class="comment"># row index</span></span><br><span class="line">    m = tl.program_id(<span class="number">0</span>)</span><br><span class="line">    <span class="comment"># col indices</span></span><br><span class="line">    <span class="comment"># this specific kernel only works for matrices that </span></span><br><span class="line">    <span class="comment"># have less than BLOCK_SIZE columns</span></span><br><span class="line">    BLOCK_SIZE = <span class="number">1024</span></span><br><span class="line">    n = tl.arange(<span class="number">0</span>, BLOCK_SIZE)</span><br><span class="line">    <span class="comment"># the memory address of all the elements</span></span><br><span class="line">    <span class="comment"># that we want to load can be computed as follows</span></span><br><span class="line">    X = X + m * stride_xm + n * stride_xn</span><br><span class="line">    <span class="comment"># load input data; pad out-of-bounds elements with 0 </span></span><br><span class="line">    x = tl.load(X, mask=n &lt; N, other=-<span class="built_in">float</span>(<span class="string">&#x27;inf&#x27;</span>))</span><br><span class="line">    <span class="comment"># compute numerically-stable softmax</span></span><br><span class="line">    z = x - tl.<span class="built_in">max</span>(x, axis=<span class="number">0</span>)</span><br><span class="line">    num = tl.exp(z)</span><br><span class="line">    denom = tl.<span class="built_in">sum</span>(num, axis=<span class="number">0</span>)</span><br><span class="line">    y = num / denom</span><br><span class="line">    <span class="comment"># write back to Y</span></span><br><span class="line">    Y = Y + m * stride_ym + n * stride_yn</span><br><span class="line">    tl.store(Y, y, mask=n &lt; N)</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> torch</span><br><span class="line"><span class="comment"># Allocate input/output tensors</span></span><br><span class="line">X = torch.normal(<span class="number">0</span>, <span class="number">1</span>, size=(<span class="number">583</span>, <span class="number">931</span>), device=<span class="string">&#x27;cuda&#x27;</span>)</span><br><span class="line">Y = torch.empty_like(X)</span><br><span class="line"><span class="comment"># SPMD launch grid</span></span><br><span class="line">grid = (X.shape[<span class="number">0</span>], )</span><br><span class="line"><span class="comment"># enqueue GPU kernel</span></span><br><span class="line">softmax[grid](Y, Y.stride(<span class="number">0</span>), Y.stride(<span class="number">1</span>), </span><br><span class="line">              X, X.stride(<span class="number">0</span>), X.stride(<span class="number">1</span>),</span><br><span class="line">              X.shape[<span class="number">0</span>]    , X.shape[<span class="number">1</span>])</span><br></pre></td></tr></table></figure>
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/cuda/" rel="tag"># cuda</a>
+              <a href="/tags/triton/" rel="tag"># triton</a>
+              <a href="/tags/softmax/" rel="tag"># softmax</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/zh-CN/2025/02/16/AI-Infra-%E7%9A%84%E4%B8%BB%E8%A6%81%E6%8C%91%E6%88%98%E6%80%BB%E7%BB%93/" rel="prev" title="AI Infra 的一些挑战">
+                  <i class="fa fa-angle-left"></i> AI Infra 的一些挑战
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/zh-CN/2025/03/21/NVIDIA-Dynamo-%E9%A2%84%E8%A7%88/" rel="next" title="NVIDIA Dynamo 预览">
+                  NVIDIA Dynamo 预览 <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 2014 – 
+    <span itemprop="copyrightYear">2025</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+  </div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/mist/" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.umd.js" integrity="sha256-a+H7FYzJv6oU2hfsfDGM2Ohw/cR9v+hPfxHCLdmCrE8=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lozad.js/1.16.0/lozad.min.js" integrity="sha256-mOFREFhqmHeQbXpK2lp4nA3qooVgACfh88fpJftLBbc=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/sidebar.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+  <script src="/js/third-party/fancybox.js"></script>
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"ggaaooppeenngg","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

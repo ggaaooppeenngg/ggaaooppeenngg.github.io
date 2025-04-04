@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.3.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="_85tctgPWrqH2EPVuuD5IT6KE-tW8nH0hTISJDMnShg">
+  <meta name="baidu-site-verification" content="bb16c5b1fd3302c18e0015bef11eea42">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha256-dABdfBfUoC8vJUBOwGVdm8L9qlMWaHTIfXt+7GnZCIo=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.css" integrity="sha256-gkQVf8UKZgQ0HyuxL/VnacadJ+D2Kox2TCEBuNQg5+w=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="PD分离的背景介绍在大模型推理中，Prefill 和 Decode 的计算特性存在显著差异：    Prefill：计算密集型，计算比例更高。   Decode：访存密集型，访存比例更高。    Decode 的计算依赖于 Prefill 生成的 KV Cache。在没有 PD 分离的情况下，较长的 Prefill 通常会优先占用计算资源，导致长 Prompt 的 Prefill 时间过长，从而增">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Dynamo的xPyD">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2025/03/31/Dynamo%E7%9A%84xPyD/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="PD分离的背景介绍在大模型推理中，Prefill 和 Decode 的计算特性存在显著差异：    Prefill：计算密集型，计算比例更高。   Decode：访存密集型，访存比例更高。    Decode 的计算依赖于 Prefill 生成的 KV Cache。在没有 PD 分离的情况下，较长的 Prefill 通常会优先占用计算资源，导致长 Prompt 的 Prefill 时间过长，从而增">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2025-03-31T09:12:07.000Z">
+<meta property="article:modified_time" content="2025-04-04T07:54:01.100Z">
+<meta property="article:author" content="ggaaooppeenngg">
+<meta property="article:tag" content="LLM">
+<meta property="article:tag" content="dynamo">
+<meta property="article:tag" content="Inference">
+<meta property="article:tag" content="PD分离">
+<meta property="article:tag" content="xPyD">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2025/03/31/Dynamo%E7%9A%84xPyD/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://ggaaooppeenngg.github.io/zh-CN/2025/03/31/Dynamo%E7%9A%84xPyD/","path":"zh-CN/2025/03/31/Dynamo的xPyD/","title":"Dynamo的xPyD"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>Dynamo的xPyD | ggaaooppeenngg</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-62096626-1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"UA-62096626-1","only_pageview":false,"measure_protocol_api_secret":null}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+  <script src="/js/third-party/analytics/baidu-analytics.js"></script>
+  <script async src="https://hm.baidu.com/hm.js?bb16c5b1fd3302c18e0015bef11eea42"></script>
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">ggaaooppeenngg</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">为什么计算机科学是无限的但生命是有限的</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">134</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">14</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">78</span></a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#PD%E5%88%86%E7%A6%BB%E7%9A%84%E8%83%8C%E6%99%AF%E4%BB%8B%E7%BB%8D"><span class="nav-number">1.</span> <span class="nav-text">PD分离的背景介绍</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Chunked-Prefill-%E7%9A%84%E5%B1%80%E9%99%90%E6%80%A7"><span class="nav-number">1.1.</span> <span class="nav-text">Chunked Prefill 的局限性</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Dynamo-%E7%9A%84-PD-%E5%88%86%E7%A6%BB%E7%AD%96%E7%95%A5"><span class="nav-number">1.2.</span> <span class="nav-text">Dynamo 的 PD 分离策略</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#KV-Cache-%E4%BC%A0%E8%BE%93%E7%9A%84%E6%8C%91%E6%88%98"><span class="nav-number">1.3.</span> <span class="nav-text">KV Cache 传输的挑战</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#xPyD-%E7%9A%84%E4%B8%BB%E8%A6%81%E8%AE%BE%E8%AE%A1%E6%A6%82%E8%A6%81"><span class="nav-number">2.</span> <span class="nav-text">xPyD 的主要设计概要</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#KV-Cache-%E7%9A%84%E5%88%87%E5%88%86"><span class="nav-number">2.1.</span> <span class="nav-text">KV Cache 的切分</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#TP-%E6%9D%A1%E4%BB%B6%E4%B8%8B%E7%9A%84%E5%88%87%E5%88%86"><span class="nav-number">2.1.1.</span> <span class="nav-text">TP 条件下的切分</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#PP-%E6%9D%A1%E4%BB%B6%E4%B8%8B%E7%9A%84%E5%88%87%E5%88%86"><span class="nav-number">2.1.2.</span> <span class="nav-text">PP 条件下的切分</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#DP-%E5%92%8C-EP-%E6%9D%A1%E4%BB%B6%E4%B8%8B%E7%9A%84%E5%88%87%E5%88%86"><span class="nav-number">2.1.3.</span> <span class="nav-text">DP 和 EP 条件下的切分</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BC%A0%E8%BE%93%E6%96%B9%E5%BC%8F"><span class="nav-number">2.2.</span> <span class="nav-text">传输方式</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#P2P-%E4%BC%A0%E8%BE%93"><span class="nav-number">2.2.1.</span> <span class="nav-text">P2P 传输</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#KV-Cache-Store"><span class="nav-number">2.2.2.</span> <span class="nav-text">KV Cache Store</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#PD-%E9%A1%BA%E5%BA%8F"><span class="nav-number">2.3.</span> <span class="nav-text">PD 顺序</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Dynamo-%E5%AE%9E%E7%8E%B0%E5%88%86%E6%9E%90"><span class="nav-number">3.</span> <span class="nav-text">Dynamo 实现分析</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#vLLM-V0-%E8%B0%83%E5%BA%A6%E5%99%A8%E5%9B%9E%E9%A1%BE"><span class="nav-number">3.1.</span> <span class="nav-text">vLLM V0 调度器回顾</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#LLMEngine"><span class="nav-number">3.2.</span> <span class="nav-text">LLMEngine</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Schedule"><span class="nav-number">3.3.</span> <span class="nav-text">Schedule</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#EventManager"><span class="nav-number">3.4.</span> <span class="nav-text">EventManager</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#NIXL-Transfer"><span class="nav-number">3.5.</span> <span class="nav-text">NIXL Transfer</span></a></li></ol></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">78</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">14</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">134</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/ggaaooppeenngg" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;ggaaooppeenngg" rel="noopener me" target="_blank"><i class="github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:peng.gao.dut@gmail.com" title="E-Mail → mailto:peng.gao.dut@gmail.com" rel="noopener me" target="_blank"><i class="envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+        <div class="back-to-top animated" role="button" aria-label="返回顶部">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2025/03/31/Dynamo%E7%9A%84xPyD/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="Dynamo的xPyD | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Dynamo的xPyD
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2025-03-31 17:12:07" itemprop="dateCreated datePublished" datetime="2025-03-31T17:12:07+08:00">2025-03-31</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2025-04-04 15:54:01" itemprop="dateModified" datetime="2025-04-04T15:54:01+08:00">2025-04-04</time>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2025/03/31/Dynamo%E7%9A%84xPyD/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2025/03/31/Dynamo的xPyD/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h2 id="PD分离的背景介绍"><a href="#PD分离的背景介绍" class="headerlink" title="PD分离的背景介绍"></a>PD分离的背景介绍</h2><p>在大模型推理中，Prefill 和 Decode 的计算特性存在显著差异：  </p>
+<ul>
+<li><strong>Prefill</strong>：计算密集型，计算比例更高。  </li>
+<li><strong>Decode</strong>：访存密集型，访存比例更高。  </li>
+</ul>
+<p>Decode 的计算依赖于 Prefill 生成的 KV Cache。在没有 PD 分离的情况下，较长的 Prefill 通常会优先占用计算资源，导致长 Prompt 的 Prefill 时间过长，从而增加 Decode 的延迟。</p>
+<h3 id="Chunked-Prefill-的局限性"><a href="#Chunked-Prefill-的局限性" class="headerlink" title="Chunked Prefill 的局限性"></a>Chunked Prefill 的局限性</h3><p>为了解决上述问题，Chunked Prefill 是一种常见的优化方案，但它也存在以下挑战：  </p>
+<ol>
+<li><strong>适合超长 Context Length</strong>：Chunked Prefill 能有效降低中间显存的占用，但仅适用于超长上下文场景。  </li>
+<li><strong>大 Chunked Prefill 的影响</strong>：当大 Chunk Prefill 和 Decode 同时出现在一个 Batch 中时，会显著拖慢 Decode 的速度。  </li>
+<li><strong>小 Chunked Prefill 的退化</strong>：小 Chunk Prefill 容易退化为 Memory Bound，导致计算单元的利用率（MFU）下降。</li>
+</ol>
+<p>因此，PD 分离的优势在于可以分别优化 Prefill 和 Decode 的性能。</p>
+<h3 id="Dynamo-的-PD-分离策略"><a href="#Dynamo-的-PD-分离策略" class="headerlink" title="Dynamo 的 PD 分离策略"></a>Dynamo 的 PD 分离策略</h3><p>Dynamo 使用了一种条件 PD 分离策略：  </p>
+<ul>
+<li>仅在满足特定条件时，Prefill 才会远程计算；否则，仍然在本地进行 PD 混合计算。  </li>
+</ul>
+<p>PD 分离的实现主要包括两部分：  </p>
+<ol>
+<li><strong>模型的切分与传输</strong>：通过合理的切分策略和高效的传输机制实现计算资源的分离。  </li>
+<li><strong>高效的异步传输或存储引擎</strong>：这是性能优化的关键，尤其是 KV Cache 的传输或存储。</li>
+</ol>
+<h3 id="KV-Cache-传输的挑战"><a href="#KV-Cache-传输的挑战" class="headerlink" title="KV Cache 传输的挑战"></a>KV Cache 传输的挑战</h3><p>以 A100 为例，在 8B LLAMA 模型下，Prefill 的计算速度可达 1 万 tokens/s，这会产生约 3GB 的 KV Cache 数据，给传输带宽带来极大压力。<br>对于计算速度更快的 H100，这种传输需求会进一步增加，对带宽提出了更高的要求。</p>
+<h2 id="xPyD-的主要设计概要"><a href="#xPyD-的主要设计概要" class="headerlink" title="xPyD 的主要设计概要"></a>xPyD 的主要设计概要</h2><p>以下是 xPyD 的主要设计概要，不同框架可能在 PD 负载均衡方式、KV 传输和存储上有所不同。</p>
+<h3 id="KV-Cache-的切分"><a href="#KV-Cache-的切分" class="headerlink" title="KV Cache 的切分"></a>KV Cache 的切分</h3><h4 id="TP-条件下的切分"><a href="#TP-条件下的切分" class="headerlink" title="TP 条件下的切分"></a>TP 条件下的切分</h4><p>在 Tensor Parallel (TP) 条件下，KV Cache 按照 head 进行切分。例如，对于 Qwen 小模型，其 KV head 数为 8，Q head 数为 40，hidden size 为 5120。<br>一个 token 的大小计算如下：<br><code>8 * 5120 / 40 = 1024</code>  </p>
+<p>如果 P/D TP比例为 2，则 P 会沿着 head 切分为两部分。传输引擎会将切分后的 tensor 发送给每个 D。<br>因此，一个 token 在 D 上的大小为：<br><code>8 / 2 * 5120 / 40 = 512</code>  </p>
+<p>需要注意，上述计算未包含数据宽度。如果数据类型为 FP8，则宽度为 1；如果为 BF16，则宽度为 2。</p>
+<h4 id="PP-条件下的切分"><a href="#PP-条件下的切分" class="headerlink" title="PP 条件下的切分"></a>PP 条件下的切分</h4><p>在 Pipeline Parallel (PP) 条件下，切分相对简单，直接沿着层进行切分即可。例如，如果 P/D PP比例为 2，且模型有 64 层，则：  </p>
+<ul>
+<li>层 0-31 分配给 D0  </li>
+<li>层 32-63 分配给 D1  </li>
+</ul>
+<p>这种切分方式无需对 tensor 进行额外处理。</p>
+<h4 id="DP-和-EP-条件下的切分"><a href="#DP-和-EP-条件下的切分" class="headerlink" title="DP 和 EP 条件下的切分"></a>DP 和 EP 条件下的切分</h4><ul>
+<li>EP：EP 主要用于 FFN，与注意力机制无关，因此无需考虑 EP 条件下的切分。  </li>
+<li>DP：DP 条件下无需切分。如果 P/D 比例为 2，直接将 P 的副本同时发送给两个 D 即可。</li>
+</ul>
+<h3 id="传输方式"><a href="#传输方式" class="headerlink" title="传输方式"></a>传输方式</h3><h4 id="P2P-传输"><a href="#P2P-传输" class="headerlink" title="P2P 传输"></a>P2P 传输</h4><p>P2P 传输采用点对点方式：  </p>
+<ul>
+<li>P 向 D 建立 RDMA 连接，并申请 RDMA 的 VRAM。  </li>
+<li>P 直接将数据发送给 D。  </li>
+</ul>
+<h4 id="KV-Cache-Store"><a href="#KV-Cache-Store" class="headerlink" title="KV Cache Store"></a>KV Cache Store</h4><p>KV Cache Store 属于 Pooling 模式，支持以下功能：  </p>
+<ul>
+<li><strong>中间存储</strong>：P 将数据存储到 KV Store，D 从 KV Store 中领取数据。  </li>
+<li><strong>缓存优化</strong>：Store 也可以基于 P2P 实现，支持显存缓存、内存或 SSD 上的 KV Cache Swap。  </li>
+<li><strong>Prefix Cache 共享</strong>：通过中间存储，可以实现跨请求的 Prefix Cache 共享。</li>
+</ul>
+<h3 id="PD-顺序"><a href="#PD-顺序" class="headerlink" title="PD 顺序"></a>PD 顺序</h3><ul>
+<li><strong>Dynamo 的策略</strong>：Dynamo 采用先 Decode 后 Prefill 的条件PD策略。请求首先发送到 Decode 实例。如果是短的 Prefill，Decode 实例会直接计算，无需触发远端 Prefill；如果需要远端 Prefill，则会触发远端计算。  </li>
+<li><strong>其他框架的策略</strong>：大多数框架采用先 Prefill 后 Decode 的策略。请求先由 Prefill 计算出第一个bonus token，然后转交给 Decode 继续计算。</li>
+</ul>
+<h2 id="Dynamo-实现分析"><a href="#Dynamo-实现分析" class="headerlink" title="Dynamo 实现分析"></a>Dynamo 实现分析</h2><p>本文仅分析 Dynamo 对 vLLM 本身的一些改动，不涉及 Dynamo 在上层的工作，例如全局基于消息队列的 <code>PrefillQueue</code> 是在上层实现的。<br>vLLM 在被请求时会告知自己是否是 Prefill 请求，或者是否需要远程 Prefill 的 Decode 请求，这一层逻辑由 Dynamo 在上层完成。</p>
+<p>Dynamo 基于 vLLM V0 的调度器实现。V0 的调度器主要将 Prefill 和 Decode 明确分开，而 V1 的调度器则考虑了 Chunked Prefill，不再在调度器内部区分 Prefill 和 Decode 两种 sequence。</p>
+<h3 id="vLLM-V0-调度器回顾"><a href="#vLLM-V0-调度器回顾" class="headerlink" title="vLLM V0 调度器回顾"></a>vLLM V0 调度器回顾</h3><p>在 vLLM V0 的实现中，<code>engine</code> 的 <code>step</code> 方法会调用调度器，调度器负责给出需要执行的 sequence group request，然后调用模型执行器（model executor）执行这些请求。执行完成后，调度器会处理结果并更新被调度请求的状态。</p>
+<h3 id="LLMEngine"><a href="#LLMEngine" class="headerlink" title="LLMEngine"></a>LLMEngine</h3><p><code>LLMEngine</code> 是 vLLM 的核心组件之一，负责协调调度器和模型执行器的工作。Dynamo 在此基础上进行了扩展，以支持 PD 分离的功能。</p>
+<p>增加<code>_finished_transfers</code>和<code>_finished_prefills</code>用于保存prefill的传输结束的request和decode接收传输的request，这两个变量会传给调度器。</p>
+<p><code>remote_prefill_requests</code>保存在remote prefill中的requests。</p>
+<p>调度结束以后会拆分出running request和remote prefill requests。</p>
+<p>对于running request逻辑不变，但是remote prefill requests会在model execution执行前先发出去。方法是给seq的<code>remote_prefill_request_callback</code>添加<code>remote_prefill_request</code>。<br>这个callback是dynamo上层的worker设置的，他对应的是向全局的消息队列PrefillQueue发送Prefill消息。</p>
+<p>通过比较<code>computed_block_nums</code>是否等于<code>block_table</code>标记完成并且放入到本地的<code>_finished_prefills</code>当中。<br>这是decode视角：把调度器调度的prefill的request发送出去不在本地计算。</p>
+<p>到prefill视角来看，会在<code>memory_transfer_reqs</code>中加入已经计算好的computed block和requestid等信息构造的MemoryTransferRequest。</p>
+<p><code>excute_model_req</code>会增加一个需要传输的requests。</p>
+<p><code>execute_model_req.memory_transfer_requests = memory_transfer_reqs</code></p>
+<p>然后开始执行<code>model_excutor</code>的<code>excute_model</code>。</p>
+<p>根据执行结果返回的<code>request_notif_counter</code>和<code>request_done_counter</code>更新对应的<code>_finished_prefills</code>和<code>_finished_transfers</code>。</p>
+<p>上层需要初始化LLMEngine的NIXL Agent。</p>
+<h3 id="Schedule"><a href="#Schedule" class="headerlink" title="Schedule"></a>Schedule</h3><p>调度器的改动其实比较简单，对于prefill角度，prefill结束的释放掉request，decode角度把remote prefill结束的变成running走原本的decode流程。</p>
+<p>除了running之外额外增加了一个<code>remote_prefilling</code>的queue用于管理在远端prefill的请求，他和running queue的关系是有相似性的，<br>比如判断有无未完成的请求时会同时看running和<code>remote_prefilling</code>，但他们的区别在于是不是在本地running。<br>也增加了<code>prefill_sending</code>用户标记正在传输的prefill。</p>
+<p>调度主体会接收<code>finished_prefills</code>和<code>finished_transfers</code>用于D标记的远端prefill结束（已经传到了本地）和P标记已经完成传输的requests。</p>
+<p>当<code>remote_prefilling</code>的中的request在<code>finished_prefills</code>中时代表prefill结束，会把状态设置为running并且开始decode调度。<br>当<code>prefill_sending</code>的中的request在<code>finished_transfers</code>中时代表prefill传输结束，会free掉这个request。</p>
+<p><code>prefill_sending</code>和<code>finished_transfers</code>是一对，是对于prefill instance来说的。<br><code>remote_prefilling</code>和<code>finished_prefills</code>是一对，是对于decode instance来说的。</p>
+<p><code>seq_group</code>中会添加<code>is_remote_decode</code>这个用于标记这个请求只在自己这里prefill，decode要在decode instance上做，这个标记是上层的worker设置的，不在vLLM层。</p>
+<p>每个sequence group会添加一个标记，<code>seq_group.remote_prefill_params.is_remote_prefill</code>，标记了就加入到<code>remote_prefilling</code>队列中<br>不然就走老的流程。这也是上层决定。</p>
+<!-- 这个参数会决定block的分配会多一倍，对于prefill节点需要多一倍的kv cache for staging。what is staging? -->
+
+<h3 id="EventManager"><a href="#EventManager" class="headerlink" title="EventManager"></a>EventManager</h3><p>只和 router 负载均衡有关。</p>
+<p>worker 上有 KVPublisher 负责发送 kvcache 的创建和删除事件，同时 KvMetricsPublisher 用于发送监控指标（如队列排队长度等）。<br>router 上则包含 KVIndexer，用于收集 kvcache 的事件并建立前缀树，同时 KvMetricsAggregator 用于收集监控指标。</p>
+<p>路由策略基于 <code>KV match rate - Load</code> 的最大值，旨在平衡负载与 kvcache 的匹配度。</p>
+<!-- `_free_block_indices`使用了heapq，这是为啥，时间复杂度从O(1)变成了O(logn)，优先使用id更小的block是为了啥。 -->
+
+<p><code>PrefixCachingBlockAllocator</code>加入了<code>event_manager</code>。<code>KVCacheEventManager</code>实现就不细说了，就是一个事件收发器。</p>
+<p>在evict block的时候，发送删除事件<code>event_manager.enqueue_removed_event(content_hash_to_evict)</code><br>当block被填满变成 immutable block 的时候，发送分配事件<code>event_manager.enqueue_stored_event(block.prev_block, block)</code>。</p>
+<h3 id="NIXL-Transfer"><a href="#NIXL-Transfer" class="headerlink" title="NIXL Transfer"></a>NIXL Transfer</h3><p>初始化 rank 0 收集all_gather所有的<code>parallel_config</code></p>
+<p>每有一个<code>kv_role = kv_producer</code>则<code>kv_producers_parallel_size</code>就+1。</p>
+<!-- 
+`kv_producers_parallel_size`应该对应的是DP的数量？
+`local_kv_rank`是`rank%tp`
+`global_kv_rank`和`kv_rank`还不一样？ -->
+
+<p>第一步当然要支持xPyD的配置，比如下面的配置。</p>
+<p>P的并行规模</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kv_producers_parallel_size: Optional[int] = None</span><br></pre></td></tr></table></figure>
+<p>P的TP</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kv_producers_tensor_parallel_size: Optional[int] = None</span><br></pre></td></tr></table></figure>
+<p>P的PP</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kv_producers_pipeline_parallel_size: Optional[int] = None</span><br></pre></td></tr></table></figure>
+<p>D的TP</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kv_consumers_tensor_parallel_size: Optional[int] = None</span><br></pre></td></tr></table></figure>
+<p>D的PP</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kv_consumers_pipeline_parallel_size: Optional[int] = None</span><br></pre></td></tr></table></figure>
+
+<p>属性函数<br>其中<code>tensor_parallel_multiplier</code>是 <code>p的tp // d的tp</code></p>
+<p>然后总结一下各种pp,tp,rank的关系。</p>
+<ol>
+<li>TP的倍率由D的TP地板除P的TP：<code>tensor_parallel_multiplier = self.kv_consumers_tensor_parallel_size // self.kv_producers_tensor_parallel_size</code></li>
+<li>D的并行规模是整体并行规模减去P的并行规模： <code>kv_consumers_parallel_size = self.kv_parallel_size - self.kv_producers_parallel_size</code></li>
+<li><code>kv_world_size = self.kv_producers_parallel_size + self.kv_consumers_parallel_size * self.tensor_parallel_multiplier</code></li>
+</ol>
+<!-- 
+Simple Connector
+
+`rank`
+
+`local_rank`
+
+有三个group
+
+从代码来看还不支持 pp 的PD分离传输，可以当作PP都是1。
+
+1. producer kv group
+2. comsumer kv group
+3. world_group
+
+`local_kv_rank = rank % self.tp` 本机的kv_rank
+
+`_get_kv_group_rank` 获得的是在对应 kv group当中的global rank
+
+`global_kv_rank = 
+
+`_broadcast_and_enhance_kv_config` 从 rank == 0 广播
+
+在发送的时候根据request解码出decode rank
+
+传输层用的是NIXL，这个和Mooncake的TransferEngine以及NCCL的区别还有待考量
+目前还是先把他当作传输层的引擎来看。 -->
+
+<p>发送的入口是<code>send_kv_caches_and_hidden_states</code></p>
+<p>这个函数的主要工作是根据TP的大小，从Prefill worker上切出Decode worker上需要的tensor<br>并且发送给Decode worker。</p>
+<p>在这个函数中根据自己的rank计算对应的D的rank。<br>PP的话比较容易，直接按层的range就行了，TP的话需要在给定层的range下做TP的切分。从代码来看dynamo只支持PP=1。</p>
+<p>笔者写了一个简易版的示例带代码方便查看对应的shape</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> torch</span><br><span class="line"><span class="comment"># kv_cache 是一个包含张量的列表</span></span><br><span class="line"><span class="comment"># head 数量是 8, hidden_state per head 也是8</span></span><br><span class="line"><span class="comment"># key_cache 是一个连续的空间，有slot_mapping做索引</span></span><br><span class="line">key_cache = torch.randn(<span class="number">10</span>, <span class="number">8</span>, <span class="number">8</span>)</span><br><span class="line"><span class="built_in">print</span>(<span class="string">&quot;原始 key_cache shape&quot;</span>)</span><br><span class="line"><span class="built_in">print</span>(key_cache.shape)</span><br><span class="line"><span class="comment"># output: torch.Size([10, 8, 8])</span></span><br><span class="line"><span class="comment"># 这次request使用的是第0和5条的key cache</span></span><br><span class="line">current_slot_mapping = [<span class="number">0</span>,<span class="number">5</span>]</span><br><span class="line"><span class="comment"># prefill tp=2</span></span><br><span class="line">p_tp = <span class="number">2</span></span><br><span class="line"><span class="comment"># decode tp=4</span></span><br><span class="line">d_tp = <span class="number">4</span></span><br><span class="line">tp_multiplier = d_tp // p_tp</span><br><span class="line"><span class="comment"># 考虑decode worker 的 rank 0 的情况</span></span><br><span class="line">target_rank = <span class="number">0</span></span><br><span class="line"><span class="comment"># num_heads_per_rank = 1 也就是每个decode rank分到一个head</span></span><br><span class="line">num_heads_per_rank = <span class="number">8</span> // p_tp // d_tp</span><br><span class="line"><span class="comment"># 计算head的range</span></span><br><span class="line">head_start = target_rank * num_heads_per_rank</span><br><span class="line">head_end = head_start + num_heads_per_rank</span><br><span class="line"><span class="comment"># 按 p_tp reshape</span></span><br><span class="line">key_cache = key_cache.reshape(-<span class="number">1</span>,<span class="number">8</span>//p_tp,<span class="number">8</span>)</span><br><span class="line"><span class="built_in">print</span>(<span class="string">&quot;按 prefill tp 切分&quot;</span>)</span><br><span class="line"><span class="built_in">print</span>(key_cache.shape)</span><br><span class="line"><span class="comment"># output: torch.Size([20, 4, 8])</span></span><br><span class="line"><span class="built_in">print</span>(<span class="string">&quot;decode 选择器（在第0维度）&quot;</span>, current_slot_mapping, <span class="string">&quot;,head range（在第1维度）&quot;</span>, <span class="built_in">str</span>(head_start)+<span class="string">&quot;:&quot;</span>+<span class="built_in">str</span>(head_end))</span><br><span class="line"><span class="comment"># output: decode 选择器（在第0维度） [0, 5] ,head range（在第1维度） 0:1</span></span><br><span class="line">d_key_cache = key_cache[current_slot_mapping, head_start:head_end]</span><br><span class="line"><span class="built_in">print</span>(<span class="string">&quot;获取 d key cache&quot;</span>)</span><br><span class="line"><span class="built_in">print</span>(d_key_cache.shape)</span><br><span class="line"><span class="comment"># output: torch.Size([2, 1, 8])</span></span><br></pre></td></tr></table></figure>
+
+<!-- 函数中对于deepseek就直接传了没有依据tp切分，可能又特殊的处理。 -->
+
+<p>相对应的接收函数的入口<code>recv_kv_caches_and_hidden_states</code> 没啥特殊处理，直接已经切好，收到以后直接cache住就行。</p>
+<!-- 根据层的range填到对应的slots当中。里面有个`key_scale`是啥？`reshape_and_cache_flash`干了啥。 -->
+
+<!-- ## KV Cache 的 rearrange
+
+TP实现的[教程](https://uvadlc-notebooks.readthedocs.io/en/latest/tutorial_notebooks/scaling/JAX/tensor_parallel_simple.html)
+
+`rearrange_tensors`
+
+
+kvcache的形状应该是 `[batch_size, sequence_length, number_of_layers, head, n_head]`
+需要提一下的是，如果是GHA，`head * g * n_head = d_model`，如果分四组的话`head*n_head=d_model`
+
+dynamo里面这几个值代表什么呢。H和C应该是head和`n_head`，函数参数应该是分母，表示切分的份数。
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">def rearrange_tensors(t1: torch.Tensor, t2: torch.Tensor, d: int, direction: str):</span><br><span class="line">    N, B, H, C = t1.shape</span><br></pre></td></tr></table></figure>
+
+<p>Attention 的 TP 实现是把头做切分。<br>从 <code>register_kv_caches</code> 可以看出 <code>kv_caches</code> 的 shape 是 <code>[num_layers, k_or_v, num_blocks, block_size, num_heads, head_dmi]</code></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">def register_kv_caches(self, kv_caches: List[torch.Tensor]):</span><br><span class="line">    _, num_blocks, block_size, num_heads, head_dim = kv_caches[0].shape</span><br></pre></td></tr></table></figure>
+
+<p>这么来看 N 代表 <code>num_blocks</code>，B 代表 <code>block_size</code> H 代表 <code>num_heads</code> C 代表 <code>head_dim</code>, d 代表 <code>tp_multiplier</code><br>所以  <code>block_size = B * H * C</code><br><code>token_size</code> 是 <code>H*C</code> 这里还是要注意如果是GHA，他会比<code>d_model</code>小g倍。<br><code>tensor_subset_size = tensor_size // d</code>，tp以后的切分的tensor size<br><code>grid = ((N * B * H * C + BLOCK_SIZE - 1) // BLOCK_SIZE,)</code> 在faltten的tensor上，按<code>BLOCK_SIZE</code>的tile分别计算。<br>如果是read，把t2读到t1。<br>如果是write，把t1写到t2。<br>所以看一个read就行，另外一个是一样的。<br><code>BLOCK_SIZE</code>和<code>block_size</code>不是一个东西，一个是tirton里面的tile，一个是PagedAttention里面的page</p>
+<p>单看 H C，太高维度的tensor形状处理有点复杂。<br><code>curr_h = offsets // C % H</code> -&gt; 得到 h 的索引<br><code>curr_c = offsets % C</code> -&gt; 得到 c 的索引<br><code>tp_group = curr_h * d // H</code> -&gt; </p>
+<p>笔者用numpy实现了胰腺癌没看出区别</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> numpy <span class="keyword">as</span> np</span><br><span class="line">BLOCK_SIZE=<span class="number">1024</span></span><br><span class="line">N=<span class="number">1</span></span><br><span class="line">B=<span class="number">1</span></span><br><span class="line">H=<span class="number">8</span></span><br><span class="line">C=<span class="number">128</span></span><br><span class="line">d=<span class="number">2</span></span><br><span class="line">block_size=B*H*C</span><br><span class="line">token_size=H*C</span><br><span class="line">tensor_size = N * block_size</span><br><span class="line">tensor_subset_size = tensor_size // d</span><br><span class="line"><span class="keyword">for</span> block_start <span class="keyword">in</span> [<span class="number">0</span>]:</span><br><span class="line">    block_start=<span class="number">0</span></span><br><span class="line">    offsets = block_start + np.arange(<span class="number">0</span>, BLOCK_SIZE)</span><br><span class="line">    curr_n = offsets // block_size</span><br><span class="line">    <span class="built_in">print</span>(<span class="string">&quot;curr_n&quot;</span>)</span><br><span class="line">    <span class="built_in">print</span>(curr_n,<span class="built_in">len</span>(curr_n))</span><br><span class="line">    curr_b = offsets // token_size % B</span><br><span class="line">    <span class="built_in">print</span>(<span class="string">&quot;curr_b&quot;</span>)</span><br><span class="line">    <span class="built_in">print</span>(curr_b)</span><br><span class="line">    curr_h = offsets // C % H</span><br><span class="line">    <span class="built_in">print</span>(<span class="string">&quot;curr_h&quot;</span>)</span><br><span class="line">    <span class="built_in">print</span>(curr_h)</span><br><span class="line">    curr_c = offsets % C</span><br><span class="line">    <span class="built_in">print</span>(<span class="string">&quot;curr_c&quot;</span>)</span><br><span class="line">    <span class="built_in">print</span>(curr_c)</span><br><span class="line">    src_pos = offsets</span><br><span class="line"></span><br><span class="line">    tp_group = curr_h * d // H</span><br><span class="line">    <span class="built_in">print</span>(<span class="string">&quot;tp_group&quot;</span>)</span><br><span class="line">    <span class="built_in">print</span>(tp_group[<span class="number">0</span>:<span class="number">512</span>])</span><br><span class="line">    <span class="built_in">print</span>(tp_group[<span class="number">512</span>:<span class="number">1024</span>])</span><br><span class="line">    dst_h = curr_h % (H // d)</span><br><span class="line">    <span class="built_in">print</span>(<span class="string">&quot;dst_h&quot;</span>)</span><br><span class="line">    <span class="built_in">print</span>(dst_h[<span class="number">0</span>:<span class="number">512</span>])</span><br><span class="line">    <span class="built_in">print</span>(dst_h[<span class="number">512</span>:<span class="number">1024</span>])</span><br><span class="line"></span><br><span class="line">    tp_group_offset = curr_n * (block_size // d) + curr_b * (H // d) * C + dst_h * C + curr_c</span><br><span class="line">    <span class="built_in">print</span>(<span class="string">&quot;tp_group_offset&quot;</span>)</span><br><span class="line">    <span class="built_in">print</span>(tp_group_offset[<span class="number">0</span>:<span class="number">512</span>])</span><br><span class="line">    <span class="built_in">print</span>(tp_group_offset[<span class="number">512</span>:<span class="number">1024</span>])</span><br><span class="line">    dst_pos = tensor_subset_size * tp_group + tp_group_offset</span><br><span class="line">    <span class="built_in">print</span>(<span class="string">&quot;dst_pos&quot;</span>)</span><br><span class="line">    <span class="built_in">print</span>(dst_pos[<span class="number">0</span>:<span class="number">512</span>])</span><br><span class="line">    <span class="built_in">print</span>(dst_pos[<span class="number">512</span>:<span class="number">1024</span>])</span><br><span class="line">    <span class="built_in">print</span>(dst_pos == offsets)</span><br></pre></td></tr></table></figure>
+
+<p>接着看看吧，找一找计算的时候的形状。</p>
+<p>应该是按head切分的tp，好像也还可以，毕竟k v head一般有8个。</p>
+<p>可以看到deepseek额外乘了4.5，不知道对应的是什么，是完美部署的那个4.5的比例么？</p>
+<pre><code>head_size = int(4.5 * hidden_size / num_attention_heads)
+``` --&gt;
+</code></pre>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/LLM/" rel="tag"># LLM</a>
+              <a href="/tags/dynamo/" rel="tag"># dynamo</a>
+              <a href="/tags/Inference/" rel="tag"># Inference</a>
+              <a href="/tags/PD%E5%88%86%E7%A6%BB/" rel="tag"># PD分离</a>
+              <a href="/tags/xPyD/" rel="tag"># xPyD</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/zh-CN/2025/03/25/xattention%E7%A8%80%E7%96%8F%E6%B3%A8%E6%84%8F%E5%8A%9B%E7%9A%84%E8%AE%A1%E7%AE%97%E6%96%B9%E6%B3%95/" rel="prev" title="xattention稀疏注意力的计算方法">
+                  <i class="fa fa-angle-left"></i> xattention稀疏注意力的计算方法
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/zh-CN/2025/04/04/LLM-Inference-Benchmark/" rel="next" title="LLM Inference Benchmark">
+                  LLM Inference Benchmark <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 2014 – 
+    <span itemprop="copyrightYear">2025</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+  </div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/mist/" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.umd.js" integrity="sha256-a+H7FYzJv6oU2hfsfDGM2Ohw/cR9v+hPfxHCLdmCrE8=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lozad.js/1.16.0/lozad.min.js" integrity="sha256-mOFREFhqmHeQbXpK2lp4nA3qooVgACfh88fpJftLBbc=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/sidebar.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+  <script src="/js/third-party/fancybox.js"></script>
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"ggaaooppeenngg","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

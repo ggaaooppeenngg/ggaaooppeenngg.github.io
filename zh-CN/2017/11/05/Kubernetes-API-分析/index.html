@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.3.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="_85tctgPWrqH2EPVuuD5IT6KE-tW8nH0hTISJDMnShg">
+  <meta name="baidu-site-verification" content="bb16c5b1fd3302c18e0015bef11eea42">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha256-dABdfBfUoC8vJUBOwGVdm8L9qlMWaHTIfXt+7GnZCIo=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.css" integrity="sha256-gkQVf8UKZgQ0HyuxL/VnacadJ+D2Kox2TCEBuNQg5+w=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="kubernetes 概览以下是 k8s 的整体架构，在 master 节点上主要是 kube-apiserver（整合了 kube-aggregator），还有 kube-scheduler，以及 kube-controller-manager，包括后端存储 etcd。   其中 kube-apiserver 是一个比较关键的部分，而且前期写得坑很多，导致这一部分虽然看起来是一个 API ser">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Kubernetes API 分析">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2017/11/05/Kubernetes-API-%E5%88%86%E6%9E%90/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="kubernetes 概览以下是 k8s 的整体架构，在 master 节点上主要是 kube-apiserver（整合了 kube-aggregator），还有 kube-scheduler，以及 kube-controller-manager，包括后端存储 etcd。   其中 kube-apiserver 是一个比较关键的部分，而且前期写得坑很多，导致这一部分虽然看起来是一个 API ser">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/11/05/Kubernetes-API-%E5%88%86%E6%9E%90/architecture.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/11/05/Kubernetes-API-%E5%88%86%E6%9E%90/api-path.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/11/05/Kubernetes-API-%E5%88%86%E6%9E%90/pod.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/11/05/Kubernetes-API-%E5%88%86%E6%9E%90/APIGroupInfo.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/11/05/Kubernetes-API-%E5%88%86%E6%9E%90/prof.png">
+<meta property="article:published_time" content="2017-11-04T18:40:14.000Z">
+<meta property="article:modified_time" content="2025-03-28T10:39:05.143Z">
+<meta property="article:author" content="ggaaooppeenngg">
+<meta property="article:tag" content="kubernetes">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/11/05/Kubernetes-API-%E5%88%86%E6%9E%90/architecture.png">
+
+
+<link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2017/11/05/Kubernetes-API-%E5%88%86%E6%9E%90/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://ggaaooppeenngg.github.io/zh-CN/2017/11/05/Kubernetes-API-%E5%88%86%E6%9E%90/","path":"zh-CN/2017/11/05/Kubernetes-API-分析/","title":"Kubernetes API 分析"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>Kubernetes API 分析 | ggaaooppeenngg</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-62096626-1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"UA-62096626-1","only_pageview":false,"measure_protocol_api_secret":null}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+  <script src="/js/third-party/analytics/baidu-analytics.js"></script>
+  <script async src="https://hm.baidu.com/hm.js?bb16c5b1fd3302c18e0015bef11eea42"></script>
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">ggaaooppeenngg</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">为什么计算机科学是无限的但生命是有限的</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">134</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">14</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">78</span></a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#kubernetes-%E6%A6%82%E8%A7%88"><span class="nav-number">1.</span> <span class="nav-text">kubernetes 概览</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#kube-apiserver"><span class="nav-number">2.</span> <span class="nav-text">kube-apiserver</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#restful-API"><span class="nav-number">2.1.</span> <span class="nav-text">restful API</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%87%8D%E8%A6%81%E7%BB%93%E6%9E%84%E4%BD%93"><span class="nav-number">2.2.</span> <span class="nav-text">重要结构体</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#Config"><span class="nav-number">2.2.1.</span> <span class="nav-text">Config</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#APIGroupInfo"><span class="nav-number">2.2.2.</span> <span class="nav-text">APIGroupInfo</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#serialization"><span class="nav-number">2.3.</span> <span class="nav-text">serialization</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#filters"><span class="nav-number">2.4.</span> <span class="nav-text">filters</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#panic-recover"><span class="nav-number">2.4.0.1.</span> <span class="nav-text">panic recover</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#request-context"><span class="nav-number">2.4.0.2.</span> <span class="nav-text">request context</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#RequestInfo"><span class="nav-number">2.4.0.3.</span> <span class="nav-text">RequestInfo</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#WithTimeoutForNonLongRunningRequests"><span class="nav-number">2.4.0.4.</span> <span class="nav-text">WithTimeoutForNonLongRunningRequests</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#WithCORS"><span class="nav-number">2.4.0.5.</span> <span class="nav-text">WithCORS</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#authentication"><span class="nav-number">2.4.0.6.</span> <span class="nav-text">authentication</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#authorization"><span class="nav-number">2.4.0.7.</span> <span class="nav-text">authorization</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#impersonation"><span class="nav-number">2.4.0.8.</span> <span class="nav-text">impersonation</span></a></li></ol></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%B7%AF%E7%94%B1"><span class="nav-number">2.5.</span> <span class="nav-text">路由</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98"><span class="nav-number">2.6.</span> <span class="nav-text">性能调优</span></a></li></ol></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">78</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">14</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">134</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/ggaaooppeenngg" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;ggaaooppeenngg" rel="noopener me" target="_blank"><i class="github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:peng.gao.dut@gmail.com" title="E-Mail → mailto:peng.gao.dut@gmail.com" rel="noopener me" target="_blank"><i class="envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+        <div class="back-to-top animated" role="button" aria-label="返回顶部">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2017/11/05/Kubernetes-API-%E5%88%86%E6%9E%90/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="Kubernetes API 分析 | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Kubernetes API 分析
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2017-11-05 02:40:14" itemprop="dateCreated datePublished" datetime="2017-11-05T02:40:14+08:00">2017-11-05</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2025-03-28 18:39:05" itemprop="dateModified" datetime="2025-03-28T18:39:05+08:00">2025-03-28</time>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2017/11/05/Kubernetes-API-%E5%88%86%E6%9E%90/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2017/11/05/Kubernetes-API-分析/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h2 id="kubernetes-概览"><a href="#kubernetes-概览" class="headerlink" title="kubernetes 概览"></a>kubernetes 概览</h2><p>以下是 k8s 的整体架构，在 master 节点上主要是 kube-apiserver（整合了 kube-aggregator），还有 kube-scheduler，以及 kube-controller-manager，包括后端存储 etcd。</p>
+<img data-src="/zh-CN/2017/11/05/Kubernetes-API-%E5%88%86%E6%9E%90/architecture.png" class="">
+
+<p>其中 kube-apiserver 是一个比较关键的部分，而且前期写得坑很多，导致这一部分虽然看起来是一个 API server 其实代码很复杂，特别冗余，而且目前对 kube-apiserver 还要做拆分，能够支持插入第三方的 apiserver，也就是又一个 aggregated apiserver 的 feature，也是和 kube-apiserver 和里面包的一层 genericserver 揉合在一起了，感觉一个大的系统 API server 越写越挫是一个通病，还好现在 k8s 迷途知返正在调整。</p>
+<h2 id="kube-apiserver"><a href="#kube-apiserver" class="headerlink" title="kube-apiserver"></a>kube-apiserver</h2><p>Kube-apiserver 可以是认为在 generic server 上封装的一层官方默认的 apiserver，有第三方需要的情况下，自己也可以在 generic server 上封装一层加入到集成模式中，这里主要介绍 kube-apiserver 的结构。</p>
+<h3 id="restful-API"><a href="#restful-API" class="headerlink" title="restful API"></a>restful API</h3><p>kube-apiserver 是一个 restful 服务，请求直接通过 HTTP 请求发送，例如创建一个 ubuntu 的 pod，用以下的 <code>pod.yaml</code> 文件。</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Pod</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">ubuntu1</span></span><br><span class="line">  <span class="attr">labels:</span></span><br><span class="line">    <span class="attr">name:</span> <span class="string">ubuntu1</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">containers:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">ubuntu1</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">ubuntu</span></span><br><span class="line">    <span class="attr">command:</span> [<span class="string">&quot;sleep&quot;</span>, <span class="string">&quot;1d&quot;</span>]</span><br></pre></td></tr></table></figure>
+
+<p>执行命令 <code>kubectl create -f ./pod.yaml -v=8</code>，可以看到对应的 POST 请求如下。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">Request Body: &#123;&quot;apiVersion&quot;:&quot;v1&quot;,&quot;kind&quot;:&quot;Pod&quot;,&quot;metadata&quot;:&#123;&quot;labels&quot;:&#123;&quot;name&quot;:&quot;ubuntu1&quot;&#125;,&quot;name&quot;:&quot;ubuntu1&quot;,&quot;namespace&quot;:&quot;default&quot;&#125;,&quot;spec&quot;:&#123;&quot;containers&quot;:[&#123;&quot;command&quot;:[&quot;sleep&quot;,&quot;1d&quot;],&quot;image&quot;:&quot;ubuntu&quot;,&quot;name&quot;:&quot;ubuntu1&quot;&#125;],&quot;schedulerName&quot;:&quot;default-scheduler&quot;&#125;&#125;</span><br><span class="line">curl -k -v -XPOST  -H &quot;Content-Type: application/json&quot; -H &quot;Accept: application/json&quot; -H &quot;User-Agent: kubectl/v1.7.5 (linux/amd64) kubernetes/17d7182&quot; https://localhost:6443/api/v1/namespaces/default/pods</span><br><span class="line">POST https://localhost:6443/api/v1/namespaces/default/pods 201 Created in 6 milliseconds</span><br><span class="line">Response Headers:</span><br><span class="line">    Content-Type: application/json</span><br><span class="line">    Content-Length: 1208</span><br><span class="line">    Date: Wed, 18 Oct 2017 15:04:17 GMT</span><br><span class="line">Response Body: &#123;&quot;kind&quot;:&quot;Pod&quot;,&quot;apiVersion&quot;:&quot;v1&quot;,&quot;metadata&quot;:&#123;&quot;name&quot;:&quot;ubuntu1&quot;,&quot;namespace&quot;:&quot;default&quot;,&quot;selfLink&quot;:&quot;/api/v1/namespaces/default/pods/ubuntu1&quot;,&quot;uid&quot;:&quot;9c9af581-b415-11e7-8033-024d1ba659e8&quot;,&quot;resourceVersion&quot;:&quot;486154&quot;,&quot;creationTimestamp&quot;:&quot;2017-10-18T15:04:17Z&quot;,&quot;labels&quot;:&#123;&quot;name&quot;:&quot;ubuntu1&quot;&#125;&#125;,&quot;spec&quot;:&#123;&quot;volumes&quot;:[&#123;&quot;name&quot;:&quot;default-token-p0980&quot;,&quot;secret&quot;:&#123;&quot;secretName&quot;:&quot;default-token-p0980&quot;,&quot;defaultMode&quot;:420&#125;&#125;],&quot;containers&quot;:[&#123;&quot;name&quot;:&quot;ubuntu1&quot;,&quot;image&quot;:&quot;ubuntu&quot;,&quot;command&quot;:[&quot;sleep&quot;,&quot;1d&quot;],&quot;resources&quot;:&#123;&#125;,&quot;volumeMounts&quot;:[&#123;&quot;name&quot;:&quot;default-token-p0980&quot;,&quot;readOnly&quot;:true,&quot;mountPath&quot;:&quot;/var/run/secrets/kubernetes.io/serviceaccount&quot;&#125;],&quot;terminationMessagePath&quot;:&quot;/dev/termination-log&quot;,&quot;terminationMessagePolicy&quot;:&quot;File&quot;,&quot;imagePullPolicy&quot;:&quot;Always&quot;&#125;],&quot;restartPolicy&quot;:&quot;Always&quot;,&quot;terminationGracePeriodSeconds&quot;:30,&quot;dnsPolicy&quot;:&quot;ClusterFirst&quot;,&quot;serviceAccountName&quot;:&quot;default&quot;,&quot;serviceAccount&quot;:&quot;default&quot;,&quot;securityContext&quot;:&#123;&#125;,&quot;schedulerName&quot;:&quot;default-scheduler&quot;,&quot;tolerations&quot;:[&#123;&quot;key&quot;:&quot;node.kubernetes.io/not-ready&quot;,&quot;operator&quot;:&quot;Exists&quot;,&quot;effect&quot;:&quot;NoExecute&quot;,&quot;tolerationSeconds&quot;:300&#125;,&#123;&quot;key&quot;:&quot;node.alpha.kubernetes.io/unreachable&quot;,&quot;operator&quot;:&quot;Exists&quot;,&quot;effect&quot;:&quot;NoExecute&quot;,&quot;tolerationSeconds&quot;:300&#125;]&#125;,&quot;status&quot;:&#123;&quot;phase&quot;:&quot;Pending&quot;,&quot;qosClass&quot;:&quot;BestEffort&quot;&#125;&#125;</span><br></pre></td></tr></table></figure>
+
+<p>从 url path 里面可以看到几个划分，path 的分类大概有下面这几种。</p>
+<img data-src="/zh-CN/2017/11/05/Kubernetes-API-%E5%88%86%E6%9E%90/api-path.png" class="">
+
+<p>路径上整体分成 group, version, resource, 作为核心 API group 的 core（包括 pod, node 之类的 resource)，不带 group，直接接在 /api/ 后面，其他的 api group 则接在 /apis 后面。以 pod 为例，pod 对应的数据类型如下，这个数据结构和 POST 请求中的结构的参数是一致的。</p>
+<img data-src="/zh-CN/2017/11/05/Kubernetes-API-%E5%88%86%E6%9E%90/pod.png" class="">
+
+<p>如果是 job 的话则是在，<code>pkg/apis/batch/v2alpha1/types.go</code>，和 API 路径是对应的。例子当中 <code>kubectl</code> 加上 level 大于 8 的 log 就会打印请求和相应的 body，可以看到 request body 和上面的数据结构是一致的。这个请求会发送到 apiserver 进行处理并且返回存储之后的 pod。</p>
+<h3 id="重要结构体"><a href="#重要结构体" class="headerlink" title="重要结构体"></a>重要结构体</h3><h4 id="Config"><a href="#Config" class="headerlink" title="Config"></a>Config</h4><p>父结构，主要的配置内容，其中有一个结构 <code>RESTOptionsGetter genericregistry.RESTOptionsGetter</code> 是和 API 初始化相关的，这个接口的实现是在 <code>k8s.io/apiserver/pkg/server/options/etcd.go</code> 中的 <code>storageFactoryRestOptionsFactory</code> 实现的，对应的实现函数是</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(f *storageFactoryRestOptionsFactory)</span></span> GetRESTOptions(resource schema.GroupResource) (generic.RESTOptions, <span class="type">error</span>) &#123;</span><br><span class="line">	storageConfig, err := f.StorageFactory.NewConfig(resource)</span><br><span class="line">	<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> generic.RESTOptions&#123;&#125;, fmt.Errorf(<span class="string">&quot;unable to find storage destination for %v, due to %v&quot;</span>, resource, err.Error())</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	ret := generic.RESTOptions&#123;</span><br><span class="line">		StorageConfig:           storageConfig,</span><br><span class="line">		Decorator:               generic.UndecoratedStorage,</span><br><span class="line">		DeleteCollectionWorkers: f.Options.DeleteCollectionWorkers,</span><br><span class="line">		EnableGarbageCollection: f.Options.EnableGarbageCollection,</span><br><span class="line">		ResourcePrefix:          f.StorageFactory.ResourcePrefix(resource),</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">if</span> f.Options.EnableWatchCache &#123;</span><br><span class="line">		sizes, err := ParseWatchCacheSizes(f.Options.WatchCacheSizes)</span><br><span class="line">		<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">			<span class="keyword">return</span> generic.RESTOptions&#123;&#125;, err</span><br><span class="line">		&#125;</span><br><span class="line">		cacheSize, ok := sizes[resource]</span><br><span class="line">		<span class="keyword">if</span> !ok &#123;</span><br><span class="line">			cacheSize = f.Options.DefaultWatchCacheSize</span><br><span class="line">		&#125;</span><br><span class="line">		ret.Decorator = genericregistry.StorageWithCacher(cacheSize)</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> ret, <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+
+<h4 id="APIGroupInfo"><a href="#APIGroupInfo" class="headerlink" title="APIGroupInfo"></a>APIGroupInfo</h4><img data-src="/zh-CN/2017/11/05/Kubernetes-API-%E5%88%86%E6%9E%90/APIGroupInfo.png" class="">
+
+<p>APIGroupInfo 主要定义了一个 API 组的相关信息，观察一下 APIGroupInfo 是如何初始化的。</p>
+<p>在 <code>k8s.io/pkg/master/master.go</code> 当中，每个 Resource 都要提供自己的 Provider，比如说 <code>storagerest</code> 就在 <code>k8s.io/kubernetes/pkg/registry/storage/rest/storage_storage.go </code> 定义了 <code>NewRESTStorage</code> 方法。而默认的 resource 的 legacy provider 单独处理。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> c.ExtraConfig.APIResourceConfigSource.AnyResourcesForVersionEnabled(apiv1.SchemeGroupVersion) &#123;</span><br><span class="line">	legacyRESTStorageProvider := corerest.LegacyRESTStorageProvider&#123;</span><br><span class="line">		StorageFactory:       c.ExtraConfig.StorageFactory,</span><br><span class="line">		ProxyTransport:       c.ExtraConfig.ProxyTransport,</span><br><span class="line">		KubeletClientConfig:  c.ExtraConfig.KubeletClientConfig,</span><br><span class="line">		EventTTL:             c.ExtraConfig.EventTTL,</span><br><span class="line">		ServiceIPRange:       c.ExtraConfig.ServiceIPRange,</span><br><span class="line">		ServiceNodePortRange: c.ExtraConfig.ServiceNodePortRange,</span><br><span class="line">		LoopbackClientConfig: c.GenericConfig.LoopbackClientConfig,</span><br><span class="line">	&#125;</span><br><span class="line">	m.InstallLegacyAPI(&amp;c, c.GenericConfig.RESTOptionsGetter, legacyRESTStorageProvider)</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>然后通过调用 <code>k8s.io/kubernetes/pkg/registry/core/rest.LegacyRESTStorageProvider</code> 的 <code>NewLegacyRESTStorage</code> 来初始化基础对象的 apigroup info，比如初始化 podStorage，serviceStorage 和 nodeStorage 等等。legacy ApiGrouInfo 的 Scheme, ParamaterCodec, NegotiatedSerializer 都是用 <code>    &quot;k8s.io/kubernetes/pkg/api&quot;</code> 包下的全局变量初始化的。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">Scheme:                      api.Scheme,</span><br><span class="line">ParameterCodec:              api.ParameterCodec,</span><br><span class="line">NegotiatedSerializer:        api.Codecs,</span><br></pre></td></tr></table></figure>
+
+<p>然后合并成一个 <code>restStorage</code> 存入 apiGroupInfo 中。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">restStorageMap := map[string]rest.Storage&#123;</span><br><span class="line">	&quot;pods&quot;:             podStorage.Pod,</span><br><span class="line">	&quot;pods/attach&quot;:      podStorage.Attach,</span><br><span class="line">	&quot;pods/status&quot;:      podStorage.Status,</span><br><span class="line">	&quot;pods/log&quot;:         podStorage.Log,</span><br><span class="line">	&quot;pods/exec&quot;:        podStorage.Exec,</span><br><span class="line">	&quot;pods/portforward&quot;: podStorage.PortForward,</span><br><span class="line">	&quot;pods/proxy&quot;:       podStorage.Proxy,</span><br><span class="line">	&quot;pods/binding&quot;:     podStorage.Binding,</span><br><span class="line">	&quot;bindings&quot;:         podStorage.Binding,</span><br><span class="line">   ...</span><br></pre></td></tr></table></figure>
+
+<p>举个例子 podStorage 就是用的 <code>genericregistry.Store</code>，这是一个通用的 etc 辅助结构，把 etcd 抽象成存储结构。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">// REST implements a RESTStorage for pods</span><br><span class="line">type REST struct &#123;</span><br><span class="line">	*genericregistry.Store</span><br><span class="line">	proxyTransport http.RoundTripper</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="serialization"><a href="#serialization" class="headerlink" title="serialization"></a>serialization</h3><p><code>pkg/api.Codecs</code> 是全局默认的 codec 来自下面这段代码。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">NewCodecFactory</span><span class="params">(scheme *runtime.Scheme)</span></span> CodecFactory &#123;</span><br><span class="line">	serializers := newSerializersForScheme(scheme, json.DefaultMetaFactory)</span><br><span class="line">	<span class="keyword">return</span> newCodecFactory(scheme, serializers)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>默认具体定义了这几种 serilizer。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">func newSerializersForScheme(scheme *runtime.Scheme, mf json.MetaFactory) []serializerType &#123;</span><br><span class="line">	jsonSerializer := json.NewSerializer(mf, scheme, scheme, false)</span><br><span class="line">	jsonPrettySerializer := json.NewSerializer(mf, scheme, scheme, true)</span><br><span class="line">	yamlSerializer := json.NewYAMLSerializer(mf, scheme, scheme)</span><br><span class="line">    ...</span><br></pre></td></tr></table></figure>
+
+<p>而且标准库的 json 有很严重的性能问题，换用了 json-iter 但是有很多标准库不兼容的问题，性能提升了大概 20% 但是没办法和进主线，我尝试在上面工作的了一段时间，改了两个问题还是有错，由于时间关系，暂时放弃了这个工作，相关的 issue 在<a target="_blank" rel="noopener" href="https://github.com/kubernetes/kubernetes/pull/54289">这里</a></p>
+<h3 id="filters"><a href="#filters" class="headerlink" title="filters"></a>filters</h3><p>首先通过 <code>./staging/src/k8s.io/apiserver/pkg/server/config.go  </code> 下的 <code>DefaultBuildHandlerChain</code>  构建 filters。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">func DefaultBuildHandlerChain(apiHandler http.Handler, c *Config) http.Handler &#123;</span><br><span class="line">	handler := genericapifilters.WithAuthorization(apiHandler, c.RequestContextMapper, c.Authorizer, c.Serializer)</span><br><span class="line">	handler = genericfilters.WithMaxInFlightLimit(handler, c.MaxRequestsInFlight, c.MaxMutatingRequestsInFlight, c.RequestContextMapper, c.LongRunningFunc)</span><br><span class="line">	handler = genericapifilters.WithImpersonation(handler, c.RequestContextMapper, c.Authorizer, c.Serializer)</span><br><span class="line">	if utilfeature.DefaultFeatureGate.Enabled(features.AdvancedAuditing) &#123;</span><br><span class="line">		handler = genericapifilters.WithAudit(handler, c.RequestContextMapper, c.AuditBackend, c.AuditPolicyChecker, c.LongRunningFunc)</span><br><span class="line">	&#125; else &#123;</span><br><span class="line">		handler = genericapifilters.WithLegacyAudit(handler, c.RequestContextMapper, c.LegacyAuditWriter)</span><br><span class="line">	&#125;</span><br><span class="line">	failedHandler := genericapifilters.Unauthorized(c.RequestContextMapper, c.Serializer, c.SupportsBasicAuth)</span><br><span class="line">	if utilfeature.DefaultFeatureGate.Enabled(features.AdvancedAuditing) &#123;</span><br><span class="line">		failedHandler = genericapifilters.WithFailedAuthenticationAudit(failedHandler, c.RequestContextMapper, c.AuditBackend, c.AuditPolicyChecker)</span><br><span class="line">	&#125;</span><br><span class="line">	handler = genericapifilters.WithAuthentication(handler, c.RequestContextMapper, c.Authenticator, failedHandler)</span><br><span class="line">	handler = genericfilters.WithCORS(handler, c.CorsAllowedOriginList, nil, nil, nil, &quot;true&quot;)</span><br><span class="line">	handler = genericfilters.WithTimeoutForNonLongRunningRequests(handler, c.RequestContextMapper, c.LongRunningFunc, c.RequestTimeout)</span><br><span class="line">	handler = genericapifilters.WithRequestInfo(handler, c.RequestInfoResolver, c.RequestContextMapper)</span><br><span class="line">	handler = apirequest.WithRequestContext(handler, c.RequestContextMapper)</span><br><span class="line">	handler = genericfilters.WithPanicRecovery(handler)</span><br><span class="line">	return handler</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h5 id="panic-recover"><a href="#panic-recover" class="headerlink" title="panic recover"></a>panic recover</h5><p><code>genericfilters.WithPanicRecovery</code> 在 handler 的最外层对出现的 panic 恢复，并且打印每次请求的 log，所以你想观察 API 请求的情况可以 <code>grep wrap.go</code> 就能看到。</p>
+<h5 id="request-context"><a href="#request-context" class="headerlink" title="request context"></a>request context</h5><p><code>apirequest.WithRequestContext</code> 给 request 绑定一个 Context</p>
+<h5 id="RequestInfo"><a href="#RequestInfo" class="headerlink" title="RequestInfo"></a>RequestInfo</h5><p>跟路 url 提取后续请求需要的 group, version, namespace, verb, resource 等信息。</p>
+<h5 id="WithTimeoutForNonLongRunningRequests"><a href="#WithTimeoutForNonLongRunningRequests" class="headerlink" title="WithTimeoutForNonLongRunningRequests"></a>WithTimeoutForNonLongRunningRequests</h5><p>限制 API 调用时间，超时处理提前终止 write。</p>
+<h5 id="WithCORS"><a href="#WithCORS" class="headerlink" title="WithCORS"></a>WithCORS</h5><p>允许跨域访问。</p>
+<h5 id="authentication"><a href="#authentication" class="headerlink" title="authentication"></a>authentication</h5><p>在 <code>k8s.io/apiserver/pkg/endpoints/filters/authentication.go</code> 下。<code>WithAuthentication</code> 插入鉴权信息，例如证书鉴权，token 鉴权等，并且从鉴权信息当中获取 user 信息（可能是 service account 也可能是外部用户）user 身份是由<a target="_blank" rel="noopener" href="https://kubernetes.io/docs/admin/authentication/">这</a> 里面的几种方式确认的</p>
+<h5 id="authorization"><a href="#authorization" class="headerlink" title="authorization"></a>authorization</h5><p>检查是否有权限进行对应资源的操作。一种是 RBAC 一种是 Node。具体这两种方式可以看这个<a target="_blank" rel="noopener" href="https://kubernetes.io/docs/admin/authorization/">介绍</a>，RBAC 主要是针对服务的，而 Node 模式主要是针对 kubelet 的。</p>
+<h5 id="impersonation"><a href="#impersonation" class="headerlink" title="impersonation"></a>impersonation</h5><p>让用户伪装成其他用户，比如 admin 可以用普通用户的身份创建资源。</p>
+<h3 id="路由"><a href="#路由" class="headerlink" title="路由"></a>路由</h3><p>通过 genericapiserver 的 <code>InstallLegacyAPIGroup</code> 就注册到路由当中。具体的做法就是根据 version, resource, sub resource, verb 等信息构造路由，然后用 <code>go-restful </code> 注册处理函数。比如说 GET</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">route := ws.GET(action.Path).To(handler).</span><br><span class="line">	Doc(doc).</span><br><span class="line">	Param(ws.QueryParameter(&quot;pretty&quot;, &quot;If &#x27;true&#x27;, then the output is pretty printed.&quot;)).</span><br><span class="line">	Operation(&quot;read&quot;+namespaced+kind+strings.Title(subresource)+operationSuffix).</span><br><span class="line">	Produces(append(storageMeta.ProducesMIMETypes(action.Verb), mediaTypes...)...).</span><br><span class="line">	Returns(http.StatusOK, &quot;OK&quot;, producedObject).</span><br><span class="line">	Writes(producedObject)</span><br></pre></td></tr></table></figure>
+
+<p>handler 里面做的内容就是序列化，然后根据具体的要求（GET DELETE 等）到 etcd 中操作，当然本身还有一层缓存，这取决于 API 的 options 是希望更新还是直接读缓存（缓存会比 etcd 旧一些），比如对于 kubelet 会不断查询 node 信息，但是 kubelet 本身并不需要最新的信息，这个时候就会从缓存中读取。</p>
+<h3 id="性能调优"><a href="#性能调优" class="headerlink" title="性能调优"></a>性能调优</h3><p>开启代理 <code>kubectl proxy</code>，就可以通过 localhost 直接访问 kube-apiserver HTTP 服务。然后执行 <code>go tool pprof http://localhost:8001/debug/pprof/profile</code> 可以获得 profile 结果，下图红色的部分就是调用耗时最多的部分。</p>
+<img data-src="/zh-CN/2017/11/05/Kubernetes-API-%E5%88%86%E6%9E%90/prof.png" class="">
+
+<p>除此之外，kube-apiserver 本身也暴露了很多 prometheus 的 metrics 但是往上现在没有现成的模板，只能根据自己的需求来在 prometheus 当作做 query。可以在 <code>k8s.io/apiserver/pkg/endpoints/metrics/metrics.go</code> 里面看到。</p>
+<p>之前也说过，超时间调用时会打 log 的，在代码中保存了一些 trace 日志，可以通过 <code>grep Trace</code>来过滤。Trace[%d] 这样开头, %d 是一个 id 可以看到具体的 trace 信息。</p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/kubernetes/" rel="tag"># kubernetes</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/zh-CN/2017/09/26/kubernetes-%E6%8C%87%E5%8C%97/" rel="prev" title="kubernetes 调度器指北">
+                  <i class="fa fa-angle-left"></i> kubernetes 调度器指北
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/zh-CN/2017/11/27/kube-controller-%E5%88%86%E6%9E%90/" rel="next" title="kube-controller-manager 分析">
+                  kube-controller-manager 分析 <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 2014 – 
+    <span itemprop="copyrightYear">2025</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+  </div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/mist/" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.umd.js" integrity="sha256-a+H7FYzJv6oU2hfsfDGM2Ohw/cR9v+hPfxHCLdmCrE8=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lozad.js/1.16.0/lozad.min.js" integrity="sha256-mOFREFhqmHeQbXpK2lp4nA3qooVgACfh88fpJftLBbc=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/sidebar.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+  <script src="/js/third-party/fancybox.js"></script>
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"ggaaooppeenngg","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

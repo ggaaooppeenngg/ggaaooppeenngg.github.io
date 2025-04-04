@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.3.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="_85tctgPWrqH2EPVuuD5IT6KE-tW8nH0hTISJDMnShg">
+  <meta name="baidu-site-verification" content="bb16c5b1fd3302c18e0015bef11eea42">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha256-dABdfBfUoC8vJUBOwGVdm8L9qlMWaHTIfXt+7GnZCIo=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.css" integrity="sha256-gkQVf8UKZgQ0HyuxL/VnacadJ+D2Kox2TCEBuNQg5+w=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="首先介绍一下 hugepage 的背景。 一般来说操作系统分配内存的最小单元是页，一般是 4KB 大小，但是这个页放到现在来说可能有点“不够用”，因为很多程序内存消耗很大，分配内存很频繁，所以选择更大的页可以提升性能，大页带来的好处很多，首先是页表的层次可以减少，增加访存的速度，其次是减少 TLB miss 的概率，同时 page fault 也会减少，减少到 hugepage size &#x2F; 4K">
+<meta property="og:type" content="article">
+<meta property="og:title" content="hugepage 分析">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2017/04/30/hugepage-%E5%88%86%E6%9E%90/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="首先介绍一下 hugepage 的背景。 一般来说操作系统分配内存的最小单元是页，一般是 4KB 大小，但是这个页放到现在来说可能有点“不够用”，因为很多程序内存消耗很大，分配内存很频繁，所以选择更大的页可以提升性能，大页带来的好处很多，首先是页表的层次可以减少，增加访存的速度，其次是减少 TLB miss 的概率，同时 page fault 也会减少，减少到 hugepage size &#x2F; 4K">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/04/30/hugepage-%E5%88%86%E6%9E%90/table.png">
+<meta property="article:published_time" content="2017-04-29T19:59:56.000Z">
+<meta property="article:modified_time" content="2025-03-28T10:39:05.294Z">
+<meta property="article:author" content="ggaaooppeenngg">
+<meta property="article:tag" content="kernel">
+<meta property="article:tag" content="内核">
+<meta property="article:tag" content="memory">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/04/30/hugepage-%E5%88%86%E6%9E%90/table.png">
+
+
+<link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2017/04/30/hugepage-%E5%88%86%E6%9E%90/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://ggaaooppeenngg.github.io/zh-CN/2017/04/30/hugepage-%E5%88%86%E6%9E%90/","path":"zh-CN/2017/04/30/hugepage-分析/","title":"hugepage 分析"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>hugepage 分析 | ggaaooppeenngg</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-62096626-1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"UA-62096626-1","only_pageview":false,"measure_protocol_api_secret":null}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+  <script src="/js/third-party/analytics/baidu-analytics.js"></script>
+  <script async src="https://hm.baidu.com/hm.js?bb16c5b1fd3302c18e0015bef11eea42"></script>
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">ggaaooppeenngg</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">为什么计算机科学是无限的但生命是有限的</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">134</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">14</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">78</span></a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-overview-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">78</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">14</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">134</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/ggaaooppeenngg" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;ggaaooppeenngg" rel="noopener me" target="_blank"><i class="github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:peng.gao.dut@gmail.com" title="E-Mail → mailto:peng.gao.dut@gmail.com" rel="noopener me" target="_blank"><i class="envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+        <div class="back-to-top animated" role="button" aria-label="返回顶部">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2017/04/30/hugepage-%E5%88%86%E6%9E%90/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="hugepage 分析 | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          hugepage 分析
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2017-04-30 03:59:56" itemprop="dateCreated datePublished" datetime="2017-04-30T03:59:56+08:00">2017-04-30</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2025-03-28 18:39:05" itemprop="dateModified" datetime="2025-03-28T18:39:05+08:00">2025-03-28</time>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2017/04/30/hugepage-%E5%88%86%E6%9E%90/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2017/04/30/hugepage-分析/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>首先介绍一下 hugepage 的背景。</p>
+<p>一般来说操作系统分配内存的最小单元是页，一般是 4KB 大小，但是这个页放到现在来说可能有点“不够用”，因为很多程序内存消耗很大，分配内存很频繁，所以选择更大的页可以提升性能，大页带来的好处很多，首先是页表的层次可以减少，增加访存的速度，其次是减少 TLB miss 的概率，同时 page fault 也会减少，减少到 hugepage size / 4KB (x86_64 一般有 2MB 的 hugepage 和 1GB 的 hugepage)。例如下面这张图就说明了 hugepage 带来的改变。文章中的代码使用的是 4.x 的内核版本。</p>
+<img data-src="/zh-CN/2017/04/30/hugepage-%E5%88%86%E6%9E%90/table.png" class="">
+
+<p>hugepage 有两种类型，一种是 THP(Transparent Huge Page) ，顾名思义，就是对用户来说对这种大页是无感知的，它本身可以被分成 4KB 的小页，并且可以被 swap out，有一个 Khugepaged 周期性扫描 4KB 的页合并成大页。</p>
+<p>另一种大页是 persistent hugepage，这种 page 是预先分配的并且不能拆分成 4KB 小页，而且不能 swap out。这种的隐患是可能在内存 fragmentation 太多分不出大页的时候压缩小页，这在内存分配有压力的时候会造成很大的性能影响。</p>
+<p>使用 persistent hugepage 可以通过 <code>echo 512 | sudo tee /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages</code>，这会预先分配 512 个 2MB 的大页。具体使用是通过 fs/hugetlbfs 下实现的<code>hugetlbfs</code>来实现的。应用程序需要通过<code>mmap</code>进行文件映射来使用这些大页。具体的使用方式内核附带的一个<a target="_blank" rel="noopener" href="http://lxr.free-electrons.com/source/tools/testing/selftests/vm/hugepage-mmap.c">测试</a>可以作为参考。</p>
+<p>这个 <code>echo</code> 触发的是 <code>sysfs</code> 的 <code>nr_hugepages_store_common</code>, 它会设置最大的 hugepage 个数（存在 hstate 中，一个保存 hugepage 状态的结构体），<code>h-&gt;max_huge_pages = set_max_huge_pages(h, count, nodes_allowed);</code>，<code>set_max_huge_pages</code> 有一个副作用就是调用 <code>alloc_fresh_huge_page</code> 来(分配或者减少)大页以达到 count 个。比如说分配会调用 <code>ret = alloc_fresh_huge_page(h, nodes_allowed);</code>，然后加入到 <code>hstate</code> 的 freelist 当中, 减少则是相反的，如果 <code>freelist</code> 上没有就会触发 buddysystem 的 <code>__alloc_buddy_huge_page_no_mpol</code>。</p>
+<p>我们来看一下具体的实现，首先关键的结构体是 hugetlbfs_file_operations , 其中规定了 mmap 函数，也就是当我打开 hugetlbfs 文件系统下的文件对对应的 fd 调用 <code>mmap</code> 的时候触发的对应的函数。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">const struct file_operations hugetlbfs_file_operations = &#123;</span><br><span class="line">	.read_iter		= hugetlbfs_read_iter,</span><br><span class="line">	.mmap			= hugetlbfs_file_mmap,</span><br><span class="line">	.fsync			= noop_fsync,</span><br><span class="line">	.get_unmapped_area	= hugetlb_get_unmapped_area,</span><br><span class="line">	.llseek			= default_llseek,</span><br><span class="line">	.fallocate		= hugetlbfs_fallocate,</span><br><span class="line">&#125;;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>在解释 mmap 之前，先复习一下进程空间内存的相关的内容。进程的内存空间是通过<code>mm_struct</code>这个结构体管理的。进程的地址空间，基本上是一些松散的区间，每个区间有相同的功能和保护属性（只读等属性），这个区间用 <code>vm_area_struct</code> 表示。再来看 <code>hugetlbfs_file_mmap</code> 中的一段代码。把申请的虚拟空间的地址长度按照大页对齐以后，保留对应个数的大页。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">if (hugetlb_reserve_pages(inode,</span><br><span class="line">			vma-&gt;vm_pgoff &gt;&gt; huge_page_order(h),</span><br><span class="line">			len &gt;&gt; huge_page_shift(h), vma,</span><br><span class="line">			vma-&gt;vm_flags))</span><br><span class="line">	goto out;</span><br><span class="line"></span><br><span class="line">ret = 0;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p><code>hugetlb_reserve_pages</code> 要处理两种逻辑，如果是 <code>VM_MAYSHARE</code> 就从 inode 中取出 <code>resv_map</code> 并且获取分配长度，不然就使用<code>vma</code>的长度，然后用 <code>hugepage_subpool_get_pages</code> 从 <code>hugepage_subpool</code> 中减掉对应的<code>spool-&gt;rsv_hpages</code>, 这个个人感觉也不是池子，只是一个统计数据。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line">struct hstate *h = hstate_inode(inode); // 获取 hugepage state，里面保存了 hugepage 的相关信息</span><br><span class="line">struct hugepage_subpool *spool = subpool_inode(inode); // 写获取 hugepage 的 pool, pool 其实只是个数字 rsv_pages。</span><br><span class="line">...</span><br><span class="line">// 然后根据 flag 算出要使用的长度 chg，我猜应该是 charge 的缩写。</span><br><span class="line">if (!vma || vma-&gt;vm_flags &amp; VM_MAYSHARE) &#123;</span><br><span class="line">	resv_map = inode_resv_map(inode);</span><br><span class="line"></span><br><span class="line">	chg = region_chg(resv_map, from, to);</span><br><span class="line"></span><br><span class="line">&#125; else &#123;</span><br><span class="line">	resv_map = resv_map_alloc();</span><br><span class="line">	if (!resv_map)</span><br><span class="line">		return -ENOMEM;</span><br><span class="line"></span><br><span class="line">	chg = to - from;</span><br><span class="line"></span><br><span class="line">	set_vma_resv_map(vma, resv_map);</span><br><span class="line">	set_vma_resv_flags(vma, HPAGE_RESV_OWNER);</span><br><span class="line">&#125;</span><br><span class="line">...</span><br><span class="line">// 最后从 hugepage 的 pool 减掉对应的个数。</span><br><span class="line">gbl_reserve = hugepage_subpool_get_pages(spool, chg);</span><br><span class="line">// 确定有足够的 hugepage 如果没有就从 buddysystem 里面取出来。</span><br><span class="line">ret = hugetlb_acct_memory(h, gbl_reserve);</span><br><span class="line">// 把 page 和 vma 做映射</span><br><span class="line">region_add(resv_map, from, to);</span><br></pre></td></tr></table></figure>
+
+<p>在 <code>do_page_fault</code> 一直调用到 <code>__handle_mm_fault</code> 的时候，如果对应的 <code>vma</code> 是大页分配的，会直接进到<code>hugetlb_fault</code>，最后在缺页的时候会调用<code>hugetlb_no_page</code>，然后调用 <code>alloc_huge_page_node</code>，就会看到 <code>__alloc_buddy_huge_page</code>，开始走 buddy system, buddy system ，这里的 buddy system 没有细说，可以参考我之前的<a href="https://ggaaooppeenngg.github.io/zh-CN/2016/08/31/buddy-system-%E5%86%85%E6%A0%B8%E7%89%A9%E7%90%86%E9%A1%B5%E5%88%86%E9%85%8D%E7%9A%84%E5%AE%9E%E7%8E%B0/">一篇文章</a>。</p>
+<p>补充:</p>
+<p>你可以理解<code>mm_struct</code>管理着一个<code>vm_area_struct</code>的链表，而 <code>vm_area_struct</code> 对应的主要操作函数如下（还有很多，这里只列了和本文相关的函数指针）。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">struct vm_operations_struct &#123;</span><br><span class="line">	void (*open)(struct vm_area_struct * area);</span><br><span class="line">	void (*close)(struct vm_area_struct * area);</span><br><span class="line">	int (*fault)(struct vm_area_struct *vma, struct vm_fault *vmf);</span><br><span class="line">&#125;;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>对应到 hugetlbfs 就是如下的 <code>hugetlb_vm_ops</code> 它会在对文件 <code>mmap</code> 的时候，进行初始化<code>vma-&gt;vm_ops = &amp;hugetlb_vm_ops;</code>。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">const struct vm_operations_struct hugetlb_vm_ops = &#123;</span><br><span class="line">	.fault = hugetlb_vm_op_fault,</span><br><span class="line">	.open = hugetlb_vm_op_open,</span><br><span class="line">	.close = hugetlb_vm_op_close,</span><br><span class="line">&#125;;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>但是注意，<code>hugetlb_vm_op_fault</code> 如果被触发说明有 BUG，因为 hugepage 的 page fault 是在<code>do_page_fault</code>里面独立处理的，不会调用到<code>vm_operations_struct</code>的<code>fault</code>接口。mmap 走的流程是 <code>mmap -&gt; mmap_region -&gt; make_pages_presetn -&gt; get_user_pages -&gt; handle_page_fault -&gt; handle_mm_fault -&gt; hugetlb_fault</code>。</p>
+<p>以上是大页的分配和使用的流程，希望对大家有帮助。</p>
+<p>参考:</p>
+<ol>
+<li> <a target="_blank" rel="noopener" href="https://godleon.github.io/blog/2016/08/02/KVM-Basic-Concept-Memory">Linux KVM concept - Memory</a></li>
+<li> <a target="_blank" rel="noopener" href="https://www.ibm.com/developerworks/cn/linux/1305_zhangli_hugepage/">Linux 内核中大页的实现与分析，第 1 部分</a></li>
+</ol>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/kernel/" rel="tag"># kernel</a>
+              <a href="/tags/%E5%86%85%E6%A0%B8/" rel="tag"># 内核</a>
+              <a href="/tags/memory/" rel="tag"># memory</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/zh-CN/2017/04/16/SQL%E9%9A%94%E7%A6%BB%E7%BA%A7%E5%88%AB/" rel="prev" title="SQL 隔离级别">
+                  <i class="fa fa-angle-left"></i> SQL 隔离级别
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/zh-CN/2017/05/07/cgroups-%E5%88%86%E6%9E%90%E4%B9%8B%E5%86%85%E5%AD%98%E5%92%8CCPU/" rel="next" title="cgroup 分析之CPU和内存部分">
+                  cgroup 分析之CPU和内存部分 <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 2014 – 
+    <span itemprop="copyrightYear">2025</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+  </div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/mist/" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.umd.js" integrity="sha256-a+H7FYzJv6oU2hfsfDGM2Ohw/cR9v+hPfxHCLdmCrE8=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lozad.js/1.16.0/lozad.min.js" integrity="sha256-mOFREFhqmHeQbXpK2lp4nA3qooVgACfh88fpJftLBbc=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/sidebar.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+  <script src="/js/third-party/fancybox.js"></script>
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"ggaaooppeenngg","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.3.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="_85tctgPWrqH2EPVuuD5IT6KE-tW8nH0hTISJDMnShg">
+  <meta name="baidu-site-verification" content="bb16c5b1fd3302c18e0015bef11eea42">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha256-dABdfBfUoC8vJUBOwGVdm8L9qlMWaHTIfXt+7GnZCIo=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.css" integrity="sha256-gkQVf8UKZgQ0HyuxL/VnacadJ+D2Kox2TCEBuNQg5+w=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="VFIO——将设备暴露到用户态在开始之前我们先要说一个东西就是 DMA，直接让设备访问内存，可以不通过 CPU 搬运数据。   这是一个比较简单的体系结构图，设备 和 CPU 通过存储控制器访问存储器。一个简单的 case 是 CPU 向存储器写数据，然后设备从存储器读数据。这么快来一切都很正常。但是实际上 CPU 是有一层缓存的，例如下面这样的。   CPU 想内存写数据，但是先要清空到不一致的">
+<meta property="og:type" content="article">
+<meta property="og:title" content="VFIO ——将 DMA 映射暴露给用户态">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2017/06/05/VFIO-%E2%80%94%E2%80%94%E5%B0%86-DMA-%E6%98%A0%E5%B0%84%E6%9A%B4%E9%9C%B2%E7%BB%99%E7%94%A8%E6%88%B7%E6%80%81/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="VFIO——将设备暴露到用户态在开始之前我们先要说一个东西就是 DMA，直接让设备访问内存，可以不通过 CPU 搬运数据。   这是一个比较简单的体系结构图，设备 和 CPU 通过存储控制器访问存储器。一个简单的 case 是 CPU 向存储器写数据，然后设备从存储器读数据。这么快来一切都很正常。但是实际上 CPU 是有一层缓存的，例如下面这样的。   CPU 想内存写数据，但是先要清空到不一致的">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/06/05/VFIO-%E2%80%94%E2%80%94%E5%B0%86-DMA-%E6%98%A0%E5%B0%84%E6%9A%B4%E9%9C%B2%E7%BB%99%E7%94%A8%E6%88%B7%E6%80%81/p1.jpg">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/06/05/VFIO-%E2%80%94%E2%80%94%E5%B0%86-DMA-%E6%98%A0%E5%B0%84%E6%9A%B4%E9%9C%B2%E7%BB%99%E7%94%A8%E6%88%B7%E6%80%81/p2.jpg">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/06/05/VFIO-%E2%80%94%E2%80%94%E5%B0%86-DMA-%E6%98%A0%E5%B0%84%E6%9A%B4%E9%9C%B2%E7%BB%99%E7%94%A8%E6%88%B7%E6%80%81/p3.jpg">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/06/05/VFIO-%E2%80%94%E2%80%94%E5%B0%86-DMA-%E6%98%A0%E5%B0%84%E6%9A%B4%E9%9C%B2%E7%BB%99%E7%94%A8%E6%88%B7%E6%80%81/p4.jpg">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/06/05/VFIO-%E2%80%94%E2%80%94%E5%B0%86-DMA-%E6%98%A0%E5%B0%84%E6%9A%B4%E9%9C%B2%E7%BB%99%E7%94%A8%E6%88%B7%E6%80%81/p5.jpg">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/06/05/VFIO-%E2%80%94%E2%80%94%E5%B0%86-DMA-%E6%98%A0%E5%B0%84%E6%9A%B4%E9%9C%B2%E7%BB%99%E7%94%A8%E6%88%B7%E6%80%81/p6.jpg">
+<meta property="article:published_time" content="2017-06-04T17:16:11.000Z">
+<meta property="article:modified_time" content="2025-03-28T10:39:05.251Z">
+<meta property="article:author" content="ggaaooppeenngg">
+<meta property="article:tag" content="kernel">
+<meta property="article:tag" content="内核，VFIO">
+<meta property="article:tag" content="iommu">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/06/05/VFIO-%E2%80%94%E2%80%94%E5%B0%86-DMA-%E6%98%A0%E5%B0%84%E6%9A%B4%E9%9C%B2%E7%BB%99%E7%94%A8%E6%88%B7%E6%80%81/p1.jpg">
+
+
+<link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2017/06/05/VFIO-%E2%80%94%E2%80%94%E5%B0%86-DMA-%E6%98%A0%E5%B0%84%E6%9A%B4%E9%9C%B2%E7%BB%99%E7%94%A8%E6%88%B7%E6%80%81/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://ggaaooppeenngg.github.io/zh-CN/2017/06/05/VFIO-%E2%80%94%E2%80%94%E5%B0%86-DMA-%E6%98%A0%E5%B0%84%E6%9A%B4%E9%9C%B2%E7%BB%99%E7%94%A8%E6%88%B7%E6%80%81/","path":"zh-CN/2017/06/05/VFIO-——将-DMA-映射暴露给用户态/","title":"VFIO ——将 DMA 映射暴露给用户态"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>VFIO ——将 DMA 映射暴露给用户态 | ggaaooppeenngg</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-62096626-1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"UA-62096626-1","only_pageview":false,"measure_protocol_api_secret":null}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+  <script src="/js/third-party/analytics/baidu-analytics.js"></script>
+  <script async src="https://hm.baidu.com/hm.js?bb16c5b1fd3302c18e0015bef11eea42"></script>
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">ggaaooppeenngg</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">为什么计算机科学是无限的但生命是有限的</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">134</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">14</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">78</span></a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#VFIO%E2%80%94%E2%80%94%E5%B0%86%E8%AE%BE%E5%A4%87%E6%9A%B4%E9%9C%B2%E5%88%B0%E7%94%A8%E6%88%B7%E6%80%81"><span class="nav-number">1.</span> <span class="nav-text">VFIO——将设备暴露到用户态</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">78</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">14</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">134</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/ggaaooppeenngg" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;ggaaooppeenngg" rel="noopener me" target="_blank"><i class="github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:peng.gao.dut@gmail.com" title="E-Mail → mailto:peng.gao.dut@gmail.com" rel="noopener me" target="_blank"><i class="envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+        <div class="back-to-top animated" role="button" aria-label="返回顶部">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2017/06/05/VFIO-%E2%80%94%E2%80%94%E5%B0%86-DMA-%E6%98%A0%E5%B0%84%E6%9A%B4%E9%9C%B2%E7%BB%99%E7%94%A8%E6%88%B7%E6%80%81/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="VFIO ——将 DMA 映射暴露给用户态 | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          VFIO ——将 DMA 映射暴露给用户态
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2017-06-05 01:16:11" itemprop="dateCreated datePublished" datetime="2017-06-05T01:16:11+08:00">2017-06-05</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2025-03-28 18:39:05" itemprop="dateModified" datetime="2025-03-28T18:39:05+08:00">2025-03-28</time>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2017/06/05/VFIO-%E2%80%94%E2%80%94%E5%B0%86-DMA-%E6%98%A0%E5%B0%84%E6%9A%B4%E9%9C%B2%E7%BB%99%E7%94%A8%E6%88%B7%E6%80%81/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2017/06/05/VFIO-——将-DMA-映射暴露给用户态/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="VFIO——将设备暴露到用户态"><a href="#VFIO——将设备暴露到用户态" class="headerlink" title="VFIO——将设备暴露到用户态"></a>VFIO——将设备暴露到用户态</h1><p>在开始之前我们先要说一个东西就是 DMA，直接让设备访问内存，可以不通过 CPU 搬运数据。</p>
+<img data-src="/zh-CN/2017/06/05/VFIO-%E2%80%94%E2%80%94%E5%B0%86-DMA-%E6%98%A0%E5%B0%84%E6%9A%B4%E9%9C%B2%E7%BB%99%E7%94%A8%E6%88%B7%E6%80%81/p1.jpg" class="">
+
+<p>这是一个比较简单的体系结构图，设备 和 CPU 通过存储控制器访问存储器。一个简单的 case 是 CPU 向存储器写数据，然后设备从存储器读数据。这么快来一切都很正常。但是实际上 CPU 是有一层缓存的，例如下面这样的。</p>
+<img data-src="/zh-CN/2017/06/05/VFIO-%E2%80%94%E2%80%94%E5%B0%86-DMA-%E6%98%A0%E5%B0%84%E6%9A%B4%E9%9C%B2%E7%BB%99%E7%94%A8%E6%88%B7%E6%80%81/p2.jpg" class="">
+
+<p>CPU 想内存写数据，但是先要清空到不一致的缓存，然后设备再去读数据，不然设备读到的数据和 CPU 实际的数据会不一致（因为缓存里的数据可能和存储器的不一致），而且实际上缓存也不只是一层，所以需要一个中间层来保证 从 CPU 的角度和从设备的角度内存都是一致的，所以就有了下面这个结构。</p>
+<img data-src="/zh-CN/2017/06/05/VFIO-%E2%80%94%E2%80%94%E5%B0%86-DMA-%E6%98%A0%E5%B0%84%E6%9A%B4%E9%9C%B2%E7%BB%99%E7%94%A8%E6%88%B7%E6%80%81/p3.jpg" class="">
+
+<p>CPU 和 设备都会走缓存验证一遍以后，再落到存储器上，这样带上缓存以后大家的一致性都是一样的了。所以从设备的角度，设备也拥有了缓存，实际上这个和 IOMMU 关系不是很大，接下来设备其实也可以和 CPU 一样有一层 MMU，也就是地址到存储器物理地址的转换。注意，这里我用了地址，因为对 CPU 来说是虚拟地址，但是对设备来说是一个总线域的地址。<strong>这里要明确区分一下，一个是总线地址，是从设备的角度来看的，一个是 CPU 的虚拟地址，这是从 CPU 角度来看的，两个是不同的东西。将总线域地址转换成存储器物理地址的设备就叫 IOMMU。</strong></p>
+<img data-src="/zh-CN/2017/06/05/VFIO-%E2%80%94%E2%80%94%E5%B0%86-DMA-%E6%98%A0%E5%B0%84%E6%9A%B4%E9%9C%B2%E7%BB%99%E7%94%A8%E6%88%B7%E6%80%81/p4.jpg" class="">
+
+
+<p>如果没有 IOMMU，DMA 也能照常工作，IOMMU 的主要作用就是保护功能，防止使用 DMA 的设备访问任意存储器的物理地址。</p>
+<p>IOMMU 在不同架构上名字不太一样，AMD 叫 AMD-Vi，最开始针对的设备只是显卡，Intel 叫 VT-d，arm 叫 SMMU，具体对应的手册也不太一样，但是主要解决的问题是一致的。在 VTd 中，dmar (DMA remapping) 就是那个 IOMMU 设备，通过中断的方式实现类似 page fault 一样的内存分配行为。DMA 传输是由 CPU 发起的：CPU 会告诉 DMA 控制器，帮忙将 xxx 地方的数据搬到 xxx 地方。CPU 发完指令之后，就当甩手掌柜了。IOMMU 有点像 MMU 是一个将设备地址翻译到内存地址的页表体系，也会有对应的页表，这个东西在虚拟化中也非常有用，可以将原本有软件模拟的设备，用直接的硬件替代，而原本的隔离通过 IOMMU 来完成。如下图所示，原本需要通过软件模拟的驱动设备可以通过 IOMMU 以__安全__的方式来直接把硬件设备分配个用户态的 Guest OS。</p>
+<img data-src="/zh-CN/2017/06/05/VFIO-%E2%80%94%E2%80%94%E5%B0%86-DMA-%E6%98%A0%E5%B0%84%E6%9A%B4%E9%9C%B2%E7%BB%99%E7%94%A8%E6%88%B7%E6%80%81/p5.jpg" class="">
+
+<p>理论上讲没有 IOMMU 实际上是可以工作的，但是硬件的角度，设备就拥有了整个存储器的全局视图，这是无论如何都非常不合理的事情，不应该让设备拥有访问任意物理内存的能力。</p>
+<p>这里要提的另外一个功能就是对中断的隔离，类似于下面的通过在中断请求中添加标识来重定向中断到对应的中断回调上。</p>
+<img data-src="/zh-CN/2017/06/05/VFIO-%E2%80%94%E2%80%94%E5%B0%86-DMA-%E6%98%A0%E5%B0%84%E6%9A%B4%E9%9C%B2%E7%BB%99%E7%94%A8%E6%88%B7%E6%80%81/p6.jpg" class="">
+
+<p>VFIO 的作用就是通过 IOMMU 以安全的方式来将设备的访问直接暴露到用户空间，而不用专门完成某个驱动等待合并到上游或者使用之前的对 IOMMU 没有感知的 UIO 的框架。通过 VFIO 向用户态开放 IOMMU 的功能，编写用户态的驱动。</p>
+<p>对于 IOMMU 来说，隔离的级别不一定是单个设备，比如一个后面有几个设备的 PCI 桥，从 PCI 桥角度来说，都是来自 PCI 桥的总线事务。所以 IOMMU 有一个 <code>iommu_group</code>的概念，代表一组与其他设备隔离的设备的集合。</p>
+<p>IOMMU 根据手册上讲还有一个域的概念，可以简单理解为一段物理地址的抽象。</p>
+<p>在 <code>iommu_group </code>的层级上，VFIO 封装了一层 <code>container class</code>，这个的作用对应于希望能够在不同的<code>iommu_group</code> 之间共享 <code>TLB</code> 和 <code>page tables</code>，这个就是一个集合的概念，跟容器的那个概念没啥关系，一个集合总归要有个名字。通过把 host 的 device 和 driver 解绑，然后绑定到 VFIO 的 driver 上，就会有个<code>/dev/vfio/$GROUP/</code> 出现，然后这个 <code>$GROUP</code>代表的就是这个 device 的 <code>iommu_group</code>号，如果要使用 VFIO 就要把这个 group 下的所有 device 都解绑才可以。</p>
+<p>通过打开<code>/dev/vfio/vfio</code>就能创建一个 VFIO 的 container，然后再打开<code>/dev/vfio/$GROUP</code>用<code>VFIO_GROUP_SET_CONTAINER</code> ioctl 把文件描述传进去，就把 group 加进去了，如果支持多个 group 共享页表等结构，还可以把相应的 group 也加进去。（<strong>再强调一遍这个页表是总线地址到存储器物理地址，IOMMU 管理的那个页表</strong>）。</p>
+<p>下面举个官方的栗子，获取 PCI 设备 0000:06:0d.0 的 <code>group_id</code> （PCI 命名的规则是 <code>domain:bus:slot.func</code>）</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ readlink /sys/bus/pci/devices/0000:06:0d.0/iommu_group</span><br><span class="line">../../../../kernel/iommu_groups/26</span><br></pre></td></tr></table></figure>
+
+<p>使用之前需要你已经加载了 VFIO 模块</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">modprobe vfio-pci</span><br></pre></td></tr></table></figure>
+
+<p>解绑 PCI 设备，然后创建一个 container id</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">$ lspci -n -s 0000:06:0d.0</span><br><span class="line">06:0d.0 0401: 1102:0002 (rev 08)</span><br><span class="line"># echo 0000:06:0d.0 &gt; /sys/bus/pci/devices/0000:06:0d.0/driver/unbind</span><br><span class="line"># echo 1102 0002 &gt; /sys/bus/pci/drivers/vfio-pci/new_id</span><br></pre></td></tr></table></figure>
+
+<p>然后寻找其他同属于一个 group 的设备</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">$ ls -l /sys/bus/pci/devices/0000:06:0d.0/iommu_group/devices</span><br><span class="line">total 0</span><br><span class="line">lrwxrwxrwx. 1 root root 0 Apr 23 16:13 0000:00:1e.0 -&gt;</span><br><span class="line">	../../../../devices/pci0000:00/0000:00:1e.0</span><br><span class="line">lrwxrwxrwx. 1 root root 0 Apr 23 16:13 0000:06:0d.0 -&gt;</span><br><span class="line">	../../../../devices/pci0000:00/0000:00:1e.0/0000:06:0d.0</span><br><span class="line">lrwxrwxrwx. 1 root root 0 Apr 23 16:13 0000:06:0d.1 -&gt;</span><br><span class="line">	../../../../devices/pci0000:00/0000:00:1e.0/0000:06:0d.1</span><br></pre></td></tr></table></figure>
+
+<p>PCI 桥 <code>0000:00:1e.0</code> 后面挂了两个设备，一个是刚才加进去的 <code>0000:06:0d.0</code>，还有一个是 <code>0000:06:0d.1</code>，通过上面的步奏加进去就可以。</p>
+<p>最后一步是让用户有权限使用这个 group。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># chown user:user /dev/vfio/26</span><br></pre></td></tr></table></figure>
+
+<p>下面就是一个样例，从用户态使用 VFIO，整个的使用方式是通过 <code>ioctl</code>来获取中断相关信息，以及注册中断处理函数，然后也是通过 <code>ioctl</code>来获取<code>region</code>信息，然后调用相应的<code>mmap</code>函数，让 CPU 可以访问内存。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br></pre></td><td class="code"><pre><span class="line">int container, group, device, i;</span><br><span class="line">struct vfio_group_status group_status =</span><br><span class="line">				&#123; .argsz = sizeof(group_status) &#125;;</span><br><span class="line">struct vfio_iommu_type1_info iommu_info = &#123; .argsz = sizeof(iommu_info) &#125;;</span><br><span class="line">struct vfio_iommu_type1_dma_map dma_map = &#123; .argsz = sizeof(dma_map) &#125;;</span><br><span class="line">struct vfio_device_info device_info = &#123; .argsz = sizeof(device_info) &#125;;</span><br><span class="line"></span><br><span class="line">/* Create a new container */</span><br><span class="line">container = open(&quot;/dev/vfio/vfio&quot;, O_RDWR);</span><br><span class="line"></span><br><span class="line">if (ioctl(container, VFIO_GET_API_VERSION) != VFIO_API_VERSION)</span><br><span class="line">	/* Unknown API version */</span><br><span class="line"></span><br><span class="line">if (!ioctl(container, VFIO_CHECK_EXTENSION, VFIO_TYPE1_IOMMU))</span><br><span class="line">	/* Doesn&#x27;t support the IOMMU driver we want. */</span><br><span class="line"></span><br><span class="line">/* Open the group */</span><br><span class="line">group = open(&quot;/dev/vfio/26&quot;, O_RDWR);</span><br><span class="line"></span><br><span class="line">/* Test the group is viable and available */</span><br><span class="line">ioctl(group, VFIO_GROUP_GET_STATUS, &amp;group_status);</span><br><span class="line"></span><br><span class="line">if (!(group_status.flags &amp; VFIO_GROUP_FLAGS_VIABLE))</span><br><span class="line">	/* Group is not viable (ie, not all devices bound for vfio) */</span><br><span class="line"></span><br><span class="line">/* Add the group to the container */</span><br><span class="line">ioctl(group, VFIO_GROUP_SET_CONTAINER, &amp;container);</span><br><span class="line"></span><br><span class="line">/* Enable the IOMMU model we want */</span><br><span class="line">ioctl(container, VFIO_SET_IOMMU, VFIO_TYPE1_IOMMU);</span><br><span class="line"></span><br><span class="line">/* Get addition IOMMU info */</span><br><span class="line">ioctl(container, VFIO_IOMMU_GET_INFO, &amp;iommu_info);</span><br><span class="line"></span><br><span class="line">/* Allocate some space and setup a DMA mapping */</span><br><span class="line">dma_map.vaddr = mmap(0, 1024 * 1024, PROT_READ | PROT_WRITE,</span><br><span class="line">		     MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);</span><br><span class="line">dma_map.size = 1024 * 1024;</span><br><span class="line">dma_map.iova = 0; /* 1MB starting at 0x0 from device view */</span><br><span class="line">dma_map.flags = VFIO_DMA_MAP_FLAG_READ | VFIO_DMA_MAP_FLAG_WRITE;</span><br><span class="line"></span><br><span class="line">ioctl(container, VFIO_IOMMU_MAP_DMA, &amp;dma_map);</span><br><span class="line"></span><br><span class="line">/* Get a file descriptor for the device */</span><br><span class="line">device = ioctl(group, VFIO_GROUP_GET_DEVICE_FD, &quot;0000:06:0d.0&quot;);</span><br><span class="line"></span><br><span class="line">/* Test and setup the device */</span><br><span class="line">ioctl(device, VFIO_DEVICE_GET_INFO, &amp;device_info);</span><br><span class="line"></span><br><span class="line">for (i = 0; i &lt; device_info.num_regions; i++) &#123;</span><br><span class="line">	struct vfio_region_info reg = &#123; .argsz = sizeof(reg) &#125;;</span><br><span class="line"></span><br><span class="line">	reg.index = i;</span><br><span class="line"></span><br><span class="line">	ioctl(device, VFIO_DEVICE_GET_REGION_INFO, &amp;reg);</span><br><span class="line"></span><br><span class="line">	/* Setup mappings... read/write offsets, mmaps</span><br><span class="line">	 * For PCI devices, config space is a region */</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">for (i = 0; i &lt; device_info.num_irqs; i++) &#123;</span><br><span class="line">	struct vfio_irq_info irq = &#123; .argsz = sizeof(irq) &#125;;</span><br><span class="line"></span><br><span class="line">	irq.index = i;</span><br><span class="line"></span><br><span class="line">	ioctl(device, VFIO_DEVICE_GET_IRQ_INFO, &amp;irq);</span><br><span class="line"></span><br><span class="line">	/* Setup IRQs... eventfds, VFIO_DEVICE_SET_IRQS */</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">/* Gratuitous device reset and go... */</span><br><span class="line">ioctl(device, VFIO_DEVICE_RESET);</span><br></pre></td></tr></table></figure>
+
+<p>在<code>include/linux/vfio.h</code>里面有完整的 API，这里就简单略过。</p>
+<p>在理解了一些基本原理和使用方式之后再来看 VFIO 的代码应该叫就比较容易理解了。</p>
+<p>首先是作为 PCI 设备的 <code>probe</code>。主要是通过 <code>vfio_iommu_group_get </code>分配 <code>iommu_group</code>，然后调用<code>vfio_add_group_dev</code>初始化设备回调接口<code>vfio_pci_ops</code>，而<code>remove</code>就是反过来把对应的结构释放掉就可以。然后再看注册的回调函数结构体。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">static const struct vfio_device_ops vfio_pci_ops = &#123;</span><br><span class="line">	.name		= &quot;vfio-pci&quot;,</span><br><span class="line">	.open		= vfio_pci_open,</span><br><span class="line">	.release	= vfio_pci_release,</span><br><span class="line">	.ioctl		= vfio_pci_ioctl,</span><br><span class="line">	.read		= vfio_pci_read,</span><br><span class="line">	.write		= vfio_pci_write,</span><br><span class="line">	.mmap		= vfio_pci_mmap,</span><br><span class="line">	.request	= vfio_pci_request,</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>这里分析几个关键的函数，他们会通过<code>file_operations vfio_fops</code>被间接的调用。</p>
+<p>首先是 mmap，就是在调用<code>vfio_pci_mmap</code>的时候最终调用<code>remap_pfn_range(vma, vma-&gt;vm_start, vma-&gt;vm_pgoff, req_len, vma-&gt;vm_page_prot);</code> 来将物理内存映射到用户态空间，这就是上面的栗子中 mmap 系统调用的入口，而具体要映射的物理内存是通过一系列<code>pci_resource_xxx</code>宏从 PCI bar 空间读出来的配置。</p>
+<p>然后是 ioctl 接口，这个接口比较丰富，也简单的看一下。比如 <code>VFIO_DEVICE_SET_IRQS</code>会通过使用用户态传进来的结构体，调用<code>vfio_pci_set_irqs_ioctl</code>注册中断处理函数。而通过<code>vfio_ioctl_set_iommu</code>会设置 container 的 iommu_group 以及对应的 driver。<code>read/write</code>接口都是用于修改 PCI 配置信息的。</p>
+<p>简单的来说，VFIO 的主要工作是把设备通过 IOMMU 映射的 DMA 物理内存地址映射到用户态中，让用户态程序可以自行操纵设备的传输，并且可以保证一定程度的<strong>安全</strong>，另外可以自行注册中断处理函数，从而在用户态实现设备的驱动程序，通过这样的框架，可以在 DPDK 中充分发挥用户态协议栈的威力。</p>
+<p>参考文献</p>
+<ol>
+<li><a target="_blank" rel="noopener" href="http://lambda.hk/linux_kernel/2014/11/28/pci-arch/">PCI 基本概念</a></li>
+<li><a target="_blank" rel="noopener" href="http://linuxperf.com/?p=67">dmar 和 iommu</a></li>
+<li><a target="_blank" rel="noopener" href="http://mcit.xjtu.edu.cn/wlkj/wykj/ch2/ch2_3_1.htm#2.3.1_%E6%80%BB%E7%BA%BF%E7%9A%84%E5%9F%BA%E6%9C%AC%E6%A6%82%E5%BF%B5">总线基本概念</a></li>
+<li>《PCI Express 体系结构导读》王齐著</li>
+<li><a target="_blank" rel="noopener" href="https://www.youtube.com/watch?v=n07zPcbdX_w&t=887s">mastering the dma and iommu apis</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.kernel.org/doc/Documentation/vfio.txt">VFIO - “Virtual Function I/O”</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.intel.com/content/www/us/en/embedded/technology/virtualization/vt-directed-io-spec.html">Intel® Virtualization Technology for Directed I/O: Spec</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.ibm.com/developerworks/cn/linux/l-pci/">Linux 下 PCI 设备驱动程序开发</a></li>
+</ol>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/kernel/" rel="tag"># kernel</a>
+              <a href="/tags/%E5%86%85%E6%A0%B8%EF%BC%8CVFIO/" rel="tag"># 内核，VFIO</a>
+              <a href="/tags/iommu/" rel="tag"># iommu</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/zh-CN/2017/05/19/cgroup-%E5%AD%90%E7%B3%BB%E7%BB%9F%E4%B9%8B-net-cls-%E5%92%8C-net-prio/" rel="prev" title="cgroup 子系统之 net_cls 和 net_prio">
+                  <i class="fa fa-angle-left"></i> cgroup 子系统之 net_cls 和 net_prio
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/zh-CN/2017/07/01/%E5%8D%8F%E8%AE%AE%E6%A0%88-IP-%E5%B1%82%E4%B8%BB%E4%BD%93%E6%B5%81%E7%A8%8B/" rel="next" title="协议栈 IP 层主体流程">
+                  协议栈 IP 层主体流程 <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 2014 – 
+    <span itemprop="copyrightYear">2025</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+  </div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/mist/" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.umd.js" integrity="sha256-a+H7FYzJv6oU2hfsfDGM2Ohw/cR9v+hPfxHCLdmCrE8=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lozad.js/1.16.0/lozad.min.js" integrity="sha256-mOFREFhqmHeQbXpK2lp4nA3qooVgACfh88fpJftLBbc=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/sidebar.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+  <script src="/js/third-party/fancybox.js"></script>
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"ggaaooppeenngg","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.3.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="_85tctgPWrqH2EPVuuD5IT6KE-tW8nH0hTISJDMnShg">
+  <meta name="baidu-site-verification" content="bb16c5b1fd3302c18e0015bef11eea42">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha256-dABdfBfUoC8vJUBOwGVdm8L9qlMWaHTIfXt+7GnZCIo=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.css" integrity="sha256-gkQVf8UKZgQ0HyuxL/VnacadJ+D2Kox2TCEBuNQg5+w=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="模型的保存分三种类型   知道模型结构，单纯保存变量  不知道模型结构，保存模型和变量  不需要再改变量，只要常量化的模型（“冻结”）  第一种用于训练的存档，并且临时恢复，这个时候用户是把训练需要的网络结构在代码里面构造好了的，只是在一定的时间下需要暂时保存网络中的变量，为了在崩溃之后继续训练。所以自然而然会有一个问题，如果我用 Python 写的代码，需要在 C++ 当中恢复，我需要知道你的模">
+<meta property="og:type" content="article">
+<meta property="og:title" content="tensorflow 模型的存档、保存、冻结、优化">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2019/03/03/tf-%E6%A8%A1%E5%9E%8B%E7%9A%84%E4%BF%9D%E5%AD%98%E5%92%8C%E5%86%BB%E7%BB%93/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="模型的保存分三种类型   知道模型结构，单纯保存变量  不知道模型结构，保存模型和变量  不需要再改变量，只要常量化的模型（“冻结”）  第一种用于训练的存档，并且临时恢复，这个时候用户是把训练需要的网络结构在代码里面构造好了的，只是在一定的时间下需要暂时保存网络中的变量，为了在崩溃之后继续训练。所以自然而然会有一个问题，如果我用 Python 写的代码，需要在 C++ 当中恢复，我需要知道你的模">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2019-03-02T18:29:46.000Z">
+<meta property="article:modified_time" content="2025-03-28T10:39:05.379Z">
+<meta property="article:author" content="ggaaooppeenngg">
+<meta property="article:tag" content="机器学习">
+<meta property="article:tag" content="tensorflow">
+<meta property="article:tag" content="神经网络">
+<meta property="article:tag" content="模型">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2019/03/03/tf-%E6%A8%A1%E5%9E%8B%E7%9A%84%E4%BF%9D%E5%AD%98%E5%92%8C%E5%86%BB%E7%BB%93/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://ggaaooppeenngg.github.io/zh-CN/2019/03/03/tf-%E6%A8%A1%E5%9E%8B%E7%9A%84%E4%BF%9D%E5%AD%98%E5%92%8C%E5%86%BB%E7%BB%93/","path":"zh-CN/2019/03/03/tf-模型的保存和冻结/","title":"tensorflow 模型的存档、保存、冻结、优化"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>tensorflow 模型的存档、保存、冻结、优化 | ggaaooppeenngg</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-62096626-1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"UA-62096626-1","only_pageview":false,"measure_protocol_api_secret":null}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+  <script src="/js/third-party/analytics/baidu-analytics.js"></script>
+  <script async src="https://hm.baidu.com/hm.js?bb16c5b1fd3302c18e0015bef11eea42"></script>
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">ggaaooppeenngg</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">为什么计算机科学是无限的但生命是有限的</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">134</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">14</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">78</span></a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AD%98%E6%A1%A3"><span class="nav-number">1.</span> <span class="nav-text">存档</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BF%9D%E5%AD%98"><span class="nav-number">2.</span> <span class="nav-text">保存</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%86%BB%E7%BB%93"><span class="nav-number">3.</span> <span class="nav-text">冻结</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BC%98%E5%8C%96"><span class="nav-number">4.</span> <span class="nav-text">优化</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8F%82%E8%80%83"><span class="nav-number">5.</span> <span class="nav-text">参考</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">78</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">14</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">134</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/ggaaooppeenngg" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;ggaaooppeenngg" rel="noopener me" target="_blank"><i class="github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:peng.gao.dut@gmail.com" title="E-Mail → mailto:peng.gao.dut@gmail.com" rel="noopener me" target="_blank"><i class="envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+        <div class="back-to-top animated" role="button" aria-label="返回顶部">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2019/03/03/tf-%E6%A8%A1%E5%9E%8B%E7%9A%84%E4%BF%9D%E5%AD%98%E5%92%8C%E5%86%BB%E7%BB%93/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="tensorflow 模型的存档、保存、冻结、优化 | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          tensorflow 模型的存档、保存、冻结、优化
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2019-03-03 02:29:46" itemprop="dateCreated datePublished" datetime="2019-03-03T02:29:46+08:00">2019-03-03</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2025-03-28 18:39:05" itemprop="dateModified" datetime="2025-03-28T18:39:05+08:00">2025-03-28</time>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2019/03/03/tf-%E6%A8%A1%E5%9E%8B%E7%9A%84%E4%BF%9D%E5%AD%98%E5%92%8C%E5%86%BB%E7%BB%93/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2019/03/03/tf-模型的保存和冻结/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>模型的保存分三种类型</p>
+<ol>
+<li> 知道模型结构，单纯保存变量</li>
+<li> 不知道模型结构，保存模型和变量</li>
+<li> 不需要再改变量，只要常量化的模型（“冻结”）</li>
+</ol>
+<p>第一种用于训练的存档，并且临时恢复，这个时候用户是把训练需要的网络结构在代码里面构造好了的，只是在一定的时间下需要暂时保存网络中的变量，为了在崩溃之后继续训练。所以自然而然会有一个问题，如果我用 Python 写的代码，需要在 C++ 当中恢复，我需要知道你的模型结构，才能恢复，这个最蠢的办法是用 C++ 把你的网络结构再构造一遍，但我们按照统一的协议（比如 Protobuf）确定网络结构，就可以直接从标准序列化的数据中解析网络结构，这就是第二种情况，独立于语言，模型和变量一起保存的情况。然后如果碰到我们不需要再训练了，比如只是把这个模型进行部署，不需要改变相关的变量，那么其实只要一个带常量的模型就可以，这就是第三种情况，把变量冻结的正向传播模型。接下来会依次解释这几种情况的工作方式。</p>
+<p>除了这些以外，针对用于服务的模型还可以做很多的优化。</p>
+<h2 id="存档"><a href="#存档" class="headerlink" title="存档"></a>存档</h2><p>存档只是单纯的保存变量，并且能够恢复，可以在一定的迭代次数以后保存变量，并且从任意一个存档开始重新训练。以两个变量加减 1 为例。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">import tensorflow as tf</span><br><span class="line"></span><br><span class="line"># Create some variables.</span><br><span class="line">v1 = tf.get_variable(&quot;v1&quot;, shape=[3], initializer = tf.zeros_initializer)</span><br><span class="line">v2 = tf.get_variable(&quot;v2&quot;, shape=[5], initializer = tf.zeros_initializer)</span><br><span class="line"></span><br><span class="line">inc_v1 = v1.assign(v1+1)</span><br><span class="line">dec_v2 = v2.assign(v2-1)</span><br><span class="line"></span><br><span class="line"># Add an op to initialize the variables.</span><br><span class="line">init_op = tf.global_variables_initializer()</span><br><span class="line"></span><br><span class="line"># Add ops to save and restore all the variables.</span><br><span class="line">saver = tf.train.Saver()</span><br><span class="line"></span><br><span class="line"># Later, launch the model, initialize the variables, do some work, and save the</span><br><span class="line"># variables to disk.</span><br><span class="line">with tf.Session() as sess:</span><br><span class="line">  sess.run(init_op)</span><br><span class="line">  # Do some work with the model.</span><br><span class="line">  inc_v1.op.run()</span><br><span class="line">  dec_v2.op.run()</span><br><span class="line">  # Save the variables to disk.</span><br><span class="line">  save_path = saver.save(sess, &quot;/tmp/tf-test/model.ckpt&quot;)</span><br><span class="line">  print(&quot;Model saved in path: %s&quot; % save_path)</span><br></pre></td></tr></table></figure>
+
+<p>可以在 <code>/tmp/tf-test</code> 下面看到这几个文件 <code>checkpoint                     model.ckpt.data-00000-of-00001 model.ckpt.index               model.ckpt.meta</code>。</p>
+<p>可以通过脚本观察保存的变量 <code>python  $tensorflow-src/tensorflow/python/tools/inspect_checkpoint.py --file_name=/tmp/tf-test/model.ckpt  --all_tensors</code></p>
+<p>得到保存的变量的内容，注意 <code>model.ckpt</code> 这个只是文件前缀。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">tensor_name:  v1</span><br><span class="line">[1. 1. 1.]</span><br><span class="line">tensor_name:  v2</span><br><span class="line">[-1. -1. -1. -1. -1.]</span><br></pre></td></tr></table></figure>
+<p>如果要恢复的话，可以通过下面的代码。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">import tensorflow as tf</span><br><span class="line"></span><br><span class="line"># Create some variables.</span><br><span class="line">v1 = tf.get_variable(&quot;v1&quot;, shape=[3])</span><br><span class="line">v2 = tf.get_variable(&quot;v2&quot;, shape=[5])</span><br><span class="line"></span><br><span class="line"># Add ops to save and restore all the variables.</span><br><span class="line">saver = tf.train.Saver()</span><br><span class="line"></span><br><span class="line"># Later, launch the model, use the saver to restore variables from disk, and</span><br><span class="line"># do some work with the model.</span><br><span class="line">with tf.Session() as sess:</span><br><span class="line">  # Restore variables from disk.</span><br><span class="line">  saver.restore(sess, &quot;/tmp/tf-test/model.ckpt&quot;)</span><br><span class="line">  print(&quot;Model restored.&quot;)</span><br><span class="line">  # Check the values of the variables</span><br><span class="line">  print(&quot;v1 : %s&quot; % v1.eval())</span><br><span class="line">  print(&quot;v2 : %s&quot; % v2.eval())</span><br></pre></td></tr></table></figure>
+<p>得到一样的效果</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">v1 : [1. 1. 1.]</span><br><span class="line">v2 : [-1. -1. -1. -1. -1.]</span><br></pre></td></tr></table></figure>
+<p>具体来说 .meta 对应的是 MetaGraph 和 SaverGraph，.index 对应的是变量值的位置，key 是变量名，value 是变量保存的入口定义，data 变量的值具体保存的文件。这是恢复代码中已经原样构造出了 Graph，如果没有构造的化，需要通过 <code>tf.train.import_meta_graph(&#39;/tmp/model.ckpt.meta&#39;)</code> 来加载，但是存档保存的信息比较单一，Tensorflow 提供了一个更丰富的 API 来使用。</p>
+<h2 id="保存"><a href="#保存" class="headerlink" title="保存"></a>保存</h2><p><code>SavedModelBuilder</code> 保存的 API 比较丰富，能够保存多个 MetaGraph 和 Variables 的组合，除此之外还能附带 assets，并且要指定模型签名，<code>simple_saved</code> 的方法是一个简单版本的调用，适用于 Predict API。这里要展开一下 GraphDef, MetaGraphDef, SignatureDef, tags 这些东西的概念。对于 MetaGraph，<a target="_blank" rel="noopener" href="https://blog.csdn.net/qq_38542085/article/details/78554550">这篇文章</a>解释得很清楚。SignatureDef 是对应了一种图的输入和输出，可以依据这个进行 serving API 的调用，类似于函数签名，相对于一个接口的定义。</p>
+<p>tensorflow_serving 自己给了个<a target="_blank" rel="noopener" href="https://github.com/tensorflow/serving/blob/master/tensorflow_serving/example/mnist_saved_model.py">例子</a>，执行 <code>python mnist_saved_model.py /tmp/tf-test-2</code> 以后可以获得一个目录，下面有版本 1 的模型数据，执行 <code>saved_model_cli show --dir  /tmp/tf-test-2/1</code> 可以查看对应的签名。可以看到对应的层级关系，默认用于服务的模型会打上 serve 的标签，函数签名有两个，分别对应了 predict 和 classify 的方法。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line">MetaGraphDef with tag-set: &#x27;serve&#x27; contains the following SignatureDefs:</span><br><span class="line"></span><br><span class="line">signature_def[&#x27;predict_images&#x27;]:</span><br><span class="line">  The given SavedModel SignatureDef contains the following input(s):</span><br><span class="line">    inputs[&#x27;images&#x27;] tensor_info:</span><br><span class="line">        dtype: DT_FLOAT</span><br><span class="line">        shape: (-1, 784)</span><br><span class="line">        name: x:0</span><br><span class="line">  The given SavedModel SignatureDef contains the following output(s):</span><br><span class="line">    outputs[&#x27;scores&#x27;] tensor_info:</span><br><span class="line">        dtype: DT_FLOAT</span><br><span class="line">        shape: (-1, 10)</span><br><span class="line">        name: y:0</span><br><span class="line">  Method name is: tensorflow/serving/predict</span><br><span class="line"></span><br><span class="line">signature_def[&#x27;serving_default&#x27;]:</span><br><span class="line">  The given SavedModel SignatureDef contains the following input(s):</span><br><span class="line">    inputs[&#x27;inputs&#x27;] tensor_info:</span><br><span class="line">        dtype: DT_STRING</span><br><span class="line">        shape: unknown_rank</span><br><span class="line">        name: tf_example:0</span><br><span class="line">  The given SavedModel SignatureDef contains the following output(s):</span><br><span class="line">    outputs[&#x27;classes&#x27;] tensor_info:</span><br><span class="line">        dtype: DT_STRING</span><br><span class="line">        shape: (-1, 10)</span><br><span class="line">        name: index_to_string_Lookup:0</span><br><span class="line">    outputs[&#x27;scores&#x27;] tensor_info:</span><br><span class="line">        dtype: DT_FLOAT</span><br><span class="line">        shape: (-1, 10)</span><br><span class="line">        name: TopKV2:0</span><br><span class="line">  Method name is: tensorflow/serving/classify</span><br></pre></td></tr></table></figure>
+<p>可以参考 tensorflow 的 <a target="_blank" rel="noopener" href="https://www.tensorflow.org/tfx/serving/api_rest">REST API</a>，比如 <code>GET http://host:port/v1/models/$&#123;MODEL_NAME&#125;[/versions/$&#123;MODEL_VERSION&#125;]</code> 其实对应这个例子就是 <code>GET http://host:port/v1/models/tf-test-2/versions/1</code>，然后感觉函数签名不同的 method name，可以调用不同的 request，比如 <code>POST http://host:port/v1/models/$&#123;MODEL_NAME&#125;[/versions/$&#123;MODEL_VERSION&#125;]:predict</code> 这个格式，如果输入和输出对应的是 <code>images</code> 和 <code>scores</code> 那么就对应了第一个签名。</p>
+<h2 id="冻结"><a href="#冻结" class="headerlink" title="冻结"></a>冻结</h2><p>冻结的情况就是变量不再需要修改，直接把变量转化成常量保存成单一的模型，方便在部署的场景下使用。<br>冻结模型的代码在<a target="_blank" rel="noopener" href="https://github.com/tensorflow/tensorflow/blob/master/tensorflow/python/tools/freeze_graph.py">这里</a>，他的主要流程如下</p>
+<ol>
+<li>清除所有 Op 中的 device，让原来在指定 CPU/GPU/节点 上的 Op 不再绑定。</li>
+<li>通过 <code>graph_util.convert_variables_to_constants</code> 将所有的 Variable <code>eval</code> 一次，把变量的 Op 的结果拿到，替换成 constant</li>
+</ol>
+<h2 id="优化"><a href="#优化" class="headerlink" title="优化"></a>优化</h2><p>除了冻结模型以外，还可以删减一些多余的节点，比如 Summary 节点或者 Identity 节点，甚者把 16bit 的浮点数权重修改为 8bit 的浮点数权重（这个在 Tensorflow Lite 里很有用）。<a target="_blank" rel="noopener" href="https://medium.com/google-cloud/optimizing-tensorflow-models-for-serving-959080e9ddbf">这篇文章</a> 列出了详细的优化方式，主要是靠 <code>transform_graph</code> 这个工具，地址在<a target="_blank" rel="noopener" href="https://github.com/tensorflow/tensorflow/blob/master/tensorflow/tools/graph_transforms/README.md">这</a>，他有很详细的柴剪列表，并且可以自己编写裁剪函数，充分做到模型在部署环节的“纯净化”，调用方式也很简单。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">transform_graph \</span><br><span class="line">--in_graph=tensorflow_inception_graph.pb \</span><br><span class="line">--out_graph=optimized_inception_graph.pb \</span><br><span class="line">--inputs=&#x27;Mul:0&#x27; \</span><br><span class="line">--outputs=&#x27;softmax:0&#x27; \</span><br><span class="line">--transforms=&#x27;</span><br><span class="line">strip_unused_nodes(type=float, shape=&quot;1,299,299,3&quot;)</span><br><span class="line">remove_nodes(op=Identity, op=CheckNumerics)</span><br><span class="line">fold_old_batch_norms</span><br><span class="line">&#x27;</span><br></pre></td></tr></table></figure>
+<p>在<code>transforms</code>里面加入你想进行优化的 transformer 和对应的参数即可，在科赛上也有在线可以跑的<a target="_blank" rel="noopener" href="https://www.kesci.com/home/project/5c8219e31e7104002b3747d6">notebook</a></p>
+<h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2><ol>
+<li><a target="_blank" rel="noopener" href="https://cloud.google.com/ml-engine/docs/tensorflow/deploying-models#build_an_optimal_prediction_graph">Cloud ML Engine</a></li>
+</ol>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0/" rel="tag"># 机器学习</a>
+              <a href="/tags/tensorflow/" rel="tag"># tensorflow</a>
+              <a href="/tags/%E7%A5%9E%E7%BB%8F%E7%BD%91%E7%BB%9C/" rel="tag"># 神经网络</a>
+              <a href="/tags/%E6%A8%A1%E5%9E%8B/" rel="tag"># 模型</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/zh-CN/2018/12/11/etcd-raft-code-walkthrough/" rel="prev" title="etcd/raft code walkthrough">
+                  <i class="fa fa-angle-left"></i> etcd/raft code walkthrough
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/zh-CN/2019/07/21/N-Body-%E9%97%AE%E9%A2%98%E4%B9%8B-CUDA-%E8%AE%A1%E7%AE%97/" rel="next" title="N Body 问题之 CUDA 计算">
+                  N Body 问题之 CUDA 计算 <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 2014 – 
+    <span itemprop="copyrightYear">2025</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+  </div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/mist/" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.umd.js" integrity="sha256-a+H7FYzJv6oU2hfsfDGM2Ohw/cR9v+hPfxHCLdmCrE8=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lozad.js/1.16.0/lozad.min.js" integrity="sha256-mOFREFhqmHeQbXpK2lp4nA3qooVgACfh88fpJftLBbc=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/sidebar.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+  <script src="/js/third-party/fancybox.js"></script>
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"ggaaooppeenngg","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

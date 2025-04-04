@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.3.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="_85tctgPWrqH2EPVuuD5IT6KE-tW8nH0hTISJDMnShg">
+  <meta name="baidu-site-verification" content="bb16c5b1fd3302c18e0015bef11eea42">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha256-dABdfBfUoC8vJUBOwGVdm8L9qlMWaHTIfXt+7GnZCIo=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.css" integrity="sha256-gkQVf8UKZgQ0HyuxL/VnacadJ+D2Kox2TCEBuNQg5+w=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="vLLM 基于 uvicorn + FastAPI 的异步 Web 框架构成。vLLM 的主体是 LLMEngine，它是一个单例类，负责管理所有的模型和数据。在异步 API 中使用的是一个 AsyncEngine。在分析 AsyncEngine 之前，我们先将 Web 部分单独拆出来看一下。 vLLM 的 CLI 入口是 vllm&#x2F;scripts.py，其中 serve 的启动是通过 uvloo">
+<meta property="og:type" content="article">
+<meta property="og:title" content="vLLM 分析 1 提示词的前置处理和流式响应">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2024/12/02/vLLM-%E5%88%86%E6%9E%901-1/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="vLLM 基于 uvicorn + FastAPI 的异步 Web 框架构成。vLLM 的主体是 LLMEngine，它是一个单例类，负责管理所有的模型和数据。在异步 API 中使用的是一个 AsyncEngine。在分析 AsyncEngine 之前，我们先将 Web 部分单独拆出来看一下。 vLLM 的 CLI 入口是 vllm&#x2F;scripts.py，其中 serve 的启动是通过 uvloo">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2024-12-02T07:03:50.000Z">
+<meta property="article:modified_time" content="2025-03-28T10:39:05.408Z">
+<meta property="article:author" content="ggaaooppeenngg">
+<meta property="article:tag" content="Python">
+<meta property="article:tag" content="vLLM">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2024/12/02/vLLM-%E5%88%86%E6%9E%901-1/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://ggaaooppeenngg.github.io/zh-CN/2024/12/02/vLLM-%E5%88%86%E6%9E%901-1/","path":"zh-CN/2024/12/02/vLLM-分析1-1/","title":"vLLM 分析 1 提示词的前置处理和流式响应"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>vLLM 分析 1 提示词的前置处理和流式响应 | ggaaooppeenngg</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-62096626-1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"UA-62096626-1","only_pageview":false,"measure_protocol_api_secret":null}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+  <script src="/js/third-party/analytics/baidu-analytics.js"></script>
+  <script async src="https://hm.baidu.com/hm.js?bb16c5b1fd3302c18e0015bef11eea42"></script>
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">ggaaooppeenngg</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">为什么计算机科学是无限的但生命是有限的</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">134</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">14</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">78</span></a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#OpenAIServingChat-create-chat-completion-%E4%B8%BB%E4%BD%93%E6%B5%81%E7%A8%8B"><span class="nav-number">1.</span> <span class="nav-text">OpenAIServingChat.create_chat_completion 主体流程</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">2.</span> <span class="nav-text">总结</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">78</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">14</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">134</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/ggaaooppeenngg" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;ggaaooppeenngg" rel="noopener me" target="_blank"><i class="github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:peng.gao.dut@gmail.com" title="E-Mail → mailto:peng.gao.dut@gmail.com" rel="noopener me" target="_blank"><i class="envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+        <div class="back-to-top animated" role="button" aria-label="返回顶部">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2024/12/02/vLLM-%E5%88%86%E6%9E%901-1/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="vLLM 分析 1 提示词的前置处理和流式响应 | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          vLLM 分析 1 提示词的前置处理和流式响应
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2024-12-02 15:03:50" itemprop="dateCreated datePublished" datetime="2024-12-02T15:03:50+08:00">2024-12-02</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2025-03-28 18:39:05" itemprop="dateModified" datetime="2025-03-28T18:39:05+08:00">2025-03-28</time>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2024/12/02/vLLM-%E5%88%86%E6%9E%901-1/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2024/12/02/vLLM-分析1-1/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>vLLM 基于 uvicorn + FastAPI 的异步 Web 框架构成。vLLM 的主体是 LLMEngine，它是一个单例类，负责管理所有的模型和数据。在异步 API 中使用的是一个 AsyncEngine。在分析 AsyncEngine 之前，我们先将 Web 部分单独拆出来看一下。</p>
+<p>vLLM 的 CLI 入口是 <code>vllm/scripts.py</code>，其中 <code>serve</code> 的启动是通过 <code>uvloop.run</code> 的方式启动的。uvloop 是一个替代默认 asyncio 事件循环的库，它使用 libuv 作为事件循环的实现，从而提高性能。uvicorn 是一个基于 uvloop 的 ASGI 服务器，它可以将 ASGI 应用部署到 Web 服务器上。FastAPI 是一个基于 Starlette 的 Web 框架，它提供了许多便利的功能，比如自动文档生成、请求参数校验等。</p>
+<p>参数经过解析以后会进入 <code>run_server</code>，通过 <code>uvloop.run(run_server(args))</code>。<code>run_server</code> 在 <code>entrypoints/openai/api_server.py</code> 下面。<code>AsyncEngineArgs.from_cli_args(args)</code> 使用命令行参数初始化 <code>AsyncEngineArgs</code>，如果要自行封装的话可以直接初始化 <code>AsyncEngineArgs</code>。<code>AsyncEngineArgs</code> 继承自 <code>EngineArgs</code>，其中的参数都是用来控制推断命令的。</p>
+<p>比较常用的几个参数：</p>
+<ul>
+<li><p><strong>model</strong>: 模型的路径，可以是一个目录，也可以是 hf 上的一个 repo。</p>
+</li>
+<li><p><strong>model_name</strong>: 如果是目录的话，期望的模型名称，或者想要改个别名，对应的是 API 中指定模型的名称。</p>
+</li>
+<li><p><strong>tensor_parallel_size</strong>: tensor parallel 副本数，如果用多个 GPU 可以用到，会根据这个将 kv head 平分到不同的 GPU 上。</p>
+</li>
+<li><p><strong>pipeline_parallel_size</strong>: pipeline stages 数，如果用多个 GPU 可以用到，会根据这个将模型的前向计算的layers分成多个阶段，每个阶段在不同的 GPU 上计算。</p>
+<p>  可以参考下面这个例子：</p>
+<p>  假设我们有 8 个 GPU，分别表示为 g0 … g7，并且我们使用 2 个 GPU 来并行化模型张量，使用 4 个 GPU 来并行化模型流水线。当前函数将创建 4 个张量模型并行组和 2 个流水线模型并行组：</p>
+<p>  4 个张量模型并行组：</p>
+<ul>
+<li>[g0, g1]</li>
+<li>[g2, g3]</li>
+<li>[g4, g5]</li>
+<li>[g6, g7]</li>
+</ul>
+<p>  2 个流水线模型并行组：</p>
+<ul>
+<li>[g0, g2, g4, g6]</li>
+<li>[g1, g3, g5, g7]</li>
+</ul>
+<p>  注意，为了提高效率，调用者应确保相邻的 rank 位于同一个 DGX 盒子上。例如，如果我们使用 2 个 DGX-1 盒子，总共有 16 个 GPU，rank 0 到 7 属于第一个盒子，rank 8 到 15 属于第二个盒子。</p>
+</li>
+<li><p><strong>num_seqs</strong>: 最大的序列数，其实就是 batch size，会翻倍得增加显存使用，这个貌似在启动之前的 profile 阶段可能会导致大量显存的占用。</p>
+</li>
+<li><p><strong>quantization</strong>: 量化的方法，可以是 bitsandbytes 等，可能需要和 <code>load_format</code> 结合使用。</p>
+</li>
+<li><p><strong>load_format</strong>: 加载模型的格式，可以是 pt, safetensors, bitsandbytes 等等，如果用到量化的模型基本要改成 bitsandbytes。</p>
+</li>
+<li><p><strong>dtype</strong>: 数据类型，fp32, fp16，bf16 等等，如果模型是 bf16 的话，他默认是 bf16 的模型用 bf16，有些显卡不支持 bf 浮点数所以要设置成 half 也就是 fp16。</p>
+</li>
+<li><p><strong>host</strong>: 监听地址。</p>
+</li>
+<li><p><strong>port</strong>: 监听端口。</p>
+</li>
+<li><p><strong>max_model_len</strong>: 上下文长度，适合显存不足的显卡，把默认的上下文长度改下一点。</p>
+</li>
+<li><p><strong>enforce_eager</strong>: 是否强制使用 eager 模式，如果显存不够的需要开启这个模式，不完全加载计算图的方式可以减少显存的使用。</p>
+</li>
+</ul>
+<p><code>api_server</code> 中的 <code>build_app</code> 会使用 <code>APIRouter</code> 初始化路由，并通过 <code>app.include_router</code> 引入。</p>
+<p>主要看 <code>@router.post(&quot;/v1/chat/completions&quot;)</code> 注册的 <code>async def create_chat_completion</code> 是最常用的函数调用。</p>
+<p><code>init_app_state</code> 在 <code>app.state</code> 中保存了 <code>openai_serving_chat</code>，以及其他一些接口的状态，这取决于模型配置中是否包含这些功能。例如，文本嵌入等功能（通常都有）。当调用 <code>create_chat_completion</code> 时，会调用 <code>openai_serving_chat</code> 对应的 <code>OpenAIServingChat</code> 类的方法。因此，Serving 的主体可以通过查看这个对象的方法来理解其功能。</p>
+<p>构建 AsyncEngine -&gt; 构建 app 对象。</p>
+<h2 id="OpenAIServingChat-create-chat-completion-主体流程"><a href="#OpenAIServingChat-create-chat-completion-主体流程" class="headerlink" title="OpenAIServingChat.create_chat_completion 主体流程"></a><code>OpenAIServingChat.create_chat_completion</code> 主体流程</h2><ol>
+<li><p><strong>检查模型</strong>：</p>
+<ul>
+<li>是否支持 model，model 是否是 rola，model 是否是 prompt adapter 等。<blockquote>
+<p>vLLM 的 rola 不是和基座合并在一起的，是支持基座模型加多了个 lora 模型的形式。prompt adapter 看起是多模态架构中的 adaptor。</p>
+</blockquote>
+</li>
+</ul>
+</li>
+<li><p><strong>从 Engine 中获取 Tokenizer</strong>：</p>
+<ul>
+<li>主要是基于 model path 获取对应的 tokenizer 文件，并初始化对应的 tokenizer。</li>
+</ul>
+</li>
+<li><p><strong>_preprocess_call</strong>：对输入进行预处理 </p>
+<ul>
+<li><code>resolve_chat_template_content_format</code>：检查对话模板格式，因为每种大模型的用于生成文本的训练数据的格式有所不同，要确认对应的格式，LLAMA 有 LLAMA 的格式，可以参考下面的例子。</li>
+<li><code>parse_chat_messages_futures</code>：解析输入的聊天消息，生成一个对话消息列表，变成有类型的对话消息。其中 <code>mm_tracker</code> 要处理 <code>image_url</code> 和 <code>audio_url</code> 的消息，会根据构造 <code>placeholder</code>，<code>placeholder</code> 是一个特殊的字符串，用来标记这个位置是一个占位符。<code>llama3.2</code> 用的是 <code>&lt;|image|&gt;</code>。</li>
+<li><code>apply_&#123;hf,mistral&#125;_chat_template</code>：模板会给提示词添加提示词的开头和结束的标志，从而和实际训练的数据标注对齐，比如 <code>llama3</code> 用 <code>&lt;|eot_id|&gt;</code> 标记结束，<code>padding</code> 等。<code>request_prompt</code> 和 <code>engine_prompt</code> 包含 <code>token ids</code> 和多模态数据。<br>例如：</li>
+</ul>
+ <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">chat = [</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="string">&quot;role&quot;</span>: <span class="string">&quot;user&quot;</span>,</span><br><span class="line">        <span class="string">&quot;content&quot;</span>: [</span><br><span class="line">            &#123;<span class="string">&quot;type&quot;</span>: <span class="string">&quot;image&quot;</span>&#125;,</span><br><span class="line">            &#123;<span class="string">&quot;type&quot;</span>: <span class="string">&quot;text&quot;</span>, <span class="string">&quot;text&quot;</span>: <span class="string">&quot;If I had to write a haiku for this one, it would be: &quot;</span>&#125;</span><br><span class="line">        ]</span><br><span class="line">    &#125;</span><br><span class="line">]</span><br></pre></td></tr></table></figure>
+
+<p> 会变成 <code>&lt;|begin_of_text|&gt;&lt;|start_header_id|&gt;user&lt;|end_header_id|&gt;\n\n&lt;|image|&gt;If I had to write a haiku for this one, it would be: &lt;|eot_id|&gt;</code> 中，<code>&lt;|start_header_id|&gt;user&lt;|end_header_id|&gt;</code> 标识 <code>header</code>（也就是 <code>role</code>），<code>&lt;|begin_of_text|&gt;</code> 标识上下文的开头，<code>&lt;|eot_id|&gt;</code> 标识一个消息的结束。除此之外，对于function call的处理，可以参考 <code>examples/tool_chat_template_llama3.2_json.jinja</code> 的一部分可以看出，会把对应工具的调用和提示词加入到用户对话前面，作为 user 的 text 的前缀中的内容形成提示词的一部分上下文。</p>
+ <figure class="highlight jinja"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">&#123;#- Custom tools are passed in a user message with some extra guidance #&#125;</span><span class="language-xml"></span></span><br><span class="line"><span class="language-xml"></span><span class="template-tag">&#123;%- <span class="name"><span class="name">if</span></span> tools_in_user_message and not tools is none %&#125;</span><span class="language-xml"></span></span><br><span class="line"><span class="language-xml"></span><span class="comment">&#123;#- Extract the first user message so we can plug it in here #&#125;</span><span class="language-xml"></span></span><br><span class="line"><span class="language-xml"></span><span class="template-tag">&#123;%- <span class="name"><span class="name">if</span></span> messages | length != 0 %&#125;</span><span class="language-xml"></span></span><br><span class="line"><span class="language-xml">    </span><span class="template-tag">&#123;%- <span class="name"><span class="name">if</span></span> messages[0][&#x27;content&#x27;] is string %&#125;</span><span class="language-xml"></span></span><br><span class="line"><span class="language-xml">        </span><span class="template-tag">&#123;%- <span class="name">set</span> first_user_message = messages[0][&#x27;content&#x27;]|trim %&#125;</span><span class="language-xml"></span></span><br><span class="line"><span class="language-xml">    </span><span class="template-tag">&#123;%- <span class="name"><span class="name">else</span></span> %&#125;</span><span class="language-xml"></span></span><br><span class="line"><span class="language-xml">        </span><span class="template-tag">&#123;%- <span class="name">set</span> first_user_message = messages[0][&#x27;content&#x27;] | selectattr(&#x27;type&#x27;, &#x27;equalto&#x27;, &#x27;text&#x27;) | map(attribute=&#x27;text&#x27;) | map(&#x27;trim&#x27;) | join(&#x27;\n&#x27;) %&#125;</span><span class="language-xml"></span></span><br><span class="line"><span class="language-xml">    </span><span class="template-tag">&#123;%- <span class="name"><span class="name">endif</span></span> %&#125;</span><span class="language-xml"></span></span><br><span class="line"><span class="language-xml">    </span><span class="template-tag">&#123;%- <span class="name">set</span> messages = messages[1:] %&#125;</span><span class="language-xml"></span></span><br><span class="line"><span class="language-xml"></span><span class="template-tag">&#123;%- <span class="name"><span class="name">else</span></span> %&#125;</span><span class="language-xml"></span></span><br><span class="line"><span class="language-xml">    </span><span class="template-variable">&#123;&#123;- raise_exception(&quot;Cannot put tools in the first user message when there&#x27;s no first user message!&quot;) &#125;&#125;</span><span class="language-xml"></span></span><br><span class="line"><span class="language-xml"></span><span class="template-tag">&#123;%- <span class="name"><span class="name">endif</span></span> %&#125;</span><span class="language-xml"></span></span><br><span class="line"><span class="language-xml"></span><span class="template-variable">&#123;&#123;- &#x27;&lt;|start_header_id|&gt;user&lt;|end_header_id|&gt;\n\n&#x27; -&#125;&#125;</span><span class="language-xml"></span></span><br><span class="line"><span class="language-xml"></span><span class="template-variable">&#123;&#123;- &quot;Given the following functions, please respond with a JSON for a function call &quot; &#125;&#125;</span><span class="language-xml"></span></span><br><span class="line"><span class="language-xml"></span><span class="template-variable">&#123;&#123;- &quot;with its proper arguments that best answers the given prompt.\n\n&quot; &#125;&#125;</span><span class="language-xml"></span></span><br><span class="line"><span class="language-xml"></span><span class="template-variable">&#123;&#123;- &#x27;Respond in the format &#123;&quot;name&quot;: function name, &quot;parameters&quot;: dictionary of argument name and its value&#125;. &#x27; &#125;&#125;</span><span class="language-xml"></span></span><br><span class="line"><span class="language-xml"></span><span class="template-variable">&#123;&#123;- &quot;Do not use variables.\n\n&quot; &#125;&#125;</span><span class="language-xml"></span></span><br><span class="line"><span class="language-xml"></span><span class="template-tag">&#123;%- <span class="name"><span class="name">for</span></span> t <span class="keyword">in</span> tools %&#125;</span><span class="language-xml"></span></span><br><span class="line"><span class="language-xml">    </span><span class="template-variable">&#123;&#123;- t | tojson(indent=4) &#125;&#125;</span><span class="language-xml"></span></span><br><span class="line"><span class="language-xml">    </span><span class="template-variable">&#123;&#123;- &quot;\n\n&quot; &#125;&#125;</span><span class="language-xml"></span></span><br><span class="line"><span class="language-xml"></span><span class="template-tag">&#123;%- <span class="name"><span class="name">endfor</span></span> %&#125;</span><span class="language-xml"></span></span><br><span class="line"><span class="language-xml"></span><span class="template-variable">&#123;&#123;- first_user_message + &quot;&lt;|eot_id|&gt;&quot;&#125;&#125;</span><span class="language-xml"></span></span><br><span class="line"><span class="language-xml"></span><span class="template-tag">&#123;%- <span class="name"><span class="name">endif</span></span> %&#125;</span></span><br></pre></td></tr></table></figure>
+<ul>
+<li><p>请求处理：生成请求的 id <code>request_id = f&quot;chatcmpl-&#123;request.request_id&#125;&quot;</code>，确定采样方法 <code>beam_search</code> 还是 <code>sampling</code>，调用 AsyncEngine 的 <code>beam_search</code> 和 <code>generate</code> 方法获得一个 generator。</p>
+</li>
+<li><p><code>chat_completion_stream_generator</code> 是基于 generator 处理响应，这里主要看 streaming 的部分，同步的请求会直接返回结果。流式响应的格式是多个基于 json 格式的 chunk，类型是 <code>chat.completion.chunk</code>。</p>
+</li>
+</ul>
+ <figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="punctuation">&#123;</span><span class="attr">&quot;id&quot;</span><span class="punctuation">:</span> <span class="string">&quot;chatcmpl-1eadb733adf64f5b90114307b2d4d718&quot;</span><span class="punctuation">,</span> <span class="attr">&quot;choices&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span><span class="punctuation">&#123;</span><span class="attr">&quot;delta&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span><span class="attr">&quot;content&quot;</span><span class="punctuation">:</span> <span class="string">&quot;&quot;</span><span class="punctuation">,</span> <span class="attr">&quot;function_call&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">null</span></span><span class="punctuation">,</span> <span class="attr">&quot;refusal&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">null</span></span><span class="punctuation">,</span> <span class="attr">&quot;role&quot;</span><span class="punctuation">:</span> <span class="string">&quot;assistant&quot;</span><span class="punctuation">,</span> <span class="attr">&quot;tool_calls&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">null</span></span><span class="punctuation">&#125;</span><span class="punctuation">,</span> <span class="attr">&quot;finish_reason&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">null</span></span><span class="punctuation">,</span> <span class="attr">&quot;index&quot;</span><span class="punctuation">:</span> <span class="number">0</span><span class="punctuation">,</span> <span class="attr">&quot;logprobs&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">null</span></span><span class="punctuation">&#125;</span><span class="punctuation">]</span><span class="punctuation">,</span> <span class="attr">&quot;created&quot;</span><span class="punctuation">:</span> <span class="number">1732869116</span><span class="punctuation">,</span> <span class="attr">&quot;model&quot;</span><span class="punctuation">:</span> <span class="string">&quot;llama3.2&quot;</span><span class="punctuation">,</span> <span class="attr">&quot;object&quot;</span><span class="punctuation">:</span> <span class="string">&quot;chat.completion.chunk&quot;</span><span class="punctuation">,</span> <span class="attr">&quot;service_tier&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">null</span></span><span class="punctuation">,</span> <span class="attr">&quot;system_fingerprint&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">null</span></span><span class="punctuation">,</span> <span class="attr">&quot;usage&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">null</span></span><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
+
+ <figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="punctuation">&#123;</span><span class="attr">&quot;id&quot;</span><span class="punctuation">:</span> <span class="string">&quot;chatcmpl-1eadb733adf64f5b90114307b2d4d718&quot;</span><span class="punctuation">,</span> <span class="attr">&quot;choices&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span><span class="punctuation">&#123;</span><span class="attr">&quot;delta&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span><span class="attr">&quot;content&quot;</span><span class="punctuation">:</span> <span class="string">&quot;AI&quot;</span><span class="punctuation">,</span> <span class="attr">&quot;function_call&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">null</span></span><span class="punctuation">,</span> <span class="attr">&quot;refusal&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">null</span></span><span class="punctuation">,</span> <span class="attr">&quot;role&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">null</span></span><span class="punctuation">,</span> <span class="attr">&quot;tool_calls&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">null</span></span><span class="punctuation">&#125;</span><span class="punctuation">,</span> <span class="attr">&quot;finish_reason&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">null</span></span><span class="punctuation">,</span> <span class="attr">&quot;index&quot;</span><span class="punctuation">:</span> <span class="number">0</span><span class="punctuation">,</span> <span class="attr">&quot;logprobs&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">null</span></span><span class="punctuation">&#125;</span><span class="punctuation">]</span><span class="punctuation">,</span> <span class="attr">&quot;created&quot;</span><span class="punctuation">:</span> <span class="number">1732869116</span><span class="punctuation">,</span> <span class="attr">&quot;model&quot;</span><span class="punctuation">:</span> <span class="string">&quot;llama3.2&quot;</span><span class="punctuation">,</span> <span class="attr">&quot;object&quot;</span><span class="punctuation">:</span> <span class="string">&quot;chat.completion.chunk&quot;</span><span class="punctuation">,</span> <span class="attr">&quot;service_tier&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">null</span></span><span class="punctuation">,</span> <span class="attr">&quot;system_fingerprint&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">null</span></span><span class="punctuation">,</span> <span class="attr">&quot;usage&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">null</span></span><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
+
+ <figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="punctuation">&#123;</span><span class="attr">&quot;id&quot;</span><span class="punctuation">:</span> <span class="string">&quot;chatcmpl-1eadb733adf64f5b90114307b2d4d718&quot;</span><span class="punctuation">,</span> <span class="attr">&quot;choices&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span><span class="punctuation">&#123;</span><span class="attr">&quot;delta&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span><span class="attr">&quot;content&quot;</span><span class="punctuation">:</span> <span class="string">&quot; assistant&quot;</span><span class="punctuation">,</span> <span class="attr">&quot;function_call&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">null</span></span><span class="punctuation">,</span> <span class="attr">&quot;refusal&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">null</span></span><span class="punctuation">,</span> <span class="attr">&quot;role&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">null</span></span><span class="punctuation">,</span> <span class="attr">&quot;tool_calls&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">null</span></span><span class="punctuation">&#125;</span><span class="punctuation">,</span> <span class="attr">&quot;finish_reason&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">null</span></span><span class="punctuation">,</span> <span class="attr">&quot;index&quot;</span><span class="punctuation">:</span> <span class="number">0</span><span class="punctuation">,</span> <span class="attr">&quot;logprobs&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">null</span></span><span class="punctuation">&#125;</span><span class="punctuation">]</span><span class="punctuation">,</span> <span class="attr">&quot;created&quot;</span><span class="punctuation">:</span> <span class="number">1732869116</span><span class="punctuation">,</span> <span class="attr">&quot;model&quot;</span><span class="punctuation">:</span> <span class="string">&quot;llama3.2&quot;</span><span class="punctuation">,</span> <span class="attr">&quot;object&quot;</span><span class="punctuation">:</span> <span class="string">&quot;chat.completion.chunk&quot;</span><span class="punctuation">,</span> <span class="attr">&quot;service_tier&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">null</span></span><span class="punctuation">,</span> <span class="attr">&quot;system_fingerprint&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">null</span></span><span class="punctuation">,</span> <span class="attr">&quot;usage&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">null</span></span><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
+
+ <figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="punctuation">&#123;</span><span class="attr">&quot;id&quot;</span><span class="punctuation">:</span> <span class="string">&quot;chatcmpl-1eadb733adf64f5b90114307b2d4d718&quot;</span><span class="punctuation">,</span> <span class="attr">&quot;choices&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span><span class="punctuation">&#123;</span><span class="attr">&quot;delta&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span><span class="attr">&quot;content&quot;</span><span class="punctuation">:</span> <span class="string">&quot;&quot;</span><span class="punctuation">,</span> <span class="attr">&quot;function_call&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">null</span></span><span class="punctuation">,</span> <span class="attr">&quot;refusal&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">null</span></span><span class="punctuation">,</span> <span class="attr">&quot;role&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">null</span></span><span class="punctuation">,</span> <span class="attr">&quot;tool_calls&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">null</span></span><span class="punctuation">&#125;</span><span class="punctuation">,</span> <span class="attr">&quot;finish_reason&quot;</span><span class="punctuation">:</span> <span class="string">&quot;stop&quot;</span><span class="punctuation">,</span> <span class="attr">&quot;index&quot;</span><span class="punctuation">:</span> <span class="number">0</span><span class="punctuation">,</span> <span class="attr">&quot;logprobs&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">null</span></span><span class="punctuation">&#125;</span><span class="punctuation">]</span><span class="punctuation">,</span> <span class="attr">&quot;created&quot;</span><span class="punctuation">:</span> <span class="number">1732869116</span><span class="punctuation">,</span> <span class="attr">&quot;model&quot;</span><span class="punctuation">:</span> <span class="string">&quot;llama3.2&quot;</span><span class="punctuation">,</span> <span class="attr">&quot;object&quot;</span><span class="punctuation">:</span> <span class="string">&quot;chat.completion.chunk&quot;</span><span class="punctuation">,</span> <span class="attr">&quot;service_tier&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">null</span></span><span class="punctuation">,</span> <span class="attr">&quot;system_fingerprint&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">null</span></span><span class="punctuation">,</span> <span class="attr">&quot;usage&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">null</span></span><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
+
+<p> AsyncEngine Client 的 generate 会返回一个异步生成器，result_generator，通过 <code>async for</code> 遍历这个生成器 result，而 result 又是一个 output 的生成器。<code>num_cached_tokens</code> 表示前缀匹配的 kv cache 命中的 token 数量。<code>request.n</code> 代表要生成的选择的数量，一般是 1，如果大于 1 就会生成多个选择的分支，而 <code>response</code> 中的 index 就会代表不同的分支的序号。result 生成器对应的就是多个分支的结果，而 result 中的 output 就代表一个分支中的 chunk。处理过程中会把 output 转化成 <code>ChatCompletionStreamResponse</code>，输出成 <code>data: $json_dump</code> 的 SSE chunk 的形式。<code>stream_options.include_usage</code> 如果设置了的话会在 DONE 之前返回一个 usage stats 的 chunk。</p>
+<ul>
+<li><code>tool_parser</code>：解析工具描述。方法和对应的类在 <code>openai/tool_parsers</code> 下面，会根据传入的初始化参数决定对应的解析类。如果对应的 request 有 <code>tool_choice</code> 参数，就会使用到 <code>tool_parser</code>，tool_parser 主要用于处理响应中的 tool call 的文本内容。<code>tool_parser</code> 在 <code>tool_choice</code> 为 auto 的时候要调用对应的 <code>extract_tool_calls_streaming</code> 去解析函数调用的文本内容。例如 <code>pythonic_tool_parser</code> 会解释 <code>[func_name1(params_name1=params_value1, params_name2=params_value2...), func_name2(params)]</code> 这种类似 Python 的文本内容并转化为响应中的 <code>ToolCall</code> 对象。如果是 llama3.1 的 template 的话，参考上面的格式，会把输出 <code>&#123;&quot;name&quot;: function name, &quot;parameters&quot;: dictionary of argument name and its value&#125;</code> 转化为 <code>ToolCall</code> 对象。</li>
+</ul>
+</li>
+</ol>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>vLLM 的主体是 LLMEngine，它是一个单例类，负责管理所有的模型和数据。在基于FastAPI的异步Restful API 中使用的是一个 AsyncEngine。在交给Engine处理之前会对一些请求参数进行预处理，比如对话模板的格式化，对话消息的解析，模板中的函数调用等。</p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Python/" rel="tag"># Python</a>
+              <a href="/tags/vLLM/" rel="tag"># vLLM</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/zh-CN/2024/11/27/VLM%E7%9A%84%E8%AE%A1%E7%AE%97%E8%BF%87%E7%A8%8B%E5%92%8C%E6%8E%A8%E6%96%AD%E4%B8%AD%E7%9A%84%E5%A4%84%E7%90%86%E6%96%B9%E5%BC%8F/" rel="prev" title="VLM的计算过程和推断中的处理方式">
+                  <i class="fa fa-angle-left"></i> VLM的计算过程和推断中的处理方式
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/zh-CN/2024/12/03/FlashAttention-%E8%A7%A3%E6%9E%90/" rel="next" title="FlashAttention 解析">
+                  FlashAttention 解析 <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 2014 – 
+    <span itemprop="copyrightYear">2025</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+  </div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/mist/" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.umd.js" integrity="sha256-a+H7FYzJv6oU2hfsfDGM2Ohw/cR9v+hPfxHCLdmCrE8=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lozad.js/1.16.0/lozad.min.js" integrity="sha256-mOFREFhqmHeQbXpK2lp4nA3qooVgACfh88fpJftLBbc=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/sidebar.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+  <script src="/js/third-party/fancybox.js"></script>
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"ggaaooppeenngg","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

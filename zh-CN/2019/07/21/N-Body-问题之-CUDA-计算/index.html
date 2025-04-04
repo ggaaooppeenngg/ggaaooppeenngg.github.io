@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.3.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="_85tctgPWrqH2EPVuuD5IT6KE-tW8nH0hTISJDMnShg">
+  <meta name="baidu-site-verification" content="bb16c5b1fd3302c18e0015bef11eea42">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha256-dABdfBfUoC8vJUBOwGVdm8L9qlMWaHTIfXt+7GnZCIo=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.css" integrity="sha256-gkQVf8UKZgQ0HyuxL/VnacadJ+D2Kox2TCEBuNQg5+w=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="行星运动我们都是按万有引力定律算的，实际上按照爱因斯坦的说法，万有引力不是惯性力是时空弯曲的效果，但是按照爱因斯坦的公式算起来特别复杂，所以现在航天轨道的设计还是按万有引力定律在算。 牛顿万有引力定律牛顿万有引力定律：任意两个质点由通过连心线方向上的力相互吸引。该吸引力的大小与它们的质量乘积成正比，与它们距离的平方成反比，G 是万有引力常数。 $$ F&#x3D;-\frac{G M \cdot m}{">
+<meta property="og:type" content="article">
+<meta property="og:title" content="N Body 问题之 CUDA 计算">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2019/07/21/N-Body-%E9%97%AE%E9%A2%98%E4%B9%8B-CUDA-%E8%AE%A1%E7%AE%97/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="行星运动我们都是按万有引力定律算的，实际上按照爱因斯坦的说法，万有引力不是惯性力是时空弯曲的效果，但是按照爱因斯坦的公式算起来特别复杂，所以现在航天轨道的设计还是按万有引力定律在算。 牛顿万有引力定律牛顿万有引力定律：任意两个质点由通过连心线方向上的力相互吸引。该吸引力的大小与它们的质量乘积成正比，与它们距离的平方成反比，G 是万有引力常数。 $$ F&#x3D;-\frac{G M \cdot m}{">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2019/07/21/N-Body-%E9%97%AE%E9%A2%98%E4%B9%8B-CUDA-%E8%AE%A1%E7%AE%97/2-body.gif">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2019/07/21/N-Body-%E9%97%AE%E9%A2%98%E4%B9%8B-CUDA-%E8%AE%A1%E7%AE%97/cuda-tile.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2019/07/21/N-Body-%E9%97%AE%E9%A2%98%E4%B9%8B-CUDA-%E8%AE%A1%E7%AE%97/sync-title.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2019/07/21/N-Body-%E9%97%AE%E9%A2%98%E4%B9%8B-CUDA-%E8%AE%A1%E7%AE%97/global-sync.png">
+<meta property="article:published_time" content="2019-07-21T15:03:54.000Z">
+<meta property="article:modified_time" content="2025-03-28T10:39:05.180Z">
+<meta property="article:author" content="ggaaooppeenngg">
+<meta property="article:tag" content="cuda">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://ggaaooppeenngg.github.io/zh-CN/2019/07/21/N-Body-%E9%97%AE%E9%A2%98%E4%B9%8B-CUDA-%E8%AE%A1%E7%AE%97/2-body.gif">
+
+
+<link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2019/07/21/N-Body-%E9%97%AE%E9%A2%98%E4%B9%8B-CUDA-%E8%AE%A1%E7%AE%97/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://ggaaooppeenngg.github.io/zh-CN/2019/07/21/N-Body-%E9%97%AE%E9%A2%98%E4%B9%8B-CUDA-%E8%AE%A1%E7%AE%97/","path":"zh-CN/2019/07/21/N-Body-问题之-CUDA-计算/","title":"N Body 问题之 CUDA 计算"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>N Body 问题之 CUDA 计算 | ggaaooppeenngg</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-62096626-1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"UA-62096626-1","only_pageview":false,"measure_protocol_api_secret":null}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+  <script src="/js/third-party/analytics/baidu-analytics.js"></script>
+  <script async src="https://hm.baidu.com/hm.js?bb16c5b1fd3302c18e0015bef11eea42"></script>
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">ggaaooppeenngg</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">为什么计算机科学是无限的但生命是有限的</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">134</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">14</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">78</span></a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%89%9B%E9%A1%BF%E4%B8%87%E6%9C%89%E5%BC%95%E5%8A%9B%E5%AE%9A%E5%BE%8B"><span class="nav-number">1.</span> <span class="nav-text">牛顿万有引力定律</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%A4%9A%E4%BD%93%E9%97%AE%E9%A2%98"><span class="nav-number">2.</span> <span class="nav-text">多体问题</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Python-%E6%9A%B4%E5%8A%9B%E8%A7%A3"><span class="nav-number">2.1.</span> <span class="nav-text">Python 暴力解</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#CUDA-%E5%B9%B6%E8%A1%8C%E8%AE%A1%E7%AE%97"><span class="nav-number">2.2.</span> <span class="nav-text">CUDA 并行计算</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%8F%82%E8%80%83%E8%B5%84%E6%96%99"><span class="nav-number">2.3.</span> <span class="nav-text">参考资料</span></a></li></ol></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">78</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">14</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">134</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/ggaaooppeenngg" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;ggaaooppeenngg" rel="noopener me" target="_blank"><i class="github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:peng.gao.dut@gmail.com" title="E-Mail → mailto:peng.gao.dut@gmail.com" rel="noopener me" target="_blank"><i class="envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+        <div class="back-to-top animated" role="button" aria-label="返回顶部">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2019/07/21/N-Body-%E9%97%AE%E9%A2%98%E4%B9%8B-CUDA-%E8%AE%A1%E7%AE%97/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="N Body 问题之 CUDA 计算 | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          N Body 问题之 CUDA 计算
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2019-07-21 23:03:54" itemprop="dateCreated datePublished" datetime="2019-07-21T23:03:54+08:00">2019-07-21</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2025-03-28 18:39:05" itemprop="dateModified" datetime="2025-03-28T18:39:05+08:00">2025-03-28</time>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2019/07/21/N-Body-%E9%97%AE%E9%A2%98%E4%B9%8B-CUDA-%E8%AE%A1%E7%AE%97/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2019/07/21/N-Body-问题之-CUDA-计算/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><img data-src="/zh-CN/2019/07/21/N-Body-%E9%97%AE%E9%A2%98%E4%B9%8B-CUDA-%E8%AE%A1%E7%AE%97/2-body.gif" class="">
+
+<p>行星运动我们都是按万有引力定律算的，实际上按照爱因斯坦的说法，万有引力不是惯性力是时空弯曲的效果，但是按照爱因斯坦的公式算起来特别复杂，所以现在航天轨道的设计还是按万有引力定律在算。</p>
+<h2 id="牛顿万有引力定律"><a href="#牛顿万有引力定律" class="headerlink" title="牛顿万有引力定律"></a>牛顿万有引力定律</h2><p>牛顿万有引力定律：任意两个质点由通过连心线方向上的力相互吸引。该吸引力的大小与它们的质量乘积成正比，与它们距离的平方成反比，G 是万有引力常数。</p>
+<p>$$ F=-\frac{G M \cdot m}{r^2} \cdot \frac{\vec{r}}{r} $$</p>
+<h2 id="多体问题"><a href="#多体问题" class="headerlink" title="多体问题"></a>多体问题</h2><p>多体问题，是所有吸引力的叠加，这里排除物体相撞的情况，因为宇宙非常大，两个天体之间的距离非常远，暂时不考虑这种情况，通过加入一个小常量可以在计算上忽略这个问题。</p>
+<p>$$ F=-\frac{G M  m r}{(r^2 + \epsilon^2)^{\frac{3}{2}}} $$</p>
+<p>这样累加的时候自己也可以加进去，因为 r 是 0，那一项相当于没算。</p>
+<p>$$ F_j= \sum_{i=1}^{n} F_i $$</p>
+<p>对于 N body 有很多的稍微近似的算法，多是基于实际的物理场景的，比如大部分天体是属于一个星系的，每个星系之间都非常远，所以可以将一些星系作为整体计算，构建一颗树，树中的某些节点是其所有叶子的质心，这样就可以减少计算量，但是放到 GPU 的场景下一个 O(N^2) 的暴力算法利用 GPU 的并行能力可以非常快的算出来。</p>
+<h3 id="Python-暴力解"><a href="#Python-暴力解" class="headerlink" title="Python 暴力解"></a>Python 暴力解</h3><p>下面是 N-Body 暴力实现的例子，网上有个各种语言实验的，比较好用来测试准确性，来自<a target="_blank" rel="noopener" href="https://rosettacode.org/wiki/N-body_problemhttps://rosettacode.org/wiki/N-body_problem">这里</a>，就是两层循环。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">cat</span> &lt;&lt;<span class="string">EOF &gt;&gt; nbody.txt</span></span><br><span class="line"><span class="string">0.01 3 20</span></span><br><span class="line"><span class="string">1</span></span><br><span class="line"><span class="string">0 0 0</span></span><br><span class="line"><span class="string">0.01 0 0</span></span><br><span class="line"><span class="string">0.1</span></span><br><span class="line"><span class="string">1 1 0</span></span><br><span class="line"><span class="string">0 0 0.02</span></span><br><span class="line"><span class="string">0.001</span></span><br><span class="line"><span class="string">0 1 1</span></span><br><span class="line"><span class="string">0.01 -0.01 -0.01</span></span><br><span class="line"><span class="string">EOF</span></span><br></pre></td></tr></table></figure>
+
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> math</span><br><span class="line"> </span><br><span class="line"><span class="keyword">class</span> <span class="title class_">Vector</span>:</span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">__init__</span>(<span class="params">self, x, y, z</span>):</span><br><span class="line">        <span class="variable language_">self</span>.x = x</span><br><span class="line">        <span class="variable language_">self</span>.y = y</span><br><span class="line">        <span class="variable language_">self</span>.z = z</span><br><span class="line"> </span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">__add__</span>(<span class="params">self, other</span>):</span><br><span class="line">        <span class="keyword">return</span> Vector(<span class="variable language_">self</span>.x + other.x, <span class="variable language_">self</span>.y + other.y, <span class="variable language_">self</span>.z + other.z)</span><br><span class="line"> </span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">__sub__</span>(<span class="params">self, other</span>):</span><br><span class="line">        <span class="keyword">return</span> Vector(<span class="variable language_">self</span>.x - other.x, <span class="variable language_">self</span>.y - other.y, <span class="variable language_">self</span>.z - other.z)</span><br><span class="line"> </span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">__mul__</span>(<span class="params">self, other</span>):</span><br><span class="line">        <span class="keyword">return</span> Vector(<span class="variable language_">self</span>.x * other, <span class="variable language_">self</span>.y * other, <span class="variable language_">self</span>.z * other)</span><br><span class="line"> </span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">__div__</span>(<span class="params">self, other</span>):</span><br><span class="line">        <span class="keyword">return</span> Vector(<span class="variable language_">self</span>.x / other, <span class="variable language_">self</span>.y / other, <span class="variable language_">self</span>.z / other)</span><br><span class="line"> </span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">__eq__</span>(<span class="params">self, other</span>):</span><br><span class="line">        <span class="keyword">if</span> <span class="built_in">isinstance</span>(other, Vector):</span><br><span class="line">            <span class="keyword">return</span> <span class="variable language_">self</span>.x == other.x <span class="keyword">and</span> <span class="variable language_">self</span>.y == other.y <span class="keyword">and</span> <span class="variable language_">self</span>.z == other.z</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">False</span></span><br><span class="line"> </span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">__ne__</span>(<span class="params">self, other</span>):</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">not</span> <span class="variable language_">self</span>.__eq__(other)</span><br><span class="line"> </span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">__str__</span>(<span class="params">self</span>):</span><br><span class="line">        <span class="keyword">return</span> <span class="string">&#x27;(&#123;x&#125;, &#123;y&#125;, &#123;z&#125;)&#x27;</span>.<span class="built_in">format</span>(x=<span class="variable language_">self</span>.x, y=<span class="variable language_">self</span>.y, z=<span class="variable language_">self</span>.z)</span><br><span class="line"> </span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">abs</span>(<span class="params">self</span>):</span><br><span class="line">        <span class="keyword">return</span> math.sqrt(<span class="variable language_">self</span>.x*<span class="variable language_">self</span>.x + <span class="variable language_">self</span>.y*<span class="variable language_">self</span>.y + <span class="variable language_">self</span>.z*<span class="variable language_">self</span>.z)</span><br><span class="line"> </span><br><span class="line">origin = Vector(<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>)</span><br><span class="line"> </span><br><span class="line"><span class="keyword">class</span> <span class="title class_">NBody</span>:</span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">__init__</span>(<span class="params">self, fileName</span>):</span><br><span class="line">        <span class="keyword">with</span> <span class="built_in">open</span>(fileName, <span class="string">&quot;r&quot;</span>) <span class="keyword">as</span> fh:</span><br><span class="line">            lines = fh.readlines()</span><br><span class="line">            gbt = lines[<span class="number">0</span>].split()</span><br><span class="line">            <span class="variable language_">self</span>.gc = <span class="built_in">float</span>(gbt[<span class="number">0</span>])</span><br><span class="line">            <span class="variable language_">self</span>.bodies = <span class="built_in">int</span>(gbt[<span class="number">1</span>])</span><br><span class="line">            <span class="variable language_">self</span>.timeSteps = <span class="built_in">int</span>(gbt[<span class="number">2</span>])</span><br><span class="line">            <span class="variable language_">self</span>.masses = [<span class="number">0.0</span> <span class="keyword">for</span> i <span class="keyword">in</span> <span class="built_in">range</span>(<span class="variable language_">self</span>.bodies)]</span><br><span class="line">            <span class="variable language_">self</span>.positions = [origin <span class="keyword">for</span> i <span class="keyword">in</span> <span class="built_in">range</span>(<span class="variable language_">self</span>.bodies)]</span><br><span class="line">            <span class="variable language_">self</span>.velocities = [origin <span class="keyword">for</span> i <span class="keyword">in</span> <span class="built_in">range</span>(<span class="variable language_">self</span>.bodies)]</span><br><span class="line">            <span class="variable language_">self</span>.accelerations = [origin <span class="keyword">for</span> i <span class="keyword">in</span> <span class="built_in">range</span>(<span class="variable language_">self</span>.bodies)]</span><br><span class="line">            <span class="keyword">for</span> i <span class="keyword">in</span> <span class="built_in">range</span>(<span class="variable language_">self</span>.bodies):</span><br><span class="line">                <span class="variable language_">self</span>.masses[i] = <span class="built_in">float</span>(lines[i*<span class="number">3</span> + <span class="number">1</span>])</span><br><span class="line">                <span class="variable language_">self</span>.positions[i] = <span class="variable language_">self</span>.__decompose(lines[i*<span class="number">3</span> + <span class="number">2</span>])</span><br><span class="line">                <span class="variable language_">self</span>.velocities[i] = <span class="variable language_">self</span>.__decompose(lines[i*<span class="number">3</span> + <span class="number">3</span>])</span><br><span class="line"> </span><br><span class="line">            <span class="built_in">print</span>(<span class="string">&quot;Contents of&quot;</span>, fileName)</span><br><span class="line">            <span class="keyword">for</span> line <span class="keyword">in</span> lines:</span><br><span class="line">                <span class="built_in">print</span>(line.rstrip())</span><br><span class="line">            <span class="built_in">print</span></span><br><span class="line">            <span class="built_in">print</span>(<span class="string">&quot;Body   :      x          y          z    |&quot;</span>)</span><br><span class="line">            <span class="built_in">print</span>(<span class="string">&quot;     vx         vy         vz&quot;</span>)</span><br><span class="line"> </span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">__decompose</span>(<span class="params">self, line</span>):</span><br><span class="line">        xyz = line.split()</span><br><span class="line">        x = <span class="built_in">float</span>(xyz[<span class="number">0</span>])</span><br><span class="line">        y = <span class="built_in">float</span>(xyz[<span class="number">1</span>])</span><br><span class="line">        z = <span class="built_in">float</span>(xyz[<span class="number">2</span>])</span><br><span class="line">        <span class="keyword">return</span> Vector(x, y, z)</span><br><span class="line"> </span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">__computeAccelerations</span>(<span class="params">self</span>):</span><br><span class="line">        <span class="keyword">for</span> i <span class="keyword">in</span> <span class="built_in">range</span>(<span class="variable language_">self</span>.bodies):</span><br><span class="line">            <span class="variable language_">self</span>.accelerations[i] = origin</span><br><span class="line">            <span class="keyword">for</span> j <span class="keyword">in</span> <span class="built_in">range</span>(<span class="variable language_">self</span>.bodies):</span><br><span class="line">                <span class="keyword">if</span> i != j:</span><br><span class="line">                    temp = <span class="variable language_">self</span>.gc * <span class="variable language_">self</span>.masses[j] / math.<span class="built_in">pow</span>((<span class="variable language_">self</span>.positions[i] - <span class="variable language_">self</span>.positions[j]).<span class="built_in">abs</span>(), <span class="number">3</span>)</span><br><span class="line">                    <span class="variable language_">self</span>.accelerations[i] += (<span class="variable language_">self</span>.positions[j] - <span class="variable language_">self</span>.positions[i]) * temp</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">None</span></span><br><span class="line"> </span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">__computePositions</span>(<span class="params">self</span>):</span><br><span class="line">        <span class="keyword">for</span> i <span class="keyword">in</span> <span class="built_in">range</span>(<span class="variable language_">self</span>.bodies):</span><br><span class="line">            <span class="variable language_">self</span>.positions[i] += <span class="variable language_">self</span>.velocities[i] + <span class="variable language_">self</span>.accelerations[i] * <span class="number">0.5</span></span><br><span class="line">        <span class="keyword">return</span> <span class="literal">None</span></span><br><span class="line"> </span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">__computeVelocities</span>(<span class="params">self</span>):</span><br><span class="line">        <span class="keyword">for</span> i <span class="keyword">in</span> <span class="built_in">range</span>(<span class="variable language_">self</span>.bodies):</span><br><span class="line">            <span class="variable language_">self</span>.velocities[i] += <span class="variable language_">self</span>.accelerations[i]</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">None</span></span><br><span class="line"> </span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">__resolveCollisions</span>(<span class="params">self</span>):</span><br><span class="line">        <span class="keyword">for</span> i <span class="keyword">in</span> <span class="built_in">range</span>(<span class="variable language_">self</span>.bodies):</span><br><span class="line">            <span class="keyword">for</span> j <span class="keyword">in</span> <span class="built_in">range</span>(<span class="variable language_">self</span>.bodies):</span><br><span class="line">                <span class="keyword">if</span> <span class="variable language_">self</span>.positions[i] == <span class="variable language_">self</span>.positions[j]:</span><br><span class="line">                    (<span class="variable language_">self</span>.velocities[i], <span class="variable language_">self</span>.velocities[j]) = (<span class="variable language_">self</span>.velocities[j], <span class="variable language_">self</span>.velocities[i])</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">None</span></span><br><span class="line"> </span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">simulate</span>(<span class="params">self</span>):</span><br><span class="line">        <span class="variable language_">self</span>.__computeAccelerations()</span><br><span class="line">        <span class="variable language_">self</span>.__computePositions()</span><br><span class="line">        <span class="variable language_">self</span>.__computeVelocities()</span><br><span class="line">        <span class="variable language_">self</span>.__resolveCollisions()</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">None</span></span><br><span class="line"> </span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">printResults</span>(<span class="params">self</span>):</span><br><span class="line">        fmt = <span class="string">&quot;Body %d : % 8.6f  % 8.6f  % 8.6f | % 8.6f  % 8.6f  % 8.6f&quot;</span></span><br><span class="line">        <span class="keyword">for</span> i <span class="keyword">in</span> <span class="built_in">range</span>(<span class="variable language_">self</span>.bodies):</span><br><span class="line">            <span class="built_in">print</span>(fmt % (i+<span class="number">1</span>, <span class="variable language_">self</span>.positions[i].x, <span class="variable language_">self</span>.positions[i].y, <span class="variable language_">self</span>.positions[i].z, <span class="variable language_">self</span>.velocities[i].x, <span class="variable language_">self</span>.velocities[i].y, <span class="variable language_">self</span>.velocities[i].z))</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">None</span></span><br><span class="line"> </span><br><span class="line">nb = NBody(<span class="string">&quot;nbody.txt&quot;</span>)</span><br><span class="line"><span class="keyword">for</span> i <span class="keyword">in</span> <span class="built_in">range</span>(nb.timeSteps):</span><br><span class="line">    <span class="built_in">print</span>(<span class="string">&quot;\nCycle %d&quot;</span> % (i + <span class="number">1</span>))</span><br><span class="line">    nb.simulate()</span><br><span class="line">    nb.printResults()</span><br></pre></td></tr></table></figure>
+
+<h3 id="CUDA-并行计算"><a href="#CUDA-并行计算" class="headerlink" title="CUDA 并行计算"></a>CUDA 并行计算</h3><p>在 CUDA 中并行化首先要理解 CUDA 的层次结构，CUDA 有 grid 和 block 对线程做划分。首先设计一个 computation tile，相当于一个 block 的计算。</p>
+<img data-src="/zh-CN/2019/07/21/N-Body-%E9%97%AE%E9%A2%98%E4%B9%8B-CUDA-%E8%AE%A1%E7%AE%97/cuda-tile.png" class="">
+
+<p>左侧表示一个 block 中的 p 个 body 执行 p 次，最后就能更新所有 body 的加速度，这里的内存占用是 O(p) 的不是 O(p^2)，浅绿色表示的是串行执行的流，官方的文档没有更新，对应 CUDA 10 的例子里是这样的，vec3 存的是 x/y/z 轴的加速度，vec4 存的是坐标加质量，就是计算 i 受到 j 的加速度，这里没有并行设计是串行的。</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line">__device__ <span class="keyword">typename</span> vec3&lt;T&gt;::<span class="function">Type</span></span><br><span class="line"><span class="function"><span class="title">bodyBodyInteraction</span><span class="params">(<span class="keyword">typename</span> vec3&lt;T&gt;::Type ai,</span></span></span><br><span class="line"><span class="params"><span class="function">                    <span class="keyword">typename</span> vec4&lt;T&gt;::Type bi,</span></span></span><br><span class="line"><span class="params"><span class="function">                    <span class="keyword">typename</span> vec4&lt;T&gt;::Type bj)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">typename</span> vec3&lt;T&gt;::Type r;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// r_ij  [3 FLOPS]</span></span><br><span class="line">    r.x = bj.x - bi.x;</span><br><span class="line">    r.y = bj.y - bi.y;</span><br><span class="line">    r.z = bj.z - bi.z;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// distSqr = dot(r_ij, r_ij) + EPS^2  [6 FLOPS]</span></span><br><span class="line">    T distSqr = r.x * r.x + r.y * r.y + r.z * r.z;</span><br><span class="line">    distSqr += <span class="built_in">getSofteningSquared</span>&lt;T&gt;();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// invDistCube =1/distSqr^(3/2)  [4 FLOPS (2 mul, 1 sqrt, 1 inv)]</span></span><br><span class="line">    T invDist = <span class="built_in">rsqrt_T</span>(distSqr);</span><br><span class="line">    T invDistCube =  invDist * invDist * invDist;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// s = m_j * invDistCube [1 FLOP]</span></span><br><span class="line">    T s = bj.w * invDistCube;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// a_i =  a_i + s * r_ij [6 FLOPS]</span></span><br><span class="line">    ai.x += r.x * s;</span><br><span class="line">    ai.y += r.y * s;</span><br><span class="line">    ai.z += r.z * s;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> ai;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>block 的 tile computation 就是串行计算 p 次 p 个 body 的加速度。</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">for</span> (<span class="type">unsigned</span> <span class="type">int</span> counter = <span class="number">0</span>; counter &lt; blockDim.x; counter++)</span><br><span class="line">&#123;</span><br><span class="line">    acc = <span class="built_in">bodyBodyInteraction</span>&lt;T&gt;(acc, bodyPos, sharedPos[counter]);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>每次计算完了以后要对线程做共享内存的同步</p>
+<img data-src="/zh-CN/2019/07/21/N-Body-%E9%97%AE%E9%A2%98%E4%B9%8B-CUDA-%E8%AE%A1%E7%AE%97/sync-title.png" class="">
+
+<p>黑实线就是一次  block 共享内存同步的边界，也就是一次 tile compuation，图中是 p 个 body 按时间串行执行的流程，超出 p 的时间计算的不是 p 中的 body，看下面这张图。</p>
+<img data-src="/zh-CN/2019/07/21/N-Body-%E9%97%AE%E9%A2%98%E4%B9%8B-CUDA-%E8%AE%A1%E7%AE%97/global-sync.png" class="">
+
+<p>也就是按照时间串行的计算每个 body 对一个 body 的加速度，然后 N/p 个 block 并行，每个 block 有 p 个线程并行，没 p 次计算每个 block 要同步一次，但是多个 block 之间不需要同步，所以每个并行线程的主体是这样的要在 tile computation 之间包一层同步的调用 cg::sync(ca)，同步一次 block 中线程的共享内存。</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line">__device__ <span class="keyword">typename</span> vec3&lt;T&gt;::<span class="function">Type</span></span><br><span class="line"><span class="function"><span class="title">computeBodyAccel</span><span class="params">(<span class="keyword">typename</span> vec4&lt;T&gt;::Type bodyPos,</span></span></span><br><span class="line"><span class="params"><span class="function">                 <span class="keyword">typename</span> vec4&lt;T&gt;::Type *positions,</span></span></span><br><span class="line"><span class="params"><span class="function">                 <span class="type">int</span> numTiles, cg::thread_block cta)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">typename</span> vec4&lt;T&gt;::Type *sharedPos = SharedMemory&lt;<span class="keyword">typename</span> vec4&lt;T&gt;::Type&gt;();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">typename</span> vec3&lt;T&gt;::Type acc = &#123;<span class="number">0.0f</span>, <span class="number">0.0f</span>, <span class="number">0.0f</span>&#125;;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> (<span class="type">int</span> tile = <span class="number">0</span>; tile &lt; numTiles; tile++)</span><br><span class="line">    &#123;</span><br><span class="line">        sharedPos[threadIdx.x] = positions[tile * blockDim.x + threadIdx.x];</span><br><span class="line"></span><br><span class="line">        cg::<span class="built_in">sync</span>(cta);</span><br><span class="line">        <span class="comment">// This is the &quot;tile_calculation&quot; from the GPUG3 article.</span></span><br><span class="line"><span class="meta">#<span class="keyword">pragma</span> unroll 128</span></span><br><span class="line"></span><br><span class="line">        <span class="keyword">for</span> (<span class="type">unsigned</span> <span class="type">int</span> counter = <span class="number">0</span>; counter &lt; blockDim.x; counter++)</span><br><span class="line">        &#123;</span><br><span class="line">            acc = <span class="built_in">bodyBodyInteraction</span>&lt;T&gt;(acc, bodyPos, sharedPos[counter]);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        cg::<span class="built_in">sync</span>(cta);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> acc;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>从 GPU 的角度来看，时间复杂度是 O(N)，空间复杂度也是 O(N)，但前提是要开 N 个线程同时计算。</p>
+<h3 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a>参考资料</h3><p><a target="_blank" rel="noopener" href="https://developer.download.nvidia.com/compute/cuda/1.1-Beta/x86_website/projects/nbody/doc/nbody_gems3_ch31.pdf">n body nvidia</a></p>
+<p><a target="_blank" rel="noopener" href="https://arxiv.org/abs/astro-ph/0202512">O(N) 算法计算天体运动</a></p>
+<p><a target="_blank" rel="noopener" href="https://rosettacode.org/wiki/N-body_problem">n body problem</a></p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/cuda/" rel="tag"># cuda</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/zh-CN/2019/03/03/tf-%E6%A8%A1%E5%9E%8B%E7%9A%84%E4%BF%9D%E5%AD%98%E5%92%8C%E5%86%BB%E7%BB%93/" rel="prev" title="tensorflow 模型的存档、保存、冻结、优化">
+                  <i class="fa fa-angle-left"></i> tensorflow 模型的存档、保存、冻结、优化
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/" rel="next" title="SysML2019 概览1">
+                  SysML2019 概览1 <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 2014 – 
+    <span itemprop="copyrightYear">2025</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+  </div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/mist/" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.umd.js" integrity="sha256-a+H7FYzJv6oU2hfsfDGM2Ohw/cR9v+hPfxHCLdmCrE8=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lozad.js/1.16.0/lozad.min.js" integrity="sha256-mOFREFhqmHeQbXpK2lp4nA3qooVgACfh88fpJftLBbc=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/sidebar.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+  <script src="/js/third-party/fancybox.js"></script>
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"ggaaooppeenngg","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

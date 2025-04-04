@@ -1,0 +1,23 @@
+digraph {
+graph [
+rankdir="LR"
+]
+node [
+shape="record"
+]
+"free_area" [
+label="{ freelist 0 | <order0> }|{ freelist 1 | <order1> }|{ freelist 2 | <order2>}| {freelist 3 | <order3>}"           
+]
+"expand_node" [
+label="{2^1 page0 用于分配| <f> 2^1 page1}"
+style="dotted"
+]
+"new_page" [
+label="2^1 page0"
+]
+"free_area": "order0" -> "2^0 page0" -> "2^0 page1" 
+"free_area": "order1" -> "new_page"
+"free_area": "order2" -> "expand_node" -> "2^2 page1" -> "2^2 page2"
+"expand_node": "f" -> "new_page" [ dir="none" ]
+"free_area": "order3" -> "2^3 page0"
+}

@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.3.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="_85tctgPWrqH2EPVuuD5IT6KE-tW8nH0hTISJDMnShg">
+  <meta name="baidu-site-verification" content="bb16c5b1fd3302c18e0015bef11eea42">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha256-dABdfBfUoC8vJUBOwGVdm8L9qlMWaHTIfXt+7GnZCIo=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.css" integrity="sha256-gkQVf8UKZgQ0HyuxL/VnacadJ+D2Kox2TCEBuNQg5+w=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="Paxos 是什么 Paxos is a mechanism for achieving consensus on a single value over unreliable communication channels.  Paxos 就是一个在不稳定的网络环境下建立的对一个值的共识。我们说的 Multi-Paxos 是指对多个值的共识，不过我们先一步一步来。 在 Paxos 中是没有 lea">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Paxos 总结">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="Paxos 是什么 Paxos is a mechanism for achieving consensus on a single value over unreliable communication channels.  Paxos 就是一个在不稳定的网络环境下建立的对一个值的共识。我们说的 Multi-Paxos 是指对多个值的共识，不过我们先一步一步来。 在 Paxos 中是没有 lea">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/quorum-base.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/split-votes.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/conflict.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/conflict-1.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/basic-paxos.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/paxos-p1.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/paxos-conflict-2.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/paxos-conflict3.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/paxos-liveness.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/multi-paxos-log.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/multi-paxos-index.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/multi-paxos-conf.png">
+<meta property="article:published_time" content="2018-05-20T13:58:57.000Z">
+<meta property="article:modified_time" content="2025-03-28T10:39:05.340Z">
+<meta property="article:author" content="ggaaooppeenngg">
+<meta property="article:tag" content="分布式系统">
+<meta property="article:tag" content="Paxos">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://ggaaooppeenngg.github.io/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/quorum-base.png">
+
+
+<link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://ggaaooppeenngg.github.io/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/","path":"zh-CN/2018/05/20/paxos-总结/","title":"Paxos 总结"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>Paxos 总结 | ggaaooppeenngg</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-62096626-1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"UA-62096626-1","only_pageview":false,"measure_protocol_api_secret":null}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+  <script src="/js/third-party/analytics/baidu-analytics.js"></script>
+  <script async src="https://hm.baidu.com/hm.js?bb16c5b1fd3302c18e0015bef11eea42"></script>
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">ggaaooppeenngg</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">为什么计算机科学是无限的但生命是有限的</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">134</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">14</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">78</span></a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Paxos-%E6%98%AF%E4%BB%80%E4%B9%88"><span class="nav-number">1.</span> <span class="nav-text">Paxos 是什么</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9F%BA%E6%9C%AC%E9%9C%80%E6%B1%82"><span class="nav-number">2.</span> <span class="nav-text">基本需求</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88"><span class="nav-number">3.</span> <span class="nav-text">解决方案</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Multi-Paxos"><span class="nav-number">4.</span> <span class="nav-text">Multi-Paxos</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">78</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">14</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">134</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/ggaaooppeenngg" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;ggaaooppeenngg" rel="noopener me" target="_blank"><i class="github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:peng.gao.dut@gmail.com" title="E-Mail → mailto:peng.gao.dut@gmail.com" rel="noopener me" target="_blank"><i class="envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+        <div class="back-to-top animated" role="button" aria-label="返回顶部">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="Paxos 总结 | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Paxos 总结
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2018-05-20 21:58:57" itemprop="dateCreated datePublished" datetime="2018-05-20T21:58:57+08:00">2018-05-20</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2025-03-28 18:39:05" itemprop="dateModified" datetime="2025-03-28T18:39:05+08:00">2025-03-28</time>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2018/05/20/paxos-总结/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h2 id="Paxos-是什么"><a href="#Paxos-是什么" class="headerlink" title="Paxos 是什么"></a>Paxos 是什么</h2><blockquote>
+<p>Paxos is a mechanism for achieving consensus on a single value over unreliable communication channels.</p>
+</blockquote>
+<p>Paxos 就是一个在不稳定的网络环境下建立的对一个值的共识。我们说的 Multi-Paxos 是指对多个值的共识，不过我们先一步一步来。</p>
+<p>在 Paxos 中是没有 leader 这个概念的，所以相对来说会比较慢，因为谁都可以处理请求并且把自己的 peer 盖掉导致冲突，达成一致的过程会更长。</p>
+<p>Paxos 只抵抗机器崩溃，网络异常，不抵抗恶意行为的节点，或者说使用不同协议的参与者，或者说参与者不能撒谎，所以经典的 Paxos 不抵抗拜占庭问题（也有针对拜占庭问题的 Paxos 带了 verify 的过程）。</p>
+<p>Paxos 论文里面描述的算法，其实不是很清晰，一般人看了都会有疑问，所以后来很多人对这个算法做了补充和解释，包括作者本人。</p>
+<h2 id="基本需求"><a href="#基本需求" class="headerlink" title="基本需求"></a>基本需求</h2><p>第一个是安全性，就是只有一个值会被选择，并且节点对这个值不会主动知道，而是在值被选择以后被动学习知道这个值被选择的（这个原文有点难懂我换成了自己的话解释了一下）。<br>第二个是活性，也就是值最终会被选择，并且所有节点会最终学习到这个值被选择了。</p>
+<h2 id="解决方案"><a href="#解决方案" class="headerlink" title="解决方案"></a>解决方案</h2><p>首先单点可以排除，因为单点虽然是最容易解决一致性问题的，但是如果单点挂了，整个就不可用了，所以显然不能依靠单点。</p>
+<img data-src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/quorum-base.png" class="" title="[single point]">
+
+<p>那如果每个节点就接受自己接受到的第一个值，也会有平票问题(split votes)。<code>red</code> 和 <code>blue</code> 对等的，那到底谁被选择了呢，所以来了就接受的策略并不可行。</p>
+<img data-src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/split-votes.png" class="" title="[split votes]">
+
+<p>Paxos 是 quorum based 的，表示的一致性协议是少数服从多数的，在大多数节点都接受了这个值以后，这个值就被选择了。为了让节点可以接受多个值，多个值之间需要区分，所以就有了提交号，这个号码是单增的，拒绝掉小号的提交，并且当一个值已经被选择，那么之后的提交都要提交这个值，这样做的目的是让提交者知道这个值被学习了，是大家认可的一个值。有了少数服从多数原则，就会碰到冲突的问题。</p>
+<p>这种情况就是下面这样，从时间上来讲，<code>red</code> 已经被选择了，如果 <code>S3</code> 能够拒绝 <code>red</code> 的提交，那么 <code>S3</code>,<code>S4</code>,<code>S5</code>就可以拿着 <code>red</code> 重试，并且知道 <code>red</code> 已经被大多数人接受了，而知道冲突的 <code>S3</code> 就会决绝这次请求，这个点上就处理了两个值（接受了一个拒绝了一个）。</p>
+<img data-src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/conflict.png" class="" title="[conflict 1]">
+
+<p>序列号可以帮助我们区分优先关系，这样因为网络问题延迟的请求就可以被处理。下面这种情况，<code>red</code> 虽然先提交，但是并不是先被大多数接受的（存在网络延迟），这个时候<code>blue</code>已经被选择了（被大多数人接受），我们需要提交 <code>red</code> 的提交意识到自己已经太“老”了，而触发这就是接受了 <code>blue</code> 的 <code>S3</code>。</p>
+<img data-src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/conflict-1.png" class="" title="[conflict 2]">
+
+<p>所以你会发现，矛盾的点其实就是这个 S3，也就是少数服从多数原则，能保证任意的大多数都是有交集的。交集中的点会发现矛盾和之前接受的值有矛盾选择拒绝。</p>
+<blockquote>
+<p>问题：三节点的容忍度是 1，四节点的容忍度是多少？</p>
+<p>答案：也是 1，因为要形成发现矛盾的交集对于 4 来说，要达到 3/4，才能构成大多数，这就是为什么集群选单数的原因，因为双数从算法的角度来说没什么帮助。</p>
+</blockquote>
+<p>接下来看具体的算法。</p>
+<p>其实，从朴素角度来说，经典 Paxos 看起来就是一个两阶段提交的过程，首先是准备阶段，选择一个提交号 n，提交 prepare(n)，接受者需要返回自己接受的值，和已经接受的提交号。当从大多数收到回复以后就可以做判断了，如果有返回接受值，选择提交号最大的值进行下一阶段（这个行为对应的是发现有值可能被接受了，尝试服从或者学习这个接受），不然就可以用自己的值进行下一阶段。</p>
+<p>下一阶段就是 accept(value,n)，如果接受者发现自己目前收到的n，没有比accpet给的n大，就接受这个值，并且更新自己的n，否则就拒绝（这里就保证提交者能够发现自己变老了或者被拒绝了）。<br>如果接受者发现提交号大于自己当前的最大提交号，就接受这个值，不然就拒绝。当提交者从大多数人那里接受到返回以后发现有拒绝的情况，就进行重试拿一个新的n开始，否则这个值就被接受了。</p>
+<p>Basic Paxos value 就是设置一次，不存在再设次一次的情况。</p>
+<p>总结起来就是如图：</p>
+<img data-src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/basic-paxos.png" class="" title="[basic paxos]">
+
+<p>那这样的一个二阶段提交，看看能不能解决前面的问题，主要有三种可能。<br>注意，这里的例子是原文里的例子，一个变量的取值是<code>X</code>或者<code>Y</code>，然后<code>3.1</code> 表示 <code>S1</code>提交的提交号为 <code>3</code> 的提交，这是我们定义的 message ID。</p>
+<p>第一种值被选择了，后者意识到了<code>X</code>，放弃<code> Y</code> 用 <code>X </code>提交，也就意味着提交者学习到了这个值已经被选择了。</p>
+<img data-src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/paxos-p1.png" class="" title="[situation 1]">
+
+<p>第二种情况，值没有被选择，但是交集的部分看到了一个被选择的值，也会选择放弃<code>Y</code>用<code>X</code>提交，虽然<code>X</code>暂时没有被选择（被大多数人接受），但是可以保证两个提交都成功。</p>
+<img data-src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/paxos-conflict-2.png" class="" title="[situation 2]">
+
+<p>第三种情况，值没有被选择，同时交集的部分也没有发现被选择的值，如果已经做了 promies 这个时候就会拒绝老的提交。比如下面在 S3 accept(X) 的时候就会放弃提交并且进行重试(S1 S2 也会一起重试）, 并且在重试的时候覆盖掉原先接受的x)。</p>
+<img data-src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/paxos-conflict3.png" class="" title="[situation 3]">
+
+<p>看起来所有的问题都解决了，但是活性问题无法保证。这个情况发生在提交之间相互阻塞的情况，<code>S3</code> <code>S4</code> <code>S5</code> 拿着更高的提交号导致 <code>S1</code> <code>S2</code> <code>S3</code> 的 accept 被拒绝重新进行提交，又把 <code>S3</code> <code>S4</code> <code>S5</code> 给拒绝了。</p>
+<img data-src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/paxos-liveness.png" class="" title="[liveness]">
+
+<p>解决这个问题的办法就是把重试时间进行一些随机化，减少这种巧合发生，或者把重试的时间指数增长等等。</p>
+<h2 id="Multi-Paxos"><a href="#Multi-Paxos" class="headerlink" title="Multi-Paxos"></a>Multi-Paxos</h2><p>到此 classic Paxos 算是告一段落。那 Paxos 有什么问题呢。首先是活性的问题，这个在后面可以通过选主的方式解决。其次是学习是通过 propose 获知值的，不然无法知道一个值是否被接受了，要走一遍整套的 Paxos 协议。</p>
+<p>Multi-Paxos 新增的问题是如何选择 log entry，并且用选主的方式减少冲突，以及减少 prepare 的请求。</p>
+<p>以下图为例。深色框表示这个 log 已经被选择（怎么确定选择后面会提到）。寻找 log entry 的方式就是寻找第一个没有被选择的 log，尝试执行 basic Paxos，如果有值被选择会尝试用这个 log 提交帮助这个 log 被选择，这个过程和 basic paxos 是一致的，但是在此之后就要继续寻找下一个 log 尝试进行我们的尝试。</p>
+<p>下图中（只看 S1 和 S2 这两行），第一次会找到最后一个没有没学习的 log，也就是 index=3 的 log，但是发现了 <code>s1</code> 的 <code>cmp</code>，就会服从这个 <code>cmp</code>，然后到 <code>index=4</code> 发现了 <code>s2</code> 的 <code>sub</code>，也选择服从，并且学习到了 index=4 的 log 应该是 <code>sub</code>，最后到了 index=5 才进行插入。</p>
+<img data-src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/multi-paxos-log.png" class="" title="[multi-paxos]">
+
+<p>这样的情况下，Paxos 可以接受并发的请求，而 Raft 却规定了对 log 只能 append，不能 3 4 5 都能同时处理，简化了实现。反正只要保证了 log 的顺序一致，状态机的最终状态都是一致的。 </p>
+<p>接下来的是对于性能的一些提升，一个是选主避免大面积冲突，另一个是优化二阶段提交的次数。解决方法是选出一个主，保证一次只有一个提交者。另外对于 prepare 是对整个 log 进行 prepare，而不是单个 log entry，这样大多数情况下，大部分 log 都可以一次性就被选择。</p>
+<p>可以通过 lease based 选主。 lamport 提出的方式比较简单，节点之间维持T间隔的心跳，2T 之内没有收到更高编号的主的心跳就成为主，非主则转发请求给主，这样还是不会避免同时出现两主的情况，两主会有冲突，但 Paxos 就算有两主还是能正常运行，毕竟有主只是优化方式。</p>
+<p>接下来我们看看优化提交的过程。回忆一下，prepare 的作用，其中一点是帮助我们发现冲突，知道有值可能被选择了，另外一点是拒绝老的提交，让他们发现自己变“老”了。</p>
+<p>我们可以改变提交号的意义，让他代表整个 log，也就是所有 log entry 都用一个提交号，这样接受者可以通过返回 <code>noMoreAccepted</code> 让提交者意识到在当前 log entry 之后的 log 都没有 accpeted 是可以被“锁”住的，然后如果大多数节点返回 <code>noMoreAccepted</code>，就可以跳过之后的 prepare 直到 accept 被拒绝。这样后续的 accept 操作就可以不用 prepare 在一趟之内解决，所以二阶段提交的第一阶段的 promise 落在了整个 log 上。这个情况下 发起者的 accept 一直顺序进行就可以，问题发生在有其他主（之前说到的会临时有多主的情况），又提交了 prepare，然后这个提交号更高，把后一段锁住了，accept 就会发现冲突学习新的值。</p>
+<p>补充 1 持续发送 accept 请求，让所有的节点都同步这个 log。<br>补充 2 让 proposer 带上 firstUnchosenIndex 让 acceptor 知道大多数可以确认被选择的 log。</p>
+<p>但是还有问题，例如下面这张图，对于所有小于 firstUnchosenIndex 的 i 来说，如果 accpetedProposal[i] 的提交号和 request 的 proposal 一样的话，就可以确认 log[i] 是被选择了的，并且标记 acceptedProposal[i] = 无限。但是 2.5 确实来自之前的 leader 的，貌似无法被标记为选择了。这需要我们进一步修改这个协议。</p>
+<img data-src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/multi-paxos-index.png" class="" title="[multi paxos index]">
+
+<p>这个时候需要在 accept 返回的时候带上自己的 firtUnchosenIndex，如果 proposer 的比这个大，可以把 acceptor 直接补齐。用 success 命令，让 acceptor 直接更改index 的这个值, 并且继续返回 firtUnchosenIndex，让 proposer 弥补。</p>
+<p>最后一部分是配置改变，degree of replication，也就是要保证同时只有一个 conf 生效，可以用 a 个之前的 log 做 conf，这样在使用这个 conf 之前，conf 已经发生了改变。但是同时限制住了并发度（只能为a）。直觉上讲就是约定一个 index 在某个时间点一次性切换。</p>
+<img data-src="/zh-CN/2018/05/20/paxos-%E6%80%BB%E7%BB%93/multi-paxos-conf.png" class="" title="[multi paxos conf]">
+
+<p>参考文献</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://ramcloud.stanford.edu/~ongaro/userstudy/paxos.pdf">paxos</a></li>
+<li><a target="_blank" rel="noopener" href="https://understandingpaxos.wordpress.com/">understandingpaxos</a></li>
+<li><a target="_blank" rel="noopener" href="http://wordpress.redirectingat.com/?id=725X1342&site=understandingpaxos.wordpress.com&xs=1&isjs=1&url=http://research.microsoft.com/en-us/um/people/lamport/pubs/paxos-simple.pdf&xguid=adcd021eccdd496512b31b2a9644cf70&xuuid=ec594abaa6f4be12a55f12e9582e8703&xsessid=a52733cdf2efc0765e23e0dac5822fd0&xcreo=0&xed=0&sref=https://understandingpaxos.wordpress.com/&pref=https://understandingpaxos.wordpress.com/&xtz=-480&jv=13.4.0&bv=2.5.1">Paxos made simple</a></li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E7%B3%BB%E7%BB%9F/" rel="tag"># 分布式系统</a>
+              <a href="/tags/Paxos/" rel="tag"># Paxos</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/zh-CN/2018/04/30/k8s-%E5%9F%BA%E4%BA%8E-kubeadm-%E7%9A%84%E5%AE%89%E5%85%A8%E9%85%8D%E7%BD%AE%E5%92%8C%E9%AB%98%E5%8F%AF%E7%94%A8/" rel="prev" title="k8s 基于 kubeadm 的安全配置和高可用">
+                  <i class="fa fa-angle-left"></i> k8s 基于 kubeadm 的安全配置和高可用
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/zh-CN/2018/05/27/raft-%E8%A7%A3%E8%AF%BB/" rel="next" title="Raft 解读">
+                  Raft 解读 <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 2014 – 
+    <span itemprop="copyrightYear">2025</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+  </div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/mist/" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.umd.js" integrity="sha256-a+H7FYzJv6oU2hfsfDGM2Ohw/cR9v+hPfxHCLdmCrE8=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lozad.js/1.16.0/lozad.min.js" integrity="sha256-mOFREFhqmHeQbXpK2lp4nA3qooVgACfh88fpJftLBbc=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/sidebar.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+  <script src="/js/third-party/fancybox.js"></script>
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"ggaaooppeenngg","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

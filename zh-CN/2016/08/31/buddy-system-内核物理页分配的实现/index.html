@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.3.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="_85tctgPWrqH2EPVuuD5IT6KE-tW8nH0hTISJDMnShg">
+  <meta name="baidu-site-verification" content="bb16c5b1fd3302c18e0015bef11eea42">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha256-dABdfBfUoC8vJUBOwGVdm8L9qlMWaHTIfXt+7GnZCIo=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.css" integrity="sha256-gkQVf8UKZgQ0HyuxL/VnacadJ+D2Kox2TCEBuNQg5+w=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="很多人看内核物理页的分配都喜欢从__alloc_pages开始看，喜欢从程序的执行流程去看问题，其实可换个思路，从开发或者说实现的角度去理解物理页的分配效果可能更好，所以这篇博客，反其道而行之，基于4.7.2的内核代码, 由内向外解释物理页的分配过程的细节. binary buddy system allocation 算法伙伴分配器算法的流程如下:  如果内存被分配 寻找一个合适大小的内存(要求">
+<meta property="og:type" content="article">
+<meta property="og:title" content="buddy-system-内核物理页管理的实现">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2016/08/31/buddy-system-%E5%86%85%E6%A0%B8%E7%89%A9%E7%90%86%E9%A1%B5%E5%88%86%E9%85%8D%E7%9A%84%E5%AE%9E%E7%8E%B0/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="很多人看内核物理页的分配都喜欢从__alloc_pages开始看，喜欢从程序的执行流程去看问题，其实可换个思路，从开发或者说实现的角度去理解物理页的分配效果可能更好，所以这篇博客，反其道而行之，基于4.7.2的内核代码, 由内向外解释物理页的分配过程的细节. binary buddy system allocation 算法伙伴分配器算法的流程如下:  如果内存被分配 寻找一个合适大小的内存(要求">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2016/08/31/buddy-system-%E5%86%85%E6%A0%B8%E7%89%A9%E7%90%86%E9%A1%B5%E5%88%86%E9%85%8D%E7%9A%84%E5%AE%9E%E7%8E%B0/buddy-system-free.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2016/08/31/buddy-system-%E5%86%85%E6%A0%B8%E7%89%A9%E7%90%86%E9%A1%B5%E5%88%86%E9%85%8D%E7%9A%84%E5%AE%9E%E7%8E%B0/buddy-alloc-1.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2016/08/31/buddy-system-%E5%86%85%E6%A0%B8%E7%89%A9%E7%90%86%E9%A1%B5%E5%88%86%E9%85%8D%E7%9A%84%E5%AE%9E%E7%8E%B0/buddy-alloc-2.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2016/08/31/buddy-system-%E5%86%85%E6%A0%B8%E7%89%A9%E7%90%86%E9%A1%B5%E5%88%86%E9%85%8D%E7%9A%84%E5%AE%9E%E7%8E%B0/callgraph__alloc_pages.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2016/08/31/buddy-system-%E5%86%85%E6%A0%B8%E7%89%A9%E7%90%86%E9%A1%B5%E5%88%86%E9%85%8D%E7%9A%84%E5%AE%9E%E7%8E%B0/callgraph__alloc_pages-2.png">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2016/08/31/buddy-system-%E5%86%85%E6%A0%B8%E7%89%A9%E7%90%86%E9%A1%B5%E5%88%86%E9%85%8D%E7%9A%84%E5%AE%9E%E7%8E%B0/callgraph__free_pages.png">
+<meta property="article:published_time" content="2016-08-30T18:20:53.000Z">
+<meta property="article:modified_time" content="2025-03-28T10:39:05.271Z">
+<meta property="article:author" content="ggaaooppeenngg">
+<meta property="article:tag" content="kernel">
+<meta property="article:tag" content="内核">
+<meta property="article:tag" content="内存">
+<meta property="article:tag" content="memory">
+<meta property="article:tag" content="page">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://ggaaooppeenngg.github.io/zh-CN/2016/08/31/buddy-system-%E5%86%85%E6%A0%B8%E7%89%A9%E7%90%86%E9%A1%B5%E5%88%86%E9%85%8D%E7%9A%84%E5%AE%9E%E7%8E%B0/buddy-system-free.png">
+
+
+<link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2016/08/31/buddy-system-%E5%86%85%E6%A0%B8%E7%89%A9%E7%90%86%E9%A1%B5%E5%88%86%E9%85%8D%E7%9A%84%E5%AE%9E%E7%8E%B0/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://ggaaooppeenngg.github.io/zh-CN/2016/08/31/buddy-system-%E5%86%85%E6%A0%B8%E7%89%A9%E7%90%86%E9%A1%B5%E5%88%86%E9%85%8D%E7%9A%84%E5%AE%9E%E7%8E%B0/","path":"zh-CN/2016/08/31/buddy-system-内核物理页分配的实现/","title":"buddy-system-内核物理页管理的实现"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>buddy-system-内核物理页管理的实现 | ggaaooppeenngg</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-62096626-1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"UA-62096626-1","only_pageview":false,"measure_protocol_api_secret":null}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+  <script src="/js/third-party/analytics/baidu-analytics.js"></script>
+  <script async src="https://hm.baidu.com/hm.js?bb16c5b1fd3302c18e0015bef11eea42"></script>
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">ggaaooppeenngg</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">为什么计算机科学是无限的但生命是有限的</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">134</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">14</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">78</span></a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#binary-buddy-system-allocation-%E7%AE%97%E6%B3%95"><span class="nav-number">1.</span> <span class="nav-text">binary buddy system allocation 算法</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%86%85%E5%AD%98%E7%A2%8E%E7%89%87"><span class="nav-number">2.</span> <span class="nav-text">内存碎片</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%B7%E4%BD%93%E5%AE%9E%E7%8E%B0"><span class="nav-number">3.</span> <span class="nav-text">具体实现</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#migratetype"><span class="nav-number">3.1.</span> <span class="nav-text">migratetype</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AE%9E%E7%8E%B0%E6%A6%82%E8%A6%81"><span class="nav-number">3.2.</span> <span class="nav-text">实现概要</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%88%86%E9%85%8D"><span class="nav-number">3.3.</span> <span class="nav-text">分配</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%87%8A%E6%94%BE"><span class="nav-number">3.4.</span> <span class="nav-text">释放</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">4.</span> <span class="nav-text">总结</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">78</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">14</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">134</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/ggaaooppeenngg" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;ggaaooppeenngg" rel="noopener me" target="_blank"><i class="github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:peng.gao.dut@gmail.com" title="E-Mail → mailto:peng.gao.dut@gmail.com" rel="noopener me" target="_blank"><i class="envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+        <div class="back-to-top animated" role="button" aria-label="返回顶部">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2016/08/31/buddy-system-%E5%86%85%E6%A0%B8%E7%89%A9%E7%90%86%E9%A1%B5%E5%88%86%E9%85%8D%E7%9A%84%E5%AE%9E%E7%8E%B0/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="buddy-system-内核物理页管理的实现 | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          buddy-system-内核物理页管理的实现
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2016-08-31 02:20:53" itemprop="dateCreated datePublished" datetime="2016-08-31T02:20:53+08:00">2016-08-31</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2025-03-28 18:39:05" itemprop="dateModified" datetime="2025-03-28T18:39:05+08:00">2025-03-28</time>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2016/08/31/buddy-system-%E5%86%85%E6%A0%B8%E7%89%A9%E7%90%86%E9%A1%B5%E5%88%86%E9%85%8D%E7%9A%84%E5%AE%9E%E7%8E%B0/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2016/08/31/buddy-system-内核物理页分配的实现/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>很多人看内核物理页的分配都喜欢从<code>__alloc_pages</code>开始看，喜欢从程序的执行流程去看问题，其实可换个思路，从开发或者说实现的角度去理解物理页的分配效果可能更好，所以这篇博客，反其道而行之，基于4.7.2的内核代码, 由内向外解释物理页的分配过程的细节.</p>
+<h2 id="binary-buddy-system-allocation-算法"><a href="#binary-buddy-system-allocation-算法" class="headerlink" title="binary buddy system allocation 算法"></a>binary buddy system allocation 算法</h2><p>伙伴分配器算法的流程如下:</p>
+<ol>
+<li>如果内存被分配<ol>
+<li>寻找一个合适大小的内存(要求是: 大于 requested memory, 同时以\(2^k\)为量纲最小的块,　也就是分配一个满足要求的最小块)<ol start="2">
+<li> 如果找到了直接分配</li>
+<li>如果没有找到, 需要进行如下尝试<ol>
+<li> 拆分一个比 requested memory 更大的内存块(比如比之前没找到的\(2^x\)大的\(2^{x+1}\), 分成两半.</li>
+<li> 如果拆分出来的一半满足requested memory, 并且不能再分了, 已经是最小的了, 就分配该块.</li>
+<li> 重复1, 寻找合适大小的内存块.</li>
+<li> 重复这个流程直到找到合适的内存块.</li>
+</ol>
+</li>
+</ol>
+</li>
+</ol>
+</li>
+<li>如果内存被释放<ol>
+<li> 释放\(2^k\)内存块</li>
+<li> 查看内存块的伙伴也就是分配之后的另一半\(2^k\)块是否也free了</li>
+<li> 如果是，则会回到2并且重复执行直到所有内存被释放或者有一个伙伴没有被free掉, 无法合并.</li>
+</ol>
+</li>
+</ol>
+<h2 id="内存碎片"><a href="#内存碎片" class="headerlink" title="内存碎片"></a>内存碎片</h2><p>内存碎片有两种，一种是External fragmentation和Internal Fragmentation, 前者是因为内存块划分的太小而无法满足大的内存分配的需要, 在这点上内核遇到的大内存块分配其实并不多, 而且通过<code>vmalloc</code>把不连续的物理地址映射成连续的虚拟地址很好的解决了这个问题. 后者的解决方法是引入了<a target="_blank" rel="noopener" href="https://www.ibm.com/developerworks/cn/linux/l-linux-slab-allocator/">slab allocator</a>, 对小内存进行了有效的缓存, 避免了Internal fragmentation的情况.</p>
+<h2 id="具体实现"><a href="#具体实现" class="headerlink" title="具体实现"></a>具体实现</h2><p>每个<code>struct zone</code>结构有一个<code>struct free_area        free_area[MAX_ORDER];</code>的定义, 对应的结构如下.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">struct free_area &#123;</span><br><span class="line">	struct list_head	free_list[MIGRATE_TYPES];</span><br><span class="line">	unsigned long		nr_free;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>所以整个的空闲块的管理结构如图.</p>
+<img data-src="/zh-CN/2016/08/31/buddy-system-%E5%86%85%E6%A0%B8%E7%89%A9%E7%90%86%E9%A1%B5%E5%88%86%E9%85%8D%E7%9A%84%E5%AE%9E%E7%8E%B0/buddy-system-free.png" class="">
+<p>每一个free_area用来存储一种\(2^k\)块,用链表链接,<code>MAX_ORDER</code>表示的允许最大的块就是\(2^{MAX_ORDER}\)大小.</p>
+<h3 id="migratetype"><a href="#migratetype" class="headerlink" title="migratetype"></a>migratetype</h3><p>图中省略了<code>MIGRATE_TYPES</code>的表示, 仔细观察<code>free_list</code>是一个数组每个代表了一种migratetype, 用于page分配从node之间迁移的,  让内存尽量分配在离CPU近的node上, 这个特性是在2.6.32.25引入的, 同时对外部碎片的现象进行了优化, 这一点是这么理解的, 外部碎片是因为小内存块的分配位置可能占据了某个地方, 导致大的内存块无法分配出来, 比如说如果这个页是一些内核的永久数据可能这个碎片就会一直存在, 但是我们提前从可移动页分配一大块内存来给不可移动页, 那么内存碎片就不会影响到可移动页的分配, 这样就不会让内核初始化的时候分配的一些永久性的内存导致碎片影响了其他内存的分配,下面我们看看迁移类型的具体定义.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line">/*</span><br><span class="line"> * PAGE_ALLOC_COSTLY_ORDER is the order at which allocations are deemed</span><br><span class="line"> * costly to service.  That is between allocation orders which should</span><br><span class="line"> * coalesce naturally under reasonable reclaim pressure and those which</span><br><span class="line"> * will not.</span><br><span class="line"> */</span><br><span class="line"> /* 内核认为超过8个页算是大的内存分配 */</span><br><span class="line">#define PAGE_ALLOC_COSTLY_ORDER 3</span><br><span class="line"></span><br><span class="line">enum &#123;</span><br><span class="line">	MIGRATE_UNMOVABLE,</span><br><span class="line">	MIGRATE_MOVABLE,</span><br><span class="line">	MIGRATE_RECLAIMABLE,</span><br><span class="line">	MIGRATE_PCPTYPES,	/* the number of types on the pcp lists */</span><br><span class="line">	MIGRATE_HIGHATOMIC = MIGRATE_PCPTYPES,</span><br><span class="line">#ifdef CONFIG_CMA</span><br><span class="line">	/*</span><br><span class="line">	 * MIGRATE_CMA migration type is designed to mimic the way</span><br><span class="line">	 * ZONE_MOVABLE works.  Only movable pages can be allocated</span><br><span class="line">	 * from MIGRATE_CMA pageblocks and page allocator never</span><br><span class="line">	 * implicitly change migration type of MIGRATE_CMA pageblock.</span><br><span class="line">	 *</span><br><span class="line">	 * The way to use it is to change migratetype of a range of</span><br><span class="line">	 * pageblocks to MIGRATE_CMA which can be done by</span><br><span class="line">	 * __free_pageblock_cma() function.  What is important though</span><br><span class="line">	 * is that a range of pageblocks must be aligned to</span><br><span class="line">	 * MAX_ORDER_NR_PAGES should biggest page be bigger then</span><br><span class="line">	 * a single pageblock.</span><br><span class="line">	 */</span><br><span class="line">	MIGRATE_CMA,</span><br><span class="line">#endif</span><br><span class="line">#ifdef CONFIG_MEMORY_ISOLATION</span><br><span class="line">	MIGRATE_ISOLATE,	/* can&#x27;t allocate from here */</span><br><span class="line">#endif</span><br><span class="line">	MIGRATE_TYPES</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>这里简单解释一下:</p>
+<ol>
+<li>MIGRATE_UNMOVABLE<pre><code> 这种类型的页的位置是固定不变的, 不可以移动, 内核中大部分数据是这样的.
+</code></pre>
+</li>
+<li>MIGRATE_MOVABLE<pre><code> 不能够直接移动,但是可以删除,而内容则可以从某些源重新生成.如文件数据映射的页面则归属此类.
+</code></pre>
+</li>
+<li>MIGRATE_RECLAIMABLE<pre><code> 可以移动。分配给用户态程序运行的用户空间页面则为该类.由于是通过页面映射而得,将其复制到新位置后,更新映射表项,重新映射,应用程序是不感知的.
+</code></pre>
+</li>
+<li>MIGRATE_PCPTYPES<pre><code> 是一个分界数,小于这个数的都是在pcplist上的.
+</code></pre>
+</li>
+<li>MIGRATE_CMA      <pre><code> 连续内存分配，用于避免预留大块内存导致系统可用内存减少而实现的，即当驱动不使用内存时，将其分配给用户使用，而需要时则通过回收或者迁移的方式将内存腾出来。
+</code></pre>
+</li>
+<li>MIGRATE_ISOLATE<pre><code> 表示NUMA不能夸node迁移page, 让cpu和节点之间保持亲和性.
+</code></pre>
+</li>
+<li>MIGRATE_TYPES<pre><code> 分界数, 低于这个才是迁移类型.
+</code></pre>
+</li>
+</ol>
+<h3 id="实现概要"><a href="#实现概要" class="headerlink" title="实现概要"></a>实现概要</h3><p>实际上的合并对应的是通过小块合并成大块从下级的<code>free_area</code>的链表中移除, 然后添加到上一层<code>free_area</code>当中. 拆分则相反, 从上级<code>free_area</code>当中删除大块, 并且拆分成两个小块, 加入到下层<code>free_area</code>的list当中, 当然, 如果有一块符合需求就直接分配了. 这就是整个物理页分配的核心内容.</p>
+<h3 id="分配"><a href="#分配" class="headerlink" title="分配"></a>分配</h3><p>整个算法的入口是<code>__rmqueue</code>, 从伙伴分配器中分配对应\( 2^{order} \) 的物理块.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">/*</span><br><span class="line"> * Do the hard work of removing an element from the buddy allocator.</span><br><span class="line"> * Call me with the zone-&gt;lock already held.</span><br><span class="line"> */</span><br><span class="line">static struct page *__rmqueue(struct zone *zone, unsigned int order,</span><br><span class="line">				int migratetype)</span><br><span class="line">&#123;</span><br><span class="line">	struct page *page;</span><br><span class="line"></span><br><span class="line">	page = __rmqueue_smallest(zone, order, migratetype);</span><br><span class="line">	if (unlikely(!page)) &#123;</span><br><span class="line">		if (migratetype == MIGRATE_MOVABLE)</span><br><span class="line">			page = __rmqueue_cma_fallback(zone, order); /* MOVABLE的失败优先从cma迁移 */</span><br><span class="line"></span><br><span class="line">		if (!page)</span><br><span class="line">			page = __rmqueue_fallback(zone, order, migratetype); /* 失败的话会从其他备选迁移类型当中迁移page */</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	trace_mm_page_alloc_zone_locked(page, order, migratetype);</span><br><span class="line">	return page;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>分配失败退化的行为在后面讨论,先看主要路径, 算法主要体现在<code>__rmqueue_smallest</code>这个函数上, 依次从order开始向上寻找free_area并从list当中取出page块.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line">/*</span><br><span class="line"> * Go through the free lists for the given migratetype and remove</span><br><span class="line"> * the smallest available page from the freelists</span><br><span class="line"> */</span><br><span class="line">static inline</span><br><span class="line">struct page *__rmqueue_smallest(struct zone *zone, unsigned int order,</span><br><span class="line">						int migratetype)</span><br><span class="line">&#123;</span><br><span class="line">	unsigned int current_order;</span><br><span class="line">	struct free_area *area;</span><br><span class="line">	struct page *page;</span><br><span class="line"></span><br><span class="line">	/* Find a page of the appropriate size in the preferred list */</span><br><span class="line">	for (current_order = order; current_order &lt; MAX_ORDER; ++current_order) &#123;</span><br><span class="line">		area = &amp;(zone-&gt;free_area[current_order]);</span><br><span class="line">		page = list_first_entry_or_null(&amp;area-&gt;free_list[migratetype],</span><br><span class="line">							struct page, lru);</span><br><span class="line">		if (!page)</span><br><span class="line">			continue; /* 如果失败就尝试更大的块 */</span><br><span class="line">		list_del(&amp;page-&gt;lru); /* 这个lru取决他的上下文，比如在这里就是free_list */</span><br><span class="line">		rmv_page_order(page); /* 设置flags */</span><br><span class="line">		area-&gt;nr_free--; /* free计数器-1 */</span><br><span class="line">		expand(zone, page, order, current_order, area, migratetype);</span><br><span class="line">		set_pcppage_migratetype(page, migratetype);/* 设置page的migratetype */</span><br><span class="line">		return page;</span><br><span class="line">	&#125;</span><br><span class="line">	return NULL;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>从下往上找到合适的块以后再从上往下进行拆分, 这依赖于<code>expand</code>函数完成:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><span class="line">/*</span><br><span class="line"> * The order of subdivision here is critical for the IO subsystem.</span><br><span class="line"> * Please do not alter this order without good reasons and regression</span><br><span class="line"> * testing. Specifically, as large blocks of memory are subdivided,</span><br><span class="line"> * the order in which smaller blocks are delivered depends on the order</span><br><span class="line"> * they&#x27;re subdivided in this function. This is the primary factor</span><br><span class="line"> * influencing the order in which pages are delivered to the IO</span><br><span class="line"> * subsystem according to empirical testing, and this is also justified</span><br><span class="line"> * by considering the behavior of a buddy system containing a single</span><br><span class="line"> * large block of memory acted on by a series of small allocations.</span><br><span class="line"> * This behavior is a critical factor in sglist merging&#x27;s success.</span><br><span class="line"> *</span><br><span class="line"> * -- nyc</span><br><span class="line"> */</span><br><span class="line">static inline void expand(struct zone *zone, struct page *page,</span><br><span class="line">	int low, int high, struct free_area *area,</span><br><span class="line">	int migratetype)</span><br><span class="line">&#123;</span><br><span class="line">	unsigned long size = 1 &lt;&lt; high;</span><br><span class="line"></span><br><span class="line">	while (high &gt; low) &#123; /* 从高阶向低阶迭代 */</span><br><span class="line">		area--;</span><br><span class="line">		high--;</span><br><span class="line">		size &gt;&gt;= 1;</span><br><span class="line">		VM_BUG_ON_PAGE(bad_range(zone, &amp;page[size]), &amp;page[size]);</span><br><span class="line">        /* guardpage TODO */</span><br><span class="line">		if (IS_ENABLED(CONFIG_DEBUG_PAGEALLOC) &amp;&amp;</span><br><span class="line">			debug_guardpage_enabled() &amp;&amp;</span><br><span class="line">			high &lt; debug_guardpage_minorder()) &#123;</span><br><span class="line">			/*</span><br><span class="line">			 * Mark as guard pages (or page), that will allow to</span><br><span class="line">			 * merge back to allocator when buddy will be freed.</span><br><span class="line">			 * Corresponding page table entries will not be touched,</span><br><span class="line">			 * pages will stay not present in virtual address space</span><br><span class="line">			 */</span><br><span class="line">			set_page_guard(zone, &amp;page[size], high, migratetype);</span><br><span class="line">			continue;</span><br><span class="line">		&#125;</span><br><span class="line">		list_add(&amp;page[size].lru, &amp;area-&gt;free_list[migratetype]); /* 把page放到area的free_list里面, 这个page是一个数组形式的 比如之前是8 这里变成4,那么后半部分会被留下来，前半部分会继续用于迭代 */</span><br><span class="line">		area-&gt;nr_free++; /* 空闲块计数器+1 */</span><br><span class="line">		set_page_order(&amp;page[size], high); /* 相当于page-&gt;private = high 表示自己属于order为high的阶的block中 */</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>expand 就是向下一层的free_area留一半, 然后接着用另一半进行迭代.</p>
+<p>举个例子说明分配的过程:</p>
+<p>假设当前需要从<code>zone</code>当中分配一个order为1的page,   就会从下往上找到一个可以分配的块.</p>
+<img data-src="/zh-CN/2016/08/31/buddy-system-%E5%86%85%E6%A0%B8%E7%89%A9%E7%90%86%E9%A1%B5%E5%88%86%E9%85%8D%E7%9A%84%E5%AE%9E%E7%8E%B0/buddy-alloc-1.png" class="">
+<p>从1开始迭代到2, 发现2有可以分配的\(2^3\)page, 然后进入expand, 进行拆分.</p>
+<img data-src="/zh-CN/2016/08/31/buddy-system-%E5%86%85%E6%A0%B8%E7%89%A9%E7%90%86%E9%A1%B5%E5%88%86%E9%85%8D%E7%9A%84%E5%AE%9E%E7%8E%B0/buddy-alloc-2.png" class="">
+
+<p>拆分以后一半用于分配一半进入了同一层的free_list当中,如图所示,  核心流程非常简洁明了.</p>
+<p>现在再重新回到<code>__rmqueue</code>,分析这个函数后半部分的fallback行为是如何迁移的.<br>首先如果编译选项带了CMA就会有具体内容, 其实就是再尝试从MIGRATE_CMA当中再分配一次page.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">#ifdef CONFIG_CMA</span><br><span class="line">static struct page *__rmqueue_cma_fallback(struct zone *zone,</span><br><span class="line">					unsigned int order)</span><br><span class="line">&#123;</span><br><span class="line">	return __rmqueue_smallest(zone, order, MIGRATE_CMA);</span><br><span class="line">&#125;</span><br><span class="line">#else</span><br><span class="line">static inline struct page *__rmqueue_cma_fallback(struct zone *zone,</span><br><span class="line">					unsigned int order) &#123; return NULL; &#125;</span><br><span class="line">#endif</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>之后是一般性的退化流程是<code>__rmqueue_fallback</code>这个函数.<br>说这个函数之前需要看一张表.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">/*</span><br><span class="line"> * This array describes the order lists are fallen back to when</span><br><span class="line"> * the free lists for the desirable migrate type are depleted</span><br><span class="line"> */</span><br><span class="line">static int fallbacks[MIGRATE_TYPES][4] = &#123;</span><br><span class="line">	[MIGRATE_UNMOVABLE]   = &#123; MIGRATE_RECLAIMABLE, MIGRATE_MOVABLE,   MIGRATE_TYPES &#125;,</span><br><span class="line">	[MIGRATE_RECLAIMABLE] = &#123; MIGRATE_UNMOVABLE,   MIGRATE_MOVABLE,   MIGRATE_TYPES &#125;,</span><br><span class="line">	[MIGRATE_MOVABLE]     = &#123; MIGRATE_RECLAIMABLE, MIGRATE_UNMOVABLE, MIGRATE_TYPES &#125;,</span><br><span class="line">#ifdef CONFIG_CMA</span><br><span class="line">	[MIGRATE_CMA]         = &#123; MIGRATE_TYPES &#125;, /* Never used */</span><br><span class="line">#endif</span><br><span class="line">#ifdef CONFIG_MEMORY_ISOLATION</span><br><span class="line">	[MIGRATE_ISOLATE]     = &#123; MIGRATE_TYPES &#125;, /* Never used */</span><br><span class="line">#endif</span><br><span class="line">&#125;;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>这张表描述的是当一种类型无法满足时退化选择的迁移类型的一个顺序.接下来看函数的实现.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">/* Remove an element from the buddy allocator from the fallback list */</span><br><span class="line">static inline struct page *</span><br><span class="line">__rmqueue_fallback(struct zone *zone, unsigned int order, int start_migratetype)</span><br><span class="line">&#123;</span><br><span class="line">	struct free_area *area;</span><br><span class="line">	unsigned int current_order;</span><br><span class="line">	struct page *page;</span><br><span class="line">	int fallback_mt;</span><br><span class="line">	bool can_steal;</span><br><span class="line"></span><br><span class="line">	/* Find the largest possible block of pages in the other list */</span><br><span class="line">	for (current_order = MAX_ORDER-1;</span><br><span class="line">				current_order &gt;= order &amp;&amp; current_order &lt;= MAX_ORDER-1;</span><br><span class="line">				--current_order) &#123;</span><br><span class="line">		area = &amp;(zone-&gt;free_area[current_order]);</span><br><span class="line">		/* 遍历fallback table 找到合适的fallback migratetype 要综合考虑: 是否有超过一定阈值的空闲页,并且是可以退化的页类型 */</span><br><span class="line">		fallback_mt = find_suitable_fallback(area, current_order,</span><br><span class="line">				start_migratetype, false, &amp;can_steal);</span><br><span class="line">		if (fallback_mt == -1)</span><br><span class="line">			continue;</span><br><span class="line"></span><br><span class="line">		page = list_first_entry(&amp;area-&gt;free_list[fallback_mt],</span><br><span class="line">						struct page, lru);</span><br><span class="line">		/* 从对应迁类型中&quot;偷取&quot;page TODO:具体如何迁移的 我感觉应该是很抽象的迁移就可以了 */</span><br><span class="line">		if (can_steal)</span><br><span class="line">			steal_suitable_fallback(zone, page, start_migratetype);</span><br><span class="line"></span><br><span class="line">		/* Remove the page from the freelists */</span><br><span class="line">		area-&gt;nr_free--;</span><br><span class="line">		list_del(&amp;page-&gt;lru);</span><br><span class="line">		rmv_page_order(page);</span><br><span class="line"></span><br><span class="line">		expand(zone, page, order, current_order, area,</span><br><span class="line">					start_migratetype);</span><br><span class="line">		/*</span><br><span class="line">		 * The pcppage_migratetype may differ from pageblock&#x27;s</span><br><span class="line">		 * migratetype depending on the decisions in</span><br><span class="line">		 * find_suitable_fallback(). This is OK as long as it does not</span><br><span class="line">		 * differ for MIGRATE_CMA pageblocks. Those can be used as</span><br><span class="line">		 * fallback only via special __rmqueue_cma_fallback() function</span><br><span class="line">		 */</span><br><span class="line">		set_pcppage_migratetype(page, start_migratetype);</span><br><span class="line"></span><br><span class="line">		trace_mm_page_alloc_extfrag(page, order, current_order,</span><br><span class="line">			start_migratetype, fallback_mt);</span><br><span class="line"></span><br><span class="line">		return page;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	return NULL;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>和主要分配路径不同的事, 迭代器是从最大的阶数开始迭代的,这个代表的意思是说我尽量多迁移一点空间给你, 不然你还要迁移的时候我又分配一小块空间给你, 你的碎片间接导致了我的碎片产生, 所以从大到小开始迭代.</p>
+<p>整个核心部分分析完以后, 按照从里向外分析的思路,这是基于<code>__rmqueu</code>的一套更高层次的函数, 再倒回来看alloc_pages的实现会发现非常容易理解.首先<code>__alloc_pages</code>调用<code>__alloc_pages_nodemask</code>. 这里补充一个结构体.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">/*</span><br><span class="line"> * Structure for holding the mostly immutable allocation parameters passed</span><br><span class="line"> * between functions involved in allocations, including the alloc_pages*</span><br><span class="line"> * family of functions.</span><br><span class="line"> *</span><br><span class="line"> * nodemask, migratetype and high_zoneidx are initialized only once in</span><br><span class="line"> * __alloc_pages_nodemask() and then never change.</span><br><span class="line"> *</span><br><span class="line"> * zonelist, preferred_zone and classzone_idx are set first in</span><br><span class="line"> * __alloc_pages_nodemask() for the fast path, and might be later changed</span><br><span class="line"> * in __alloc_pages_slowpath(). All other functions pass the whole strucure</span><br><span class="line"> * by a const pointer.</span><br><span class="line"> */</span><br><span class="line">struct alloc_context &#123;</span><br><span class="line">	struct zonelist *zonelist;</span><br><span class="line">	nodemask_t *nodemask;</span><br><span class="line">	struct zoneref *preferred_zoneref;</span><br><span class="line">	int migratetype;</span><br><span class="line">	enum zone_type high_zoneidx;</span><br><span class="line">	bool spread_dirty_pages;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>这个结构体主要是一些内存分配的参数, 因为从上到下的调用都一直有用到这几个参数所以合成一个<code>context</code>向下传递.</p>
+<p><code>__alloc_pages_nodemask</code>第一步会检查<code>cpusets</code>的功能是否打开, 这个是一个<code>cgroup</code>的子模块, 如果没有设置<code>nodemask</code>就会用<code>cpusets</code>配置的<code>cpuset_current_mems_allowed</code>来限制在哪个node上分配, 这个也是在NUMA结构当中才会有用的. 之后会用到<code>might_sleep_if</code>,判断<code>gfp_mask &amp; __GFP_DIRECT_RECLAIM)</code>, 表示当前内存压力比较大需要直接回收内存, 会循环睡眠同步等待页可用, 而<code>might_sleep_if</code>是一个debug函数,标记当前函数在<code>if</code>为<code>true</code>的时候表示可能会进入睡眠, 如果当前调用进入了一个不可睡眠的上下文就会报错. <code>should_fail_alloc_page</code>会做一些预检查, 一些无法分配的条件会直接报错.<br>接着获取<code>read_mems_allowed_begin</code>,这个会拿到<code>current</code>当前进程的cpusets允许的节点分配掩码, 这个结果的读取通过顺序锁(<code>seqcount_t</code>)进行, 如果在分配page期间这个值发生了改变(通过<code>read_mems_allowed_retry</code>判断), 那么读操作需要重新进行尝试.<br>调用<code>first_zones_zonelist</code>会从<code>zonelist</code>这个表示分配page的zone的优先顺序链表里获取第一个<code>zoneref</code>, <code>zoneref</code>是一个链表节点用于迭代之后的<code>zone</code>选项.<br>接着就会调用关键函数<code>get_page_from_freelist</code>从而分配到页.<br>分配完页如果失败会调用<code>__alloc_pages_slowpath</code>唤起<code>swapd</code>进程进行页回收从而获取可用的页, 再尝试调用<code>get_page_from_free_list</code>.<br>函数的调用图如下.</p>
+<img data-src="/zh-CN/2016/08/31/buddy-system-%E5%86%85%E6%A0%B8%E7%89%A9%E7%90%86%E9%A1%B5%E5%88%86%E9%85%8D%E7%9A%84%E5%AE%9E%E7%8E%B0/callgraph__alloc_pages.png" class="">
+
+<p>这是最外层的一个过程, 但是内核往往经过了很多实践才会有这么一套机制, 内核在这一层之前加了一套缓存, 来加速物理页的分配,  <code>get_page_from_free_list</code>到伙伴分配器之间还有一层高速缓存. 这个结构是一个percpu结构, 每个cpu独有一份链表缓存分配的页,</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">struct per_cpu_pages &#123;</span><br><span class="line">	int count;		/* number of pages in the list */</span><br><span class="line">	int high;		/* high watermark, emptying needed */</span><br><span class="line">	int batch;		/* chunk size for buddy add/remove */</span><br><span class="line"></span><br><span class="line">	/* Lists of pages, one per migrate type stored on the pcp-lists */</span><br><span class="line">	struct list_head lists[MIGRATE_PCPTYPES];</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">struct per_cpu_pageset &#123;</span><br><span class="line">	struct per_cpu_pages pcp;</span><br><span class="line">#ifdef CONFIG_NUMA</span><br><span class="line">	s8 expire;</span><br><span class="line">#endif</span><br><span class="line">#ifdef CONFIG_SMP</span><br><span class="line">	s8 stat_threshold;</span><br><span class="line">	s8 vm_stat_diff[NR_VM_ZONE_STAT_ITEMS];</span><br><span class="line">#endif</span><br><span class="line">&#125;;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>每个zone都会有一个这个结构用于缓存页的分配, 中文一般就叫高速缓存.</p>
+<p>缓存的过程是这样的, 首先通过<code>for_next_zone_zonelist_nodemask</code>遍历每个zone 会选择合适的zone, 选择合适的zone一笔带过但其实考虑了很多因素比如是否满足分配的wartermark, 是否需要均衡到别的zone当中, 是否被cpusets禁止了分配等等, 然后调用<code>buffered_rmqueue</code>这个函数, 这个函数就是构建对buddy分配器裹了一层高速缓存. 这个函数在只分配1页(order=0)的情况下,会判断是不是”冷”页, <code>    bool cold = ((gfp_flags &amp; __GFP_COLD) != 0)</code>, 冷页的区别是会放到高速缓存的末尾, 相反热页会放到高速缓存的头部. 然后尝试获取高速缓存的page, 如果高速缓存为空就调用<code>rmqueue_bulk</code>分配一段<code>batch</code>大小的页块到高速缓存中继续尝试分配, 而<code>rmqueue_bulk</code>就是循环了<code>batch</code>次分配了order=0的page逐个添加到高速缓存当中. 如果需要分配的order不为0的话还是会直接从buddy-system当中分配不依靠高速缓存. 高速缓存主要是缓存单页的分配.</p>
+<p>所以调整后的走高速缓存的主流程就如下图所示.</p>
+<img data-src="/zh-CN/2016/08/31/buddy-system-%E5%86%85%E6%A0%B8%E7%89%A9%E7%90%86%E9%A1%B5%E5%88%86%E9%85%8D%E7%9A%84%E5%AE%9E%E7%8E%B0/callgraph__alloc_pages-2.png" class="">
+
+
+<h3 id="释放"><a href="#释放" class="headerlink" title="释放"></a>释放</h3><p>还是从伙伴系统的最内部实现向外说, 释放对应的是<code>__free_one_page</code>, 指定释放\(2^{order}\)的物理页块, 地址为page, 可以说释放过程是拆分过程的一个逆过程.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br></pre></td><td class="code"><pre><span class="line">/*</span><br><span class="line"> * Freeing function for a buddy system allocator.</span><br><span class="line"> *</span><br><span class="line"> * The concept of a buddy system is to maintain direct-mapped table</span><br><span class="line"> * (containing bit values) for memory blocks of various &quot;orders&quot;.</span><br><span class="line"> * The bottom level table contains the map for the smallest allocatable</span><br><span class="line"> * units of memory (here, pages), and each level above it describes</span><br><span class="line"> * pairs of units from the levels below, hence, &quot;buddies&quot;.</span><br><span class="line"> * At a high level, all that happens here is marking the table entry</span><br><span class="line"> * at the bottom level available, and propagating the changes upward</span><br><span class="line"> * as necessary, plus some accounting needed to play nicely with other</span><br><span class="line"> * parts of the VM system.</span><br><span class="line"> * At each level, we keep a list of pages, which are heads of continuous</span><br><span class="line"> * free pages of length of (1 &lt;&lt; order) and marked with _mapcount</span><br><span class="line"> * PAGE_BUDDY_MAPCOUNT_VALUE. Page&#x27;s order is recorded in page_private(page)</span><br><span class="line"> * field.</span><br><span class="line"> * So when we are allocating or freeing one, we can derive the state of the</span><br><span class="line"> * other.  That is, if we allocate a small block, and both were</span><br><span class="line"> * free, the remainder of the region must be split into blocks.</span><br><span class="line"> * If a block is freed, and its buddy is also free, then this</span><br><span class="line"> * triggers coalescing into a block of larger size.</span><br><span class="line"> *</span><br><span class="line"> * -- nyc</span><br><span class="line"> */</span><br><span class="line"></span><br><span class="line">static inline void __free_one_page(struct page *page, /*  把page加回到free_list里面 */</span><br><span class="line">		unsigned long pfn,</span><br><span class="line">		struct zone *zone, unsigned int order,</span><br><span class="line">		int migratetype)</span><br><span class="line">&#123;</span><br><span class="line">	unsigned long page_idx;</span><br><span class="line">	unsigned long combined_idx;</span><br><span class="line">	unsigned long uninitialized_var(buddy_idx);</span><br><span class="line">	struct page *buddy;</span><br><span class="line">	unsigned int max_order;</span><br><span class="line"></span><br><span class="line">	max_order = min_t(unsigned int, MAX_ORDER, pageblock_order + 1); /* 获取最大的阶数 */</span><br><span class="line"></span><br><span class="line">	VM_BUG_ON(!zone_is_initialized(zone)); /* 检查wait_table是否存在来表示zone是否初始化过 里面用到了双感叹号表示强制1或者0 */</span><br><span class="line">	VM_BUG_ON_PAGE(page-&gt;flags &amp; PAGE_FLAGS_CHECK_AT_PREP, page);</span><br><span class="line"></span><br><span class="line">	VM_BUG_ON(migratetype == -1);</span><br><span class="line">	if (likely(!is_migrate_isolate(migratetype))) /* 是isolate类型 */</span><br><span class="line">		__mod_zone_freepage_state(zone, 1 &lt;&lt; order, migratetype);</span><br><span class="line"></span><br><span class="line">	page_idx = pfn &amp; ((1 &lt;&lt; MAX_ORDER) - 1); /* 获取page的下标 */</span><br><span class="line"></span><br><span class="line">	VM_BUG_ON_PAGE(page_idx &amp; ((1 &lt;&lt; order) - 1), page);</span><br><span class="line">	VM_BUG_ON_PAGE(bad_range(zone, page), page);</span><br><span class="line"></span><br><span class="line">continue_merging:</span><br><span class="line">	while (order &lt; max_order - 1) &#123;</span><br><span class="line">		buddy_idx = __find_buddy_index(page_idx, order);/* 获取buddy的下标 */</span><br><span class="line">		buddy = page + (buddy_idx - page_idx); /* 根据相对距离得到buddy page */</span><br><span class="line">		if (!page_is_buddy(page, buddy, order)) /* 如果不是buddy就结束合并 */</span><br><span class="line">			goto done_merging;</span><br><span class="line">		/*</span><br><span class="line">		 * Our buddy is free or it is CONFIG_DEBUG_PAGEALLOC guard page,</span><br><span class="line">		 * merge with it and move up one order.</span><br><span class="line">		 */</span><br><span class="line">		if (page_is_guard(buddy)) &#123;</span><br><span class="line">			clear_page_guard(zone, buddy, order, migratetype);</span><br><span class="line">		&#125; else &#123;</span><br><span class="line">		    /* 把buddy从free_area当中移除 */</span><br><span class="line">			list_del(&amp;buddy-&gt;lru);</span><br><span class="line">			zone-&gt;free_area[order].nr_free--;</span><br><span class="line">			rmv_page_order(buddy);</span><br><span class="line">		&#125;</span><br><span class="line">		combined_idx = buddy_idx &amp; page_idx;</span><br><span class="line">		page = page + (combined_idx - page_idx);</span><br><span class="line">		page_idx = combined_idx;</span><br><span class="line">		order++; /* 向上合并 */</span><br><span class="line">	&#125;</span><br><span class="line">	if (max_order &lt; MAX_ORDER) &#123;</span><br><span class="line">		/* If we are here, it means order is &gt;= pageblock_order.</span><br><span class="line">		 * We want to prevent merge between freepages on isolate</span><br><span class="line">		 * pageblock and normal pageblock. Without this, pageblock</span><br><span class="line">		 * isolation could cause incorrect freepage or CMA accounting.</span><br><span class="line">		 *</span><br><span class="line">		 * We don&#x27;t want to hit this code for the more frequent</span><br><span class="line">		 * low-order merging.</span><br><span class="line">		 */</span><br><span class="line">		 /* 在这里说明已经超出了pageblock的order, 可能在不同的migratetype的block边界了,这里再检查一次是不是isolate, 不允许节点间迁移的page, 如果是的话就要结束合并的迭代,不然继续向上合并 */</span><br><span class="line">		if (unlikely(has_isolate_pageblock(zone))) &#123;</span><br><span class="line">			int buddy_mt;</span><br><span class="line"></span><br><span class="line">			buddy_idx = __find_buddy_index(page_idx, order);</span><br><span class="line">			buddy = page + (buddy_idx - page_idx);</span><br><span class="line">			buddy_mt = get_pageblock_migratetype(buddy);</span><br><span class="line"></span><br><span class="line">			if (migratetype != buddy_mt</span><br><span class="line">					&amp;&amp; (is_migrate_isolate(migratetype) ||</span><br><span class="line">						is_migrate_isolate(buddy_mt)))</span><br><span class="line">				goto done_merging;</span><br><span class="line">		&#125;</span><br><span class="line">		max_order++;</span><br><span class="line">		goto continue_merging;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">done_merging:</span><br><span class="line">	set_page_order(page, order);/* 结束合并自后设置合并之后的阶数 */</span><br><span class="line"></span><br><span class="line">	/*</span><br><span class="line">	 * If this is not the largest possible page, check if the buddy</span><br><span class="line">	 * of the next-highest order is free. If it is, it&#x27;s possible</span><br><span class="line">	 * that pages are being freed that will coalesce soon. In case,</span><br><span class="line">	 * that is happening, add the free page to the tail of the list</span><br><span class="line">	 * so it&#x27;s less likely to be used soon and more likely to be merged</span><br><span class="line">	 * as a higher order page</span><br><span class="line">	 */</span><br><span class="line">	if ((order &lt; MAX_ORDER-2) &amp;&amp; pfn_valid_within(page_to_pfn(buddy))) &#123; /* 这个条件判断没有合并到最大块, 内核认为很有可能接下来这个块和其他free的块合并, 从减少碎片的角度来说会更倾向于放到链表的末尾, 让这个块的free状态保持久一点, 更有机会被合并成更大的块 */</span><br><span class="line">		struct page *higher_page, *higher_buddy;</span><br><span class="line">		combined_idx = buddy_idx &amp; page_idx; /* 合并后的idx */</span><br><span class="line">		higher_page = page + (combined_idx - page_idx); /* 合并后的page */</span><br><span class="line">		buddy_idx = __find_buddy_index(combined_idx, order + 1); /* 向上寻找buddy */</span><br><span class="line">		higher_buddy = higher_page + (buddy_idx - combined_idx);</span><br><span class="line">		if (page_is_buddy(higher_page, higher_buddy, order + 1)) &#123;</span><br><span class="line">			list_add_tail(&amp;page-&gt;lru,</span><br><span class="line">				&amp;zone-&gt;free_area[order].free_list[migratetype]);</span><br><span class="line">			goto out;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	list_add(&amp;page-&gt;lru, &amp;zone-&gt;free_area[order].free_list[migratetype]); </span><br><span class="line">	/* 把page加入到对应的order当中 */</span><br><span class="line">out:</span><br><span class="line">	zone-&gt;free_area[order].nr_free++; /* free_area nr_free 空闲块加1 */</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>这个函数就是从order开始迭代不断寻找自己的buddy, 寻找buddy的函数是<code>__find_buddy_index</code>, 首先要说的是page是以数组的形式存放在<code>mem_map</code>当中, 整个page是可以通过index线性索引的.要找到自己的buddy只要在对应的order位进行抑或即可.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">static inline unsigned long</span><br><span class="line">__find_buddy_index(unsigned long page_idx, unsigned int order)</span><br><span class="line">&#123;</span><br><span class="line">	/* idx 抑或 2^order order那位是0, 那么buddy应该是1 </span><br><span class="line">	 * order那位是1, 那么buddy应该是0 */</span><br><span class="line">	return page_idx ^ (1 &lt;&lt; order);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>然后层层递归把低层的<code>free_area</code>中的page块向高层移动,最后有一个优化, 内核认为刚释放的page很可能相关的buddy页也会释放, 所以把刚释放的页放到末尾让他更晚被分配出去从而得到更多的机会被合并成大块.</p>
+<p>现在再从外层看物理页的分配.</p>
+<p>入口函数是<code>__free_pages</code>, 其实知道了分配的过程对于释放的过程可以说是轻而易举就能理解的.首先这个函数<code>put_page_testzero</code>会减少引用计数, 如果到达0才真正执行释放操作.释放路径有两个一个是order为0和不为0的情况, 为0很好理解, 需要交回到高速缓存即可, 如果高速缓存满了再交回给buddy system, 不为0说明也没有缓存过,就直接调用<code>free_one_page</code>,这个函数会调用<code>__free_one_page</code>,最终还给buddy system. 所以这里主要看一下代缓存的路径, 先是调用<code>free_hot_cold_page</code>, 指定是热页也就是添加到高速缓存的头，如果计数器超过阈值<code>pcp-&gt;count &gt;= pcp-&gt;high</code>调用<code>free_pcppages_bulk</code>交还给buddy system,  这个函数可以遍历高速缓存中的migratetype,然后根据指定的count从高速缓存中交还给buddy system的页, 当前路径是整个batch个的页都会还回去.</p>
+<p>带高速缓存的释放的调用图如图所示.</p>
+<img data-src="/zh-CN/2016/08/31/buddy-system-%E5%86%85%E6%A0%B8%E7%89%A9%E7%90%86%E9%A1%B5%E5%88%86%E9%85%8D%E7%9A%84%E5%AE%9E%E7%8E%B0/callgraph__free_pages.png" class="">
+
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>伙伴分配器的确是一个非常简洁的算法(我认为可以递归表示和迭代表示算法都美妙无比), 但是内核对于这样一个简单的算法也结合了很多实际工程的内容还有一些优化,比如迁移类型还有冷热页的标记和高速缓存等等. 充分理解内核的物理页分配对于接下来理解slab分配起和内核虚拟内存的相关内容有很好的帮助作用. 文末给出了许多参考链接, 我结合了前人的知识进行总结, 并且基于最新的4.7.2的内核重新走了一遍分析之路, 做了解释和补充, 对自己的学习是一个积累, 同时希望对大家有帮助.</p>
+<p>参考</p>
+<ol>
+<li> <a target="_blank" rel="noopener" href="http://blog.csdn.net/vanbreaker/article/details/7626670">迁移类型 实现反碎片</a></li>
+<li> <a target="_blank" rel="noopener" href="http://blog.chinaunix.net/uid-26859697-id-4939357.html">页面迁移</a></li>
+<li> <a target="_blank" rel="noopener" href="https://www.kernel.org/doc/gorman/html/understand/understand009.html">LVMM 的Physical Page Allocation 章节</a></li>
+<li> <a target="_blank" rel="noopener" href="http://www.ilinuxkernel.com/files/Linux_Physical_Memory_Page_Allocation.pdf">Linux 物理页面分配</a></li>
+<li> <a target="_blank" rel="noopener" href="http://guojing.me/linux-kernel-architecture/posts/seqlock/">顺序锁</a></li>
+</ol>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/kernel/" rel="tag"># kernel</a>
+              <a href="/tags/%E5%86%85%E6%A0%B8/" rel="tag"># 内核</a>
+              <a href="/tags/%E5%86%85%E5%AD%98/" rel="tag"># 内存</a>
+              <a href="/tags/memory/" rel="tag"># memory</a>
+              <a href="/tags/page/" rel="tag"># page</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/zh-CN/2016/04/23/qlang-%E6%BA%90%E4%BB%A3%E7%A0%81%E5%88%B0%E5%AD%97%E8%8A%82%E7%A0%81%E7%9A%84%E8%BD%AC%E6%8D%A2/" rel="prev" title="language-vm-给编程语言加入虚拟机作为后端">
+                  <i class="fa fa-angle-left"></i> language-vm-给编程语言加入虚拟机作为后端
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/zh-CN/2016/09/05/vmalloc-%E9%9D%9E%E8%BF%9E%E7%BB%AD%E5%86%85%E5%AD%98%E7%9A%84%E5%88%86%E9%85%8D/" rel="next" title="vmalloc-非连续内存的分配">
+                  vmalloc-非连续内存的分配 <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 2014 – 
+    <span itemprop="copyrightYear">2025</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+  </div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/mist/" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.umd.js" integrity="sha256-a+H7FYzJv6oU2hfsfDGM2Ohw/cR9v+hPfxHCLdmCrE8=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lozad.js/1.16.0/lozad.min.js" integrity="sha256-mOFREFhqmHeQbXpK2lp4nA3qooVgACfh88fpJftLBbc=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/sidebar.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+  <script src="/js/third-party/fancybox.js"></script>
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"ggaaooppeenngg","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>
