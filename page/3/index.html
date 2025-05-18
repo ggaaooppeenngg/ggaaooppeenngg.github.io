@@ -92,7 +92,7 @@
 
 
 <nav class="site-nav">
-  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">134</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">14</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">78</span></a></li>
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">135</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">14</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">79</span></a></li>
   </ul>
 </nav>
 
@@ -129,7 +129,7 @@
   <nav class="site-state">
       <div class="site-state-item site-state-posts">
         <a href="/archives/">
-          <span class="site-state-item-count">78</span>
+          <span class="site-state-item-count">79</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -140,7 +140,7 @@
       </div>
       <div class="site-state-item site-state-tags">
           <a href="/tags/">
-        <span class="site-state-item-count">134</span>
+        <span class="site-state-item-count">135</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
@@ -169,6 +169,163 @@
     </div>
 
     <div class="main-inner index posts-expand">
+
+    
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2024/11/20/%E5%9C%A8llm%E7%9A%84prompt%E7%BC%93%E5%AD%98%E6%96%B9%E6%B3%95/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="undefined | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          <a href="/zh-CN/2024/11/20/%E5%9C%A8llm%E7%9A%84prompt%E7%BC%93%E5%AD%98%E6%96%B9%E6%B3%95/" class="post-title-link" itemprop="url">在llm的prompt缓存方法</a>
+        </h2>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2024-11-20 14:08:26" itemprop="dateCreated datePublished" datetime="2024-11-20T14:08:26+08:00">2024-11-20</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2025-03-28 18:39:05" itemprop="dateModified" datetime="2025-03-28T18:39:05+08:00">2025-03-28</time>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2024/11/20/%E5%9C%A8llm%E7%9A%84prompt%E7%BC%93%E5%AD%98%E6%96%B9%E6%B3%95/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2024/11/20/在llm的prompt缓存方法/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+          <p>Prompt缓存可以从两个角度来处理：</p>
+<h2 id="基于相似度的外部缓存"><a href="#基于相似度的外部缓存" class="headerlink" title="基于相似度的外部缓存"></a>基于相似度的外部缓存</h2><p>一种是对提示词和结果做相似性对比，对结果缓存，这一部分可以在外部来做，例如 langchain的 <a target="_blank" rel="noopener" href="https://python.langchain.com/docs/how_to/llm_caching/">llm caching</a>。具体实现方法包括：</p>
+<ol>
+<li><p><strong>向量化存储</strong>：</p>
+<ul>
+<li>将prompt转换为向量表示</li>
+<li>使用向量数据库（如FAISS、Milvus等）存储</li>
+<li>通过向量相似度检索相近的历史prompt</li>
+</ul>
+</li>
+<li><p><strong>模糊匹配</strong>：</p>
+<ul>
+<li>使用编辑距离等算法计算文本相似度</li>
+<li>设置相似度阈值进行匹配</li>
+<li>返回最相似的历史响应</li>
+</ul>
+</li>
+<li><p><strong>缓存策略</strong>：</p>
+<ul>
+<li>LRU（最近最少使用）淘汰</li>
+<li>时间过期机制</li>
+<li>容量限制管理</li>
+</ul>
+</li>
+</ol>
+<h2 id="基于KV-Cache的内部优化"><a href="#基于KV-Cache的内部优化" class="headerlink" title="基于KV Cache的内部优化"></a>基于KV Cache的内部优化</h2><p>另一种是利用 KV Cache 中的交叉注意力机制，复用相同的提示词前缀，这是ChatGPT使用的<a target="_blank" rel="noopener" href="https://platform.openai.com/docs/guides/prompt-caching">方法</a>。其工作原理是：</p>
+<ol>
+<li><p><strong>KV Cache机制</strong>：</p>
+<ul>
+<li>存储每个token的Key和Value计算结果</li>
+<li>避免重复计算相同前缀</li>
+<li>提高推理性能</li>
+</ul>
+</li>
+<li><p><strong>增量计算</strong>：</p>
+<ul>
+<li>只对新增的token进行注意力计算</li>
+<li>复用已缓存的中间状态</li>
+<li>显著减少计算量</li>
+</ul>
+</li>
+<li><p><strong>内存管理</strong>：</p>
+<ul>
+<li>自动清理过期缓存</li>
+<li>动态调整缓存大小</li>
+<li>优化内存使用</li>
+</ul>
+</li>
+</ol>
+<p>在实际应用中，我们可以综合运用这两种缓存方法来优化性能：</p>
+<ul>
+<li>对于完全相同或高度相似的prompt，优先使用外部缓存机制</li>
+<li>对于部分重叠的prompt，则可以利用KV Cache机制</li>
+<li>具体使用哪种策略，需要根据实际场景和资源限制来权衡选择</li>
+</ul>
+<p>值得注意的是，KV Cache中的Key和Value都包含了位置编码信息。这意味着要充分发挥prompt缓存的作用，需要确保提示词保持相同的前缀结构。如果提示词的位置发生变化，即使内容相同，对应的KV值也会不同。</p>
+<p>具体来说，当两次不同的推理过程中，如果prompt具有相同的提示词前缀，那么这部分的KV计算结果是完全一致的，因此可以直接复用之前推理过程中的KV cache，从而提高推理效率。</p>
+<p>最近有一个有趣的<a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2311.04934">论文</a>：通过使用DSL（领域特定语言）来描述prompt结构，可以更精确地控制位置编码。这种方法不仅能够缓存相同的前缀，还支持缓存相同的后缀，同时允许中间部分灵活变动，进一步提升了缓存的效率。但我个人感觉比较难用，等于给本来很灵活的prompt套上了一层结构化的描述语言，这种结构化的语言如果是一些GPT应用的开发有固定模式可能还好，但是通用场景下很难让用户能够用得起来这么专业的描述语言。</p>
+<p>像RAG系统中的文档检索结果和固定的记忆上下文，都非常适合作为”提示词前缀”，这样可以更好地利用KV Cache机制。</p>
+<p>在设计prompt结构时，我们应该按照内容的变化频率来排序，将越”稳定”的部分放在越前面的位置：</p>
+<ol>
+<li>系统提示词（System Prompt）：基本保持不变</li>
+<li>个人记忆（Memory）：对特定用户来说相对稳定</li>
+<li>RAG检索内容（Context）：根据查询动态变化</li>
+<li>对话历史（History）：随交互持续更新</li>
+<li>用户输入（User Input）：每次都不同</li>
+</ol>
+<p>这种由稳定到动态的排序结构可以最大化KV Cache的复用效果：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">System: 你是一个专业的助手。请基于以下上下文回答问题。</span><br><span class="line">Memory: &#123;personal_memory_context&#125;</span><br><span class="line">Context: &#123;retrieved_documents&#125;</span><br><span class="line">History: &#123;chat_history&#125;</span><br><span class="line">User: &#123;user_question&#125;</span><br></pre></td></tr></table></figure>
+      
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+        <div class="post-eof"></div>
+      
+    </footer>
+  </article>
+</div>
+
+
+
 
     
 
@@ -1337,130 +1494,6 @@
 <h3 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a>参考资料</h3><p><a target="_blank" rel="noopener" href="https://developer.download.nvidia.com/compute/cuda/1.1-Beta/x86_website/projects/nbody/doc/nbody_gems3_ch31.pdf">n body nvidia</a></p>
 <p><a target="_blank" rel="noopener" href="https://arxiv.org/abs/astro-ph/0202512">O(N) 算法计算天体运动</a></p>
 <p><a target="_blank" rel="noopener" href="https://rosettacode.org/wiki/N-body_problem">n body problem</a></p>
-
-      
-    </div>
-
-    
-    
-    
-
-    <footer class="post-footer">
-        <div class="post-eof"></div>
-      
-    </footer>
-  </article>
-</div>
-
-
-
-
-    
-
-
-<div class="post-block">
-  
-  
-
-  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2019/03/03/tf-%E6%A8%A1%E5%9E%8B%E7%9A%84%E4%BF%9D%E5%AD%98%E5%92%8C%E5%86%BB%E7%BB%93/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="ggaaooppeenngg">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="ggaaooppeenngg">
-      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
-    </span>
-
-    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
-      <meta itemprop="name" content="undefined | ggaaooppeenngg">
-      <meta itemprop="description" content="">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          <a href="/zh-CN/2019/03/03/tf-%E6%A8%A1%E5%9E%8B%E7%9A%84%E4%BF%9D%E5%AD%98%E5%92%8C%E5%86%BB%E7%BB%93/" class="post-title-link" itemprop="url">tensorflow 模型的存档、保存、冻结、优化</a>
-        </h2>
-
-        <div class="post-meta-container">
-          <div class="post-meta">
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-calendar"></i>
-      </span>
-      <span class="post-meta-item-text">发表于</span>
-
-      <time title="创建时间：2019-03-03 02:29:46" itemprop="dateCreated datePublished" datetime="2019-03-03T02:29:46+08:00">2019-03-03</time>
-    </span>
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-calendar-check"></i>
-      </span>
-      <span class="post-meta-item-text">更新于</span>
-      <time title="修改时间：2025-03-28 18:39:05" itemprop="dateModified" datetime="2025-03-28T18:39:05+08:00">2025-03-28</time>
-    </span>
-
-  
-  
-  <span class="post-meta-item">
-    
-      <span class="post-meta-item-icon">
-        <i class="far fa-comment"></i>
-      </span>
-      <span class="post-meta-item-text">Disqus：</span>
-    
-    <a title="disqus" href="/zh-CN/2019/03/03/tf-%E6%A8%A1%E5%9E%8B%E7%9A%84%E4%BF%9D%E5%AD%98%E5%92%8C%E5%86%BB%E7%BB%93/#disqus_thread" itemprop="discussionUrl">
-      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2019/03/03/tf-模型的保存和冻结/" itemprop="commentCount"></span>
-    </a>
-  </span>
-  
-  
-</div>
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-          <p>模型的保存分三种类型</p>
-<ol>
-<li> 知道模型结构，单纯保存变量</li>
-<li> 不知道模型结构，保存模型和变量</li>
-<li> 不需要再改变量，只要常量化的模型（“冻结”）</li>
-</ol>
-<p>第一种用于训练的存档，并且临时恢复，这个时候用户是把训练需要的网络结构在代码里面构造好了的，只是在一定的时间下需要暂时保存网络中的变量，为了在崩溃之后继续训练。所以自然而然会有一个问题，如果我用 Python 写的代码，需要在 C++ 当中恢复，我需要知道你的模型结构，才能恢复，这个最蠢的办法是用 C++ 把你的网络结构再构造一遍，但我们按照统一的协议（比如 Protobuf）确定网络结构，就可以直接从标准序列化的数据中解析网络结构，这就是第二种情况，独立于语言，模型和变量一起保存的情况。然后如果碰到我们不需要再训练了，比如只是把这个模型进行部署，不需要改变相关的变量，那么其实只要一个带常量的模型就可以，这就是第三种情况，把变量冻结的正向传播模型。接下来会依次解释这几种情况的工作方式。</p>
-<p>除了这些以外，针对用于服务的模型还可以做很多的优化。</p>
-<h2 id="存档"><a href="#存档" class="headerlink" title="存档"></a>存档</h2><p>存档只是单纯的保存变量，并且能够恢复，可以在一定的迭代次数以后保存变量，并且从任意一个存档开始重新训练。以两个变量加减 1 为例。</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">import tensorflow as tf</span><br><span class="line"></span><br><span class="line"># Create some variables.</span><br><span class="line">v1 = tf.get_variable(&quot;v1&quot;, shape=[3], initializer = tf.zeros_initializer)</span><br><span class="line">v2 = tf.get_variable(&quot;v2&quot;, shape=[5], initializer = tf.zeros_initializer)</span><br><span class="line"></span><br><span class="line">inc_v1 = v1.assign(v1+1)</span><br><span class="line">dec_v2 = v2.assign(v2-1)</span><br><span class="line"></span><br><span class="line"># Add an op to initialize the variables.</span><br><span class="line">init_op = tf.global_variables_initializer()</span><br><span class="line"></span><br><span class="line"># Add ops to save and restore all the variables.</span><br><span class="line">saver = tf.train.Saver()</span><br><span class="line"></span><br><span class="line"># Later, launch the model, initialize the variables, do some work, and save the</span><br><span class="line"># variables to disk.</span><br><span class="line">with tf.Session() as sess:</span><br><span class="line">  sess.run(init_op)</span><br><span class="line">  # Do some work with the model.</span><br><span class="line">  inc_v1.op.run()</span><br><span class="line">  dec_v2.op.run()</span><br><span class="line">  # Save the variables to disk.</span><br><span class="line">  save_path = saver.save(sess, &quot;/tmp/tf-test/model.ckpt&quot;)</span><br><span class="line">  print(&quot;Model saved in path: %s&quot; % save_path)</span><br></pre></td></tr></table></figure>
-
-<p>可以在 <code>/tmp/tf-test</code> 下面看到这几个文件 <code>checkpoint                     model.ckpt.data-00000-of-00001 model.ckpt.index               model.ckpt.meta</code>。</p>
-<p>可以通过脚本观察保存的变量 <code>python  $tensorflow-src/tensorflow/python/tools/inspect_checkpoint.py --file_name=/tmp/tf-test/model.ckpt  --all_tensors</code></p>
-<p>得到保存的变量的内容，注意 <code>model.ckpt</code> 这个只是文件前缀。</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">tensor_name:  v1</span><br><span class="line">[1. 1. 1.]</span><br><span class="line">tensor_name:  v2</span><br><span class="line">[-1. -1. -1. -1. -1.]</span><br></pre></td></tr></table></figure>
-<p>如果要恢复的话，可以通过下面的代码。</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">import tensorflow as tf</span><br><span class="line"></span><br><span class="line"># Create some variables.</span><br><span class="line">v1 = tf.get_variable(&quot;v1&quot;, shape=[3])</span><br><span class="line">v2 = tf.get_variable(&quot;v2&quot;, shape=[5])</span><br><span class="line"></span><br><span class="line"># Add ops to save and restore all the variables.</span><br><span class="line">saver = tf.train.Saver()</span><br><span class="line"></span><br><span class="line"># Later, launch the model, use the saver to restore variables from disk, and</span><br><span class="line"># do some work with the model.</span><br><span class="line">with tf.Session() as sess:</span><br><span class="line">  # Restore variables from disk.</span><br><span class="line">  saver.restore(sess, &quot;/tmp/tf-test/model.ckpt&quot;)</span><br><span class="line">  print(&quot;Model restored.&quot;)</span><br><span class="line">  # Check the values of the variables</span><br><span class="line">  print(&quot;v1 : %s&quot; % v1.eval())</span><br><span class="line">  print(&quot;v2 : %s&quot; % v2.eval())</span><br></pre></td></tr></table></figure>
-<p>得到一样的效果</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">v1 : [1. 1. 1.]</span><br><span class="line">v2 : [-1. -1. -1. -1. -1.]</span><br></pre></td></tr></table></figure>
-<p>具体来说 .meta 对应的是 MetaGraph 和 SaverGraph，.index 对应的是变量值的位置，key 是变量名，value 是变量保存的入口定义，data 变量的值具体保存的文件。这是恢复代码中已经原样构造出了 Graph，如果没有构造的化，需要通过 <code>tf.train.import_meta_graph(&#39;/tmp/model.ckpt.meta&#39;)</code> 来加载，但是存档保存的信息比较单一，Tensorflow 提供了一个更丰富的 API 来使用。</p>
-<h2 id="保存"><a href="#保存" class="headerlink" title="保存"></a>保存</h2><p><code>SavedModelBuilder</code> 保存的 API 比较丰富，能够保存多个 MetaGraph 和 Variables 的组合，除此之外还能附带 assets，并且要指定模型签名，<code>simple_saved</code> 的方法是一个简单版本的调用，适用于 Predict API。这里要展开一下 GraphDef, MetaGraphDef, SignatureDef, tags 这些东西的概念。对于 MetaGraph，<a target="_blank" rel="noopener" href="https://blog.csdn.net/qq_38542085/article/details/78554550">这篇文章</a>解释得很清楚。SignatureDef 是对应了一种图的输入和输出，可以依据这个进行 serving API 的调用，类似于函数签名，相对于一个接口的定义。</p>
-<p>tensorflow_serving 自己给了个<a target="_blank" rel="noopener" href="https://github.com/tensorflow/serving/blob/master/tensorflow_serving/example/mnist_saved_model.py">例子</a>，执行 <code>python mnist_saved_model.py /tmp/tf-test-2</code> 以后可以获得一个目录，下面有版本 1 的模型数据，执行 <code>saved_model_cli show --dir  /tmp/tf-test-2/1</code> 可以查看对应的签名。可以看到对应的层级关系，默认用于服务的模型会打上 serve 的标签，函数签名有两个，分别对应了 predict 和 classify 的方法。</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line">MetaGraphDef with tag-set: &#x27;serve&#x27; contains the following SignatureDefs:</span><br><span class="line"></span><br><span class="line">signature_def[&#x27;predict_images&#x27;]:</span><br><span class="line">  The given SavedModel SignatureDef contains the following input(s):</span><br><span class="line">    inputs[&#x27;images&#x27;] tensor_info:</span><br><span class="line">        dtype: DT_FLOAT</span><br><span class="line">        shape: (-1, 784)</span><br><span class="line">        name: x:0</span><br><span class="line">  The given SavedModel SignatureDef contains the following output(s):</span><br><span class="line">    outputs[&#x27;scores&#x27;] tensor_info:</span><br><span class="line">        dtype: DT_FLOAT</span><br><span class="line">        shape: (-1, 10)</span><br><span class="line">        name: y:0</span><br><span class="line">  Method name is: tensorflow/serving/predict</span><br><span class="line"></span><br><span class="line">signature_def[&#x27;serving_default&#x27;]:</span><br><span class="line">  The given SavedModel SignatureDef contains the following input(s):</span><br><span class="line">    inputs[&#x27;inputs&#x27;] tensor_info:</span><br><span class="line">        dtype: DT_STRING</span><br><span class="line">        shape: unknown_rank</span><br><span class="line">        name: tf_example:0</span><br><span class="line">  The given SavedModel SignatureDef contains the following output(s):</span><br><span class="line">    outputs[&#x27;classes&#x27;] tensor_info:</span><br><span class="line">        dtype: DT_STRING</span><br><span class="line">        shape: (-1, 10)</span><br><span class="line">        name: index_to_string_Lookup:0</span><br><span class="line">    outputs[&#x27;scores&#x27;] tensor_info:</span><br><span class="line">        dtype: DT_FLOAT</span><br><span class="line">        shape: (-1, 10)</span><br><span class="line">        name: TopKV2:0</span><br><span class="line">  Method name is: tensorflow/serving/classify</span><br></pre></td></tr></table></figure>
-<p>可以参考 tensorflow 的 <a target="_blank" rel="noopener" href="https://www.tensorflow.org/tfx/serving/api_rest">REST API</a>，比如 <code>GET http://host:port/v1/models/$&#123;MODEL_NAME&#125;[/versions/$&#123;MODEL_VERSION&#125;]</code> 其实对应这个例子就是 <code>GET http://host:port/v1/models/tf-test-2/versions/1</code>，然后感觉函数签名不同的 method name，可以调用不同的 request，比如 <code>POST http://host:port/v1/models/$&#123;MODEL_NAME&#125;[/versions/$&#123;MODEL_VERSION&#125;]:predict</code> 这个格式，如果输入和输出对应的是 <code>images</code> 和 <code>scores</code> 那么就对应了第一个签名。</p>
-<h2 id="冻结"><a href="#冻结" class="headerlink" title="冻结"></a>冻结</h2><p>冻结的情况就是变量不再需要修改，直接把变量转化成常量保存成单一的模型，方便在部署的场景下使用。<br>冻结模型的代码在<a target="_blank" rel="noopener" href="https://github.com/tensorflow/tensorflow/blob/master/tensorflow/python/tools/freeze_graph.py">这里</a>，他的主要流程如下</p>
-<ol>
-<li>清除所有 Op 中的 device，让原来在指定 CPU/GPU/节点 上的 Op 不再绑定。</li>
-<li>通过 <code>graph_util.convert_variables_to_constants</code> 将所有的 Variable <code>eval</code> 一次，把变量的 Op 的结果拿到，替换成 constant</li>
-</ol>
-<h2 id="优化"><a href="#优化" class="headerlink" title="优化"></a>优化</h2><p>除了冻结模型以外，还可以删减一些多余的节点，比如 Summary 节点或者 Identity 节点，甚者把 16bit 的浮点数权重修改为 8bit 的浮点数权重（这个在 Tensorflow Lite 里很有用）。<a target="_blank" rel="noopener" href="https://medium.com/google-cloud/optimizing-tensorflow-models-for-serving-959080e9ddbf">这篇文章</a> 列出了详细的优化方式，主要是靠 <code>transform_graph</code> 这个工具，地址在<a target="_blank" rel="noopener" href="https://github.com/tensorflow/tensorflow/blob/master/tensorflow/tools/graph_transforms/README.md">这</a>，他有很详细的柴剪列表，并且可以自己编写裁剪函数，充分做到模型在部署环节的“纯净化”，调用方式也很简单。</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">transform_graph \</span><br><span class="line">--in_graph=tensorflow_inception_graph.pb \</span><br><span class="line">--out_graph=optimized_inception_graph.pb \</span><br><span class="line">--inputs=&#x27;Mul:0&#x27; \</span><br><span class="line">--outputs=&#x27;softmax:0&#x27; \</span><br><span class="line">--transforms=&#x27;</span><br><span class="line">strip_unused_nodes(type=float, shape=&quot;1,299,299,3&quot;)</span><br><span class="line">remove_nodes(op=Identity, op=CheckNumerics)</span><br><span class="line">fold_old_batch_norms</span><br><span class="line">&#x27;</span><br></pre></td></tr></table></figure>
-<p>在<code>transforms</code>里面加入你想进行优化的 transformer 和对应的参数即可，在科赛上也有在线可以跑的<a target="_blank" rel="noopener" href="https://www.kesci.com/home/project/5c8219e31e7104002b3747d6">notebook</a></p>
-<h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2><ol>
-<li><a target="_blank" rel="noopener" href="https://cloud.google.com/ml-engine/docs/tensorflow/deploying-models#build_an_optimal_prediction_graph">Cloud ML Engine</a></li>
-</ol>
 
       
     </div>

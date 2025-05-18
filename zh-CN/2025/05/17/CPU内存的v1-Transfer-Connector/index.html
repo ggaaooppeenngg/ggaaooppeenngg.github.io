@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.3.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="_85tctgPWrqH2EPVuuD5IT6KE-tW8nH0hTISJDMnShg">
+  <meta name="baidu-site-verification" content="bb16c5b1fd3302c18e0015bef11eea42">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha256-dABdfBfUoC8vJUBOwGVdm8L9qlMWaHTIfXt+7GnZCIo=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.css" integrity="sha256-gkQVf8UKZgQ0HyuxL/VnacadJ+D2Kox2TCEBuNQg5+w=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="vLLM最近支持了外部加载Transfer Connector，基于LMCache给出的StorageSharedConnector的例子，我尝试实现了一个基于共享内存的Transfer Connector。 v1的接口是一个可以layer wise的实现。 实际上使用下来其实没有明确的区分Producer和Consumer的角色，在P2P的场景下可能比较明显，实际上谁生产kv cache谁消费k">
+<meta property="og:type" content="article">
+<meta property="og:title" content="基于CPU内存的v1 Transfer Connector">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2025/05/17/CPU%E5%86%85%E5%AD%98%E7%9A%84v1-Transfer-Connector/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="vLLM最近支持了外部加载Transfer Connector，基于LMCache给出的StorageSharedConnector的例子，我尝试实现了一个基于共享内存的Transfer Connector。 v1的接口是一个可以layer wise的实现。 实际上使用下来其实没有明确的区分Producer和Consumer的角色，在P2P的场景下可能比较明显，实际上谁生产kv cache谁消费k">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2025-05-17T02:45:02.000Z">
+<meta property="article:modified_time" content="2025-05-18T16:42:26.858Z">
+<meta property="article:author" content="ggaaooppeenngg">
+<meta property="article:tag" content="LLM">
+<meta property="article:tag" content="vLLM">
+<meta property="article:tag" content="PD">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2025/05/17/CPU%E5%86%85%E5%AD%98%E7%9A%84v1-Transfer-Connector/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://ggaaooppeenngg.github.io/zh-CN/2025/05/17/CPU%E5%86%85%E5%AD%98%E7%9A%84v1-Transfer-Connector/","path":"zh-CN/2025/05/17/CPU内存的v1-Transfer-Connector/","title":"基于CPU内存的v1 Transfer Connector"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>基于CPU内存的v1 Transfer Connector | ggaaooppeenngg</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-62096626-1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"UA-62096626-1","only_pageview":false,"measure_protocol_api_secret":null}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+  <script src="/js/third-party/analytics/baidu-analytics.js"></script>
+  <script async src="https://hm.baidu.com/hm.js?bb16c5b1fd3302c18e0015bef11eea42"></script>
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">ggaaooppeenngg</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">为什么计算机科学是无限的但生命是有限的</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">135</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">14</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">79</span></a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Worker-side"><span class="nav-number">1.</span> <span class="nav-text">Worker side</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Layer-Wise"><span class="nav-number">1.1.</span> <span class="nav-text">Layer Wise</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Model-Wise"><span class="nav-number">1.2.</span> <span class="nav-text">Model Wise</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Prefiller-Connector"><span class="nav-number">1.3.</span> <span class="nav-text">Prefiller Connector</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Decoder-Connector"><span class="nav-number">1.4.</span> <span class="nav-text">Decoder Connector</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Scheduler-Side"><span class="nav-number">2.</span> <span class="nav-text">Scheduler Side</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#CPUMemorySharedConnector"><span class="nav-number">3.</span> <span class="nav-text">CPUMemorySharedConnector</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">79</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">14</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">135</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/ggaaooppeenngg" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;ggaaooppeenngg" rel="noopener me" target="_blank"><i class="github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:peng.gao.dut@gmail.com" title="E-Mail → mailto:peng.gao.dut@gmail.com" rel="noopener me" target="_blank"><i class="envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+        <div class="back-to-top animated" role="button" aria-label="返回顶部">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2025/05/17/CPU%E5%86%85%E5%AD%98%E7%9A%84v1-Transfer-Connector/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="基于CPU内存的v1 Transfer Connector | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          基于CPU内存的v1 Transfer Connector
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2025-05-17 10:45:02" itemprop="dateCreated datePublished" datetime="2025-05-17T10:45:02+08:00">2025-05-17</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2025-05-19 00:42:26" itemprop="dateModified" datetime="2025-05-19T00:42:26+08:00">2025-05-19</time>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2025/05/17/CPU%E5%86%85%E5%AD%98%E7%9A%84v1-Transfer-Connector/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2025/05/17/CPU内存的v1-Transfer-Connector/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>vLLM最近支持了外部加载Transfer Connector，基于LMCache给出的StorageSharedConnector的例子，我尝试实现了一个基于共享内存的Transfer Connector。</p>
+<p>v1的接口是一个可以layer wise的实现。</p>
+<p>实际上使用下来其实没有明确的区分Producer和Consumer的角色，在P2P的场景下可能比较明显，实际上谁生产kv cache谁消费kv cache其实没有明确规定。</p>
+<p>这个的好处是Prefix Cache和KV Cache Transfer没有明确的区别了，Prefill和Worker之间唯一的区别就变成了<code>max_token=1</code>和<code>max_token</code>为真实值的区别了。</p>
+<p>设想几个场景，Worker即是生成者，也可以是消费者，Prefill也可以即是生产者又是消费者：</p>
+<ol>
+<li>Worker 生成的对话可以存入一个中心化的缓存当中，在多轮对话的时候Prefill可以直接复用这个缓存，只需要计算新的用户对话。</li>
+<li>Prefill 基于新的对话可以生成一个缓存，被Worker使用，也可以被其他的Prefill在新的多轮对话中使用。</li>
+</ol>
+<blockquote>
+<p>有一个比较hack的查看调用栈的方法就是在对应的接口函数抛出异常让程序崩溃，就能在stack trace上看到函数调用的路径了。</p>
+</blockquote>
+<p>当然这个接口也可以实现P2P，毕竟他提供了对应的wait接口，无非是等中心化的缓存是否就绪还是Prefill的直接传输是否就绪区别了，这在提供的接口列表当中可以看到。</p>
+<p>实现一个Connector需要关注几个接口。</p>
+<h2 id="Worker-side"><a href="#Worker-side" class="headerlink" title="Worker side"></a>Worker side</h2><h3 id="Layer-Wise"><a href="#Layer-Wise" class="headerlink" title="Layer Wise"></a>Layer Wise</h3><p><code>vllm/vllm/attention/layer.py</code>中可以看到。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">def unified_attention(</span><br><span class="line">    query: torch.Tensor,</span><br><span class="line">    key: torch.Tensor,</span><br><span class="line">    value: torch.Tensor,</span><br><span class="line">    layer_name: str,</span><br><span class="line">) -&gt; torch.Tensor:</span><br><span class="line">    wait_for_kv_layer_from_connector(layer_name)</span><br><span class="line"></span><br><span class="line">    forward_context: ForwardContext = get_forward_context()</span><br><span class="line">    attn_metadata = forward_context.attn_metadata</span><br><span class="line">    if isinstance(attn_metadata, dict):</span><br><span class="line">        attn_metadata = attn_metadata[layer_name]</span><br><span class="line">    self = forward_context.no_compile_layers[layer_name]</span><br><span class="line">    kv_cache = self.kv_cache[forward_context.virtual_engine]</span><br><span class="line">    output = self.impl.forward(self, query, key, value, kv_cache,</span><br><span class="line">                               attn_metadata)</span><br><span class="line"></span><br><span class="line">    maybe_save_kv_layer_to_connector(layer_name, kv_cache)</span><br><span class="line">    return output</span><br></pre></td></tr></table></figure>
+
+<ol>
+<li><p>每一层会有<code>wait_for_kv_layer_from_connector</code>调用<code>connector.wait_for_layer_load</code>。</p>
+</li>
+<li><p>在计算结束以后会有<code>maybe_save_kv_layer_to_connector</code>调用<code>connector.save_kv_layer</code>。</p>
+</li>
+</ol>
+<p>他们分别对应了decode和prefill，其中wait是同步的，save是异步的。</p>
+<h3 id="Model-Wise"><a href="#Model-Wise" class="headerlink" title="Model Wise"></a>Model Wise</h3><p>在<code>vllm/vllm/attention/layer.py</code>中</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">self.maybe_setup_kv_connector(scheduler_output)</span><br><span class="line"></span><br><span class="line">model_output = self.model(</span><br><span class="line">    input_ids=input_ids,</span><br><span class="line">    positions=positions,</span><br><span class="line">    intermediate_tensors=intermediate_tensors,</span><br><span class="line">    inputs_embeds=inputs_embeds,</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line">self.maybe_wait_for_kv_save()</span><br><span class="line">finished_sending, finished_recving = (</span><br><span class="line">    self.get_finished_kv_transfers(scheduler_output))</span><br></pre></td></tr></table></figure>
+
+<ol>
+<li><p><code>connector.start_load_kv</code> 来自于 <code>maybe_setup_kv_connector</code>，在decoder的model forward之前调用，用于异步启动kv的load。</p>
+</li>
+<li><p><code>connector.wait_for_save</code> 来自于 <code>maybe_wait_for_kv_save</code>，在prefill的model forward之后调用，用于整体的save是同步的。</p>
+</li>
+</ol>
+<p>其他的一些接口包括：</p>
+<ol>
+<li><p><code>get_finished</code>返回对于给定的request ids对应的已经完成的sending和recving的request ids。</p>
+</li>
+<li><p><code>register_kv_caches</code>用于connector提前注册kvcaches，在初始化kvcache的时候调用，这个应该是NIXL需要这样直接读取整个的kvcaches的显存地址做RDMA和注册。</p>
+</li>
+<li><p><code>bind_connector_metadata</code>，model forward之前bind metadata，这个数据结构是Metadata的数据结构是实现者自由定义的，在<code>start_load_kv</code>之前调用。</p>
+</li>
+<li><p><code>clear_connector_metadata</code>，model forward之后clear。</p>
+</li>
+</ol>
+<p>换成prefiller和decoder的视角来看</p>
+<h3 id="Prefiller-Connector"><a href="#Prefiller-Connector" class="headerlink" title="Prefiller Connector"></a>Prefiller Connector</h3><p>每一层调用<code>save_kv_layer</code>，这个可以是异步的，在model foward之后会调用<code>wait_for_save</code>保证kvcache被传输完，不然其中的kvcache可能会被之后的forward所覆盖。<br><code>clear_connector_metadata</code>可以帮助清理这次forward相关的metadata。</p>
+<h3 id="Decoder-Connector"><a href="#Decoder-Connector" class="headerlink" title="Decoder Connector"></a>Decoder Connector</h3><p><code>bind_connector_metadata</code>帮助设置forward相关的metadata。<br>每一层调用<code>start_load_kv</code>，这个可以是异步的，在model forward之前调用，在每一层forward之前<code>wait_for_layer_load</code>，这个是同步的。</p>
+<h2 id="Scheduler-Side"><a href="#Scheduler-Side" class="headerlink" title="Scheduler Side"></a>Scheduler Side</h2><ol>
+<li><p><code>get_num_new_matched_tokens</code>，基于传入的<code>num_computed_tokens</code>获取可以从外部加载的kvcache，这个是给scheduler用的，表明decoder需要加载的tokens。<code>computed_token</code>代表已经计算过kvcache的token.<br>调度器要额外分配一个<code>external_computed_tokens</code>的slots给外部加载用并且把这部分也算在<code>computed_token</code>，然后在根据<code>budget_token - computed_token</code>分配<code>new_token</code>。</p>
+</li>
+<li><p><code>update_state_after_alloc</code> 在scheduler分配slots以后更新connector内部状态，比如用于告知connector是否要加载kvcache。</p>
+</li>
+<li><p><code>build_connector_metadata</code>用于构建connector metadata的相关输出，不能修改输入中的schedulerOutput。</p>
+</li>
+<li><p><code>request_finished</code> 在request结束，blocks free之前被调用，可以帮助connector触发相关回调。</p>
+</li>
+</ol>
+<p>上面的接口比如<code>register_kv_caches</code>，<code>bind_connector_metada</code>和<code>clear_connector_metadata</code>不一定要实现，可以把他们理解为一些初始化路径，计算路径上的调用hook，我们希望在相关的hook上处理一些东西就实现这些接口。</p>
+<h2 id="CPUMemorySharedConnector"><a href="#CPUMemorySharedConnector" class="headerlink" title="CPUMemorySharedConnector"></a>CPUMemorySharedConnector</h2><p>我实现了一个基于共享缓存的实现，Prefill只生成缓存，Worker只消费缓存。<br>主要是通过用layer和tokens hash做key创建SharedMemory。<br>完整的项目在<a target="_blank" rel="noopener" href="https://github.com/ggaaooppeenngg/cpumemconnector">这里</a>。</p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/LLM/" rel="tag"># LLM</a>
+              <a href="/tags/vLLM/" rel="tag"># vLLM</a>
+              <a href="/tags/PD/" rel="tag"># PD</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/zh-CN/2025/04/04/LLM-Inference-Benchmark/" rel="prev" title="LLM Inference Benchmark">
+                  <i class="fa fa-angle-left"></i> LLM Inference Benchmark
+                </a>
+            </div>
+            <div class="post-nav-item">
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 2014 – 
+    <span itemprop="copyrightYear">2025</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+  </div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/mist/" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.umd.js" integrity="sha256-a+H7FYzJv6oU2hfsfDGM2Ohw/cR9v+hPfxHCLdmCrE8=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lozad.js/1.16.0/lozad.min.js" integrity="sha256-mOFREFhqmHeQbXpK2lp4nA3qooVgACfh88fpJftLBbc=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/sidebar.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+  <script src="/js/third-party/fancybox.js"></script>
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"ggaaooppeenngg","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>
