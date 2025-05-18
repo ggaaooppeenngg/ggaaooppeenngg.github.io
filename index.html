@@ -525,7 +525,7 @@
         <i class="far fa-calendar-check"></i>
       </span>
       <span class="post-meta-item-text">更新于</span>
-      <time title="修改时间：2025-04-04 15:54:01" itemprop="dateModified" datetime="2025-04-04T15:54:01+08:00">2025-04-04</time>
+      <time title="修改时间：2025-05-19 00:45:26" itemprop="dateModified" datetime="2025-05-19T00:45:26+08:00">2025-05-19</time>
     </span>
 
   
@@ -552,7 +552,8 @@
     
     
     <div class="post-body" itemprop="articleBody">
-          <h2 id="PD分离的背景介绍"><a href="#PD分离的背景介绍" class="headerlink" title="PD分离的背景介绍"></a>PD分离的背景介绍</h2><p>在大模型推理中，Prefill 和 Decode 的计算特性存在显著差异：  </p>
+          <p>dynamo对于vLLM的给懂是一个patch文件，vLLM给了一个<a target="_blank" rel="noopener" href="https://github.com/vllm-project/vllm/pull/16124/files">PR</a>方便在线对比。</p>
+<h2 id="PD分离的背景介绍"><a href="#PD分离的背景介绍" class="headerlink" title="PD分离的背景介绍"></a>PD分离的背景介绍</h2><p>在大模型推理中，Prefill 和 Decode 的计算特性存在显著差异：  </p>
 <ul>
 <li><strong>Prefill</strong>：计算密集型，计算比例更高。  </li>
 <li><strong>Decode</strong>：访存密集型，访存比例更高。  </li>
@@ -635,7 +636,98 @@
 
 <p><code>PrefixCachingBlockAllocator</code>加入了<code>event_manager</code>。<code>KVCacheEventManager</code>实现就不细说了，就是一个事件收发器。</p>
 <p>在evict block的时候，发送删除事件<code>event_manager.enqueue_removed_event(content_hash_to_evict)</code><br>当block被填满变成 immutable block 的时候，发送分配事件<code>event_manager.enqueue_stored_event(block.prev_block, block)</code>。</p>
-<h3 id="NIXL-Transfer"><a href="#NIXL-Transfer" class="headerlink" title="NIXL Transfer"></a>NIXL Transfer</h3><p>初始化 rank 0 收集all_gather所有的<code>parallel_config</code></p>
+<h3 id="NIXL-Transfer"><a href="#NIXL-Transfer" class="headerlink" title="NIXL Transfer"></a>NIXL Transfer</h3><h4 id="数据传输的切分"><a href="#数据传输的切分" class="headerlink" title="数据传输的切分"></a>数据传输的切分</h4><p>假设：</p>
+<ul>
+<li><code>PS(prefill parallel size)=1</code></li>
+<li><code>DS(decode parallel size)=1</code></li>
+<li><code>PTP(prefill tensor parallel size)=2</code></li>
+<li><code>DTP(decode tensor parallel size)=4</code></li>
+</ul>
+<p>存在两个 <code>kvgroup</code>：<code>P0,D0,D1</code> 和 <code>P1,D2,D3</code>。</p>
+<p>计算可得：<br><code>TPM(tensor parallel multiplier) = DTP/PTP = 2</code></p>
+<p>由此可以推导出以下关系：</p>
+<ul>
+<li><code>kv_rank</code>：表示每个 <code>P</code> 或者 <code>D</code> 实例的序号，在本示例中分别为 <code>0</code> 和 <code>1</code>。</li>
+<li><code>p_kv_group_rank = kv_rank</code></li>
+<li><code>d_kv_group_rank = PS + (kv_rank - PS) * TPM + rank % TPM</code></li>
+<li><code>kv_world_size = PS + DS * TPM</code></li>
+<li><code>p_kv_global_rank = kv_rank * PTP + rank</code></li>
+<li><code>d_kv_global_rank = PS * PTP + (kv_rank - PS) * DTP + rank</code></li>
+</ul>
+<p>关于集合通信的端口号的 <code>base</code>：</p>
+<ul>
+<li><code>p_port_offset_base = 2 * rank + 1</code></li>
+<li><code>d_port_offset_base = 2 * rank//TPM + 1</code></li>
+</ul>
+<p>以下是具体的参数值表格：</p>
+<table>
+<thead>
+<tr>
+<th>role</th>
+<th>rank</th>
+<th>kv_rank</th>
+<th>kv_group_rank</th>
+<th>kv_world_size</th>
+<th>kv_global_rank</th>
+<th>port_offset_base</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>P</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>3</td>
+<td>0</td>
+<td>1</td>
+</tr>
+<tr>
+<td>P</td>
+<td>1</td>
+<td>0</td>
+<td>0</td>
+<td>3</td>
+<td>1</td>
+<td>3</td>
+</tr>
+<tr>
+<td>D</td>
+<td>0</td>
+<td>1</td>
+<td>1</td>
+<td>3</td>
+<td>2</td>
+<td>1</td>
+</tr>
+<tr>
+<td>D</td>
+<td>1</td>
+<td>1</td>
+<td>2</td>
+<td>3</td>
+<td>3</td>
+<td>1</td>
+</tr>
+<tr>
+<td>D</td>
+<td>2</td>
+<td>1</td>
+<td>1</td>
+<td>3</td>
+<td>4</td>
+<td>3</td>
+</tr>
+<tr>
+<td>D</td>
+<td>3</td>
+<td>1</td>
+<td>2</td>
+<td>3</td>
+<td>5</td>
+<td>3</td>
+</tr>
+</tbody></table>
+<p>初始化 rank 0 收集all_gather所有的<code>parallel_config</code></p>
 <p>每有一个<code>kv_role = kv_producer</code>则<code>kv_producers_parallel_size</code>就+1。</p>
 <!-- 
 `kv_producers_parallel_size`应该对应的是DP的数量？
