@@ -92,7 +92,7 @@
 
 
 <nav class="site-nav">
-  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">135</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">14</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">79</span></a></li>
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">136</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">14</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">80</span></a></li>
   </ul>
 </nav>
 
@@ -129,7 +129,7 @@
   <nav class="site-state">
       <div class="site-state-item site-state-posts">
         <a href="/archives/">
-          <span class="site-state-item-count">79</span>
+          <span class="site-state-item-count">80</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -140,7 +140,7 @@
       </div>
       <div class="site-state-item site-state-tags">
           <a href="/tags/">
-        <span class="site-state-item-count">135</span>
+        <span class="site-state-item-count">136</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
@@ -169,6 +169,182 @@
     </div>
 
     <div class="main-inner index posts-expand">
+
+    
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2017/08/07/neighboring-subsystem-%E6%B5%85%E6%9E%90/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="undefined | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          <a href="/zh-CN/2017/08/07/neighboring-subsystem-%E6%B5%85%E6%9E%90/" class="post-title-link" itemprop="url">neighboring subsystem 浅析</a>
+        </h2>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2017-08-07 00:11:36" itemprop="dateCreated datePublished" datetime="2017-08-07T00:11:36+08:00">2017-08-07</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2025-03-28 18:39:05" itemprop="dateModified" datetime="2025-03-28T18:39:05+08:00">2025-03-28</time>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2017/08/07/neighboring-subsystem-%E6%B5%85%E6%9E%90/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2017/08/07/neighboring-subsystem-浅析/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+          <p>neighbor 在协议栈里指的是同一个 LAN 下面的邻居，也就是他们在 L3 上通过媒介或者点对点连接在了一起。邻居子系统同时也可以理解为一个 L2 和 L3 地址的转换器。邻居子系统的目的就在于上层协议不应该关心下层的地址信息，我发送过来的 IP 地址应该让下层来决定发送到哪个 MAC 地址。neighbor solicitation and neighbor advertisement，可以分别对应 ARP 的 request 请求和 ARP 的 reply 请求。</p>
+<p>邻居子系统主要缓存两大块的内容，一个是 L3 到 L2 的映射解析的缓存，一个是 L2 头的缓存，缓存 L2 头的原因是大部分 L2 的头基本上是重复的，所以通过缓存头部可以加快协议的封装。</p>
+<p>以下有几个相关结构体需要介绍一下。</p>
+<p><code>struct neighbour</code> 代表的是一个邻居的信息，比如 L2 和 L3 地址等。</p>
+<p><code>struct neigh_table</code> 代表的是一种邻居协议的接口(比如 ARP)。</p>
+<p><code>struct neigh_params</code> 代表的是邻居协议在每个设备上的不同参数。</p>
+<p><code>struct neigh_ops</code>  邻居对应的一些操作函数。</p>
+<p><code>struct hh_cache</code> 缓存 L2 的头部，不是所有的设备都支持头部缓存。</p>
+<p><code>struct rttable</code> 和 <code>struct dst_enry</code>， IPv4 的路由缓存信息是通过 <code>struct rttable</code> 缓存的。</p>
+<img data-src="/zh-CN/2017/08/07/neighboring-subsystem-%E6%B5%85%E6%9E%90/p1.jpg" class="">
+
+<p>这是 <code>dst_entry</code>, <code>hh_cache</code> 和 <code>neighbour</code> 之间的关系。</p>
+<p>neighbor 结构是用 hash 存储的，key 是 L3 地址加设备（对应的 device 结构体）加一个随机值。hash 表通过 <code>neigh_hash_alloc</code> 和 <code>neigh_hash_free</code> 来分配和释放。<code>neigh_lookup</code> 就是通过 key 从 hash table 中找到对应的 neighbour 结构体，实现都不复杂，这里理解就可以了。</p>
+<img data-src="/zh-CN/2017/08/07/neighboring-subsystem-%E6%B5%85%E6%9E%90/p2.jpg" class="">
+
+
+<p>一般邻居子系统的缓存流程是这样的，如果 L3 的请求到达，地址解析缓存没有命中，把 L3 packet 入队，开始neighbor solicitation 等收到 neighbor advertisement 之后再出队并且发送。</p>
+<h2 id="邻居状态信息-NUD-Netowork-Unreachablility-状态"><a href="#邻居状态信息-NUD-Netowork-Unreachablility-状态" class="headerlink" title="邻居状态信息 NUD(Netowork Unreachablility) 状态"></a>邻居状态信息 NUD(Netowork Unreachablility) 状态</h2><p>NUD state 本来是 IPv6 协议里的邻居关系的定义，但是在内核中沿用到了 IPv4 里面。</p>
+<ul>
+<li>NUD_NONE 这个 neighbour 刚开始建立，没有相关状态</li>
+<li>NUD_INCOMPLETE 发送了获取 L2 地址的请求（通过 ARP 或者其他协议），但是没收到回复，并且之前不存在老缓存</li>
+<li>NUD_REACHABLE neighbour 地址被缓存了，并且是可达的</li>
+<li>NUD_FAILED 因为发送地址解析请求失败了，标志邻居不可达</li>
+<li>NUD_STALE NUD_DELAY NUD_PROBE 是解析请求确认邻居可达的过程中的中间状态</li>
+<li>NUD_NOARP 标志不需要用解析协议（虽然是 NOARP，但是别的协议也用这个标记），这是一个特殊情况。</li>
+<li>NUD_PERMANET 标志邻居的地址解析是静态配置的</li>
+</ul>
+<p>这些是基本状态，根据这些基本状态组合了几个相对有语义的状态。</p>
+<ul>
+<li><p>NUD_VALID 表示该地址会是一个有效的地址</p>
+<p> NUD_PERMANENT NUD_NOARP NUD_REACHABLE NUD_PROBE NUD_STALE NUD_DELAY</p>
+</li>
+<li><p>NUD_CONNECTED 是 NUD_VALID 的子集，去除了待决的中间状态</p>
+<p> NUD_PERMANENT NUD_NOARP NUD_REACHABLE</p>
+</li>
+<li><p>NUD_IN_TIMER 表示在这个状态下正在执行一个定时任务，一般是状态不明了的时候</p>
+<p> NUD_INCOMPLETE NUD_DELAY NUD_PROBE</p>
+</li>
+</ul>
+<p>邻居的可达性可以通过两点来确认，收到了一个地址解析协议的单播回复，或者通过外部信息确认（比如收到了这个邻居的 TCP 报文，当然这个 IP 可能不是自己的邻居，但是可以可以确定对应网关『作为邻居』的可达性）。</p>
+<h2 id="确认邻居信息"><a href="#确认邻居信息" class="headerlink" title="确认邻居信息"></a>确认邻居信息</h2><p>IP 层会调用<code>ipv4_confirm_neigh</code> 来确认映射地址，如果有 gateway 用 gateway，没有 gateway 开始查缓存。在 <code>net/ipv4/ip_output.c</code> 中的对应代码，就是查缓存的 neighbour 结构体，如果这个结构体不存在的话就要开始<code>confirm</code> 了。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">neigh = __ipv4_neigh_lookup_noref(dev, nexthop);</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> (unlikely(!neigh))</span><br><span class="line">	neigh = __neigh_create(&amp;arp_tbl, &amp;nexthop, dev, <span class="literal">false</span>);</span><br><span class="line"><span class="keyword">if</span> (!IS_ERR(neigh)) &#123;</span><br><span class="line">	<span class="type">int</span> res;</span><br><span class="line"></span><br><span class="line">	sock_confirm_neigh(skb, neigh);</span><br><span class="line">	res = neigh_output(neigh, skb);</span><br><span class="line"></span><br><span class="line">	rcu_read_unlock_bh();</span><br><span class="line">	<span class="keyword">return</span> res;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>当 TCP 收到报文（比如对端的 SYN/ACK 时），这种外部信息说明其实这个节点是可达的（不是来自 gateway），也可以更新缓存。</p>
+<p>另外，<code>neigh_connect</code> 和 <code>neigh_suspect</code> 是两个状态转换时会调用的函数。</p>
+<p>当 neigh 进入 <code>NUD_REACHABLE</code> ， <code>neigh_connect</code> 把 <code>neigh-&gt;output</code> 的函数指向 <code>connected_output</code> 这个函数，它会在调用 <code>dev_queue_xmit</code> 之前填充 L2 头部，把包直接发出去。</p>
+<p>当从 <code>NUD_REACHBLE</code> 转换成 <code>NUD_STALE</code> 或者 <code>NUD_DELAY</code>，<code>neigh_suspect</code> 会强制进行可达性的确认，通过把 <code>neighbor-&gt;output</code> 指向 <code>neigh_ops-&gt;output</code>， 也就是 <code>neigh_resolve_output</code>，它会在调用 <code>dev_queue_xmit</code> 之前先把地址解析出来，等把地址解析完成以后再把缓存的包发送出去。</p>
+<h2 id="更新邻居信息"><a href="#更新邻居信息" class="headerlink" title="更新邻居信息"></a>更新邻居信息</h2><p>邻居信息更新的入口函数就是 <code>neigh_update</code>，这个函数定义如下。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> <span class="title function_">neigh_update</span><span class="params">(<span class="keyword">struct</span> neighbour *neigh, <span class="type">const</span> u8 *lladdr, u8 new,</span></span><br><span class="line"><span class="params">		 u32 flags, u32 nlmsg_pid)</span></span><br></pre></td></tr></table></figure>
+
+<p>首先做一些预先检查，如果是管理员配置，原来的配置就不能是 PERMANENT 或者 NOARP 的。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (!(flags &amp; NEIGH_UPDATE_F_ADMIN) &amp;&amp;</span><br><span class="line">    (old &amp; (NUD_NOARP | NUD_PERMANENT)))</span><br><span class="line">	<span class="keyword">goto</span> out;</span><br></pre></td></tr></table></figure>
+
+<p>标记为 dead，然后 goto out</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (neigh-&gt;dead)</span><br><span class="line">	<span class="keyword">goto</span> out;</span><br></pre></td></tr></table></figure>
+<p>如果更新为无效的标记的话，删除 timer，并且 supect 一下，如果是 NUD_CONNECTED 状态。<br>如果是需要标记为失败的 neigh(之前是 INCOMPLETE|NUD_PROBE)，则调用 <code>neigh_invalidate</code>，让这个 neigh 无效。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (!(new &amp; NUD_VALID)) &#123;</span><br><span class="line">	neigh_del_timer(neigh);</span><br><span class="line">	<span class="keyword">if</span> (old &amp; NUD_CONNECTED)</span><br><span class="line">		neigh_suspect(neigh);</span><br><span class="line">	neigh-&gt;nud_state = new;</span><br><span class="line">	err = <span class="number">0</span>;</span><br><span class="line">	notify = old &amp; NUD_VALID;</span><br><span class="line">	<span class="keyword">if</span> ((old &amp; (NUD_INCOMPLETE | NUD_PROBE)) &amp;&amp;</span><br><span class="line">	    (new &amp; NUD_FAILED)) &#123;</span><br><span class="line">		neigh_invalidate(neigh);</span><br><span class="line">		notify = <span class="number">1</span>;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">goto</span> out;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>接下来是三个条件，一个是 device 没有硬件地址，用 neigh-&gt;ha，如果 lladdr 提供了并且老的是有效的，使用老的地址，如果 lladdr 没有提供，直接使用老的地址。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/* Compare new lladdr with cached one */</span></span><br><span class="line"><span class="keyword">if</span> (!dev-&gt;addr_len) &#123;</span><br><span class="line">	<span class="comment">/* First case: device needs no address. */</span></span><br><span class="line">	lladdr = neigh-&gt;ha;</span><br><span class="line">&#125; <span class="keyword">else</span> <span class="keyword">if</span> (lladdr) &#123;</span><br><span class="line">	<span class="comment">/* The second case: if something is already cached</span></span><br><span class="line"><span class="comment">	   and a new address is proposed:</span></span><br><span class="line"><span class="comment">	   - compare new &amp; old</span></span><br><span class="line"><span class="comment">	   - if they are different, check override flag</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="keyword">if</span> ((old &amp; NUD_VALID) &amp;&amp;</span><br><span class="line">	    !<span class="built_in">memcmp</span>(lladdr, neigh-&gt;ha, dev-&gt;addr_len))</span><br><span class="line">		lladdr = neigh-&gt;ha;</span><br><span class="line">&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">	<span class="comment">/* No address is supplied; if we know something,</span></span><br><span class="line"><span class="comment">	   use it, otherwise discard the request.</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	err = -EINVAL;</span><br><span class="line">	<span class="keyword">if</span> (!(old &amp; NUD_VALID))</span><br><span class="line">		<span class="keyword">goto</span> out;</span><br><span class="line">	lladdr = neigh-&gt;ha;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>如果<code>NUD_CONNECTED</code> 更新 confirm 的时间，更新『更新』的时间。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (new &amp; NUD_CONNECTED)</span><br><span class="line">	neigh-&gt;confirmed = jiffies;</span><br><span class="line">neigh-&gt;updated = jiffies;</span><br></pre></td></tr></table></figure>
+<p><code>NEIGH_UPDATE_F_OVERRIDE_ISROUTER</code> 标记的是当前 neigh 是一个 router。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/* If entry was valid and address is not changed,</span></span><br><span class="line"><span class="comment">   do not change entry state, if new one is STALE.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line">err = <span class="number">0</span>;</span><br><span class="line">update_isrouter = flags &amp; NEIGH_UPDATE_F_OVERRIDE_ISROUTER;</span><br><span class="line"><span class="keyword">if</span> (old &amp; NUD_VALID) &#123;</span><br><span class="line">	<span class="keyword">if</span> (lladdr != neigh-&gt;ha &amp;&amp; !(flags &amp; NEIGH_UPDATE_F_OVERRIDE)) &#123;</span><br><span class="line">		update_isrouter = <span class="number">0</span>;</span><br><span class="line">		<span class="keyword">if</span> ((flags &amp; NEIGH_UPDATE_F_WEAK_OVERRIDE) &amp;&amp;</span><br><span class="line">		    (old &amp; NUD_CONNECTED)) &#123;</span><br><span class="line">			lladdr = neigh-&gt;ha;</span><br><span class="line">			new = NUD_STALE;</span><br><span class="line">		&#125; <span class="keyword">else</span></span><br><span class="line">			<span class="keyword">goto</span> out;</span><br><span class="line">	&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">		<span class="keyword">if</span> (lladdr == neigh-&gt;ha &amp;&amp; new == NUD_STALE &amp;&amp;</span><br><span class="line">		    !(flags &amp; NEIGH_UPDATE_F_ADMIN))</span><br><span class="line">			new = old;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>如果是更新操作，删除老的 timer，如果需要 timer，更新新的 timer，并且设置新状态。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (new != old) &#123;</span><br><span class="line">	neigh_del_timer(neigh);</span><br><span class="line">	<span class="keyword">if</span> (new &amp; NUD_PROBE)</span><br><span class="line">		<span class="type">atomic_set</span>(&amp;neigh-&gt;probes, <span class="number">0</span>);</span><br><span class="line">	<span class="keyword">if</span> (new &amp; NUD_IN_TIMER)</span><br><span class="line">		neigh_add_timer(neigh, (jiffies +</span><br><span class="line">					((new &amp; NUD_REACHABLE) ?</span><br><span class="line">					 neigh-&gt;parms-&gt;reachable_time :</span><br><span class="line">					 <span class="number">0</span>)));</span><br><span class="line">	neigh-&gt;nud_state = new;</span><br><span class="line">	notify = <span class="number">1</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>更新 <code>neigh-&gt;ha</code>，如果 <code>lladdr</code> 和 <code>neigh-&gt;ha</code> 不同的话。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (lladdr != neigh-&gt;ha) &#123;</span><br><span class="line">	write_seqlock(&amp;neigh-&gt;ha_lock);</span><br><span class="line">	<span class="built_in">memcpy</span>(&amp;neigh-&gt;ha, lladdr, dev-&gt;addr_len);</span><br><span class="line">	write_sequnlock(&amp;neigh-&gt;ha_lock);</span><br><span class="line">	neigh_update_hhs(neigh);</span><br><span class="line">	<span class="keyword">if</span> (!(new &amp; NUD_CONNECTED))</span><br><span class="line">		neigh-&gt;confirmed = jiffies -</span><br><span class="line">			      (NEIGH_VAR(neigh-&gt;parms, BASE_REACHABLE_TIME) &lt;&lt; <span class="number">1</span>);</span><br><span class="line">	notify = <span class="number">1</span>;</span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">if</span> (new == old)</span><br><span class="line">	<span class="keyword">goto</span> out;</span><br></pre></td></tr></table></figure>
+<p>根据状态调用 connect 和 suspect</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (new &amp; NUD_CONNECTED)</span><br><span class="line">	neigh_connect(neigh);</span><br><span class="line"><span class="keyword">else</span></span><br><span class="line">	neigh_suspect(neigh);</span><br></pre></td></tr></table></figure>
+<p>如果之前老的不是 <code>NUD_VALID</code>，就会把 skb 从 arp_queue，并且释放 arp_queue。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (!(old &amp; NUD_VALID)) &#123;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">sk_buff</span> *<span class="title">skb</span>;</span></span><br><span class="line"></span><br><span class="line">	<span class="comment">/* Again: avoid dead loop if something went wrong */</span></span><br><span class="line"></span><br><span class="line">	<span class="keyword">while</span> (neigh-&gt;nud_state &amp; NUD_VALID &amp;&amp;</span><br><span class="line">	       (skb = __skb_dequeue(&amp;neigh-&gt;arp_queue)) != <span class="literal">NULL</span>) &#123;</span><br><span class="line">		<span class="class"><span class="keyword">struct</span> <span class="title">dst_entry</span> *<span class="title">dst</span> =</span> skb_dst(skb);</span><br><span class="line">		<span class="class"><span class="keyword">struct</span> <span class="title">neighbour</span> *<span class="title">n2</span>, *<span class="title">n1</span> =</span> neigh;</span><br><span class="line">		write_unlock_bh(&amp;neigh-&gt;lock);</span><br><span class="line"></span><br><span class="line">		rcu_read_lock();</span><br><span class="line"></span><br><span class="line">		<span class="comment">/* Why not just use &#x27;neigh&#x27; as-is?  The problem is that</span></span><br><span class="line"><span class="comment">		 * things such as shaper, eql, and sch_teql can end up</span></span><br><span class="line"><span class="comment">		 * using alternative, different, neigh objects to output</span></span><br><span class="line"><span class="comment">		 * the packet in the output path.  So what we need to do</span></span><br><span class="line"><span class="comment">		 * here is re-lookup the top-level neigh in the path so</span></span><br><span class="line"><span class="comment">		 * we can reinject the packet there.</span></span><br><span class="line"><span class="comment">		 */</span></span><br><span class="line">		n2 = <span class="literal">NULL</span>;</span><br><span class="line">		<span class="keyword">if</span> (dst) &#123;</span><br><span class="line">			n2 = dst_neigh_lookup_skb(dst, skb);</span><br><span class="line">			<span class="keyword">if</span> (n2)</span><br><span class="line">				n1 = n2;</span><br><span class="line">		&#125;</span><br><span class="line">		n1-&gt;output(n1, skb);</span><br><span class="line">		<span class="keyword">if</span> (n2)</span><br><span class="line">			neigh_release(n2);</span><br><span class="line">		rcu_read_unlock();</span><br><span class="line"></span><br><span class="line">		write_lock_bh(&amp;neigh-&gt;lock);</span><br><span class="line">	&#125;</span><br><span class="line">	__skb_queue_purge(&amp;neigh-&gt;arp_queue);</span><br><span class="line">	neigh-&gt;arp_queue_len_bytes = <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>更新 flag，发送 notify 通过 rtnetlink 通知 nlmsg_pid 对应的进程，</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">out:</span><br><span class="line"><span class="keyword">if</span> (update_isrouter) &#123;</span><br><span class="line">	neigh-&gt;flags = (flags &amp; NEIGH_UPDATE_F_ISROUTER) ?</span><br><span class="line">		(neigh-&gt;flags | NTF_ROUTER) :</span><br><span class="line">		(neigh-&gt;flags &amp; ~NTF_ROUTER);</span><br><span class="line">&#125;</span><br><span class="line">write_unlock_bh(&amp;neigh-&gt;lock);</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> (notify)</span><br><span class="line">	neigh_update_notify(neigh, nlmsg_pid);</span><br></pre></td></tr></table></figure>
+<p>这就是邻居信息的更新流程。</p>
+<p>当然还有一个缓存项是 L2 header 的缓存这里就简单略过了。</p>
+<h2 id="ARP"><a href="#ARP" class="headerlink" title="ARP"></a>ARP</h2><p>接下来说一下 ARP 相关的内容，ARP 本身的格式其实很简单。</p>
+<p>邻居子系统有一个比较关键的协议就是 ARP，这里简单介绍一下 ARP 协议，我们来看一下 ARP 的格式。</p>
+<img data-src="/zh-CN/2017/08/07/neighboring-subsystem-%E6%B5%85%E6%9E%90/p3.jpg" class="">
+
+<p>先是两个字节的 L2 类型，然后是两个字节的 L3 类型。一般 L2 是 1 (以太网)，L3 是 0x0800 (IPV4)，接着跟着的是 L2 类型的长度和 L3 类型的长度，这里 Ethernet 的 MAC 地址是 6 个字节，IPV4 的 IP 地址是 4 个字节，接着是两个字节的操作，1 表示请求，2 表示回复，然后是发送端 L2 的地址，L3 的地址，接着是接收端 L2 和 L3 的地址。整个翻译过来就是『我（MAC 是 0a:00:27:00:00:00 IP 是 192.168.56.1）广而告之（MAC 广播地址），问一下谁知道 192.168.56.102 的地址』。</p>
+<h3 id="gARP-gratuitous-ARP"><a href="#gARP-gratuitous-ARP" class="headerlink" title="gARP (gratuitous ARP)"></a>gARP (gratuitous ARP)</h3><p>听起来像是一个无理由的 ARP 请求，实际上是一种主动通知的 ARP 请求。gARP 本身不是一个查询请求，而是一个通知请求，主要运用于主动通知 L2 地址改变，重复地址发现（请求解析自己的地址，如果收到回复说明有地址重复）。</p>
+<p>还有就是 VIP，一般的作用是在本地网路中有两台机器，一台作为备机，一台作为主机，当主机 failover 的时候，备机可以继续『冒充』主机的 IP 地址，具体的做法就是主动发送请求，解析的 MAC 和 IP 都和 source 一样，老的 server 肯定不会回答这个 ARP，交换机上已经没有这个端口的缓存，会进行广播，让所有的接收者都会更新自己的缓存。也就是发送了一个一去不复返的请求，让所有的邻居更新了自己的 ARP 缓存，从而替代了老 server 的 IP，这就是 VIP 通过 ARP 实现的 failover。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>邻居子系统很大一部分的作用就是解析和缓存地址映射，主要是通过 ARP 来完成，而且 ARP 本身也有很多使用的姿势，也就上面说到的 gARP，邻居子系统是沟通路由子系统，以及 L2 和 L3 的桥梁。</p>
+<p>参考：</p>
+<ol>
+<li> <em>Understanding Linux Network Internals</em></li>
+</ol>
+
+      
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+        <div class="post-eof"></div>
+      
+    </footer>
+  </article>
+</div>
+
+
+
 
     
 
@@ -1873,140 +2049,6 @@ not_last_frag = iph-&gt;frag_off &amp; htons(IP_MF);
 <ol>
 <li> <a target="_blank" rel="noopener" href="https://github.com/google/leveldb/blob/master/doc/impl.md">官方实现文档</a></li>
 <li> <a target="_blank" rel="noopener" href="http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.44.2782&rep=rep1&type=pdf">LSM-tree论文</a></li>
-</ol>
-
-      
-    </div>
-
-    
-    
-    
-
-    <footer class="post-footer">
-        <div class="post-eof"></div>
-      
-    </footer>
-  </article>
-</div>
-
-
-
-
-    
-
-
-<div class="post-block">
-  
-  
-
-  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2017/01/22/SSA%E6%98%AF%E4%BB%80%E4%B9%88/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="ggaaooppeenngg">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="ggaaooppeenngg">
-      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
-    </span>
-
-    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
-      <meta itemprop="name" content="undefined | ggaaooppeenngg">
-      <meta itemprop="description" content="">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          <a href="/zh-CN/2017/01/22/SSA%E6%98%AF%E4%BB%80%E4%B9%88/" class="post-title-link" itemprop="url">什么是SSA以及SSA的作用</a>
-        </h2>
-
-        <div class="post-meta-container">
-          <div class="post-meta">
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-calendar"></i>
-      </span>
-      <span class="post-meta-item-text">发表于</span>
-
-      <time title="创建时间：2017-01-22 01:14:50" itemprop="dateCreated datePublished" datetime="2017-01-22T01:14:50+08:00">2017-01-22</time>
-    </span>
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-calendar-check"></i>
-      </span>
-      <span class="post-meta-item-text">更新于</span>
-      <time title="修改时间：2025-03-28 18:39:05" itemprop="dateModified" datetime="2025-03-28T18:39:05+08:00">2025-03-28</time>
-    </span>
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-folder"></i>
-      </span>
-      <span class="post-meta-item-text">分类于</span>
-        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-          <a href="/categories/Go/" itemprop="url" rel="index"><span itemprop="name">Go</span></a>
-        </span>
-    </span>
-
-  
-  
-  <span class="post-meta-item">
-    
-      <span class="post-meta-item-icon">
-        <i class="far fa-comment"></i>
-      </span>
-      <span class="post-meta-item-text">Disqus：</span>
-    
-    <a title="disqus" href="/zh-CN/2017/01/22/SSA%E6%98%AF%E4%BB%80%E4%B9%88/#disqus_thread" itemprop="discussionUrl">
-      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2017/01/22/SSA是什么/" itemprop="commentCount"></span>
-    </a>
-  </span>
-  
-  
-</div>
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-          <h2 id="SSA概述"><a href="#SSA概述" class="headerlink" title="SSA概述"></a>SSA概述</h2><p>SSA在Go1.7中被引入，这个特性对编译器的性能有很大的提高，但是也导致编译过程有些减速。下面来结合网上的资粮和书籍，简单说明一下SSA以及SSA的应用。</p>
-<p>SSA 代表 static single-assignment，是一种IR(中间表示代码)，要保证每个变量只被赋值一次。这个能帮助简化编译器的优化算法。</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">y := 1</span><br><span class="line">y := 2</span><br><span class="line">x := y</span><br></pre></td></tr></table></figure>
-<p>比如上面这段代码，<code>y = 1</code>其实是不可用的，这个要通过定义的可达分析来确定<code>y</code>是要用1还是2，而SSA有一个标识符可以称之为版本或者“代“。</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">y1 := 1</span><br><span class="line">y2 := 2</span><br><span class="line">x1 := y2</span><br></pre></td></tr></table></figure>
-<p>这样就没有任何间接值了。用SSA表示的好处是对于同一个变量的无关使用表示成不同“代”，可以方便很多编译器的优化算法的实现。</p>
-<p>一个概念:</p>
-<p>Φ(读作fai) 函数，表示要根据控制流赋值的“代”。</p>
-<p>例子可以参考维基里的<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Static_single_assignment_form#Converting_to_SSA">这一段</a>。</p>
-<p>三个定义：</p>
-<p>A dominate B，如果从起点开始必须通过A到达B。也就是说A是到B的必经之路。</p>
-<p>A strictly dominate B，如果 A dominate B，并且A和B不相等。</p>
-<p>A 的 dominance frontier 含有B，如果A没有strictly dominate B，但是 dominate 了B的一个前驱节点。</p>
-<p>用遍历的方式确定 dominance frontier 的伪代码。</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">for each node b</span><br><span class="line">    if the number of immediate predecessors of b ≥ 2</span><br><span class="line">        for each p in immediate predecessors of b</span><br><span class="line">            runner := p</span><br><span class="line">            while runner ≠ idom(b)</span><br><span class="line">                add b to runner’s dominance frontier set</span><br><span class="line">                runner := idom(runner)</span><br></pre></td></tr></table></figure>
-<p>idom(b) 代表相邻的strictly dominate b的结点。这样的点只有一个，因为相邻的点有两个的话就不会是必经之路了。</p>
-<img data-src="/zh-CN/2017/01/22/SSA%E6%98%AF%E4%BB%80%E4%B9%88/example_1.jpg" class="">
-
-<p>如图是一个例子，2的前驱是1和7，7没有sd(strictly dominate) 2，所以把2加入到7的DF(dominate frontiers)当中。3是7的相邻sd，然后3不是2的sd所以2加入到3的DF当中，接着2是3相邻的sd，然后2不是2的sd所以把2加入到2的DF中，最后遍历到7，5和6不是7的sd所以把7加入到5和6的df当中。</p>
-<p>df(A)可以认为是可以通过A到达的，但不是必经之路的点的集合。</p>
-<p>有了这个定义以后就可以插入Φ函数了和重命名了。如果X中有定义a那么所有df(X)都需要a的Φ函数。并且Φ函数本身也是一个定义。</p>
-<p>比如还是同一个例子。</p>
-<img data-src="/zh-CN/2017/01/22/SSA%E6%98%AF%E4%BB%80%E4%B9%88/example_2.jpg" class="">
-
-<p>1当中有j的定义，但是df(1)是空的，5当中有j的定义，并且5的df有7所以7当中要插入一个φ(j, j)。j现在在7中定义了(通过φ函数）所以df(7)中的2也要有φ(j, j)，6也有j的定义但是7已经有了φ函数了，2的df有2，但是2已经有φ函数了。类似的方式可以应用到i和k。接着对定义重命名就可以完成SSA的转换了。</p>
-<h2 id="SSA的应用"><a href="#SSA的应用" class="headerlink" title="SSA的应用"></a>SSA的应用</h2><p>上面只是通俗的解释了一下SSA，没有给出更多详细的理论和算法以及证明，因为证明实在难看懂，下面说一下SSA的应用。</p>
-<h3 id="DEAD-CODE-消除"><a href="#DEAD-CODE-消除" class="headerlink" title="DEAD CODE 消除"></a>DEAD CODE 消除</h3><p>因为每个变量都有“代”（因为大家都只被赋值一次），所以很容易检查出没有被使用的变量并且删除对应的定义。另外如果删除v=x这样的定义还要在x的use表中把这条语句删除。</p>
-<h3 id="简单的常量扩展"><a href="#简单的常量扩展" class="headerlink" title="简单的常量扩展"></a>简单的常量扩展</h3><p>比如<code>v = φ(c1,c2,...,cn)</code>这种格式，如果c都是相等的可以直接替换成c，或者<code>v=c</code>，如果c是常量的话也可以直接替换掉。在做这些的同时也可以做其他的优化，能够在一趟遍历中都完成，比如<code>copy propagation</code>，<code>x=y</code>或者<code>x=φ(y)</code>都可以直接用y替换掉x。比如<code>constant folding</code>，<code>x=a+b</code>如果<code>a+b</code>是常量的话，可以直接用常量赋值。</p>
-<p>当然还有其他的优化算法，出发点都是基于SSA的简单性。</p>
-<h2 id="从SSA转换回原始代码"><a href="#从SSA转换回原始代码" class="headerlink" title="从SSA转换回原始代码"></a>从SSA转换回原始代码</h2><p><code>y = φ(x1, x2, x3)</code>这样的形式要根据条件分支再拆分回原来的形态，比如满足1条件，使用<code>y=x1</code>这样的形式。并且可能会很自然的想把x1和x2变回使用同一个寄存器，但是通过优化过程中的一些手段(copy propagation)已经把大部分move指令给优化掉了，并且重新推回x可能会有生命周期的影响，所以还是保留了“代”。</p>
-<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>其实这个就是把def-use换成了use-def方便做代码优化呀：）害我看那么久</p>
-<p>参考文献</p>
-<ol>
-<li> 虎书第十九章</li>
-<li> <a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Static_single_assignment_form#Converting_to_SSA">维基百科</a></li>
 </ol>
 
       

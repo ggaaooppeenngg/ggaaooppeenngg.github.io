@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.3.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="_85tctgPWrqH2EPVuuD5IT6KE-tW8nH0hTISJDMnShg">
+  <meta name="baidu-site-verification" content="bb16c5b1fd3302c18e0015bef11eea42">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha256-dABdfBfUoC8vJUBOwGVdm8L9qlMWaHTIfXt+7GnZCIo=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.css" integrity="sha256-gkQVf8UKZgQ0HyuxL/VnacadJ+D2Kox2TCEBuNQg5+w=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="在迈向“万卡集群”的过程中，笔者遇到了许多问题。Kubernetes 标称支持最多 5000 个节点，这个上限通常是指在默认资源配置下的理论规模，实际中包含大量 Pod、CRD 或复杂控制器等对象时，其可用规模会显著缩水。笔者尚未在开源版本中进行系统性压测，尚不清楚极限配置下的真实能力边界。 然而，在使用 AWS 提供的标准 EKS 服务过程中，笔者发现整体性能瓶颈远低于预期：在仅 8 万 QPM">
+<meta property="og:type" content="article">
+<meta property="og:title" content="走向万卡LLM推理集群之路">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2025/05/25/%E8%B5%B0%E5%90%91%E4%B8%87%E5%8D%A1LLM%E6%8E%A8%E7%90%86%E9%9B%86%E7%BE%A4%E4%B9%8B%E8%B7%AF/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="在迈向“万卡集群”的过程中，笔者遇到了许多问题。Kubernetes 标称支持最多 5000 个节点，这个上限通常是指在默认资源配置下的理论规模，实际中包含大量 Pod、CRD 或复杂控制器等对象时，其可用规模会显著缩水。笔者尚未在开源版本中进行系统性压测，尚不清楚极限配置下的真实能力边界。 然而，在使用 AWS 提供的标准 EKS 服务过程中，笔者发现整体性能瓶颈远低于预期：在仅 8 万 QPM">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2025-05-25T05:57:13.000Z">
+<meta property="article:modified_time" content="2025-05-25T06:07:55.337Z">
+<meta property="article:author" content="ggaaooppeenngg">
+<meta property="article:tag" content="LLM">
+<meta property="article:tag" content="K8S">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2025/05/25/%E8%B5%B0%E5%90%91%E4%B8%87%E5%8D%A1LLM%E6%8E%A8%E7%90%86%E9%9B%86%E7%BE%A4%E4%B9%8B%E8%B7%AF/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://ggaaooppeenngg.github.io/zh-CN/2025/05/25/%E8%B5%B0%E5%90%91%E4%B8%87%E5%8D%A1LLM%E6%8E%A8%E7%90%86%E9%9B%86%E7%BE%A4%E4%B9%8B%E8%B7%AF/","path":"zh-CN/2025/05/25/走向万卡LLM推理集群之路/","title":"走向万卡LLM推理集群之路"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>走向万卡LLM推理集群之路 | ggaaooppeenngg</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-62096626-1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"UA-62096626-1","only_pageview":false,"measure_protocol_api_secret":null}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+  <script src="/js/third-party/analytics/baidu-analytics.js"></script>
+  <script async src="https://hm.baidu.com/hm.js?bb16c5b1fd3302c18e0015bef11eea42"></script>
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">ggaaooppeenngg</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">为什么计算机科学是无限的但生命是有限的</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">136</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">14</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">80</span></a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%9C%80%E8%A6%81%E9%87%8D%E7%82%B9%E6%B3%A8%E6%84%8F%E7%9A%84%E5%87%A0%E7%82%B9"><span class="nav-number">1.</span> <span class="nav-text">需要重点注意的几点</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-%E6%8E%A7%E5%88%B6-API-Server-%E7%9A%84%E5%8E%8B%E5%8A%9B"><span class="nav-number">1.1.</span> <span class="nav-text">1. 控制 API Server 的压力</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%A6%82%E4%BD%95%E6%8E%A7%E5%88%B6%E5%8D%95%E8%8A%82%E7%82%B9-QPS"><span class="nav-number">1.2.</span> <span class="nav-text">如何控制单节点 QPS</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-%E6%8F%90%E5%8D%87%E6%9C%8D%E5%8A%A1%E7%A8%B3%E5%AE%9A%E6%80%A7"><span class="nav-number">1.3.</span> <span class="nav-text">2. 提升服务稳定性</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%8A%82%E7%82%B9%E4%BC%98%E9%9B%85%E9%80%80%E5%87%BA%E7%9A%84%E6%8C%91%E6%88%98"><span class="nav-number">1.4.</span> <span class="nav-text">节点优雅退出的挑战</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%94%99%E8%AF%AF%E5%AE%B9%E5%BF%8D%E4%B8%8E%E9%87%8D%E8%AF%95%E7%AD%96%E7%95%A5"><span class="nav-number">1.5.</span> <span class="nav-text">错误容忍与重试策略</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%90%AF%E5%8A%A8%E9%80%9F%E5%BA%A6%E4%BC%98%E5%8C%96"><span class="nav-number">1.6.</span> <span class="nav-text">启动速度优化</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-%E6%9C%8D%E5%8A%A1%E5%8F%91%E7%8E%B0%E4%B8%8E%E5%81%A5%E5%BA%B7%E6%8E%A2%E6%B5%8B"><span class="nav-number">1.7.</span> <span class="nav-text">3. 服务发现与健康探测</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-%E7%9B%91%E6%8E%A7%E4%B8%8E%E5%91%8A%E8%AD%A6"><span class="nav-number">1.8.</span> <span class="nav-text">4. 监控与告警</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-PD%EF%BC%88Prefill-Disaggregation%EF%BC%89%E5%88%86%E7%A6%BB%E6%9E%B6%E6%9E%84"><span class="nav-number">1.9.</span> <span class="nav-text">5. PD（Prefill Disaggregation）分离架构</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#8-%E8%8A%82%E7%82%B9%E8%B5%84%E6%BA%90%E5%BC%82%E6%9E%84-amp-NUMA-%E7%BB%91%E5%AE%9A"><span class="nav-number">1.10.</span> <span class="nav-text">8. 节点资源异构 &amp; NUMA 绑定</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#7-%E6%95%85%E9%9A%9C%E6%BC%94%E7%BB%83%E6%9C%BA%E5%88%B6%EF%BC%88Chaos-Engineering%EF%BC%89"><span class="nav-number">1.11.</span> <span class="nav-text">7. 故障演练机制（Chaos Engineering）</span></a></li></ol></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">80</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">14</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">136</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/ggaaooppeenngg" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;ggaaooppeenngg" rel="noopener me" target="_blank"><i class="github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:peng.gao.dut@gmail.com" title="E-Mail → mailto:peng.gao.dut@gmail.com" rel="noopener me" target="_blank"><i class="envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+        <div class="back-to-top animated" role="button" aria-label="返回顶部">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2025/05/25/%E8%B5%B0%E5%90%91%E4%B8%87%E5%8D%A1LLM%E6%8E%A8%E7%90%86%E9%9B%86%E7%BE%A4%E4%B9%8B%E8%B7%AF/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="走向万卡LLM推理集群之路 | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          走向万卡LLM推理集群之路
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+      
+
+      <time title="创建时间：2025-05-25 13:57:13 / 修改时间：14:07:55" itemprop="dateCreated datePublished" datetime="2025-05-25T13:57:13+08:00">2025-05-25</time>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2025/05/25/%E8%B5%B0%E5%90%91%E4%B8%87%E5%8D%A1LLM%E6%8E%A8%E7%90%86%E9%9B%86%E7%BE%A4%E4%B9%8B%E8%B7%AF/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2025/05/25/走向万卡LLM推理集群之路/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>在迈向“万卡集群”的过程中，笔者遇到了许多问题。<a target="_blank" rel="noopener" href="https://kubernetes.io/docs/setup/best-practices/cluster-large/">Kubernetes</a> 标称支持最多 5000 个节点，这个上限通常是指在默认资源配置下的理论规模，实际中包含大量 Pod、CRD 或复杂控制器等对象时，其可用规模会显著缩水。笔者尚未在开源版本中进行系统性压测，尚不清楚极限配置下的真实能力边界。</p>
+<p>然而，在使用 AWS 提供的标准 EKS 服务过程中，笔者发现整体性能瓶颈远低于预期：在仅 8 万 QPM（约合 1400 QPS）的请求强度下，apiserver 的缓存已无法同步，<code>resourceVersion</code> 出现严重滞后，更新操作频繁失败，集群进入了不可用状态。这一结果显然与多数人对 Kubernetes 扩展能力的认知存在差距。</p>
+<p>因此，笔者逐渐意识到，支撑“万卡”级别的集群不仅需要强大的计算与网络资源，更需要在控制面、组件实现上投入大量工程精力。如果不进行多集群拆分，或对 apiserver 本身进行改造优化，仅依赖 EKS 标准配置，在千卡规模就已遭遇明显瓶颈。</p>
+<p>需要说明的是，笔者所参与开发的边端组件远未达到 Kubelet 的成熟水平，控制器实现的性能和健壮性也存在差距。这也进一步暴露出：<strong>Kubernetes 本身虽具备高扩展性，但真正支撑万卡规模并非“开箱即用”</strong>，而是极其依赖控制面的设计和组件性能的协同演进。</p>
+<p>以 AWS EKS 默认配置为例，假设集群包含 1000 节点，要想稳定支撑每个节点 20 QPS 的访问压力，apiserver 已接近饱和极限。Kubelet 作为核心组件，或许能够维持这一负载水平，但自研 controller 若性能不佳，极易拖慢整个集群的反应速度。</p>
+<p>如果你的万卡集群全部使用的是 Kubernetes 原生组件，且运行稳定，那么恭喜你，确实享受到了 Kubernetes 高稳定性和高性能带来的红利。</p>
+<p>在笔者所参与的系统中，千节点规模下，每个节点的访问频率必须严格控制在 20 QPS 以下，才能保证系统正常运行。这是基于 AWS 提供的标准 apiserver 能力测得的，没有采用如<a target="_blank" rel="noopener" href="https://www.cnblogs.com/alisystemsoftware/p/14777333.html">阿里云</a>那样深度改造的控制面架构。</p>
+<p>根据笔者了解，阿里云通过限制客户端访问模式、优化 apiserver 架构，确实能稳定支撑到 5000 节点规模。但再往上，势必需要对 apiserver 进一步“动刀”。</p>
+<p>因此，对于想要迈向万卡规模的团队，笔者认为可以从两个方向入手：</p>
+<ol>
+<li><strong>多集群架构</strong>：通过拆分集群，缓解单个 apiserver 的压力；</li>
+<li><strong>组件限流与优化</strong>：在标准 Kubernetes 服务中，尽可能减少对 apiserver 的访问频率，控制各组件 QPS，提升控制面稳定性。</li>
+</ol>
+<p>无论 Kubernetes 的理论能力多强，如果不控制客户端行为、不优化组件实现，就很难在实际中获得高扩展性的体验。幸运的是，这其中存在大量可以落地的优化空间。</p>
+<h2 id="需要重点注意的几点"><a href="#需要重点注意的几点" class="headerlink" title="需要重点注意的几点"></a>需要重点注意的几点</h2><h3 id="1-控制-API-Server-的压力"><a href="#1-控制-API-Server-的压力" class="headerlink" title="1. 控制 API Server 的压力"></a>1. 控制 API Server 的压力</h3><p>Kubernetes 的 API Server 实际上远没有我们想象中强大。单个节点超过 20 QPS，在 1000 个节点的场景下就会产生 20,000 QPS 的访问量，对 API Server 是非常大的压力，甚至可能导致服务不可用。因此应尽量将单节点的 QPS 控制在 <strong>10 以下</strong>。</p>
+<h3 id="如何控制单节点-QPS"><a href="#如何控制单节点-QPS" class="headerlink" title="如何控制单节点 QPS"></a>如何控制单节点 QPS</h3><ul>
+<li><strong>避免不必要的失败请求</strong>：例如由于 <code>resourceVersion</code> 滞后导致的失败，建议使用更严格的 backoff 策略。曾遇到因更新操作使用了 <code>get</code> 而非直接读 cache，导致失败请求级联增加，一次失败引发一次同步读和同步更新。</li>
+<li><strong>减少无效更新</strong>：Etcd 适合“读多写少”模式，每次调谐应尽量只进行一次更新。确保对象确实发生变更后再发起 <code>update</code> 请求，避免“无脑更新”导致无意义的 QPS 激增。当这也是双刃剑，比如在下载任务中，可能下载时间过长没什么正反馈，作用使用者比较难受。</li>
+<li><strong>使用高层框架</strong>：尽量采用如 Kubebuilder 提供的高层封装，避免直接使用 <code>controller-runtime</code> 这类底层库。很多开发者对 <code>workqueue</code> 和 <code>informer</code> 等机制理解不深，容易写出高 QPS、低质量的控制器逻辑。</li>
+<li><strong>速度并非越快越好</strong>：与 API Server 打交道时，“稳”往往比“快”更重要。大规模节点下不必追求极致速度，否则反而扛不住。</li>
+<li><strong>CRD 设计需注意</strong>：在设计 CRD，尤其是 <code>status</code> 字段时，应避免定义频繁更新的字段，防止出现“有事没事就更新 status”的情况。</li>
+<li>Informer的DefaultResyncTime可以优先调成1分钟甚至更大，不要使用秒级别的设置。</li>
+</ul>
+<h3 id="2-提升服务稳定性"><a href="#2-提升服务稳定性" class="headerlink" title="2. 提升服务稳定性"></a>2. 提升服务稳定性</h3><p>在大规模节点扩缩容场景下，服务的稳定性至关重要。</p>
+<h3 id="节点优雅退出的挑战"><a href="#节点优雅退出的挑战" class="headerlink" title="节点优雅退出的挑战"></a>节点优雅退出的挑战</h3><ul>
+<li>对于如 LLM 推理任务，优雅退出困难。例如正在流式输出的对象，可能需要几十秒才能完全释放，需在设计上充分考虑。</li>
+</ul>
+<h3 id="错误容忍与重试策略"><a href="#错误容忍与重试策略" class="headerlink" title="错误容忍与重试策略"></a>错误容忍与重试策略</h3><ul>
+<li><strong>快速重试优于指数回退</strong>：LLM 服务通常对 SLA 要求较高，例如要提供 1 秒内的 TTFT。使用熔断或指数退避策略可能反而破坏 SLA。建议采用快速、少次数（如 3 次）、跨多个对象的重试机制。</li>
+<li><strong>容错对象要合理</strong>：若当前对象（如某个 vLLM 实例）出现 NCCL 死锁或 runtime error，应立即跳过并选择其他节点，而非对该对象反复重试。</li>
+<li><strong>流式处理的异常处理</strong>：若输出已经过半再出错，需 proxy 缓存已发送内容并判断是否继续。由于采样是非确定性的，重试结果不一致，建议直接 fail fast，不进行中断续传式的重试。</li>
+</ul>
+<h3 id="启动速度优化"><a href="#启动速度优化" class="headerlink" title="启动速度优化"></a>启动速度优化</h3><ul>
+<li><strong>模型下载</strong>：<ul>
+<li>使用 P2P 技术（如 Dragonfly）从邻近节点拉取模型文件；</li>
+<li>借助 CDN 提升模型的下载速度。</li>
+</ul>
+</li>
+<li><strong>模型加载</strong>：<ul>
+<li>使用内存文件系统效果有限，更直接的做法是预读一遍模型文件至 <code>/dev/null</code> 并用 <code>vmtouch</code> 确保 Page Cache 命中；</li>
+<li>使用更快的 tensor 格式，比如使用一些优化过的序列化与反序列化库。</li>
+</ul>
+</li>
+<li><strong>预处理加速</strong>：<ul>
+<li>如 CUDA Graph 优化：若硬件和模型固定，可预先缓存 CUDA Graph。但考虑到其占整体启动时间比例较小，该优化优先级较低。</li>
+</ul>
+</li>
+</ul>
+<h3 id="3-服务发现与健康探测"><a href="#3-服务发现与健康探测" class="headerlink" title="3. 服务发现与健康探测"></a>3. 服务发现与健康探测</h3><ul>
+<li><strong>避免依赖 API Server 做服务发现</strong>：可以使用配置中心或直接依赖 Kubernetes 的 DNS，如通过 service 的 DNS 解析 pod IP，减少对 API Server 的访问。</li>
+<li><strong>健康探针的有效性</strong>：<ul>
+<li>简单的端口检查不能有效反映 LLM 的运行状态；</li>
+<li>推荐使用真实业务接口（如 <code>/v1/chat/completion</code>）做健康探测，以及时发现如 vLLM 死锁等问题。</li>
+</ul>
+</li>
+<li><strong>异常端点的处理</strong>：<ul>
+<li><strong>负载均衡策略问题</strong>：如使用 LCF（Least Connection First）策略，异常节点会因连接数少反而被更多请求打中。应通过 Redis 等方式缓存失败节点，临时剔除；</li>
+<li><strong>Cache aware 的调度陷阱</strong>：缓存命中率高的节点若已宕机，仍可能承接大量请求，也应类似处理。</li>
+</ul>
+</li>
+</ul>
+<h3 id="4-监控与告警"><a href="#4-监控与告警" class="headerlink" title="4. 监控与告警"></a>4. 监控与告警</h3><ul>
+<li>应关注以下指标：<ul>
+<li>SLA：TTFT、TPOT、E2E 时延、吞吐量等；</li>
+<li>Proxy 的调度延迟、负载均衡延迟，这些直接影响 TTFT。</li>
+</ul>
+</li>
+</ul>
+<h3 id="5-PD（Prefill-Disaggregation）分离架构"><a href="#5-PD（Prefill-Disaggregation）分离架构" class="headerlink" title="5. PD（Prefill Disaggregation）分离架构"></a>5. PD（Prefill Disaggregation）分离架构</h3><p>在大规模集群中实现 PD 分离非常具有挑战性，对负载均衡提出更高要求。</p>
+<ul>
+<li>即便 PD 单独的计算性质比较良好，若在 P2P 场景下负载均衡不佳，整体系统依然会出现性能瓶颈；</li>
+<li>需设计更精细的分发策略，避免热点节点和数据倾斜。</li>
+</ul>
+<h3 id="8-节点资源异构-amp-NUMA-绑定"><a href="#8-节点资源异构-amp-NUMA-绑定" class="headerlink" title="8. 节点资源异构 &amp; NUMA 绑定"></a>8. 节点资源异构 &amp; NUMA 绑定</h3><ul>
+<li><strong>问题</strong>：大规模集群中，节点配置往往并非完全一致，甚至同一节点上不同 GPU 的性能、带宽、甚至驱动版本都可能略有差异，造成整体推理性能不稳定。</li>
+<li><strong>优化建议</strong>：<ul>
+<li>在资源调度时考虑 <strong>GPU 拓扑结构</strong>，避免跨 NUMA 节点调度；</li>
+<li>使用 <code>cudaVisibleDevices</code> 精准绑定并确保 GPU memory 布局合理；</li>
+<li>对于 Inference Worker 实现 NUMA-aware 的预绑定机制（如 CPU affinity），可以通过<code>taskset</code>命令绑定CPU。</li>
+</ul>
+</li>
+<li><strong>GPU</strong>架构的异同：注意管理Nvidia驱动，Cuda版本，高版本一般对低版本是兼容的，笔者经常碰到的问题就是高版本的Cuda无法跑在低版本的驱动上</li>
+<li><strong>优化建议</strong>：<ul>
+<li>保证良好的构建系统，对于编译出的vLLM包能够支持不同GPU的<code>com_cap</code>版本，像4090是<code>com_cap</code>8.9的，可能生成的代码无法跑在H20的<code>com_cap</code>9.0上。</li>
+<li>保证机器上的驱动保持在较新的驱动版本，运维要有比较强的更新节奏和意识。</li>
+<li>如果可以尽量把Cuda装在容器镜像里面，这样可以和宿主机上的Cuda独立，相对来说可以解决一torch版本和cuda版本的不一致的问题，当然这也会导致镜像体积过大，也是一把双刃剑。</li>
+</ul>
+</li>
+</ul>
+<h3 id="7-故障演练机制（Chaos-Engineering）"><a href="#7-故障演练机制（Chaos-Engineering）" class="headerlink" title="7. 故障演练机制（Chaos Engineering）"></a>7. 故障演练机制（Chaos Engineering）</h3><ul>
+<li><strong>问题</strong>：在万卡规模下，节点、GPU、网络出现异常是常态。没有预演机制会导致“雪崩式”错误放大。</li>
+<li><strong>优化建议</strong>：<ul>
+<li>引入如 <a target="_blank" rel="noopener" href="https://chaos-mesh.org/">Chaos Mesh</a>、<a target="_blank" rel="noopener" href="https://litmuschaos.io/">Litmus</a> 等框架进行 GPU、网络、文件系统等级别的 fault injection；</li>
+<li>模拟 API Server 限流、模型加载失败、通信超时、session 丢失等场景；</li>
+<li>在上线前进行 HA 演练，测试自动恢复和降级路径。</li>
+<li>准备一些fallover的策略，比如保证一个稳定集群，做集群级别的迁移更新，甚至可以用第三方的供应商去做流量迁移，等升级完成之后再从友商切回来。</li>
+</ul>
+</li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/LLM/" rel="tag"># LLM</a>
+              <a href="/tags/K8S/" rel="tag"># K8S</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/zh-CN/2025/05/17/CPU%E5%86%85%E5%AD%98%E7%9A%84v1-Transfer-Connector/" rel="prev" title="基于CPU内存的v1 Transfer Connector">
+                  <i class="fa fa-angle-left"></i> 基于CPU内存的v1 Transfer Connector
+                </a>
+            </div>
+            <div class="post-nav-item">
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 2014 – 
+    <span itemprop="copyrightYear">2025</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+  </div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/mist/" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.umd.js" integrity="sha256-a+H7FYzJv6oU2hfsfDGM2Ohw/cR9v+hPfxHCLdmCrE8=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lozad.js/1.16.0/lozad.min.js" integrity="sha256-mOFREFhqmHeQbXpK2lp4nA3qooVgACfh88fpJftLBbc=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/sidebar.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+  <script src="/js/third-party/fancybox.js"></script>
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"ggaaooppeenngg","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>
