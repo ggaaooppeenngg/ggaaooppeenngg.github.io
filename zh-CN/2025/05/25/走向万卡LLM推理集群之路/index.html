@@ -21,15 +21,15 @@
 
 <script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
 
-    <meta name="description" content="在迈向“万卡集群”的过程中，笔者遇到了许多问题。Kubernetes 标称支持最多 5000 个节点，这个上限通常是指在默认资源配置下的理论规模，实际中包含大量 Pod、CRD 或复杂控制器等对象时，其可用规模会显著缩水。笔者尚未在开源版本中进行系统性压测，尚不清楚极限配置下的真实能力边界。 然而，在使用 AWS 提供的标准 EKS 服务过程中，笔者发现整体性能瓶颈远低于预期：在仅 8 万 QPM">
+    <meta name="description" content="在迈向“万卡集群”的过程中，笔者遇到了许多问题。Kubernetes 标称支持最多 5000 个节点，这个上限通常是指在默认资源配置下的理论规模，实际中包含大量 Pod、CRD 或复杂控制器等对象时，其可用规模会显著缩水。笔者尚未在开源版本中进行系统性压测，尚不清楚极限配置下的真实能力边界。 然而，在使用 AWS 提供的标准 EKS 服务过程中，笔者发现整体性能瓶颈远低于预期：在仅 60 万 QP">
 <meta property="og:type" content="article">
 <meta property="og:title" content="走向万卡LLM推理集群之路">
 <meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2025/05/25/%E8%B5%B0%E5%90%91%E4%B8%87%E5%8D%A1LLM%E6%8E%A8%E7%90%86%E9%9B%86%E7%BE%A4%E4%B9%8B%E8%B7%AF/index.html">
 <meta property="og:site_name" content="ggaaooppeenngg">
-<meta property="og:description" content="在迈向“万卡集群”的过程中，笔者遇到了许多问题。Kubernetes 标称支持最多 5000 个节点，这个上限通常是指在默认资源配置下的理论规模，实际中包含大量 Pod、CRD 或复杂控制器等对象时，其可用规模会显著缩水。笔者尚未在开源版本中进行系统性压测，尚不清楚极限配置下的真实能力边界。 然而，在使用 AWS 提供的标准 EKS 服务过程中，笔者发现整体性能瓶颈远低于预期：在仅 8 万 QPM">
+<meta property="og:description" content="在迈向“万卡集群”的过程中，笔者遇到了许多问题。Kubernetes 标称支持最多 5000 个节点，这个上限通常是指在默认资源配置下的理论规模，实际中包含大量 Pod、CRD 或复杂控制器等对象时，其可用规模会显著缩水。笔者尚未在开源版本中进行系统性压测，尚不清楚极限配置下的真实能力边界。 然而，在使用 AWS 提供的标准 EKS 服务过程中，笔者发现整体性能瓶颈远低于预期：在仅 60 万 QP">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2025-05-25T05:57:13.000Z">
-<meta property="article:modified_time" content="2025-05-25T06:07:55.337Z">
+<meta property="article:modified_time" content="2025-05-26T14:53:26.878Z">
 <meta property="article:author" content="ggaaooppeenngg">
 <meta property="article:tag" content="LLM">
 <meta property="article:tag" content="K8S">
@@ -211,9 +211,15 @@
         <i class="far fa-calendar"></i>
       </span>
       <span class="post-meta-item-text">发表于</span>
-      
 
-      <time title="创建时间：2025-05-25 13:57:13 / 修改时间：14:07:55" itemprop="dateCreated datePublished" datetime="2025-05-25T13:57:13+08:00">2025-05-25</time>
+      <time title="创建时间：2025-05-25 13:57:13" itemprop="dateCreated datePublished" datetime="2025-05-25T13:57:13+08:00">2025-05-25</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2025-05-26 22:53:26" itemprop="dateModified" datetime="2025-05-26T22:53:26+08:00">2025-05-26</time>
     </span>
 
   
@@ -240,7 +246,7 @@
     
     
     <div class="post-body" itemprop="articleBody"><p>在迈向“万卡集群”的过程中，笔者遇到了许多问题。<a target="_blank" rel="noopener" href="https://kubernetes.io/docs/setup/best-practices/cluster-large/">Kubernetes</a> 标称支持最多 5000 个节点，这个上限通常是指在默认资源配置下的理论规模，实际中包含大量 Pod、CRD 或复杂控制器等对象时，其可用规模会显著缩水。笔者尚未在开源版本中进行系统性压测，尚不清楚极限配置下的真实能力边界。</p>
-<p>然而，在使用 AWS 提供的标准 EKS 服务过程中，笔者发现整体性能瓶颈远低于预期：在仅 8 万 QPM（约合 1400 QPS）的请求强度下，apiserver 的缓存已无法同步，<code>resourceVersion</code> 出现严重滞后，更新操作频繁失败，集群进入了不可用状态。这一结果显然与多数人对 Kubernetes 扩展能力的认知存在差距。</p>
+<p>然而，在使用 AWS 提供的标准 EKS 服务过程中，笔者发现整体性能瓶颈远低于预期：在仅 60 万 QPM（约合 10k QPS）的请求强度下，apiserver 的缓存已无法同步，<code>resourceVersion</code> 出现严重滞后，更新操作频繁失败，集群进入了不可用状态。这一结果显然与多数人对 Kubernetes 扩展能力的认知存在差距。</p>
 <p>因此，笔者逐渐意识到，支撑“万卡”级别的集群不仅需要强大的计算与网络资源，更需要在控制面、组件实现上投入大量工程精力。如果不进行多集群拆分，或对 apiserver 本身进行改造优化，仅依赖 EKS 标准配置，在千卡规模就已遭遇明显瓶颈。</p>
 <p>需要说明的是，笔者所参与开发的边端组件远未达到 Kubelet 的成熟水平，控制器实现的性能和健壮性也存在差距。这也进一步暴露出：<strong>Kubernetes 本身虽具备高扩展性，但真正支撑万卡规模并非“开箱即用”</strong>，而是极其依赖控制面的设计和组件性能的协同演进。</p>
 <p>以 AWS EKS 默认配置为例，假设集群包含 1000 节点，要想稳定支撑每个节点 20 QPS 的访问压力，apiserver 已接近饱和极限。Kubelet 作为核心组件，或许能够维持这一负载水平，但自研 controller 若性能不佳，极易拖慢整个集群的反应速度。</p>
