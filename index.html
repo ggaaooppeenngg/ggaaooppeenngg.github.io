@@ -92,7 +92,7 @@
 
 
 <nav class="site-nav">
-  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">134</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">14</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">78</span></a></li>
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">139</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">14</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">80</span></a></li>
   </ul>
 </nav>
 
@@ -129,7 +129,7 @@
   <nav class="site-state">
       <div class="site-state-item site-state-posts">
         <a href="/archives/">
-          <span class="site-state-item-count">78</span>
+          <span class="site-state-item-count">80</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -140,7 +140,7 @@
       </div>
       <div class="site-state-item site-state-tags">
           <a href="/tags/">
-        <span class="site-state-item-count">134</span>
+        <span class="site-state-item-count">139</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
@@ -169,6 +169,528 @@
     </div>
 
     <div class="main-inner index posts-expand">
+
+    
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2026/03/07/agent-management-development/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="undefined | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          <a href="/zh-CN/2026/03/07/agent-management-development/" class="post-title-link" itemprop="url">管理 Agent 开发：测试驱动与评估方法</a>
+        </h2>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+      
+
+      <time title="创建时间：2026-03-07 16:00:00 / 修改时间：15:53:36" itemprop="dateCreated datePublished" datetime="2026-03-07T16:00:00+08:00">2026-03-07</time>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2026/03/07/agent-management-development/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2026/03/07/agent-management-development/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+          <h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>在开发 Agent 的过程中，最大的挑战不是让 Agent”能跑”，而是让它<strong>持续可靠地工作</strong>。</p>
+<p>传统软件开发有单元测试、集成测试、CI/CD，但 Agent 是概率性的——同样的输入可能产生不同的输出。如何确保 Agent 在迭代过程中不退化？如何量化”这个 Agent 好不好用”？</p>
+<p>这篇博客整理了我最近学习的 Agent 开发管理方法，核心是两点：</p>
+<ol>
+<li><strong>Test-Driven Agent Development</strong> — 测试驱动的开发流程</li>
+<li><strong>Evaluation Harness</strong> — 系统化的评估方法</li>
+</ol>
+<hr>
+<h2 id="为什么需要-Evals"><a href="#为什么需要-Evals" class="headerlink" title="为什么需要 Evals"></a>为什么需要 Evals</h2><blockquote>
+<p>“没有 evals，团队会陷入被动循环——修复一个问题，又产生另一个，无法区分真正回归和噪声。”</p>
+</blockquote>
+<p>这是 Anthropic Engineering 团队的原话。没有评估体系时，开发过程是这样的：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">用户反馈有问题 → 修一下 → 上线 → 又出问题 → 再修 → 无限循环</span><br></pre></td></tr></table></figure>
+
+<p>有了 Evals 以后：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">写 Task + Grader → 跑 Eval 看成功率 → 改代码 → 跑 Eval 确认提升 → 上线</span><br></pre></td></tr></table></figure>
+
+<p><strong>Evals 的价值：</strong></p>
+<ul>
+<li>变更可见，回归可检测，迭代有信心</li>
+<li>快速评估新模型（几天 vs 几周）</li>
+<li>自动追踪基线（延迟、token 用量、成本）</li>
+<li>产品与研发的高带宽沟通渠道</li>
+</ul>
+<hr>
+<h2 id="核心概念"><a href="#核心概念" class="headerlink" title="核心概念"></a>核心概念</h2><h3 id="Task、Trial、Transcript、Outcome"><a href="#Task、Trial、Transcript、Outcome" class="headerlink" title="Task、Trial、Transcript、Outcome"></a>Task、Trial、Transcript、Outcome</h3><table>
+<thead>
+<tr>
+<th>术语</th>
+<th>定义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Task</strong></td>
+<td>单个测试用例（输入 + 成功标准）</td>
+</tr>
+<tr>
+<td><strong>Trial</strong></td>
+<td>对同一 Task 的一次执行（模型有随机性，要多次跑）</td>
+</tr>
+<tr>
+<td><strong>Transcript</strong></td>
+<td>完整执行记录，含所有工具调用、中间推理</td>
+</tr>
+<tr>
+<td><strong>Outcome</strong></td>
+<td>环境最终状态（不是 Agent 说了什么）</td>
+</tr>
+<tr>
+<td><strong>Grader</strong></td>
+<td>评分逻辑（一个 Task 可以有多个维度的 Grader）</td>
+</tr>
+</tbody></table>
+<p><strong>关键区分：</strong></p>
+<blockquote>
+<p>“订机票的 Agent 说’已为您订好’不算成功——数据库里有没有订单才算。”</p>
+</blockquote>
+<h3 id="pass-k-vs-pass-k"><a href="#pass-k-vs-pass-k" class="headerlink" title="pass@k vs pass^k"></a>pass@k vs pass^k</h3><p>这是两个核心指标，适用于不同场景：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># pass@k: k 次至少 1 次成功的概率</span></span><br><span class="line"><span class="comment"># 适合：编码（找到一个解就行）</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">pass_at_k</span>(<span class="params">success_rate, k</span>):</span><br><span class="line">    <span class="keyword">return</span> <span class="number">1</span> - (<span class="number">1</span> - success_rate) ** k</span><br><span class="line"></span><br><span class="line"><span class="comment"># pass^k: k 次全部成功的概率</span></span><br><span class="line"><span class="comment"># 适合：客服（每次都要对）</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">pass_all_k</span>(<span class="params">success_rate, k</span>):</span><br><span class="line">    <span class="keyword">return</span> success_rate ** k</span><br></pre></td></tr></table></figure>
+
+<p><strong>示例（单次成功率 75%）：</strong></p>
+<table>
+<thead>
+<tr>
+<th>k</th>
+<th>pass@k</th>
+<th>pass^k</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td>75%</td>
+<td>75%</td>
+</tr>
+<tr>
+<td>3</td>
+<td>98%</td>
+<td>42%</td>
+</tr>
+<tr>
+<td>5</td>
+<td>100%</td>
+<td>24%</td>
+</tr>
+<tr>
+<td>10</td>
+<td>100%</td>
+<td>5.6%</td>
+</tr>
+</tbody></table>
+<p><strong>选择指南：</strong></p>
+<table>
+<thead>
+<tr>
+<th>产品类型</th>
+<th>用哪个</th>
+<th>原因</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>编码助手</td>
+<td>pass@1</td>
+<td>找到一个可行解就行</td>
+</tr>
+<tr>
+<td>客服 Agent</td>
+<td>pass^k</td>
+<td>每次都要可靠</td>
+</tr>
+<tr>
+<td>研究助手</td>
+<td>pass@k + 质量分</td>
+<td>找到信息 + 质量评估</td>
+</tr>
+<tr>
+<td>医疗/法律</td>
+<td>pass^k</td>
+<td>不能出错</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="Grader-类型"><a href="#Grader-类型" class="headerlink" title="Grader 类型"></a>Grader 类型</h2><p>Grader 是评估的核心，决定如何判断一个 Task 是否通过。</p>
+<h3 id="Code-based-Graders（推荐优先使用）"><a href="#Code-based-Graders（推荐优先使用）" class="headerlink" title="Code-based Graders（推荐优先使用）"></a>Code-based Graders（推荐优先使用）</h3><table>
+<thead>
+<tr>
+<th>方法</th>
+<th>优点</th>
+<th>缺点</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>字符串匹配</td>
+<td>快、便宜、客观</td>
+<td>对变体不友好</td>
+<td>有固定格式输出</td>
+</tr>
+<tr>
+<td>单元测试</td>
+<td>确定性高、易调试</td>
+<td>只能测预期行为</td>
+<td>Coding</td>
+</tr>
+<tr>
+<td>状态检查</td>
+<td>验证环境变化</td>
+<td>需要隔离环境</td>
+<td>所有 Agent 类型</td>
+</tr>
+<tr>
+<td>工具调用验证</td>
+<td>检查是否用了正确工具</td>
+<td>不应过于 rigid</td>
+<td>工具密集型任务</td>
+</tr>
+</tbody></table>
+<h3 id="Model-based-Graders"><a href="#Model-based-Graders" class="headerlink" title="Model-based Graders"></a>Model-based Graders</h3><table>
+<thead>
+<tr>
+<th>方法</th>
+<th>优点</th>
+<th>缺点</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Rubric 评分</td>
+<td>灵活、捕捉细微差别</td>
+<td>非确定性、需要校准</td>
+<td>开放输出</td>
+</tr>
+<tr>
+<td>自然语言断言</td>
+<td>表达力强</td>
+<td>更贵</td>
+<td>对话、创意</td>
+</tr>
+<tr>
+<td>Multi-judge 共识</td>
+<td>降低单模型偏差</td>
+<td>成本高</td>
+<td>关键任务</td>
+</tr>
+</tbody></table>
+<h3 id="Human-Graders"><a href="#Human-Graders" class="headerlink" title="Human Graders"></a>Human Graders</h3><table>
+<thead>
+<tr>
+<th>方法</th>
+<th>优点</th>
+<th>缺点</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>专家审查</td>
+<td>金标准</td>
+<td>贵、慢</td>
+<td>校准 model grader</td>
+</tr>
+<tr>
+<td>A/B 测试</td>
+<td>真实用户结果</td>
+<td>需要流量</td>
+<td>生产环境</td>
+</tr>
+</tbody></table>
+<p><strong>优先级建议：State Check &gt; Tool Call &gt; Transcript &gt; LLM Rubric</strong></p>
+<hr>
+<h2 id="Test-Driven-Agent-Development-流程"><a href="#Test-Driven-Agent-Development-流程" class="headerlink" title="Test-Driven Agent Development 流程"></a>Test-Driven Agent Development 流程</h2><p>传统 TDD 是 Red-Green-Refactor，Agent TDD 也是类似的循环：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">┌─────────────────────────────────────────────────────────────┐</span><br><span class="line">│  Step 0: 定义成功标准 (Before Coding)                       │</span><br><span class="line">│  - 用户说什么算成功？                                        │</span><br><span class="line">│  - 环境状态如何变化？                                        │</span><br><span class="line">│  - 哪些边缘情况要处理？                                      │</span><br><span class="line">└─────────────────────────────────────────────────────────────┘</span><br><span class="line">                           ↓</span><br><span class="line">┌─────────────────────────────────────────────────────────────┐</span><br><span class="line">│  Step 1: 编写失败测试 (Red)                                 │</span><br><span class="line">│  - 写 Task 定义                                              │</span><br><span class="line">│  - 写 Grader 逻辑                                            │</span><br><span class="line">│  - 跑一次确认失败 (0% pass rate)                            │</span><br><span class="line">└─────────────────────────────────────────────────────────────┘</span><br><span class="line">                           ↓</span><br><span class="line">┌─────────────────────────────────────────────────────────────┐</span><br><span class="line">│  Step 2: 实现最小 Agent (Green)                             │</span><br><span class="line">│  - 选最简单 Pattern (Single LLM → Workflow → Agent)         │</span><br><span class="line">│  - 跑 5+ Trials 确认 pass rate &gt; 阈值                       │</span><br><span class="line">└─────────────────────────────────────────────────────────────┘</span><br><span class="line">                           ↓</span><br><span class="line">┌─────────────────────────────────────────────────────────────┐</span><br><span class="line">│  Step 3: 重构优化 (Refactor)                                │</span><br><span class="line">│  - 改进 Prompt/Tool 设计                                     │</span><br><span class="line">│  - 跑 Eval Suite 确认无回归                                 │</span><br><span class="line">└─────────────────────────────────────────────────────────────┘</span><br></pre></td></tr></table></figure>
+
+<h3 id="好-Task-的标准"><a href="#好-Task-的标准" class="headerlink" title="好 Task 的标准"></a>好 Task 的标准</h3><blockquote>
+<p>“两个领域专家独立判断，会得出相同 pass/fail 结论。”</p>
+</blockquote>
+<p><strong>Checklist：</strong></p>
+<ul>
+<li><input disabled="" type="checkbox"> 任务描述无歧义</li>
+<li><input disabled="" type="checkbox"> 成功标准可验证</li>
+<li><input disabled="" type="checkbox"> Agent 能自己完成（无需额外澄清）</li>
+<li><input disabled="" type="checkbox"> 有参考解答（证明任务可解）</li>
+<li><input disabled="" type="checkbox"> 覆盖正例和负例</li>
+</ul>
+<h3 id="Task-模板示例"><a href="#Task-模板示例" class="headerlink" title="Task 模板示例"></a>Task 模板示例</h3><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># tasks/refund-processing.yaml</span></span><br><span class="line"><span class="attr">task:</span></span><br><span class="line">  <span class="attr">id:</span> <span class="string">&quot;refund-processing-001&quot;</span></span><br><span class="line">  <span class="attr">category:</span> <span class="string">&quot;customer-support&quot;</span></span><br><span class="line">  <span class="attr">difficulty:</span> <span class="string">&quot;medium&quot;</span></span><br><span class="line">  </span><br><span class="line">  <span class="comment"># 输入</span></span><br><span class="line">  <span class="attr">input:</span></span><br><span class="line">    <span class="attr">user_message:</span> <span class="string">&quot;I want to return this defective product&quot;</span></span><br><span class="line">    <span class="attr">context:</span></span><br><span class="line">      <span class="attr">order_id:</span> <span class="string">&quot;ORD-12345&quot;</span></span><br><span class="line">      <span class="attr">product_id:</span> <span class="string">&quot;PROD-789&quot;</span></span><br><span class="line">      <span class="attr">purchase_date:</span> <span class="string">&quot;2026-02-15&quot;</span></span><br><span class="line">      <span class="attr">reason:</span> <span class="string">&quot;defective&quot;</span></span><br><span class="line">  </span><br><span class="line">  <span class="comment"># 期望结果 (Outcome)</span></span><br><span class="line">  <span class="attr">expected_outcome:</span></span><br><span class="line">    <span class="attr">state_checks:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">database:</span></span><br><span class="line">          <span class="attr">table:</span> <span class="string">&quot;refunds&quot;</span></span><br><span class="line">          <span class="attr">condition:</span> <span class="string">&quot;order_id = &#x27;ORD-12345&#x27; AND status = &#x27;processed&#x27;&quot;</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">database:</span></span><br><span class="line">          <span class="attr">table:</span> <span class="string">&quot;tickets&quot;</span></span><br><span class="line">          <span class="attr">condition:</span> <span class="string">&quot;status = &#x27;resolved&#x27;&quot;</span></span><br><span class="line">    <span class="attr">tool_calls_required:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">verify_identity</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">process_refund</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">send_confirmation</span></span><br><span class="line">    <span class="attr">transcript_constraints:</span></span><br><span class="line">      <span class="attr">max_turns:</span> <span class="number">10</span></span><br><span class="line">      <span class="attr">must_not_contain:</span> [<span class="string">&quot;I don&#x27;t know&quot;</span>, <span class="string">&quot;I can&#x27;t help&quot;</span>]</span><br><span class="line">  </span><br><span class="line">  <span class="comment"># 评分阈值</span></span><br><span class="line">  <span class="attr">grading:</span></span><br><span class="line">    <span class="attr">threshold:</span> <span class="number">0.8</span>  <span class="comment"># 80% 成功率算通过</span></span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="诊断流程"><a href="#诊断流程" class="headerlink" title="诊断流程"></a>诊断流程</h2><p>当 Eval 失败时，如何定位问题？</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">1. 跑 10 Trials → 看成功率</span><br><span class="line">2. 读失败 Transcript → 定位失败点</span><br><span class="line">3. 分类问题：</span><br><span class="line">   ├─ Tool Error → 检查参数/描述</span><br><span class="line">   ├─ Uncertainty → 加鼓励 Prompt</span><br><span class="line">   ├─ Wrong Sequence → 加 Workflow 指导</span><br><span class="line">   └─ Infra Error → 增加资源</span><br><span class="line">4. 修复后重跑对比</span><br></pre></td></tr></table></figure>
+
+<p><strong>常见失败模式：</strong></p>
+<table>
+<thead>
+<tr>
+<th>症状</th>
+<th>根因</th>
+<th>解决</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>调用错误工具</td>
+<td>工具描述模糊</td>
+<td>改进描述 + 示例</td>
+</tr>
+<tr>
+<td>参数错误</td>
+<td>缺少验证</td>
+<td>加参数检查脚本</td>
+</tr>
+<tr>
+<td>过早放弃</td>
+<td>缺少鼓励</td>
+<td>加”Try your best”提示</td>
+</tr>
+<tr>
+<td>无限循环</td>
+<td>无终止条件</td>
+<td>加最大迭代限制</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="基础设施噪声"><a href="#基础设施噪声" class="headerlink" title="基础设施噪声"></a>基础设施噪声</h2><blockquote>
+<p>“配置不同能让成绩相差 6% — 比模型差距还大。”</p>
+</blockquote>
+<p>这是容易被忽视的一点。同样的 Agent，在不同环境下跑 Eval，结果可能差异很大。</p>
+<p><strong>必须做：</strong></p>
+<ul>
+<li>记录 infra errors（OOM, timeout）</li>
+<li>计算 adjusted success rate（排除 infra）</li>
+<li>多次 Trial 取平均</li>
+<li>控制环境变量一致</li>
+</ul>
+<hr>
+<h2 id="快速起步示例"><a href="#快速起步示例" class="headerlink" title="快速起步示例"></a>快速起步示例</h2><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 1. 定义 Agent</span></span><br><span class="line"><span class="keyword">async</span> <span class="keyword">def</span> <span class="title function_">my_agent</span>(<span class="params"><span class="built_in">input</span>, env</span>):</span><br><span class="line">    <span class="comment"># 你的实现</span></span><br><span class="line">    <span class="keyword">return</span> transcript, outcome</span><br><span class="line"></span><br><span class="line"><span class="comment"># 2. 定义 Task + Grader</span></span><br><span class="line">task = Task(</span><br><span class="line">    <span class="built_in">id</span>=<span class="string">&quot;test-001&quot;</span>,</span><br><span class="line">    <span class="built_in">input</span>=&#123;<span class="string">&quot;message&quot;</span>: <span class="string">&quot;Hello&quot;</span>&#125;,</span><br><span class="line">    expected_outcome=&#123;<span class="string">&quot;response_contains&quot;</span>: <span class="string">&quot;Hi&quot;</span>&#125;,</span><br><span class="line">    grader=<span class="keyword">lambda</span> t, trans, out: &#123;<span class="string">&#x27;passed&#x27;</span>: <span class="string">&#x27;Hi&#x27;</span> <span class="keyword">in</span> trans&#125;</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 3. 跑 Eval</span></span><br><span class="line">harness = MinimalEvalHarness(my_agent, n_trials=<span class="number">5</span>)</span><br><span class="line">summary = <span class="keyword">await</span> harness.run_suite([task])</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>Agent 开发不是”写完就完了”，而是持续迭代的过程。关键点是：</p>
+<ol>
+<li><strong>先定义成功标准</strong> — 写代码之前先想清楚什么是”好”</li>
+<li><strong>用 State Check 做 Grader</strong> — 验证环境变化，不是 Agent 说了什么</li>
+<li><strong>多次 Trial 取统计</strong> — pass@k / pass^k 比单次成功率更可靠</li>
+<li><strong>持续跑 Eval</strong> — 每次改动都跑，确保无回归</li>
+</ol>
+<p>最后引用一句话：</p>
+<blockquote>
+<p>“测试是 Agent 的导航系统。没有持续运行的测试，Agent 就迷失方向，不知道自己在进步还是退步。”</p>
+</blockquote>
+<hr>
+<h2 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a>参考资料</h2><ul>
+<li>Anthropic: <a target="_blank" rel="noopener" href="https://www.anthropic.com/research/evaluating-llm-applications">Evaluating LLM Applications</a></li>
+<li>OpenAI: <a target="_blank" rel="noopener" href="https://platform.openai.com/docs/guides/evaluations">Evaluating LLMs</a></li>
+<li>LMQL: <a target="_blank" rel="noopener" href="https://lmql.ai/">Language Model Query Language</a></li>
+</ul>
+
+      
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+        <div class="post-eof"></div>
+      
+    </footer>
+  </article>
+</div>
+
+
+
+
+    
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2025/05/17/CPU%E5%86%85%E5%AD%98%E7%9A%84v1-Transfer-Connector/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="undefined | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          <a href="/zh-CN/2025/05/17/CPU%E5%86%85%E5%AD%98%E7%9A%84v1-Transfer-Connector/" class="post-title-link" itemprop="url">基于CPU内存的v1 Transfer Connector</a>
+        </h2>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2025-05-17 10:45:02" itemprop="dateCreated datePublished" datetime="2025-05-17T10:45:02+08:00">2025-05-17</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2026-03-07 15:28:19" itemprop="dateModified" datetime="2026-03-07T15:28:19+08:00">2026-03-07</time>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2025/05/17/CPU%E5%86%85%E5%AD%98%E7%9A%84v1-Transfer-Connector/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2025/05/17/CPU内存的v1-Transfer-Connector/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+          <p>vLLM最近支持了外部加载Transfer Connector，基于LMCache给出的StorageSharedConnector的例子，我尝试实现了一个基于共享内存的Transfer Connector。</p>
+<p>v1的接口是一个可以layer wise的实现。</p>
+<p>实际上使用下来其实没有明确的区分Producer和Consumer的角色，在P2P的场景下可能比较明显，实际上谁生产kv cache谁消费kv cache其实没有明确规定。</p>
+<p>这个的好处是Prefix Cache和KV Cache Transfer没有明确的区别了，Prefill和Worker之间唯一的区别就变成了<code>max_token=1</code>和<code>max_token</code>为真实值的区别了。</p>
+<p>设想几个场景，Worker即是生成者，也可以是消费者，Prefill也可以即是生产者又是消费者：</p>
+<ol>
+<li>Worker 生成的对话可以存入一个中心化的缓存当中，在多轮对话的时候Prefill可以直接复用这个缓存，只需要计算新的用户对话。</li>
+<li>Prefill 基于新的对话可以生成一个缓存，被Worker使用，也可以被其他的Prefill在新的多轮对话中使用。</li>
+</ol>
+<blockquote>
+<p>有一个比较hack的查看调用栈的方法就是在对应的接口函数抛出异常让程序崩溃，就能在stack trace上看到函数调用的路径了。</p>
+</blockquote>
+<p>当然这个接口也可以实现P2P，毕竟他提供了对应的wait接口，无非是等中心化的缓存是否就绪还是Prefill的直接传输是否就绪区别了，这在提供的接口列表当中可以看到。</p>
+<p>实现一个Connector需要关注几个接口。</p>
+<h2 id="Worker-side"><a href="#Worker-side" class="headerlink" title="Worker side"></a>Worker side</h2><h3 id="Layer-Wise"><a href="#Layer-Wise" class="headerlink" title="Layer Wise"></a>Layer Wise</h3><p><code>vllm/vllm/attention/layer.py</code>中可以看到。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">def unified_attention(</span><br><span class="line">    query: torch.Tensor,</span><br><span class="line">    key: torch.Tensor,</span><br><span class="line">    value: torch.Tensor,</span><br><span class="line">    layer_name: str,</span><br><span class="line">) -&gt; torch.Tensor:</span><br><span class="line">    wait_for_kv_layer_from_connector(layer_name)</span><br><span class="line"></span><br><span class="line">    forward_context: ForwardContext = get_forward_context()</span><br><span class="line">    attn_metadata = forward_context.attn_metadata</span><br><span class="line">    if isinstance(attn_metadata, dict):</span><br><span class="line">        attn_metadata = attn_metadata[layer_name]</span><br><span class="line">    self = forward_context.no_compile_layers[layer_name]</span><br><span class="line">    kv_cache = self.kv_cache[forward_context.virtual_engine]</span><br><span class="line">    output = self.impl.forward(self, query, key, value, kv_cache,</span><br><span class="line">                               attn_metadata)</span><br><span class="line"></span><br><span class="line">    maybe_save_kv_layer_to_connector(layer_name, kv_cache)</span><br><span class="line">    return output</span><br></pre></td></tr></table></figure>
+
+<ol>
+<li><p>每一层会有<code>wait_for_kv_layer_from_connector</code>调用<code>connector.wait_for_layer_load</code>。</p>
+</li>
+<li><p>在计算结束以后会有<code>maybe_save_kv_layer_to_connector</code>调用<code>connector.save_kv_layer</code>。</p>
+</li>
+</ol>
+<p>他们分别对应了decode和prefill，其中wait是同步的，save是异步的。</p>
+<h3 id="Model-Wise"><a href="#Model-Wise" class="headerlink" title="Model Wise"></a>Model Wise</h3><p>在<code>vllm/vllm/attention/layer.py</code>中</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">self.maybe_setup_kv_connector(scheduler_output)</span><br><span class="line"></span><br><span class="line">model_output = self.model(</span><br><span class="line">    input_ids=input_ids,</span><br><span class="line">    positions=positions,</span><br><span class="line">    intermediate_tensors=intermediate_tensors,</span><br><span class="line">    inputs_embeds=inputs_embeds,</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line">self.maybe_wait_for_kv_save()</span><br><span class="line">finished_sending, finished_recving = (</span><br><span class="line">    self.get_finished_kv_transfers(scheduler_output))</span><br></pre></td></tr></table></figure>
+
+<ol>
+<li><p><code>connector.start_load_kv</code> 来自于 <code>maybe_setup_kv_connector</code>，在decoder的model forward之前调用，用于异步启动kv的load。</p>
+</li>
+<li><p><code>connector.wait_for_save</code> 来自于 <code>maybe_wait_for_kv_save</code>，在prefill的model forward之后调用，用于整体的save是同步的。</p>
+</li>
+</ol>
+<p>其他的一些接口包括：</p>
+<ol>
+<li><p><code>get_finished</code>返回对于给定的request ids对应的已经完成的sending和recving的request ids。</p>
+</li>
+<li><p><code>register_kv_caches</code>用于connector提前注册kvcaches，在初始化kvcache的时候调用，这个应该是NIXL需要这样直接读取整个的kvcaches的显存地址做RDMA和注册。</p>
+</li>
+<li><p><code>bind_connector_metadata</code>，model forward之前bind metadata，这个数据结构是Metadata的数据结构是实现者自由定义的，在<code>start_load_kv</code>之前调用。</p>
+</li>
+<li><p><code>clear_connector_metadata</code>，model forward之后clear。</p>
+</li>
+</ol>
+<p>换成prefiller和decoder的视角来看</p>
+<h3 id="Prefiller-Connector"><a href="#Prefiller-Connector" class="headerlink" title="Prefiller Connector"></a>Prefiller Connector</h3><p>每一层调用<code>save_kv_layer</code>，这个可以是异步的，在model foward之后会调用<code>wait_for_save</code>保证kvcache被传输完，不然其中的kvcache可能会被之后的forward所覆盖。<br><code>clear_connector_metadata</code>可以帮助清理这次forward相关的metadata。</p>
+<h3 id="Decoder-Connector"><a href="#Decoder-Connector" class="headerlink" title="Decoder Connector"></a>Decoder Connector</h3><p><code>bind_connector_metadata</code>帮助设置forward相关的metadata。<br>每一层调用<code>start_load_kv</code>，这个可以是异步的，在model forward之前调用，在每一层forward之前<code>wait_for_layer_load</code>，这个是同步的。</p>
+<h2 id="Scheduler-Side"><a href="#Scheduler-Side" class="headerlink" title="Scheduler Side"></a>Scheduler Side</h2><ol>
+<li><p><code>get_num_new_matched_tokens</code>，基于传入的<code>num_computed_tokens</code>获取可以从外部加载的kvcache，这个是给scheduler用的，表明decoder需要加载的tokens。<code>computed_token</code>代表已经计算过kvcache的token.<br>调度器要额外分配一个<code>external_computed_tokens</code>的slots给外部加载用并且把这部分也算在<code>computed_token</code>，然后在根据<code>budget_token - computed_token</code>分配<code>new_token</code>。</p>
+</li>
+<li><p><code>update_state_after_alloc</code> 在scheduler分配slots以后更新connector内部状态，比如用于告知connector是否要加载kvcache。</p>
+</li>
+<li><p><code>build_connector_metadata</code>用于构建connector metadata的相关输出，不能修改输入中的schedulerOutput。</p>
+</li>
+<li><p><code>request_finished</code> 在request结束，blocks free之前被调用，可以帮助connector触发相关回调。</p>
+</li>
+</ol>
+<p>上面的接口比如<code>register_kv_caches</code>，<code>bind_connector_metada</code>和<code>clear_connector_metadata</code>不一定要实现，可以把他们理解为一些初始化路径，计算路径上的调用hook，我们希望在相关的hook上处理一些东西就实现这些接口。</p>
+<h2 id="CPUMemorySharedConnector"><a href="#CPUMemorySharedConnector" class="headerlink" title="CPUMemorySharedConnector"></a>CPUMemorySharedConnector</h2><p>我实现了一个基于共享缓存的实现，Prefill只生成缓存，Worker只消费缓存。<br>主要是通过用layer和tokens hash做key创建SharedMemory。<br>完整的项目在<a target="_blank" rel="noopener" href="https://github.com/ggaaooppeenngg/cpumemconnector">这里</a>。</p>
+
+      
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+        <div class="post-eof"></div>
+      
+    </footer>
+  </article>
+</div>
+
+
+
 
     
 
@@ -1565,215 +2087,6 @@ dynamo里面这几个值代表什么呢。H和C应该是head和`n_head`，函数
 
 
 
-    
-
-
-<div class="post-block">
-  
-  
-
-  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2025/01/13/DeepSeek-V3%E5%88%86%E6%9E%90/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="ggaaooppeenngg">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="ggaaooppeenngg">
-      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
-    </span>
-
-    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
-      <meta itemprop="name" content="undefined | ggaaooppeenngg">
-      <meta itemprop="description" content="">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          <a href="/zh-CN/2025/01/13/DeepSeek-V3%E5%88%86%E6%9E%90/" class="post-title-link" itemprop="url">DeepSeek V3分析</a>
-        </h2>
-
-        <div class="post-meta-container">
-          <div class="post-meta">
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-calendar"></i>
-      </span>
-      <span class="post-meta-item-text">发表于</span>
-
-      <time title="创建时间：2025-01-13 12:10:49" itemprop="dateCreated datePublished" datetime="2025-01-13T12:10:49+08:00">2025-01-13</time>
-    </span>
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-calendar-check"></i>
-      </span>
-      <span class="post-meta-item-text">更新于</span>
-      <time title="修改时间：2025-03-14 13:50:06" itemprop="dateModified" datetime="2025-03-14T13:50:06+08:00">2025-03-14</time>
-    </span>
-
-  
-  
-  <span class="post-meta-item">
-    
-      <span class="post-meta-item-icon">
-        <i class="far fa-comment"></i>
-      </span>
-      <span class="post-meta-item-text">Disqus：</span>
-    
-    <a title="disqus" href="/zh-CN/2025/01/13/DeepSeek-V3%E5%88%86%E6%9E%90/#disqus_thread" itemprop="discussionUrl">
-      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2025/01/13/DeepSeek-V3分析/" itemprop="commentCount"></span>
-    </a>
-  </span>
-  
-  
-</div>
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-          <h1 id="DeepSeek-V3分析"><a href="#DeepSeek-V3分析" class="headerlink" title="DeepSeek V3分析"></a>DeepSeek V3分析</h1><blockquote>
-<p>During the pre-training stage, training DeepSeek-V3 on each trillion tokens requires only 180K<br>H800 GPU hours, i.e., 3.7 days on our cluster with 2048 H800 GPUs.</p>
-</blockquote>
-<p>DeepSeek实现了非常便宜的训练成本，是一个700B的MoE模型。</p>
-<h2 id="基础设施"><a href="#基础设施" class="headerlink" title="基础设施"></a>基础设施</h2><ul>
-<li><strong>计算集群</strong>：在配备 2048 个 NVIDIA H800 GPU 的集群上训练，节点内通过 NVLink 和 NVSwitch 连接，节点间使用 InfiniBand 互连。</li>
-<li><strong>训练框架</strong>：基于 HAI - LLM 框架，采用 16 路管道并行（PP）、64 路专家并行（EP）和 ZeRO - 1 数据并行（DP）。设计 DualPipe 算法减少管道气泡并重叠计算与通信，开发高效的跨节点全对全通信内核，优化内存占用，无需使用昂贵的张量并行（TP）。</li>
-<li><strong>FP8 训练</strong>：提出 FP8 混合精度训练框架，对多数计算密集型操作采用 FP8 精度，对部分关键操作保留原始精度，引入细粒度量化策略、提高累积精度、采用 E4M3 格式及在线量化，还降低了内存和通信开销。</li>
-<li><strong>推理与部署</strong>：部署在 H800 集群上，通过分离预填充和解码阶段确保服务水平目标（SLO）和高吞吐量。预填充阶段最小部署单元为 4 节点 32 个 GPU，采用特定并行策略和冗余专家策略确保负载均衡；解码阶段最小部署单元为 40 节点 320 个 GPU，采用相应并行策略和冗余专家策略，并探索动态冗余策略。</li>
-<li><strong>硬件设计建议</strong>：针对通信硬件，期望未来硬件能卸载通信任务，统一网络接口；针对计算硬件，建议提高 FP8 GEMM 累积精度、支持细粒度量化、在线量化和转置 GEMM 操作。</li>
-</ul>
-<h2 id="并行度配置"><a href="#并行度配置" class="headerlink" title="并行度配置"></a>并行度配置</h2><p>在<strong>prefill阶段</strong>，attention模块采用4路张量并行+8路数据并行，moe模块采用32路专家并行。这样并行的目的是在满足首token时延的要求下，最大化系统吞吐（和训练任务类似）。</p>
-<p>在<strong>decode阶段</strong>，DeepSeek-V3采取320路专家并行（256个小专家+64个热点专家），有效降低解码时延，并缓解负载不均衡的问题。</p>
-<p>DeepSeek-V3 采用了多种并行策略，包括 16 路流水线并行（PP），这一策略有助于提高训练效率，加快模型的处理速度。同时，还应用了 64 路专家并行（EP），且在 8 个节点上进行，能够充分发挥多节点的计算优势。此外，ZeRO-1 数据并行（DP）也被运用到训练中，进一步提升了模型的训练效果。</p>
-<p>ZeRO-1 优化器被切分到不同的GPU上。 《大模型动力引擎——PyTorch性能与显存优化手册》有提到这个优化，总结的很好。</p>
-<blockquote>
-<p>假设我们有N=64块GPU进行数据并行训练，在ZeRO-1阶段，优化器的状态量首先被分散存储到所有GPU中，此时单张GPU上的内存使用量骤降到(4+4+8/64)*7.5=60.9GB。ZeRO-2阶段进一步地将模型的梯度也分散存储，此时单张GPU上的内存使用量便是(4+(4+8)/64)7.5=31.4GB。而ZeRO-3阶段将模型的参数也分散存储到N个节点，此时每张GPU的内存消耗只有(4+4+8)/647.5=1.875GB。从单卡需要120GB到仅需不到2GB内存，这个优化效果是不是有点惊艳？不过需要再次强调的是，这样巨大的显存优化是有代价的，显存切分的程度越高，相应的通信开销也会增加。因此，根据实际需求合理地进行显存切分是非常重要的。</p>
-</blockquote>
-<h2 id="MLA"><a href="#MLA" class="headerlink" title="MLA"></a>MLA</h2><p>采用类似 LoRA 的架构，借助一个低秩矩阵 “compressed laten vector”，kvcache 仅需对低秩的 key-value 对以及附带旋转位置编码（RoPE）的 key 进行缓存。</p>
-<h2 id="MoE"><a href="#MoE" class="headerlink" title="MoE"></a>MoE</h2><p>除了针对 Top k、routed experts 运用添加了激活函数的加权求和方式外，还额外引入了 shared experts。在 gate 的激活函数里增添一个 bias，以此来化解 balance 失衡的难题，在训练阶段，通过调节这个 bias 对 balance 状况予以奖惩，这一调节过程被称作 bias update speed。<br>就一个 batch、一个序列而言，每个 token 倘若倾向于特定的一些 expert，那么未被选中的 expert 实际上仅相当于训练了极小的 batch size，或者极短的序列，正因如此，才有了这样一种策略，用以平衡 expert 的 batch size 以及序列当中的 token 数量，毕竟序列通常都很长。<br>DeepSeek-V3 着重凭借辅助损失策略达成负载均衡，与此同时，引入互为补充的序列平衡损失，以防单个序列内部出现极度不平衡的现象。</p>
-<h2 id="MTP"><a href="#MTP" class="headerlink" title="MTP"></a>MTP</h2><p>类似于 speculative decoding，它同样会计算多个 token，不过具体方式存在一定差异。其 embedding 与 output head 是共用的，这一点和 sd 里的 Medusa 有所不同，Medusa 是由多个头来推测不同位置，而 MTP 则是依靠多个相同的头（只是 attention 有别）去推断不同位置。</p>
-<p>MTP 的核心目的在于提升主模型的性能表现，在推理阶段能够直接将 MTP 模块舍去，主模型依旧可以独自正常运作。不仅如此，MTP 模块还能够应用于推测解码环节，以此进一步优化生成延迟问题，让整个流程更加高效流畅。</p>
-<h2 id="DualPipe"><a href="#DualPipe" class="headerlink" title="DualPipe"></a>DualPipe</h2><p>双流水线pipeline的优化。它实现了前向和后向过程中计算与通信阶段的重叠，有效解决了跨节点专家并行带来的通信负载问题。</p>
-<h2 id="FP8"><a href="#FP8" class="headerlink" title="FP8"></a>FP8</h2><p>能够不依赖硬件能力做FP8精度的训练，这个点是非常厉害的。</p>
-<p>首先，为提高模型训练速度，大部分核心计算操作（尤其是 GEMM 运算），均采用 FP8 精度实现。这些 GEMM 运算接收 FP8 格式的张量输入，输出 BF16 或 FP32 格式的结果。如图6所示，线性运算相关的三个 GEMM 操作，包括 Fprop（前向传播）、Dgrad（激活值反向传播）和 Wgrad（权重反向传播），均采用 FP8 执行。这种设计策略理论上将计算速度提升至原有 BF16 方法的两倍。同时，FP8 格式的 Wgrad GEMM 使得激活值能够以 FP8 格式存储用于反向传播，显著降低了内存使用量。</p>
-
-      
-    </div>
-
-    
-    
-    
-
-    <footer class="post-footer">
-        <div class="post-eof"></div>
-      
-    </footer>
-  </article>
-</div>
-
-
-
-
-    
-
-
-<div class="post-block">
-  
-  
-
-  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2025/01/07/GaLore%E5%88%86%E6%9E%90/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="ggaaooppeenngg">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="ggaaooppeenngg">
-      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
-    </span>
-
-    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
-      <meta itemprop="name" content="undefined | ggaaooppeenngg">
-      <meta itemprop="description" content="">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          <a href="/zh-CN/2025/01/07/GaLore%E5%88%86%E6%9E%90/" class="post-title-link" itemprop="url">GaLore分析</a>
-        </h2>
-
-        <div class="post-meta-container">
-          <div class="post-meta">
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-calendar"></i>
-      </span>
-      <span class="post-meta-item-text">发表于</span>
-
-      <time title="创建时间：2025-01-07 15:41:06" itemprop="dateCreated datePublished" datetime="2025-01-07T15:41:06+08:00">2025-01-07</time>
-    </span>
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-calendar-check"></i>
-      </span>
-      <span class="post-meta-item-text">更新于</span>
-      <time title="修改时间：2025-03-14 13:50:06" itemprop="dateModified" datetime="2025-03-14T13:50:06+08:00">2025-03-14</time>
-    </span>
-
-  
-  
-  <span class="post-meta-item">
-    
-      <span class="post-meta-item-icon">
-        <i class="far fa-comment"></i>
-      </span>
-      <span class="post-meta-item-text">Disqus：</span>
-    
-    <a title="disqus" href="/zh-CN/2025/01/07/GaLore%E5%88%86%E6%9E%90/#disqus_thread" itemprop="discussionUrl">
-      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2025/01/07/GaLore分析/" itemprop="commentCount"></span>
-    </a>
-  </span>
-  
-  
-</div>
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-          <p>LoRA一般的设定是认为微调任务应该只需要在一个更小的子空间去训练即可不需要复用基座模型的大空间，从而实现低成本的微调。<br>LoRA的前提是问题是不是在子空间能得到最优解。在线性回归 y=W x 中，如果最优 W * 是高秩的，那么对 W 施加低秩假设永远不会导致最优解，无论使用什么优化器。</p>
-<p>Gradient Low-Rank Projection (GaLore) 允许全参数学习，但比 LoRA 等常见的低秩自适应方法更具内存效率。</p>
-<p>使用单个批处理大小从头开始预训练 LLaMA7B 模型至少需要 58 GB 内存（14GB 用于可训练参数，42GB 用于 Adam 优化器状态和权重梯度，2GB 用于激活函数）。这使得训练在消费级 GPU 上不可行，例如具有 24GB 内存的 NVIDIA RTX 4090。</p>
-<p>他证明梯度可能具有低秩结构，如果我们能够在优化器状态中保留梯度的一个小 “核心” 的梯度统计信息，而不是完整的梯度本身，那么内存消耗就可以大幅降低。这就引出了 GaLore 策略。<br>他的关键思想是利用权重矩阵 W 的梯度 G 上做LoRA，而不是试图将权重矩阵本身近似为低秩。他的核心逻辑用Torch写出来如下：</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">for</span> weight <span class="keyword">in</span> model.parameters():</span><br><span class="line">    grad = weight.grad</span><br><span class="line">    <span class="comment"># original space -&gt; compact space</span></span><br><span class="line">    lor_grad = project(grad)</span><br><span class="line">    <span class="comment"># update by Adam, Adafactor, etc.</span></span><br><span class="line">    lor_update = update(lor_grad)</span><br><span class="line">    <span class="comment"># compact space -&gt; original space </span></span><br><span class="line">    update = project_back(lor_update) </span><br><span class="line">    weight.data += update</span><br></pre></td></tr></table></figure>
-
-
-      
-    </div>
-
-    
-    
-    
-
-    <footer class="post-footer">
-        <div class="post-eof"></div>
-      
-    </footer>
-  </article>
-</div>
-
-
-
-
   <nav class="pagination">
     <span class="page-number current">1</span><a class="page-number" href="/page/2/">2</a><span class="space">&hellip;</span><a class="page-number" href="/page/8/">8</a><a class="extend next" rel="next" title="下一页" aria-label="下一页" href="/page/2/"><i class="fa fa-angle-right"></i></a>
   </nav>
@@ -1786,7 +2099,7 @@ dynamo里面这几个值代表什么呢。H和C应该是head和`n_head`，函数
 
   <div class="copyright">
     &copy; 2014 – 
-    <span itemprop="copyrightYear">2025</span>
+    <span itemprop="copyrightYear">2026</span>
     <span class="with-love">
       <i class="fa fa-heart"></i>
     </span>

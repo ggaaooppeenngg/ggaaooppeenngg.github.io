@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.3.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="_85tctgPWrqH2EPVuuD5IT6KE-tW8nH0hTISJDMnShg">
+  <meta name="baidu-site-verification" content="bb16c5b1fd3302c18e0015bef11eea42">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha256-dABdfBfUoC8vJUBOwGVdm8L9qlMWaHTIfXt+7GnZCIo=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.css" integrity="sha256-gkQVf8UKZgQ0HyuxL/VnacadJ+D2Kox2TCEBuNQg5+w=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="前言在开发 Agent 的过程中，最大的挑战不是让 Agent”能跑”，而是让它持续可靠地工作。 传统软件开发有单元测试、集成测试、CI&#x2F;CD，但 Agent 是概率性的——同样的输入可能产生不同的输出。如何确保 Agent 在迭代过程中不退化？如何量化”这个 Agent 好不好用”？ 这篇博客整理了我最近学习的 Agent 开发管理方法，核心是两点：  Test-Driven Agent Dev">
+<meta property="og:type" content="article">
+<meta property="og:title" content="管理 Agent 开发：测试驱动与评估方法">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2026/03/07/agent-management-development/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="前言在开发 Agent 的过程中，最大的挑战不是让 Agent”能跑”，而是让它持续可靠地工作。 传统软件开发有单元测试、集成测试、CI&#x2F;CD，但 Agent 是概率性的——同样的输入可能产生不同的输出。如何确保 Agent 在迭代过程中不退化？如何量化”这个 Agent 好不好用”？ 这篇博客整理了我最近学习的 Agent 开发管理方法，核心是两点：  Test-Driven Agent Dev">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-03-07T08:00:00.000Z">
+<meta property="article:modified_time" content="2026-03-07T07:53:36.082Z">
+<meta property="article:author" content="ggaaooppeenngg">
+<meta property="article:tag" content="Agent">
+<meta property="article:tag" content="TDD">
+<meta property="article:tag" content="Evaluation">
+<meta property="article:tag" content="AI Engineering">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2026/03/07/agent-management-development/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://ggaaooppeenngg.github.io/zh-CN/2026/03/07/agent-management-development/","path":"zh-CN/2026/03/07/agent-management-development/","title":"管理 Agent 开发：测试驱动与评估方法"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>管理 Agent 开发：测试驱动与评估方法 | ggaaooppeenngg</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-62096626-1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"UA-62096626-1","only_pageview":false,"measure_protocol_api_secret":null}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+  <script src="/js/third-party/analytics/baidu-analytics.js"></script>
+  <script async src="https://hm.baidu.com/hm.js?bb16c5b1fd3302c18e0015bef11eea42"></script>
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">ggaaooppeenngg</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">为什么计算机科学是无限的但生命是有限的</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">139</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">14</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">80</span></a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E9%9C%80%E8%A6%81-Evals"><span class="nav-number">2.</span> <span class="nav-text">为什么需要 Evals</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%A0%B8%E5%BF%83%E6%A6%82%E5%BF%B5"><span class="nav-number">3.</span> <span class="nav-text">核心概念</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Task%E3%80%81Trial%E3%80%81Transcript%E3%80%81Outcome"><span class="nav-number">3.1.</span> <span class="nav-text">Task、Trial、Transcript、Outcome</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#pass-k-vs-pass-k"><span class="nav-number">3.2.</span> <span class="nav-text">pass@k vs pass^k</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Grader-%E7%B1%BB%E5%9E%8B"><span class="nav-number">4.</span> <span class="nav-text">Grader 类型</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Code-based-Graders%EF%BC%88%E6%8E%A8%E8%8D%90%E4%BC%98%E5%85%88%E4%BD%BF%E7%94%A8%EF%BC%89"><span class="nav-number">4.1.</span> <span class="nav-text">Code-based Graders（推荐优先使用）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Model-based-Graders"><span class="nav-number">4.2.</span> <span class="nav-text">Model-based Graders</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Human-Graders"><span class="nav-number">4.3.</span> <span class="nav-text">Human Graders</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Test-Driven-Agent-Development-%E6%B5%81%E7%A8%8B"><span class="nav-number">5.</span> <span class="nav-text">Test-Driven Agent Development 流程</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%A5%BD-Task-%E7%9A%84%E6%A0%87%E5%87%86"><span class="nav-number">5.1.</span> <span class="nav-text">好 Task 的标准</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Task-%E6%A8%A1%E6%9D%BF%E7%A4%BA%E4%BE%8B"><span class="nav-number">5.2.</span> <span class="nav-text">Task 模板示例</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%AF%8A%E6%96%AD%E6%B5%81%E7%A8%8B"><span class="nav-number">6.</span> <span class="nav-text">诊断流程</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD%E5%99%AA%E5%A3%B0"><span class="nav-number">7.</span> <span class="nav-text">基础设施噪声</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%BF%AB%E9%80%9F%E8%B5%B7%E6%AD%A5%E7%A4%BA%E4%BE%8B"><span class="nav-number">8.</span> <span class="nav-text">快速起步示例</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">9.</span> <span class="nav-text">总结</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8F%82%E8%80%83%E8%B5%84%E6%96%99"><span class="nav-number">10.</span> <span class="nav-text">参考资料</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">80</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">14</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">139</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/ggaaooppeenngg" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;ggaaooppeenngg" rel="noopener me" target="_blank"><i class="github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:peng.gao.dut@gmail.com" title="E-Mail → mailto:peng.gao.dut@gmail.com" rel="noopener me" target="_blank"><i class="envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+        <div class="back-to-top animated" role="button" aria-label="返回顶部">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2026/03/07/agent-management-development/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="管理 Agent 开发：测试驱动与评估方法 | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          管理 Agent 开发：测试驱动与评估方法
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+      
+
+      <time title="创建时间：2026-03-07 16:00:00 / 修改时间：15:53:36" itemprop="dateCreated datePublished" datetime="2026-03-07T16:00:00+08:00">2026-03-07</time>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2026/03/07/agent-management-development/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2026/03/07/agent-management-development/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>在开发 Agent 的过程中，最大的挑战不是让 Agent”能跑”，而是让它<strong>持续可靠地工作</strong>。</p>
+<p>传统软件开发有单元测试、集成测试、CI/CD，但 Agent 是概率性的——同样的输入可能产生不同的输出。如何确保 Agent 在迭代过程中不退化？如何量化”这个 Agent 好不好用”？</p>
+<p>这篇博客整理了我最近学习的 Agent 开发管理方法，核心是两点：</p>
+<ol>
+<li><strong>Test-Driven Agent Development</strong> — 测试驱动的开发流程</li>
+<li><strong>Evaluation Harness</strong> — 系统化的评估方法</li>
+</ol>
+<hr>
+<h2 id="为什么需要-Evals"><a href="#为什么需要-Evals" class="headerlink" title="为什么需要 Evals"></a>为什么需要 Evals</h2><blockquote>
+<p>“没有 evals，团队会陷入被动循环——修复一个问题，又产生另一个，无法区分真正回归和噪声。”</p>
+</blockquote>
+<p>这是 Anthropic Engineering 团队的原话。没有评估体系时，开发过程是这样的：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">用户反馈有问题 → 修一下 → 上线 → 又出问题 → 再修 → 无限循环</span><br></pre></td></tr></table></figure>
+
+<p>有了 Evals 以后：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">写 Task + Grader → 跑 Eval 看成功率 → 改代码 → 跑 Eval 确认提升 → 上线</span><br></pre></td></tr></table></figure>
+
+<p><strong>Evals 的价值：</strong></p>
+<ul>
+<li>变更可见，回归可检测，迭代有信心</li>
+<li>快速评估新模型（几天 vs 几周）</li>
+<li>自动追踪基线（延迟、token 用量、成本）</li>
+<li>产品与研发的高带宽沟通渠道</li>
+</ul>
+<hr>
+<h2 id="核心概念"><a href="#核心概念" class="headerlink" title="核心概念"></a>核心概念</h2><h3 id="Task、Trial、Transcript、Outcome"><a href="#Task、Trial、Transcript、Outcome" class="headerlink" title="Task、Trial、Transcript、Outcome"></a>Task、Trial、Transcript、Outcome</h3><table>
+<thead>
+<tr>
+<th>术语</th>
+<th>定义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Task</strong></td>
+<td>单个测试用例（输入 + 成功标准）</td>
+</tr>
+<tr>
+<td><strong>Trial</strong></td>
+<td>对同一 Task 的一次执行（模型有随机性，要多次跑）</td>
+</tr>
+<tr>
+<td><strong>Transcript</strong></td>
+<td>完整执行记录，含所有工具调用、中间推理</td>
+</tr>
+<tr>
+<td><strong>Outcome</strong></td>
+<td>环境最终状态（不是 Agent 说了什么）</td>
+</tr>
+<tr>
+<td><strong>Grader</strong></td>
+<td>评分逻辑（一个 Task 可以有多个维度的 Grader）</td>
+</tr>
+</tbody></table>
+<p><strong>关键区分：</strong></p>
+<blockquote>
+<p>“订机票的 Agent 说’已为您订好’不算成功——数据库里有没有订单才算。”</p>
+</blockquote>
+<h3 id="pass-k-vs-pass-k"><a href="#pass-k-vs-pass-k" class="headerlink" title="pass@k vs pass^k"></a>pass@k vs pass^k</h3><p>这是两个核心指标，适用于不同场景：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># pass@k: k 次至少 1 次成功的概率</span></span><br><span class="line"><span class="comment"># 适合：编码（找到一个解就行）</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">pass_at_k</span>(<span class="params">success_rate, k</span>):</span><br><span class="line">    <span class="keyword">return</span> <span class="number">1</span> - (<span class="number">1</span> - success_rate) ** k</span><br><span class="line"></span><br><span class="line"><span class="comment"># pass^k: k 次全部成功的概率</span></span><br><span class="line"><span class="comment"># 适合：客服（每次都要对）</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">pass_all_k</span>(<span class="params">success_rate, k</span>):</span><br><span class="line">    <span class="keyword">return</span> success_rate ** k</span><br></pre></td></tr></table></figure>
+
+<p><strong>示例（单次成功率 75%）：</strong></p>
+<table>
+<thead>
+<tr>
+<th>k</th>
+<th>pass@k</th>
+<th>pass^k</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td>75%</td>
+<td>75%</td>
+</tr>
+<tr>
+<td>3</td>
+<td>98%</td>
+<td>42%</td>
+</tr>
+<tr>
+<td>5</td>
+<td>100%</td>
+<td>24%</td>
+</tr>
+<tr>
+<td>10</td>
+<td>100%</td>
+<td>5.6%</td>
+</tr>
+</tbody></table>
+<p><strong>选择指南：</strong></p>
+<table>
+<thead>
+<tr>
+<th>产品类型</th>
+<th>用哪个</th>
+<th>原因</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>编码助手</td>
+<td>pass@1</td>
+<td>找到一个可行解就行</td>
+</tr>
+<tr>
+<td>客服 Agent</td>
+<td>pass^k</td>
+<td>每次都要可靠</td>
+</tr>
+<tr>
+<td>研究助手</td>
+<td>pass@k + 质量分</td>
+<td>找到信息 + 质量评估</td>
+</tr>
+<tr>
+<td>医疗/法律</td>
+<td>pass^k</td>
+<td>不能出错</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="Grader-类型"><a href="#Grader-类型" class="headerlink" title="Grader 类型"></a>Grader 类型</h2><p>Grader 是评估的核心，决定如何判断一个 Task 是否通过。</p>
+<h3 id="Code-based-Graders（推荐优先使用）"><a href="#Code-based-Graders（推荐优先使用）" class="headerlink" title="Code-based Graders（推荐优先使用）"></a>Code-based Graders（推荐优先使用）</h3><table>
+<thead>
+<tr>
+<th>方法</th>
+<th>优点</th>
+<th>缺点</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>字符串匹配</td>
+<td>快、便宜、客观</td>
+<td>对变体不友好</td>
+<td>有固定格式输出</td>
+</tr>
+<tr>
+<td>单元测试</td>
+<td>确定性高、易调试</td>
+<td>只能测预期行为</td>
+<td>Coding</td>
+</tr>
+<tr>
+<td>状态检查</td>
+<td>验证环境变化</td>
+<td>需要隔离环境</td>
+<td>所有 Agent 类型</td>
+</tr>
+<tr>
+<td>工具调用验证</td>
+<td>检查是否用了正确工具</td>
+<td>不应过于 rigid</td>
+<td>工具密集型任务</td>
+</tr>
+</tbody></table>
+<h3 id="Model-based-Graders"><a href="#Model-based-Graders" class="headerlink" title="Model-based Graders"></a>Model-based Graders</h3><table>
+<thead>
+<tr>
+<th>方法</th>
+<th>优点</th>
+<th>缺点</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Rubric 评分</td>
+<td>灵活、捕捉细微差别</td>
+<td>非确定性、需要校准</td>
+<td>开放输出</td>
+</tr>
+<tr>
+<td>自然语言断言</td>
+<td>表达力强</td>
+<td>更贵</td>
+<td>对话、创意</td>
+</tr>
+<tr>
+<td>Multi-judge 共识</td>
+<td>降低单模型偏差</td>
+<td>成本高</td>
+<td>关键任务</td>
+</tr>
+</tbody></table>
+<h3 id="Human-Graders"><a href="#Human-Graders" class="headerlink" title="Human Graders"></a>Human Graders</h3><table>
+<thead>
+<tr>
+<th>方法</th>
+<th>优点</th>
+<th>缺点</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>专家审查</td>
+<td>金标准</td>
+<td>贵、慢</td>
+<td>校准 model grader</td>
+</tr>
+<tr>
+<td>A/B 测试</td>
+<td>真实用户结果</td>
+<td>需要流量</td>
+<td>生产环境</td>
+</tr>
+</tbody></table>
+<p><strong>优先级建议：State Check &gt; Tool Call &gt; Transcript &gt; LLM Rubric</strong></p>
+<hr>
+<h2 id="Test-Driven-Agent-Development-流程"><a href="#Test-Driven-Agent-Development-流程" class="headerlink" title="Test-Driven Agent Development 流程"></a>Test-Driven Agent Development 流程</h2><p>传统 TDD 是 Red-Green-Refactor，Agent TDD 也是类似的循环：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">┌─────────────────────────────────────────────────────────────┐</span><br><span class="line">│  Step 0: 定义成功标准 (Before Coding)                       │</span><br><span class="line">│  - 用户说什么算成功？                                        │</span><br><span class="line">│  - 环境状态如何变化？                                        │</span><br><span class="line">│  - 哪些边缘情况要处理？                                      │</span><br><span class="line">└─────────────────────────────────────────────────────────────┘</span><br><span class="line">                           ↓</span><br><span class="line">┌─────────────────────────────────────────────────────────────┐</span><br><span class="line">│  Step 1: 编写失败测试 (Red)                                 │</span><br><span class="line">│  - 写 Task 定义                                              │</span><br><span class="line">│  - 写 Grader 逻辑                                            │</span><br><span class="line">│  - 跑一次确认失败 (0% pass rate)                            │</span><br><span class="line">└─────────────────────────────────────────────────────────────┘</span><br><span class="line">                           ↓</span><br><span class="line">┌─────────────────────────────────────────────────────────────┐</span><br><span class="line">│  Step 2: 实现最小 Agent (Green)                             │</span><br><span class="line">│  - 选最简单 Pattern (Single LLM → Workflow → Agent)         │</span><br><span class="line">│  - 跑 5+ Trials 确认 pass rate &gt; 阈值                       │</span><br><span class="line">└─────────────────────────────────────────────────────────────┘</span><br><span class="line">                           ↓</span><br><span class="line">┌─────────────────────────────────────────────────────────────┐</span><br><span class="line">│  Step 3: 重构优化 (Refactor)                                │</span><br><span class="line">│  - 改进 Prompt/Tool 设计                                     │</span><br><span class="line">│  - 跑 Eval Suite 确认无回归                                 │</span><br><span class="line">└─────────────────────────────────────────────────────────────┘</span><br></pre></td></tr></table></figure>
+
+<h3 id="好-Task-的标准"><a href="#好-Task-的标准" class="headerlink" title="好 Task 的标准"></a>好 Task 的标准</h3><blockquote>
+<p>“两个领域专家独立判断，会得出相同 pass/fail 结论。”</p>
+</blockquote>
+<p><strong>Checklist：</strong></p>
+<ul>
+<li><input disabled="" type="checkbox"> 任务描述无歧义</li>
+<li><input disabled="" type="checkbox"> 成功标准可验证</li>
+<li><input disabled="" type="checkbox"> Agent 能自己完成（无需额外澄清）</li>
+<li><input disabled="" type="checkbox"> 有参考解答（证明任务可解）</li>
+<li><input disabled="" type="checkbox"> 覆盖正例和负例</li>
+</ul>
+<h3 id="Task-模板示例"><a href="#Task-模板示例" class="headerlink" title="Task 模板示例"></a>Task 模板示例</h3><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># tasks/refund-processing.yaml</span></span><br><span class="line"><span class="attr">task:</span></span><br><span class="line">  <span class="attr">id:</span> <span class="string">&quot;refund-processing-001&quot;</span></span><br><span class="line">  <span class="attr">category:</span> <span class="string">&quot;customer-support&quot;</span></span><br><span class="line">  <span class="attr">difficulty:</span> <span class="string">&quot;medium&quot;</span></span><br><span class="line">  </span><br><span class="line">  <span class="comment"># 输入</span></span><br><span class="line">  <span class="attr">input:</span></span><br><span class="line">    <span class="attr">user_message:</span> <span class="string">&quot;I want to return this defective product&quot;</span></span><br><span class="line">    <span class="attr">context:</span></span><br><span class="line">      <span class="attr">order_id:</span> <span class="string">&quot;ORD-12345&quot;</span></span><br><span class="line">      <span class="attr">product_id:</span> <span class="string">&quot;PROD-789&quot;</span></span><br><span class="line">      <span class="attr">purchase_date:</span> <span class="string">&quot;2026-02-15&quot;</span></span><br><span class="line">      <span class="attr">reason:</span> <span class="string">&quot;defective&quot;</span></span><br><span class="line">  </span><br><span class="line">  <span class="comment"># 期望结果 (Outcome)</span></span><br><span class="line">  <span class="attr">expected_outcome:</span></span><br><span class="line">    <span class="attr">state_checks:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">database:</span></span><br><span class="line">          <span class="attr">table:</span> <span class="string">&quot;refunds&quot;</span></span><br><span class="line">          <span class="attr">condition:</span> <span class="string">&quot;order_id = &#x27;ORD-12345&#x27; AND status = &#x27;processed&#x27;&quot;</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">database:</span></span><br><span class="line">          <span class="attr">table:</span> <span class="string">&quot;tickets&quot;</span></span><br><span class="line">          <span class="attr">condition:</span> <span class="string">&quot;status = &#x27;resolved&#x27;&quot;</span></span><br><span class="line">    <span class="attr">tool_calls_required:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">verify_identity</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">process_refund</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">send_confirmation</span></span><br><span class="line">    <span class="attr">transcript_constraints:</span></span><br><span class="line">      <span class="attr">max_turns:</span> <span class="number">10</span></span><br><span class="line">      <span class="attr">must_not_contain:</span> [<span class="string">&quot;I don&#x27;t know&quot;</span>, <span class="string">&quot;I can&#x27;t help&quot;</span>]</span><br><span class="line">  </span><br><span class="line">  <span class="comment"># 评分阈值</span></span><br><span class="line">  <span class="attr">grading:</span></span><br><span class="line">    <span class="attr">threshold:</span> <span class="number">0.8</span>  <span class="comment"># 80% 成功率算通过</span></span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="诊断流程"><a href="#诊断流程" class="headerlink" title="诊断流程"></a>诊断流程</h2><p>当 Eval 失败时，如何定位问题？</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">1. 跑 10 Trials → 看成功率</span><br><span class="line">2. 读失败 Transcript → 定位失败点</span><br><span class="line">3. 分类问题：</span><br><span class="line">   ├─ Tool Error → 检查参数/描述</span><br><span class="line">   ├─ Uncertainty → 加鼓励 Prompt</span><br><span class="line">   ├─ Wrong Sequence → 加 Workflow 指导</span><br><span class="line">   └─ Infra Error → 增加资源</span><br><span class="line">4. 修复后重跑对比</span><br></pre></td></tr></table></figure>
+
+<p><strong>常见失败模式：</strong></p>
+<table>
+<thead>
+<tr>
+<th>症状</th>
+<th>根因</th>
+<th>解决</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>调用错误工具</td>
+<td>工具描述模糊</td>
+<td>改进描述 + 示例</td>
+</tr>
+<tr>
+<td>参数错误</td>
+<td>缺少验证</td>
+<td>加参数检查脚本</td>
+</tr>
+<tr>
+<td>过早放弃</td>
+<td>缺少鼓励</td>
+<td>加”Try your best”提示</td>
+</tr>
+<tr>
+<td>无限循环</td>
+<td>无终止条件</td>
+<td>加最大迭代限制</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="基础设施噪声"><a href="#基础设施噪声" class="headerlink" title="基础设施噪声"></a>基础设施噪声</h2><blockquote>
+<p>“配置不同能让成绩相差 6% — 比模型差距还大。”</p>
+</blockquote>
+<p>这是容易被忽视的一点。同样的 Agent，在不同环境下跑 Eval，结果可能差异很大。</p>
+<p><strong>必须做：</strong></p>
+<ul>
+<li>记录 infra errors（OOM, timeout）</li>
+<li>计算 adjusted success rate（排除 infra）</li>
+<li>多次 Trial 取平均</li>
+<li>控制环境变量一致</li>
+</ul>
+<hr>
+<h2 id="快速起步示例"><a href="#快速起步示例" class="headerlink" title="快速起步示例"></a>快速起步示例</h2><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 1. 定义 Agent</span></span><br><span class="line"><span class="keyword">async</span> <span class="keyword">def</span> <span class="title function_">my_agent</span>(<span class="params"><span class="built_in">input</span>, env</span>):</span><br><span class="line">    <span class="comment"># 你的实现</span></span><br><span class="line">    <span class="keyword">return</span> transcript, outcome</span><br><span class="line"></span><br><span class="line"><span class="comment"># 2. 定义 Task + Grader</span></span><br><span class="line">task = Task(</span><br><span class="line">    <span class="built_in">id</span>=<span class="string">&quot;test-001&quot;</span>,</span><br><span class="line">    <span class="built_in">input</span>=&#123;<span class="string">&quot;message&quot;</span>: <span class="string">&quot;Hello&quot;</span>&#125;,</span><br><span class="line">    expected_outcome=&#123;<span class="string">&quot;response_contains&quot;</span>: <span class="string">&quot;Hi&quot;</span>&#125;,</span><br><span class="line">    grader=<span class="keyword">lambda</span> t, trans, out: &#123;<span class="string">&#x27;passed&#x27;</span>: <span class="string">&#x27;Hi&#x27;</span> <span class="keyword">in</span> trans&#125;</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 3. 跑 Eval</span></span><br><span class="line">harness = MinimalEvalHarness(my_agent, n_trials=<span class="number">5</span>)</span><br><span class="line">summary = <span class="keyword">await</span> harness.run_suite([task])</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>Agent 开发不是”写完就完了”，而是持续迭代的过程。关键点是：</p>
+<ol>
+<li><strong>先定义成功标准</strong> — 写代码之前先想清楚什么是”好”</li>
+<li><strong>用 State Check 做 Grader</strong> — 验证环境变化，不是 Agent 说了什么</li>
+<li><strong>多次 Trial 取统计</strong> — pass@k / pass^k 比单次成功率更可靠</li>
+<li><strong>持续跑 Eval</strong> — 每次改动都跑，确保无回归</li>
+</ol>
+<p>最后引用一句话：</p>
+<blockquote>
+<p>“测试是 Agent 的导航系统。没有持续运行的测试，Agent 就迷失方向，不知道自己在进步还是退步。”</p>
+</blockquote>
+<hr>
+<h2 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a>参考资料</h2><ul>
+<li>Anthropic: <a target="_blank" rel="noopener" href="https://www.anthropic.com/research/evaluating-llm-applications">Evaluating LLM Applications</a></li>
+<li>OpenAI: <a target="_blank" rel="noopener" href="https://platform.openai.com/docs/guides/evaluations">Evaluating LLMs</a></li>
+<li>LMQL: <a target="_blank" rel="noopener" href="https://lmql.ai/">Language Model Query Language</a></li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Agent/" rel="tag"># Agent</a>
+              <a href="/tags/TDD/" rel="tag"># TDD</a>
+              <a href="/tags/Evaluation/" rel="tag"># Evaluation</a>
+              <a href="/tags/AI-Engineering/" rel="tag"># AI Engineering</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/zh-CN/2025/05/17/CPU%E5%86%85%E5%AD%98%E7%9A%84v1-Transfer-Connector/" rel="prev" title="基于CPU内存的v1 Transfer Connector">
+                  <i class="fa fa-angle-left"></i> 基于CPU内存的v1 Transfer Connector
+                </a>
+            </div>
+            <div class="post-nav-item">
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 2014 – 
+    <span itemprop="copyrightYear">2026</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+  </div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/mist/" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.umd.js" integrity="sha256-a+H7FYzJv6oU2hfsfDGM2Ohw/cR9v+hPfxHCLdmCrE8=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lozad.js/1.16.0/lozad.min.js" integrity="sha256-mOFREFhqmHeQbXpK2lp4nA3qooVgACfh88fpJftLBbc=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/sidebar.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+  <script src="/js/third-party/fancybox.js"></script>
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"ggaaooppeenngg","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>
