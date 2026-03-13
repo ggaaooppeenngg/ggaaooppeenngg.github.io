@@ -208,7 +208,7 @@
       <span class="post-meta-item-text">发表于</span>
       
 
-      <time title="创建时间：2026-03-13 22:00:00 / 修改时间：21:51:33" itemprop="dateCreated datePublished" datetime="2026-03-13T22:00:00+08:00">2026-03-13</time>
+      <time title="创建时间：2026-03-13 22:00:00 / 修改时间：22:13:43" itemprop="dateCreated datePublished" datetime="2026-03-13T22:00:00+08:00">2026-03-13</time>
     </span>
 
   
@@ -642,24 +642,6 @@
 <li>参数越多，LLM 调用时越容易对参数值产生幻觉</li>
 <li>无参数脚本每次执行结果一致，便于调试和信任</li>
 <li>AI 不需要理解参数含义，减少出错概率</li>
-</ul>
-<p><strong>实践建议：</strong></p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># ❌ 参数太多</span></span><br><span class="line">./deploy.sh --<span class="built_in">env</span> production --version 1.2.3 --region us-east --<span class="built_in">timeout</span> 300</span><br><span class="line"></span><br><span class="line"><span class="comment"># ✅ 用环境变量</span></span><br><span class="line"><span class="built_in">export</span> DEPLOY_ENV=production</span><br><span class="line"><span class="built_in">export</span> DEPLOY_VERSION=1.2.3</span><br><span class="line">./deploy.sh</span><br></pre></td></tr></table></figure>
-
-<hr>
-<h3 id="6-3-原则三：用文本流作为通用接口"><a href="#6-3-原则三：用文本流作为通用接口" class="headerlink" title="6.3 原则三：用文本流作为通用接口"></a>6.3 原则三：用文本流作为通用接口</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#!/bin/bash</span></span><br><span class="line"><span class="comment"># 好的设计：从 stdin 读取，输出到 stdout</span></span><br><span class="line"><span class="built_in">cat</span> input.txt | ./process.sh | ./format.sh &gt; output.txt</span><br><span class="line"></span><br><span class="line"><span class="comment"># 坏的设计：强制用文件参数</span></span><br><span class="line">./process.sh --input input.txt --output output.txt</span><br></pre></td></tr></table></figure>
-
-<p><strong>文本流接口让 LLM 可以无限组合。</strong></p>
-<hr>
-<h3 id="6-4-原则四：脚本不要提供丰富参数-1"><a href="#6-4-原则四：脚本不要提供丰富参数-1" class="headerlink" title="6.4 原则四：脚本不要提供丰富参数"></a>6.4 原则四：脚本不要提供丰富参数</h3><p><strong>核心观点：</strong></p>
-<blockquote>
-<p><strong>“脚本尽量不要提供丰富的参数，最好一个参数都不给，保证执行结果的确定性。”</strong></p>
-</blockquote>
-<p><strong>为什么：</strong></p>
-<ul>
-<li>参数越多，LLM 调用时越容易对参数值产生幻觉</li>
-<li>无参数脚本每次执行结果一致，便于调试和信任</li>
-<li>可变逻辑写在脚本内部（配置文件、环境变量）</li>
 </ul>
 <p><strong>实践建议：</strong></p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># ❌ 参数太多</span></span><br><span class="line">./deploy.sh --<span class="built_in">env</span> production --version 1.2.3 --region us-east --<span class="built_in">timeout</span> 300</span><br><span class="line"></span><br><span class="line"><span class="comment"># ✅ 用环境变量</span></span><br><span class="line"><span class="built_in">export</span> DEPLOY_ENV=production</span><br><span class="line"><span class="built_in">export</span> DEPLOY_VERSION=1.2.3</span><br><span class="line">./deploy.sh</span><br></pre></td></tr></table></figure>
