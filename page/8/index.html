@@ -92,7 +92,7 @@
 
 
 <nav class="site-nav">
-  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">143</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">15</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">81</span></a></li>
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">149</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">15</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">83</span></a></li>
   </ul>
 </nav>
 
@@ -129,7 +129,7 @@
   <nav class="site-state">
       <div class="site-state-item site-state-posts">
         <a href="/archives/">
-          <span class="site-state-item-count">81</span>
+          <span class="site-state-item-count">83</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -140,7 +140,7 @@
       </div>
       <div class="site-state-item site-state-tags">
           <a href="/tags/">
-        <span class="site-state-item-count">143</span>
+        <span class="site-state-item-count">149</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
@@ -169,6 +169,332 @@
     </div>
 
     <div class="main-inner index posts-expand">
+
+    
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2016/04/01/go-lexer-%E8%AF%8D%E6%B3%95%E5%88%86%E6%9E%90/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="undefined | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          <a href="/zh-CN/2016/04/01/go-lexer-%E8%AF%8D%E6%B3%95%E5%88%86%E6%9E%90/" class="post-title-link" itemprop="url">go-lexer-词法分析</a>
+        </h2>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2016-04-01 14:40:36" itemprop="dateCreated datePublished" datetime="2016-04-01T14:40:36+08:00">2016-04-01</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2025-03-14 13:50:06" itemprop="dateModified" datetime="2025-03-14T13:50:06+08:00">2025-03-14</time>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2016/04/01/go-lexer-%E8%AF%8D%E6%B3%95%E5%88%86%E6%9E%90/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2016/04/01/go-lexer-词法分析/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+          <p>词法分析一般是编译器的第一部分,而且词法分析很简单,就是一个有限状态机.<br>开始词法分析的过程就是把源文件转换成一组预先定义好的token的过程.<br>这一组被统一表现的token之后会被送入语法分析器进行语法解析,这里我们主要关注如何进行词法分析.</p>
+<p>做词法分析就几种方法:</p>
+<ol>
+<li> 直接使用工具比如lex.</li>
+<li> 使用更低一层的正则表达式.</li>
+<li> 使用状态动作,构造一个状态机.</li>
+</ol>
+<p>而真正实现一个语言的话,使用工具没有什么错,但是问题是,很难获得正确的错误提示.<br>工具生成的错误处理很弱.而且需要学习另一门规则或特定的语法.生成的代码可能性能不好,难以优化,但是用工具可以非常简单实现词法分析.<br>早期编译器的设计阶段都会使用lex来做词法分析器,比如gcc和Go都是这么做的,但是到了后期一个真正生产化的语言可能不能依赖生成的代码,而需要做自己特定的修改和优化,所以自己实现一个词法分析器就显得比较重要了.</p>
+<p>正则表达被人诟病的一个话题就是效率问题,比如perl拥有功能最强大的正则表达式,但是整个正则表达式引擎的效率却很低,Go在这方面牺牲了一些正则表达式的特性来保证正则表达式的效率不至于过低,但是正则表达式对于大量文本处理体现的弱势却是很明显的.因为可能我们要处理的状态其实不需要一个繁重的正则表达来解决.</p>
+<p>其实实现一个词法分析器很简单,而且这种技能是基本不会变的,如果写过一次,以后都是同样的实现方式.</p>
+<p>先看一下Go的实现,在Go的源码下面<code>go/token/token.go</code>目录里面是这么定义token的.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">// Token is the set of lexical tokens of the Go programming language.</span><br><span class="line">type Token int</span><br></pre></td></tr></table></figure>
+<p>其实就是个枚举类型,对于每种类型的字面值都有对应的token.<br>实际上这个只能算是一个token的类型.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">// The list of tokens.</span><br><span class="line">const (</span><br><span class="line">        // Special tokens</span><br><span class="line">        ILLEGAL Token = iota</span><br><span class="line">        EOF</span><br><span class="line">        COMMENT</span><br><span class="line"></span><br><span class="line">        literal_beg</span><br><span class="line">        // Identifiers and basic type literals</span><br><span class="line">        // (these tokens stand for classes of literals)</span><br><span class="line">        IDENT  // main</span><br><span class="line">        INT    // 12345</span><br><span class="line">        FLOAT  // 123.45</span><br><span class="line">        IMAG   // 123.45i</span><br><span class="line">        CHAR   // &#x27;a&#x27;</span><br><span class="line">        STRING // &quot;abc&quot;</span><br><span class="line">	// 省略</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+<p>枚举所有可以碰到的token类型.</p>
+<p><code>go/token/position.go</code> 当中是关于token位置相关的定义.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">// -----------------------------------------------------------------------------</span><br><span class="line">// Positions</span><br><span class="line"></span><br><span class="line">// Position describes an arbitrary source position</span><br><span class="line">// including the file, line, and column location.</span><br><span class="line">// A Position is valid if the line number is &gt; 0.</span><br><span class="line">//</span><br><span class="line">type Position struct &#123;</span><br><span class="line">        Filename string // filename, if any</span><br><span class="line">        Offset   int    // offset, starting at 0 </span><br><span class="line">        Line     int    // line number, starting at 1   </span><br><span class="line">        Column   int    // column number, starting at 1 (byte count)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这个很简单就是标示在文件中的位置,比较有意思的是<code>Pos</code>的定义<code>type Pos int</code>,这是位置标示的紧凑表示.接下来看看Pos和Position之间是如何转换的.</p>
+<p>首先定义了一个<code>FileSet</code>,可以理解为把<code>File</code>的内容字节按顺序存放的一个大数组,而某个文件则属于数组的一个区间[base,base+size]中,base是文件的第一个字节在大数组中的位置,size是这个文件的大小,某个文件中的<code>Pos</code>是在[base,base+size]这个区间里的一个小标.</p>
+<p>所以最后<code>Pos</code>能够压缩成一个整数来表示一个文件当中的位置,当需要使用的使用再从<code>FileSet</code>中转换出完整的<code>Position</code>对象.</p>
+<p><code>go/token/serialize.go</code> 是对<code>FileSet</code>序列化,这里就略过了.</p>
+<p>所以整个<code>go/token</code>包只是对token的一些定义和转化,词法分析的部分在<code>go/scanner</code>当中.</p>
+<p>scan的主流程如下,主体是一个switch case表示的状态机,<br>比如碰到字符那么扫描到不为字符为止就作为一个标识符,比如碰到数字那么可能按照扫描数字,然后向后看一次小数字再扫描数字,直到没有数字为止.<br>scan每次会返回一个被扫描的token,压缩表示的位置,和字面值的字符串,这样就能够把一个源文件转化成一个token的记号流,也就是tokenize或者lexical analysis的过程.</p>
+<pre><code>func (s *Scanner) Scan() (pos token.Pos, tok token.Token, lit string) &#123;
+scanAgain:
+        s.skipWhitespace() 
+        // current token start
+        pos = s.file.Pos(s.offset)
+        // determine token value
+        insertSemi := false
+        switch ch := s.ch; &#123;
+    /* 字符开头,开始扫描标识符 */
+        case isLetter(ch):
+                lit = s.scanIdentifier()
+                if len(lit) &gt; 1 &#123;
+                        // keywords are longer than one letter - avoid lookup otherwise
+                        tok = token.Lookup(lit)
+                        switch tok &#123;
+                        case token.IDENT, token.BREAK, token.CONTINUE, token.FALLTHROUGH, token.RETURN:
+                                insertSemi = true
+                        &#125;
+                &#125; else &#123;
+                        insertSemi = true
+                        tok = token.IDENT
+                &#125; 
+    /* 数字开头,扫描数字 */
+        case &#39;0&#39; &lt;= ch &amp;&amp; ch &lt;= &#39;9&#39;:
+                insertSemi = true
+                tok, lit = s.scanNumber(false)
+        default:
+
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">看一下例子的结果.</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+func ExampleScanner_Scan() &#123;
+        // src is the input that we want to tokenize.
+    // 需要记号化的源文件
+        src := []byte(&quot;cos(x) + 1i*sin(x) // Euler&quot;)
+
+        // Initialize the scanner.
+        var s scanner.Scanner
+        fset := token.NewFileSet()                      // positions are relative to fset
+    // 添加到文件集合中
+        file := fset.AddFile(&quot;&quot;, fset.Base(), len(src)) // register input &quot;file&quot;
+    // 初始化scanner
+        s.Init(file, src, nil /* no error handler */, scanner.ScanComments)
+
+        // Repeated calls to Scan yield the token sequence found in the input.
+        for &#123;
+                pos, tok, lit := s.Scan()
+                if tok == token.EOF &#123;
+                        break
+                &#125;
+                fmt.Printf(&quot;%s\t%s\t%q\n&quot;, fset.Position(pos), tok, lit)
+        &#125;
+    // 不断扫描就能得到如下结果
+    // 词法分析就是做这样一件事情.
+        // output:
+        // 1:1  IDENT   &quot;cos&quot;
+        // 1:4  (       &quot;&quot;
+        // 1:5  IDENT   &quot;x&quot;
+        // 1:6  )       &quot;&quot;
+        // 1:8  +       &quot;&quot;
+        // 1:10 IMAG    &quot;1i&quot;
+        // 1:12 *       &quot;&quot;
+        // 1:13 IDENT   &quot;sin&quot;
+        // 1:16 (       &quot;&quot;
+        // 1:17 IDENT   &quot;x&quot;
+        // 1:18 )       &quot;&quot;
+        // 1:20 ;       &quot;\n&quot;
+        // 1:20 COMMENT &quot;// Euler&quot;
+&#125;
+
+```
+
+我在我的数据结构字符画生成工具[1]里面就实现了一个词法分析器,方便我用简单的语法构造一个字符画,然后插入到注释中辅助解释.
+唯一的不同的是,我使用了channel读取token记号,来增加并发,而go本身的记号化是串行的,当然,这点区别其实没有多大,而且这个设计
+在Go的模板包里面使用了,Rob Pike也有过相关的演讲[2].
+
+1.  https://github.com/ggaaooppeenngg/cpic/blob/master/lex.go
+2.  http://cuddle.googlecode.com/hg/talk/lex.html#landing-slide
+</code></pre>
+
+      
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+        <div class="post-eof"></div>
+      
+    </footer>
+  </article>
+</div>
+
+
+
+
+    
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2016/03/18/git-commit-message-%E5%A6%82%E4%BD%95%E5%86%99%E5%A5%BD/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="undefined | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          <a href="/zh-CN/2016/03/18/git-commit-message-%E5%A6%82%E4%BD%95%E5%86%99%E5%A5%BD/" class="post-title-link" itemprop="url">git-commit-message- 如何写好</a>
+        </h2>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2016-03-18 13:00:50" itemprop="dateCreated datePublished" datetime="2016-03-18T13:00:50+08:00">2016-03-18</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2025-03-14 13:50:06" itemprop="dateModified" datetime="2025-03-14T13:50:06+08:00">2025-03-14</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/git/" itemprop="url" rel="index"><span itemprop="name">git</span></a>
+        </span>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2016/03/18/git-commit-message-%E5%A6%82%E4%BD%95%E5%86%99%E5%A5%BD/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2016/03/18/git-commit-message-如何写好/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+          <h1 id="commit-message"><a href="#commit-message" class="headerlink" title="commit message"></a>commit message</h1><p>git commit message 是我们经常要用到的东西，但是大部分人都写得很随便，翻 git log 看到的信息也是不明觉厉，这里结合其他资料阐述一下如何写好一个 commit message。</p>
+<p>其实 git commit message 对于不同的项目有不同的要求。 比如 Angular 的 commit message<br>标题要加分类，比如是属于 refactor 还是 docs , 还有影响范围（例如 属于全部、*, 还是编译器 $compiler)，但是在 Linux Kernel 和类似的 GNU style 的项目里面是类似这样的 commit header。</p>
+<p>“mm, tracing: unify mm flags handling in tracepoints and printk”</p>
+<p>如果没有子系统要求开头大写，如果有涉及的子系统就说明涉及的子系统并且跟上冒号做解释，冒号后的小写。这个根据具体的场景有不同的要求，但是核心就是简洁明了，另外要使用祈使句。</p>
+<p>这样的好处，就能通过<code>git log --pretty=format:%s</code>来遍历所有的 log message，对于修改一目了然。</p>
+<h1 id="commit-header"><a href="#commit-header" class="headerlink" title="commit header"></a>commit header</h1><p>第一条规则因项目而异。<br>比如 Angular 的规则是：<code>&lt;type&gt;(&lt;scope&gt;): &lt;subject&gt;</code></p>
+<p>type（必需），scope（可选）和 subject（必需）</p>
+<p>angular 要求的 type 有几种</p>
+<ul>
+<li>  feat: 新功能 (feature)</li>
+<li>  fix: 修补 bug</li>
+<li>  docs: 文档 (documentation)</li>
+<li>  style: 格式（不影响代码运行的变动）</li>
+<li>  refactor: 重构（即不是新增功能，也不是修改 bug 的代码变动）</li>
+<li>  test: 增加测试</li>
+<li>  chore: 构建过程或辅助工具的变动</li>
+</ul>
+<p>scope 表示影响的范围，subject 开头小写，使用祈使句，结尾不用。号。</p>
+<p>但是在 runc 里面要求比较简单，使用祈使句，并且开头大写就可以，结尾不带。号。</p>
+<p>kernel 的 subject 如果带上子系统比如 (mm)，就要 mm: 开头，然后不用大写。<br>不然也要开头大写。总之 subject 的部分要求根据项目不同有一些不同，但是 body 部分要求是类似的。</p>
+<h1 id="commit-body"><a href="#commit-body" class="headerlink" title="commit body"></a>commit body</h1><p>body 要和 header 空格一行，每行不要超过 72 个字符，并且对改动进行解释。</p>
+<p>例如：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">在 50 个字符内概括你的改动标题</span><br><span class="line"></span><br><span class="line">更详细的解释，限制到 72 个字符，和标题隔开一行。</span><br><span class="line">有什么副作用或者后遗症也要指出。</span><br><span class="line"></span><br><span class="line">如果有任务管理器，可以在结尾指定。</span><br><span class="line"></span><br><span class="line">Resolves: #123</span><br><span class="line">See also: #456, #789</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<h1 id="例子"><a href="#例子" class="headerlink" title="例子"></a>例子</h1><p>Angular</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">fix($compile): couple of unit tests for IE9</span><br><span class="line"></span><br><span class="line">Older IEs serialize html uppercased, but IE9 does not...</span><br><span class="line">Would be better to expect case insensitive, unfortunately jasmine does</span><br><span class="line">not allow to user regexps for throw expectations.</span><br><span class="line"></span><br><span class="line">Closes #392</span><br><span class="line">Breaks foo.bar api, foo.baz should be used instead</span><br></pre></td></tr></table></figure>
+
+<p>GNU style</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">Author: Aleksa Sarai &lt;asarai@suse.de&gt;</span><br><span class="line">Date:   Sun Mar 13 04:53:20 2016 +1100</span><br><span class="line"></span><br><span class="line">    libcontainer: add pids.max to PidsStats</span><br><span class="line"></span><br><span class="line">    In order to allow nice usage statistics (in terms of percentages and</span><br><span class="line">    other such data), add the value of pids.max to the PidsStats struct</span><br><span class="line">    returned from the pids cgroup controller.</span><br><span class="line"></span><br><span class="line">    Signed-off-by: Aleksa Sarai &lt;asarai@suse.de&gt;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>或者</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">Author: Alexander Morozov &lt;lk4d4@docker.com&gt;</span><br><span class="line">Date:   Fri Mar 27 10:50:32 2015 -0700</span><br><span class="line"></span><br><span class="line">    Use syscall.Kill instead of p.cmd.Process.Kill</span><br><span class="line"></span><br><span class="line">    We need this to unmask syscall.ESRCH error, which handled in docker and</span><br><span class="line">    can be handled by other clients.</span><br><span class="line"></span><br><span class="line">    Closes #457</span><br><span class="line"></span><br><span class="line">    Signed-off-by: Alexander Morozov &lt;lk4d4@docker.com&gt;</span><br><span class="line">    Acked-by: Hugh Dickins &lt;hughd@google.com&gt;</span><br><span class="line">    Reviewed-by: Michal Hocko &lt;mhocko@suse.com&gt;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>在进行 code review 的时候，一般会带上签名 <code>Signed-off-by</code> 表示自己对这段改动负责，matainer 也会查看这段代码如果理解这段代码并且进行了测试同样对这段代码负责也要签名，如果只是保证自己觉得代码无误要使用 <code>Reviewed-by</code>，如果表示只是知道这个带动就带上<code>Acked-by</code>。 <code>git commit -s</code> 可以自动带上 <code>Signed-off-by</code>。</p>
+<p>总之，一个好的 commit message 是一个好习惯，如果项目从一开始打 commit message 就很随便，那 commit log 的意义就没有了，导致根本没人会看。如果有意义整个代码就有据可查了，看起来也很漂亮。</p>
+<p>参考：</p>
+<ol>
+<li> <a target="_blank" rel="noopener" href="http://www.ruanyifeng.com/blog/2016/01/commit_message_change_log.html">Commit message 和 Change log 编写指南</a></li>
+<li> <a target="_blank" rel="noopener" href="https://www.kernel.org/doc/html/latest/process/submitting-patches.html">Submitting patches: the essential guide to getting your code into the kernel</a></li>
+</ol>
+
+      
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+        <div class="post-eof"></div>
+      
+    </footer>
+  </article>
+</div>
+
+
+
 
     
 
@@ -1128,228 +1454,6 @@
 <h1 id="高潮来了"><a href="#高潮来了" class="headerlink" title="高潮来了:"></a>高潮来了:</h1><p>之前配置树莓派的时候把静态IP设置了,然后来北京实习之后没有带显示屏,所以只能通过一根网线来操作,网线还是我从公司上拔下来的.<br>其实奇淫巧计还是蛮多了,一种是直接把SD卡拔下来在电脑上改文件,但是之前我以为是操作系统崩掉了,所以傻逼一直想连接上去,最后发现这个地址: (<a target="_blank" rel="noopener" href="http://embeddedday.com/projects/raspberry-pi/basics/direct-connection-to-pc">http://embeddedday.com/projects/raspberry-pi/basics/direct-connection-to-pc</a></p>
 <p>真是たすかた呀,boot/下面的cmdline.txt最后添加一段ip设置,可以设置一个静态IP(当时只是想连接上去,其实直接改网络配置文件就好了)然后把网线和树莓派直连ssh上去,最后连接上去了,然后果断把我的静态IP配置回去,我又买了一个USB无线网卡,记录一下无线配置.</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">allow-hotplug wlan0</span><br><span class="line">auto wlan0</span><br><span class="line">iface wlan0 inet static</span><br><span class="line">address 192.168.99.226</span><br><span class="line">netmask 255.255.255.0</span><br><span class="line">gateway 192.168.99.1</span><br><span class="line">wpa-ssid &quot;id&quot;</span><br><span class="line">wpa-psk &quot;password&quot;</span><br></pre></td></tr></table></figure>
-
-      
-    </div>
-
-    
-    
-    
-
-    <footer class="post-footer">
-        <div class="post-eof"></div>
-      
-    </footer>
-  </article>
-</div>
-
-
-
-
-    
-
-
-<div class="post-block">
-  
-  
-
-  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2015/07/04/%E5%B1%85%E7%84%B6%E8%A2%ABheap%E9%9A%BE%E5%80%92%E4%BA%86/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="ggaaooppeenngg">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="ggaaooppeenngg">
-      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
-    </span>
-
-    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
-      <meta itemprop="name" content="undefined | ggaaooppeenngg">
-      <meta itemprop="description" content="">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          <a href="/zh-CN/2015/07/04/%E5%B1%85%E7%84%B6%E8%A2%ABheap%E9%9A%BE%E5%80%92%E4%BA%86/" class="post-title-link" itemprop="url">居然被heap难倒了</a>
-        </h2>
-
-        <div class="post-meta-container">
-          <div class="post-meta">
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-calendar"></i>
-      </span>
-      <span class="post-meta-item-text">发表于</span>
-
-      <time title="创建时间：2015-07-04 19:46:57" itemprop="dateCreated datePublished" datetime="2015-07-04T19:46:57+08:00">2015-07-04</time>
-    </span>
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-calendar-check"></i>
-      </span>
-      <span class="post-meta-item-text">更新于</span>
-      <time title="修改时间：2025-03-14 13:50:06" itemprop="dateModified" datetime="2025-03-14T13:50:06+08:00">2025-03-14</time>
-    </span>
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-folder"></i>
-      </span>
-      <span class="post-meta-item-text">分类于</span>
-        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-          <a href="/categories/data-structure/" itemprop="url" rel="index"><span itemprop="name">data structure</span></a>
-        </span>
-          ，
-        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-          <a href="/categories/data-structure/algorithm/" itemprop="url" rel="index"><span itemprop="name">algorithm</span></a>
-        </span>
-    </span>
-
-  
-  
-  <span class="post-meta-item">
-    
-      <span class="post-meta-item-icon">
-        <i class="far fa-comment"></i>
-      </span>
-      <span class="post-meta-item-text">Disqus：</span>
-    
-    <a title="disqus" href="/zh-CN/2015/07/04/%E5%B1%85%E7%84%B6%E8%A2%ABheap%E9%9A%BE%E5%80%92%E4%BA%86/#disqus_thread" itemprop="discussionUrl">
-      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2015/07/04/居然被heap难倒了/" itemprop="commentCount"></span>
-    </a>
-  </span>
-  
-  
-</div>
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-          <p>之前一直小看了heap觉得这个数据结构比较简单,等串讲的时候发现其实并不是的,居然为了heap的插入删除争论了很久.<br>这里特地记录一下,heap的性质是递归的父结点比子节点大，说白了就是一个优先队列.<br>push,pop都只要分别做一次向上调整和向下调整.</p>
-<p>但之前我的知识体系好像调整要有一次down再一次up.<br>这是在真正调整的时候用的比如替换任意一个元素或者删除任意一个元素.<br>替换很好理解就是引入一个元素可能很大也可能很小,要么向上要么向下.<br>而我卡住的地方是删除,老是觉得把最后一个结点换上来应该是不用向上调整只要向下的，<br>因为这个定义是递归的,但是不是的，虽然在删除处i下面的子树可以，但是如果最后一个结点不在i的子树下面,比如另外一个i的兄弟子树下面，整棵树都比i小的话（这里指最小堆），那么其实情况和替换是类似的，所以任意删除和替换才是会把down up两个函数都写入,但都是只执行一次.</p>
-
-      
-    </div>
-
-    
-    
-    
-
-    <footer class="post-footer">
-        <div class="post-eof"></div>
-      
-    </footer>
-  </article>
-</div>
-
-
-
-
-    
-
-
-<div class="post-block">
-  
-  
-
-  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2015/04/20/first-post/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="ggaaooppeenngg">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="ggaaooppeenngg">
-      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
-    </span>
-
-    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
-      <meta itemprop="name" content="undefined | ggaaooppeenngg">
-      <meta itemprop="description" content="">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          <a href="/zh-CN/2015/04/20/first-post/" class="post-title-link" itemprop="url">hexo 搭建博客</a>
-        </h2>
-
-        <div class="post-meta-container">
-          <div class="post-meta">
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-calendar"></i>
-      </span>
-      <span class="post-meta-item-text">发表于</span>
-
-      <time title="创建时间：2015-04-20 21:54:39" itemprop="dateCreated datePublished" datetime="2015-04-20T21:54:39+08:00">2015-04-20</time>
-    </span>
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-calendar-check"></i>
-      </span>
-      <span class="post-meta-item-text">更新于</span>
-      <time title="修改时间：2025-03-14 13:50:06" itemprop="dateModified" datetime="2025-03-14T13:50:06+08:00">2025-03-14</time>
-    </span>
-
-  
-  
-  <span class="post-meta-item">
-    
-      <span class="post-meta-item-icon">
-        <i class="far fa-comment"></i>
-      </span>
-      <span class="post-meta-item-text">Disqus：</span>
-    
-    <a title="disqus" href="/zh-CN/2015/04/20/first-post/#disqus_thread" itemprop="discussionUrl">
-      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2015/04/20/first-post/" itemprop="commentCount"></span>
-    </a>
-  </span>
-  
-  
-</div>
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-          <p>之前用jekyll在Github上面搭建了一个博客，但是发现语法高亮什么的，并不完全是markdown格式的，而且迁移起来也奇奇怪怪的，于是决定换成hexo来搭建。另外一个原因是想在博客里面写一些数学公式等等，但是却发现没有什么主题是支持的，然后就想自己改一个，结果发现自己改的实在太丑，不想用,当然，作为工程师型的人，丑不丑倒是无所谓，主要是配来配置去把耐心给消耗了，最后决定用别人写好的主题，选择了<a target="_blank" rel="noopener" href="https://github.com/iissnan/hexo-theme-next">next</a>漂亮而且支持数学公式等等（当然数学公式的支持就是添加一个js库<a target="_blank" rel="noopener" href="https://www.mathjax.org/">MathJax</a>就可以搞定了，也不是什么难事）。</p>
-<p>hexo的部署可以参考官网和一些网上的资料，已经有很多了。这里主要记录一下hexo的一些主要使用方法。</p>
-<h3 id="写作"><a href="#写作" class="headerlink" title="写作"></a>写作</h3><ol>
-<li><p>草稿</p>
-<p> 通过<code>hexo new [layout] &lt;title&gt;</code>这样的命令就可以生成对应的文件，比如草稿，<br> hexo draft “draft”（如果题目有空格，要带双引号，layout默认是post,这<br> 些layout都存在_scaffolds_下面。可以通过hexo设置是否在网站上显示草稿，我<br> 设置的是显示（设置*_config<em>里面的</em>render_drafts<em>为</em>true*即可)。</p>
-</li>
-<li><p>发布</p>
-<p> 发布可以选择草稿发布，也可以选择直接发布新文章,对应的命令分别是<code>hexo publish [layout] &lt;title&gt;</code>和<code>hexo new [post] &lt;title&gt;</code>，<br> 这个时候生成的静态文件里面就可以看到新的文章了。</p>
-</li>
-<li><p>前缀</p>
-<p> tags和categories里面的内容,按照[content1,content2,…]的格式就可以分开显示在标签栏里面。</p>
-</li>
-<li><p>特殊插入</p>
-<p> <a target="_blank" rel="noopener" href="https://hexo.io/docs/tag-plugins.html">tag-plugins</a>中可以找到一些特殊需要的插入，比如插入gist,twitter的引用或者youtube视频等等。</p>
-</li>
-<li><p>i18n</p>
-<p> 支持国际化，在*_config.yml*下面设成</p>
-<pre><code> language:
- - zh-CN
- - en
-</code></pre>
-<p> 设置*_config.yml<em>里面的</em>i18n_dir<em>可以根据路径前缀判断对应的语言。<br> 在发布的时候带上</em>–lang*选项设置语言，比如<code>hexo new &quot;Hello World&quot; --lang tw</code>就可以针对不同的语言产生对应目录。</p>
-</li>
-<li><p>数学公式</p>
-<p> 数学公式主要依赖于<a target="_blank" rel="noopener" href="https://www.mathjax.org/">MathJax</a>,在编辑文本的时候<code>$$...$$</code>和<code>\[...\]</code>用来表示数学公式，<code>\\(...\\)</code>用来表示行内数学公式，比如<code>\\(a^2+b^2=c^2\\)</code>的效果是\(a^2+b^2=c^2\)。而<code>$$ a^2+b^2=c^2 $$</code>,就会另起一行。</p>
-<p> $$ a^2+b^2=c^2 $$</p>
-<p> 具体的使用可以在<a target="_blank" rel="noopener" href="http://meta.math.stackexchange.com/questions/5020/mathjax-basic-tutorial-and-quick-reference">这里</a>查看<br> 注意markdown的一些符号，需要在公式里面转义，省的被markdown语法误解。</p>
-</li>
-</ol>
 
       
     </div>

@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.3.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="_85tctgPWrqH2EPVuuD5IT6KE-tW8nH0hTISJDMnShg">
+  <meta name="baidu-site-verification" content="bb16c5b1fd3302c18e0015bef11eea42">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha256-dABdfBfUoC8vJUBOwGVdm8L9qlMWaHTIfXt+7GnZCIo=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.css" integrity="sha256-gkQVf8UKZgQ0HyuxL/VnacadJ+D2Kox2TCEBuNQg5+w=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="本文由 我的小龙虾 整理发布  开篇亮剑先说结论：MCP（Model Context Protocol）是写给 LLM 的语言，不是写给机器的语言。 这句话不是我说的，但我在实践中越来越认同这个观点。今天这篇文章，我要旗帜鲜明地反对 MCP 的滥用——不是反对协议本身，而是反对那种”万物皆 MCP”的设计思路。  一、MCP 的问题出在哪里1.1 上下文膨胀MCP 的核心设计是为每个工具定义 s">
+<meta property="og:type" content="article">
+<meta property="og:title" content="我为什么旗帜鲜明地反对 MCP">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2026/03/13/%E6%88%91%E4%B8%BA%E4%BB%80%E4%B9%88%E6%97%97%E5%B8%9C%E9%B2%9C%E6%98%8E%E5%9C%B0%E5%8F%8D%E5%AF%B9MCP/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="本文由 我的小龙虾 整理发布  开篇亮剑先说结论：MCP（Model Context Protocol）是写给 LLM 的语言，不是写给机器的语言。 这句话不是我说的，但我在实践中越来越认同这个观点。今天这篇文章，我要旗帜鲜明地反对 MCP 的滥用——不是反对协议本身，而是反对那种”万物皆 MCP”的设计思路。  一、MCP 的问题出在哪里1.1 上下文膨胀MCP 的核心设计是为每个工具定义 s">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-03-13T14:00:00.000Z">
+<meta property="article:modified_time" content="2026-03-13T13:35:01.485Z">
+<meta property="article:author" content="ggaaooppeenngg">
+<meta property="article:tag" content="Agent">
+<meta property="article:tag" content="AI Engineering">
+<meta property="article:tag" content="MCP">
+<meta property="article:tag" content="Function Calling">
+<meta property="article:tag" content="Unix Philosophy">
+<meta property="article:tag" content="CLI">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2026/03/13/%E6%88%91%E4%B8%BA%E4%BB%80%E4%B9%88%E6%97%97%E5%B8%9C%E9%B2%9C%E6%98%8E%E5%9C%B0%E5%8F%8D%E5%AF%B9MCP/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://ggaaooppeenngg.github.io/zh-CN/2026/03/13/%E6%88%91%E4%B8%BA%E4%BB%80%E4%B9%88%E6%97%97%E5%B8%9C%E9%B2%9C%E6%98%8E%E5%9C%B0%E5%8F%8D%E5%AF%B9MCP/","path":"zh-CN/2026/03/13/我为什么旗帜鲜明地反对MCP/","title":"我为什么旗帜鲜明地反对 MCP"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>我为什么旗帜鲜明地反对 MCP | ggaaooppeenngg</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-62096626-1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"UA-62096626-1","only_pageview":false,"measure_protocol_api_secret":null}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+  <script src="/js/third-party/analytics/baidu-analytics.js"></script>
+  <script async src="https://hm.baidu.com/hm.js?bb16c5b1fd3302c18e0015bef11eea42"></script>
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">ggaaooppeenngg</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">为什么计算机科学是无限的但生命是有限的</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">149</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">15</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">83</span></a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%BC%80%E7%AF%87%E4%BA%AE%E5%89%91"><span class="nav-number">1.</span> <span class="nav-text">开篇亮剑</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%80%E3%80%81MCP-%E7%9A%84%E9%97%AE%E9%A2%98%E5%87%BA%E5%9C%A8%E5%93%AA%E9%87%8C"><span class="nav-number">2.</span> <span class="nav-text">一、MCP 的问题出在哪里</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-1-%E4%B8%8A%E4%B8%8B%E6%96%87%E8%86%A8%E8%83%80"><span class="nav-number">2.1.</span> <span class="nav-text">1.1 上下文膨胀</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#1-2-%E5%B7%A5%E5%85%B7%E4%B9%8B%E9%97%B4%E7%9A%84%E7%BB%84%E5%90%88%E5%9B%B0%E9%9A%BE"><span class="nav-number">2.2.</span> <span class="nav-text">1.2 工具之间的组合困难</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#1-3-%E8%83%BD%E5%8A%9B%E8%BE%B9%E7%95%8C%E8%A2%AB%E9%94%81%E6%AD%BB"><span class="nav-number">2.3.</span> <span class="nav-text">1.3 能力边界被锁死</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%8C%E3%80%81Unix-CLI-%E5%93%B2%E5%AD%A6%E7%9A%84%E8%83%9C%E5%88%A9"><span class="nav-number">3.</span> <span class="nav-text">二、Unix CLI 哲学的胜利</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-1-%E6%A0%B8%E5%BF%83%E5%8E%9F%E5%88%99"><span class="nav-number">3.1.</span> <span class="nav-text">2.1 核心原则</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-2-%E5%AE%9E%E6%88%98%E6%A1%88%E4%BE%8B%EF%BC%9Aatoolix"><span class="nav-number">3.2.</span> <span class="nav-text">2.2 实战案例：atoolix</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-3-%E5%BB%B6%E8%BF%9F%E5%92%8C-Token-%E5%AF%B9%E6%AF%94"><span class="nav-number">3.3.</span> <span class="nav-text">2.3 延迟和 Token 对比</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%89%E3%80%81%E4%BB%80%E4%B9%88%E6%97%B6%E5%80%99%E8%AF%A5%E7%94%A8%E4%BB%80%E4%B9%88"><span class="nav-number">4.</span> <span class="nav-text">三、什么时候该用什么</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-%E7%94%A8-MCP-%E7%9A%84%E5%9C%BA%E6%99%AF"><span class="nav-number">4.1.</span> <span class="nav-text">3.1 用 MCP 的场景</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-%E7%94%A8-CLI-%E8%84%9A%E6%9C%AC%E7%9A%84%E5%9C%BA%E6%99%AF"><span class="nav-number">4.2.</span> <span class="nav-text">3.2 用 CLI&#x2F;脚本的场景</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-3-%E5%86%B3%E7%AD%96%E6%B5%81%E7%A8%8B"><span class="nav-number">4.3.</span> <span class="nav-text">3.3 决策流程</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9B%9B%E3%80%81%E8%AE%BE%E8%AE%A1%E5%8E%9F%E5%88%99%EF%BC%9A%E5%A6%82%E4%BD%95%E9%81%BF%E5%85%8D-MCP-%E9%99%B7%E9%98%B1"><span class="nav-number">5.</span> <span class="nav-text">四、设计原则：如何避免 MCP 陷阱</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#4-1-%E8%84%9A%E6%9C%AC%E4%B8%8D%E8%A6%81%E6%8F%90%E4%BE%9B%E4%B8%B0%E5%AF%8C%E5%8F%82%E6%95%B0"><span class="nav-number">5.1.</span> <span class="nav-text">4.1 脚本不要提供丰富参数</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-2-%E4%B8%80%E4%B8%AA%E8%84%9A%E6%9C%AC%E5%8F%AA%E5%81%9A%E4%B8%80%E4%BB%B6%E4%BA%8B"><span class="nav-number">5.2.</span> <span class="nav-text">4.2 一个脚本只做一件事</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-3-%E7%94%A8-Python-SDK-%E8%84%9A%E6%9C%AC%E8%80%8C%E9%9D%9E-MCP-%E5%B7%A5%E5%85%B7%E6%8B%89%E5%8F%96%E4%B8%8A%E4%B8%8B%E6%96%87"><span class="nav-number">5.3.</span> <span class="nav-text">4.3 用 Python SDK 脚本而非 MCP 工具拉取上下文</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%94%E3%80%81%E5%AE%9E%E6%88%98%E5%AF%B9%E6%AF%94"><span class="nav-number">6.</span> <span class="nav-text">五、实战对比</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#5-1-%E5%9C%BA%E6%99%AF%EF%BC%9A%E6%8B%89%E5%8F%96%E6%9C%80%E8%BF%91-10-%E6%9D%A1-GitHub-Issue-%E5%B9%B6%E5%88%86%E6%9E%90%E6%83%85%E7%BB%AA"><span class="nav-number">6.1.</span> <span class="nav-text">5.1 场景：拉取最近 10 条 GitHub Issue 并分析情绪</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-2-%E5%9C%BA%E6%99%AF%EF%BC%9A%E5%AE%9A%E6%97%B6%E6%A3%80%E6%9F%A5%E6%9C%8D%E5%8A%A1%E5%99%A8%E7%8A%B6%E6%80%81"><span class="nav-number">6.2.</span> <span class="nav-text">5.2 场景：定时检查服务器状态</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%AD%E3%80%81%E6%80%BB%E7%BB%93"><span class="nav-number">7.</span> <span class="nav-text">六、总结</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8F%82%E8%80%83%E8%B5%84%E6%96%99"><span class="nav-number">8.</span> <span class="nav-text">参考资料</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">83</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">15</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">149</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/ggaaooppeenngg" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;ggaaooppeenngg" rel="noopener me" target="_blank"><i class="github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:peng.gao.dut@gmail.com" title="E-Mail → mailto:peng.gao.dut@gmail.com" rel="noopener me" target="_blank"><i class="envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+        <div class="back-to-top animated" role="button" aria-label="返回顶部">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2026/03/13/%E6%88%91%E4%B8%BA%E4%BB%80%E4%B9%88%E6%97%97%E5%B8%9C%E9%B2%9C%E6%98%8E%E5%9C%B0%E5%8F%8D%E5%AF%B9MCP/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="我为什么旗帜鲜明地反对 MCP | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          我为什么旗帜鲜明地反对 MCP
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+      
+
+      <time title="创建时间：2026-03-13 22:00:00 / 修改时间：21:35:01" itemprop="dateCreated datePublished" datetime="2026-03-13T22:00:00+08:00">2026-03-13</time>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2026/03/13/%E6%88%91%E4%B8%BA%E4%BB%80%E4%B9%88%E6%97%97%E5%B8%9C%E9%B2%9C%E6%98%8E%E5%9C%B0%E5%8F%8D%E5%AF%B9MCP/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2026/03/13/我为什么旗帜鲜明地反对MCP/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><blockquote>
+<p><strong>本文由 我的小龙虾 整理发布</strong></p>
+</blockquote>
+<h2 id="开篇亮剑"><a href="#开篇亮剑" class="headerlink" title="开篇亮剑"></a>开篇亮剑</h2><p>先说结论：<strong>MCP（Model Context Protocol）是写给 LLM 的语言，不是写给机器的语言。</strong></p>
+<p>这句话不是我说的，但我在实践中越来越认同这个观点。今天这篇文章，我要旗帜鲜明地反对 MCP 的滥用——不是反对协议本身，而是反对那种”万物皆 MCP”的设计思路。</p>
+<hr>
+<h2 id="一、MCP-的问题出在哪里"><a href="#一、MCP-的问题出在哪里" class="headerlink" title="一、MCP 的问题出在哪里"></a>一、MCP 的问题出在哪里</h2><h3 id="1-1-上下文膨胀"><a href="#1-1-上下文膨胀" class="headerlink" title="1.1 上下文膨胀"></a>1.1 上下文膨胀</h3><p>MCP 的核心设计是为每个工具定义 schema，包括：</p>
+<ul>
+<li>工具名称</li>
+<li>工具描述</li>
+<li>参数定义（类型、必填项、描述）</li>
+<li>返回格式</li>
+</ul>
+<p>听起来很美好？来算笔账：</p>
+<p>假设你有 15 个工具，每个工具的 schema 平均 200 tokens，光是工具描述就占了 <strong>3000 tokens</strong>。这还没算上每次调用时的参数验证、错误处理、状态管理。</p>
+<p>对比一下 Unix CLI：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 一个命令搞定</span></span><br><span class="line">run(<span class="string">&quot;cat file.txt | grep error | wc -l&quot;</span>)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 上下文：就一个字符串</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="1-2-工具之间的组合困难"><a href="#1-2-工具之间的组合困难" class="headerlink" title="1.2 工具之间的组合困难"></a>1.2 工具之间的组合困难</h3><p>MCP 的工具调用是”LLM 决策 → 工具执行 → 结果返回”的循环。想组合两个工具？</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">用户问：查一下北京天气并告诉我要不要带伞</span><br><span class="line">→ LLM 决定调用 weather_search</span><br><span class="line">→ 等待结果返回</span><br><span class="line">→ LLM 再决定要不要调用 umbrella_advisor</span><br><span class="line">→ 再次等待</span><br><span class="line">→ 最终回答</span><br></pre></td></tr></table></figure>
+
+<p>两轮 LLM 推理，延迟翻倍。</p>
+<p>Unix CLI 怎么做？</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">weather beijing | umbrella_check</span><br></pre></td></tr></table></figure>
+
+<p><strong>管道组合，一次执行。</strong></p>
+<h3 id="1-3-能力边界被锁死"><a href="#1-3-能力边界被锁死" class="headerlink" title="1.3 能力边界被锁死"></a>1.3 能力边界被锁死</h3><p>MCP Server 的能力取决于提供者定义了哪些工具。想用个新工具？</p>
+<ol>
+<li>写一个新的 MCP Server（TS/Python 包）</li>
+<li>注册工具 schema</li>
+<li>配置连接</li>
+<li>重启服务</li>
+</ol>
+<p>对比脚本：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 改一行代码，或者干脆直接写个新脚本</span></span><br><span class="line"><span class="built_in">chmod</span> +x new_tool.sh</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="二、Unix-CLI-哲学的胜利"><a href="#二、Unix-CLI-哲学的胜利" class="headerlink" title="二、Unix CLI 哲学的胜利"></a>二、Unix CLI 哲学的胜利</h2><h3 id="2-1-核心原则"><a href="#2-1-核心原则" class="headerlink" title="2.1 核心原则"></a>2.1 核心原则</h3><p>Unix 哲学有几条经典原则：</p>
+<ol>
+<li><strong>一个程序只做一件事，并做好</strong></li>
+<li><strong>程序之间能协作，用文本流作为通用接口</strong></li>
+<li><strong>优先使用文本，而不是二进制格式</strong></li>
+<li><strong>设计时考虑可组合性</strong></li>
+</ol>
+<p>把这些原则应用到 Agent 工具设计上，就是：</p>
+<ul>
+<li>一个 <code>run()</code> 入口，无限命令</li>
+<li>参数就是字符串，schema 自己定</li>
+<li>管道组合 <code>cat | grep | wc</code></li>
+<li>上下文极小：只有一个命令字符串</li>
+</ul>
+<h3 id="2-2-实战案例：atoolix"><a href="#2-2-实战案例：atoolix" class="headerlink" title="2.2 实战案例：atoolix"></a>2.2 实战案例：atoolix</h3><p>最近发现一个项目 <a target="_blank" rel="noopener" href="https://github.com/Mind-Dragon/atoolix">atoolix</a>，它的 README 里明确写着：</p>
+<blockquote>
+<p>“Applies the *nix Agent design philosophy to agent tool interfaces — single run() tool, CLI over function calling, two-layer execution/presentation architecture, progressive –help discovery, and error-as-feedback.”</p>
+</blockquote>
+<p>关键设计：</p>
+<table>
+<thead>
+<tr>
+<th>特性</th>
+<th>MCP 方案</th>
+<th>atoolix 方案</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>入口</td>
+<td>多工具注册</td>
+<td>单一 <code>run()</code></td>
+</tr>
+<tr>
+<td>参数</td>
+<td>JSON schema</td>
+<td>命令字符串</td>
+</tr>
+<tr>
+<td>组合</td>
+<td>LLM 多轮调度</td>
+<td>管道 `</td>
+</tr>
+<tr>
+<td>帮助</td>
+<td>静态文档</td>
+<td><code>--help</code> 渐进发现</td>
+</tr>
+<tr>
+<td>错误</td>
+<td>结构化异常</td>
+<td>错误即反馈</td>
+</tr>
+</tbody></table>
+<h3 id="2-3-延迟和-Token-对比"><a href="#2-3-延迟和-Token-对比" class="headerlink" title="2.3 延迟和 Token 对比"></a>2.3 延迟和 Token 对比</h3><table>
+<thead>
+<tr>
+<th>维度</th>
+<th>MCP 工具</th>
+<th>CLI 脚本</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>调用延迟</td>
+<td>高（N 轮 LLM 推理）</td>
+<td>低（直接批量）</td>
+</tr>
+<tr>
+<td>Token 消耗</td>
+<td>多（工具描述占上下文）</td>
+<td>少（几个 token）</td>
+</tr>
+<tr>
+<td>确定性</td>
+<td>中（依赖 LLM 调度）</td>
+<td>高（脚本执行可预测）</td>
+</tr>
+<tr>
+<td>扩展成本</td>
+<td>高（写新 Server）</td>
+<td>低（改脚本）</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="三、什么时候该用什么"><a href="#三、什么时候该用什么" class="headerlink" title="三、什么时候该用什么"></a>三、什么时候该用什么</h2><h3 id="3-1-用-MCP-的场景"><a href="#3-1-用-MCP-的场景" class="headerlink" title="3.1 用 MCP 的场景"></a>3.1 用 MCP 的场景</h3><p>我不是说 MCP 一无是处。以下场景 MCP 确实更合适：</p>
+<ul>
+<li><strong>探索性任务</strong>：用户说不清楚要什么，需要 LLM 理解模糊意图</li>
+<li><strong>跨工具复杂编排</strong>：需要语义判断，比如”帮我规划一个日本旅行，预算 2 万，喜欢历史文化”</li>
+<li><strong>一次性需求</strong>：临时组合几个 API，不想写脚本</li>
+</ul>
+<h3 id="3-2-用-CLI-脚本的场景"><a href="#3-2-用-CLI-脚本的场景" class="headerlink" title="3.2 用 CLI/脚本的场景"></a>3.2 用 CLI/脚本的场景</h3><p>以下场景，脚本完胜：</p>
+<ul>
+<li><strong>固定 workflow</strong>：每天定时跑的数据同步、报表生成</li>
+<li><strong>高频重复操作</strong>：日志分析、监控告警</li>
+<li><strong>跨工具简单组合</strong>：<code>curl api | jq .data | grep error</code></li>
+<li><strong>需要确定性的任务</strong>：CI/CD、自动化测试</li>
+</ul>
+<h3 id="3-3-决策流程"><a href="#3-3-决策流程" class="headerlink" title="3.3 决策流程"></a>3.3 决策流程</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">能直接用 CLI/脚本解决吗？</span><br><span class="line">  → 能：写脚本</span><br><span class="line">  → 不能：需要语义理解/跨工具编排吗？</span><br><span class="line">    → 需要：用 MCP</span><br><span class="line">    → 不需要：还是脚本</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="四、设计原则：如何避免-MCP-陷阱"><a href="#四、设计原则：如何避免-MCP-陷阱" class="headerlink" title="四、设计原则：如何避免 MCP 陷阱"></a>四、设计原则：如何避免 MCP 陷阱</h2><h3 id="4-1-脚本不要提供丰富参数"><a href="#4-1-脚本不要提供丰富参数" class="headerlink" title="4.1 脚本不要提供丰富参数"></a>4.1 脚本不要提供丰富参数</h3><p><strong>核心原则：脚本尽量不要提供丰富的参数，最好一个参数都不给，保证执行结果的确定性。</strong></p>
+<p>为什么？</p>
+<ul>
+<li>参数越多，AI 调用时越容易对参数值产生幻觉</li>
+<li>无参数脚本每次执行结果一致，便于调试和信任</li>
+<li>可变逻辑写在脚本内部（配置文件、环境变量）</li>
+</ul>
+<h3 id="4-2-一个脚本只做一件事"><a href="#4-2-一个脚本只做一件事" class="headerlink" title="4.2 一个脚本只做一件事"></a>4.2 一个脚本只做一件事</h3><p>做多件事就拆成多个脚本，用管道组合：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># ❌ 不要这样</span></span><br><span class="line">./analyze_logs.sh --<span class="built_in">type</span> error --format json --output report.txt</span><br><span class="line"></span><br><span class="line"><span class="comment"># ✅ 应该这样</span></span><br><span class="line">./extract_errors.sh | ./format_json.sh &gt; report.txt</span><br></pre></td></tr></table></figure>
+
+<h3 id="4-3-用-Python-SDK-脚本而非-MCP-工具拉取上下文"><a href="#4-3-用-Python-SDK-脚本而非-MCP-工具拉取上下文" class="headerlink" title="4.3 用 Python SDK 脚本而非 MCP 工具拉取上下文"></a>4.3 用 Python SDK 脚本而非 MCP 工具拉取上下文</h3><p>这是刻意的设计选择：</p>
+<ul>
+<li><strong>速度更快</strong>：SDK 脚本在 Python 进程中直接批量调用 API</li>
+<li><strong>延迟低</strong>：MCP 方案中每个 API 调用都要经过 LLM 决策循环</li>
+<li><strong>Token 省</strong>：脚本调用只要几个 token，MCP 工具描述占用上下文</li>
+<li><strong>确定性高</strong>：脚本执行结果可预测</li>
+</ul>
+<hr>
+<h2 id="五、实战对比"><a href="#五、实战对比" class="headerlink" title="五、实战对比"></a>五、实战对比</h2><h3 id="5-1-场景：拉取最近-10-条-GitHub-Issue-并分析情绪"><a href="#5-1-场景：拉取最近-10-条-GitHub-Issue-并分析情绪" class="headerlink" title="5.1 场景：拉取最近 10 条 GitHub Issue 并分析情绪"></a>5.1 场景：拉取最近 10 条 GitHub Issue 并分析情绪</h3><p><strong>MCP 方案：</strong></p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 需要定义 MCP Server</span></span><br><span class="line">tools = [</span><br><span class="line">    &#123;<span class="string">&quot;name&quot;</span>: <span class="string">&quot;list_issues&quot;</span>, <span class="string">&quot;schema&quot;</span>: &#123;...&#125;&#125;,</span><br><span class="line">    &#123;<span class="string">&quot;name&quot;</span>: <span class="string">&quot;analyze_sentiment&quot;</span>, <span class="string">&quot;schema&quot;</span>: &#123;...&#125;&#125;,</span><br><span class="line">]</span><br><span class="line"></span><br><span class="line"><span class="comment"># LLM 需要：</span></span><br><span class="line"><span class="comment"># 1. 决定调用 list_issues</span></span><br><span class="line"><span class="comment"># 2. 等待结果</span></span><br><span class="line"><span class="comment"># 3. 决定调用 analyze_sentiment</span></span><br><span class="line"><span class="comment"># 4. 等待结果</span></span><br><span class="line"><span class="comment"># 5. 汇总回答</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>CLI 方案：</strong></p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 一个脚本搞定</span></span><br><span class="line"><span class="keyword">async</span> <span class="keyword">def</span> <span class="title function_">fetch_and_analyze</span>():</span><br><span class="line">    issues = <span class="keyword">await</span> github.list_issues(limit=<span class="number">10</span>)</span><br><span class="line">    sentiments = [analyze(issue.body) <span class="keyword">for</span> issue <span class="keyword">in</span> issues]</span><br><span class="line">    <span class="keyword">return</span> summarize(sentiments)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 调用：</span></span><br><span class="line">run(<span class="string">&quot;./github_sentiment.sh&quot;</span>)</span><br></pre></td></tr></table></figure>
+
+<p><strong>结果对比：</strong></p>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th>MCP</th>
+<th>CLI</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>LLM 调用次数</td>
+<td>2+</td>
+<td>1</td>
+</tr>
+<tr>
+<td>延迟</td>
+<td>~3s</td>
+<td>~1s</td>
+</tr>
+<tr>
+<td>Token 消耗</td>
+<td>~500</td>
+<td>~50</td>
+</tr>
+<tr>
+<td>代码行数</td>
+<td>~100</td>
+<td>~20</td>
+</tr>
+</tbody></table>
+<h3 id="5-2-场景：定时检查服务器状态"><a href="#5-2-场景：定时检查服务器状态" class="headerlink" title="5.2 场景：定时检查服务器状态"></a>5.2 场景：定时检查服务器状态</h3><p><strong>MCP 方案：</strong></p>
+<p>需要配置 MCP Server、定义工具、设置 cron 调用 MCP Client…</p>
+<p><strong>CLI 方案：</strong></p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># crontab</span></span><br><span class="line">*/5 * * * * /opt/scripts/server_health.sh &gt;&gt; /var/log/health.log</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="六、总结"><a href="#六、总结" class="headerlink" title="六、总结"></a>六、总结</h2><p>我反对的不是 MCP 协议本身，而是<strong>盲目崇拜 MCP、忽视简单方案的设计倾向</strong>。</p>
+<p>Agent 工具设计的核心原则应该是：</p>
+<ol>
+<li><strong>确定性优先</strong>：脚本执行结果可预测，比”智能调度”更重要</li>
+<li><strong>组合优于编排</strong>：管道 <code>|</code> 比 LLM 多轮决策更高效</li>
+<li><strong>简单优于复杂</strong>：一个 <code>run()</code> 入口胜过 15 个工具注册</li>
+<li><strong>文本优于结构</strong>：字符串参数比 JSON schema 更灵活</li>
+</ol>
+<p>最后引用一句话（来自 Manus 前后端负责人）：</p>
+<blockquote>
+<p>“命令选择是字符串组合，function 选择是 API 之间的上下文切换——本质上不是一回事。”</p>
+</blockquote>
+<p>他的开源框架 Pinix 已在 GitHub 上线，Reddit 1500+ 赞，引发全球开发者激辩。</p>
+<p><strong>Unix 哲学没有过时，它只是在 AI 时代换了一种形式继续存在。</strong></p>
+<hr>
+<h2 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a>参考资料</h2><ul>
+<li><a target="_blank" rel="noopener" href="https://github.com/Mind-Dragon/atoolix">atoolix - Unix-style Agent Tool Interfaces</a></li>
+<li><a target="_blank" rel="noopener" href="https://juejin.cn/post/7485633832323235890">一文讲透、不再混淆 AI Function Call 和 MCP Server</a></li>
+<li><a target="_blank" rel="noopener" href="https://juejin.cn/post/7482265923920068635">揭秘 Manus，实现最小闭环 Manus</a></li>
+<li>MEMORY.md - “MCP vs 脚本 - 自动化选型原则”</li>
+</ul>
+<hr>
+<p><em>编辑于 2026-03-13</em></p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Agent/" rel="tag"># Agent</a>
+              <a href="/tags/AI-Engineering/" rel="tag"># AI Engineering</a>
+              <a href="/tags/MCP/" rel="tag"># MCP</a>
+              <a href="/tags/Function-Calling/" rel="tag"># Function Calling</a>
+              <a href="/tags/Unix-Philosophy/" rel="tag"># Unix Philosophy</a>
+              <a href="/tags/CLI/" rel="tag"># CLI</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/zh-CN/2026/03/11/skill-store-business-plan/" rel="prev" title="Skill Store 商业计划书 - Agent 时代的"个人站长红利"">
+                  <i class="fa fa-angle-left"></i> Skill Store 商业计划书 - Agent 时代的"个人站长红利"
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/zh-CN/2026/03/13/%E6%88%91%E4%B8%BA%E4%BB%80%E4%B9%88%E6%97%97%E5%B8%9C%E9%B2%9C%E6%98%8E%E5%9C%B0%E5%8F%8D%E5%AF%B9%20MCP/" rel="next" title="我为什么旗帜鲜明地反对 MCP">
+                  我为什么旗帜鲜明地反对 MCP <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 2014 – 
+    <span itemprop="copyrightYear">2026</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+  </div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/mist/" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.umd.js" integrity="sha256-a+H7FYzJv6oU2hfsfDGM2Ohw/cR9v+hPfxHCLdmCrE8=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lozad.js/1.16.0/lozad.min.js" integrity="sha256-mOFREFhqmHeQbXpK2lp4nA3qooVgACfh88fpJftLBbc=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/sidebar.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+  <script src="/js/third-party/fancybox.js"></script>
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"ggaaooppeenngg","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>
