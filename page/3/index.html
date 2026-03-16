@@ -92,7 +92,7 @@
 
 
 <nav class="site-nav">
-  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">147</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">15</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">82</span></a></li>
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">150</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">17</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">84</span></a></li>
   </ul>
 </nav>
 
@@ -129,18 +129,18 @@
   <nav class="site-state">
       <div class="site-state-item site-state-posts">
         <a href="/archives/">
-          <span class="site-state-item-count">82</span>
+          <span class="site-state-item-count">84</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
       <div class="site-state-item site-state-categories">
           <a href="/categories/">
-        <span class="site-state-item-count">15</span>
+        <span class="site-state-item-count">17</span>
         <span class="site-state-item-name">分类</span></a>
       </div>
       <div class="site-state-item site-state-tags">
           <a href="/tags/">
-        <span class="site-state-item-count">147</span>
+        <span class="site-state-item-count">150</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
@@ -169,6 +169,401 @@
     </div>
 
     <div class="main-inner index posts-expand">
+
+    
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2024/12/10/vLLM-%E5%88%86%E6%9E%902-%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="undefined | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          <a href="/zh-CN/2024/12/10/vLLM-%E5%88%86%E6%9E%902-%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E/" class="post-title-link" itemprop="url">vLLM 分析2 计算引擎</a>
+        </h2>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2024-12-10 15:25:12" itemprop="dateCreated datePublished" datetime="2024-12-10T15:25:12+08:00">2024-12-10</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2025-03-14 13:50:06" itemprop="dateModified" datetime="2025-03-14T13:50:06+08:00">2025-03-14</time>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2024/12/10/vLLM-%E5%88%86%E6%9E%902-%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2024/12/10/vLLM-分析2-计算引擎/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+          <p>vLLM的一个主要贡献就是PagedAttention，可以实现更高效的推理。</p>
+<p>高效的语言模型服务系统（LLM）需要批量处理多个请求。然而，现有系统存在以下问题：</p>
+<ul>
+<li>每个请求的key-value缓存（KV缓存）内存巨大，动态增长和减少。</li>
+<li>容易因为碎片化和冗余复制导致内存浪费，限制了批量大小。</li>
+</ul>
+<p>为了解决这些问题，提出了PagedAttention，一个基于虚拟内存和分页技术的注意力算法。基于此，开发了vLLM，一个LLM服务系统，实现了以下两个目标：</p>
+<ol>
+<li>KV缓存显存的几乎零浪费，减少了显存碎片。</li>
+<li>KV缓存在请求之间和请求内共享，进一步减少显存使用。</li>
+</ol>
+<p><a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2309.06180">论文</a>包含了他早期设计。</p>
+<p>一次调用的示例如<a target="_blank" rel="noopener" href="https://blog.vllm.ai/2023/06/20/vllm.html">博客</a>中展示的。</p>
+<img data-src="/zh-CN/2024/12/10/vLLM-%E5%88%86%E6%9E%902-%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E/annimation1.gif" class="">
+
+<h2 id="AsyncLLM"><a href="#AsyncLLM" class="headerlink" title="AsyncLLM"></a>AsyncLLM</h2><p><code>generate</code>细节：</p>
+<ul>
+<li>如果引擎没有运行，启动后台循环，循环调用 <code>_run_output_handler</code> 方法来处理等待的请求。</li>
+<li>从 <code>AsyncStream</code> 中等待请求输出并生成它们。</li>
+</ul>
+<p>engine会在启动之前profile一下，把剩余的显存分配给kv cache用。</p>
+<p>AsyncStream 对 asyncio.Queue的封装，支持了终止的能力，当finish的时候会丢入一个STOP_ITERATION的exception，这样可以让调用者知道这个stream已经结束了。</p>
+<p>每当有一个对话请求的时候调用<code>add_request</code>就会生成一个这样的AsycStream用于处理对话的输出，其中副作用就是判断backgroud loop没有启动的时候，启动backgroundloop。</p>
+<p>AsyncEngine本身有一个<code>_new_request</code>的Queue用户保存request的AsyncStream。</p>
+<p><code>generate</code>方法会不断从AsyncStream中yield出结果，直到遇到STOP_ITERATION。</p>
+<p>loop的主体如下：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 1) Pull EngineCoreOutput from the EngineCore.</span></span><br><span class="line">outputs = <span class="keyword">await</span> <span class="variable language_">self</span>.engine_core.get_output_async()</span><br><span class="line"></span><br><span class="line"><span class="comment"># 2) Detokenize based on the output.</span></span><br><span class="line">request_outputs, reqs_to_abort = <span class="variable language_">self</span>.detokenizer.step(outputs)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 3) Put the RequestOutputs into the per-request AsyncStreams.</span></span><br><span class="line"><span class="variable language_">self</span>._process_request_outputs(request_outputs)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 4) Abort any requests that finished due to stop strings.</span></span><br><span class="line"><span class="keyword">await</span> <span class="variable language_">self</span>.engine_core.abort_requests_async(reqs_to_abort)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 5) Abort any requests due to client cancellations.</span></span><br><span class="line"><span class="keyword">await</span> <span class="variable language_">self</span>._process_cancellations()</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+
+<blockquote>
+<p>When TP=n &amp; PP=m, vLLM engine will have n*m + 1 processes in total.<br>Corollary: even when using a single GPU, we will have 2 processes.</p>
+</blockquote>
+<h2 id="EngineCore"><a href="#EngineCore" class="headerlink" title="EngineCore"></a>EngineCore</h2><p>EngineCore主要是完成 schedule、execute 和 output 的循环。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">step</span>(<span class="params">self</span>) -&gt; <span class="type">List</span>[EngineCoreOutput]:</span><br><span class="line">    <span class="string">&quot;&quot;&quot;Schedule, execute, and make output.&quot;&quot;&quot;</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> <span class="keyword">not</span> <span class="variable language_">self</span>.scheduler.has_unfinished_requests():</span><br><span class="line">        <span class="keyword">return</span> []</span><br><span class="line"></span><br><span class="line">    scheduler_output = <span class="variable language_">self</span>.scheduler.schedule()</span><br><span class="line">    output = <span class="variable language_">self</span>.model_executor.execute_model(scheduler_output)</span><br><span class="line">    engine_core_outputs = <span class="variable language_">self</span>.scheduler.update_from_output(</span><br><span class="line">        scheduler_output, output)</span><br><span class="line">    <span class="keyword">return</span> engine_core_outputs</span><br></pre></td></tr></table></figure>
+<h2 id="Request"><a href="#Request" class="headerlink" title="Request"></a>Request</h2><p>在具体分析之前，先看看 Request 的定义，这个数据结构串联了很多东西。</p>
+<p>属性 <code>num_tokens</code> 代表的是 <code>prompt_tokens</code> 和 <code>output_tokens</code> 的总数。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@property</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">num_tokens</span>(<span class="params">self</span>) -&gt; <span class="built_in">int</span>:</span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">len</span>(<span class="variable language_">self</span>._all_token_ids)</span><br></pre></td></tr></table></figure>
+
+<p><code>num_output_tokens</code> 代表 output tokens 的数量。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@property</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">num_output_tokens</span>(<span class="params">self</span>) -&gt; <span class="built_in">int</span>:</span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">len</span>(<span class="variable language_">self</span>._output_token_ids)</span><br></pre></td></tr></table></figure>
+
+<p><code>append_output_token_ids</code> 会改变上述的两个属性。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">append_output_token_ids</span>(<span class="params"></span></span><br><span class="line"><span class="params">    self,</span></span><br><span class="line"><span class="params">    token_ids: <span class="type">Union</span>[<span class="built_in">int</span>, <span class="type">List</span>[<span class="built_in">int</span>]],</span></span><br><span class="line"><span class="params"></span>) -&gt; <span class="literal">None</span>:</span><br><span class="line">    <span class="keyword">if</span> <span class="built_in">isinstance</span>(token_ids, <span class="built_in">int</span>):</span><br><span class="line">        token_ids = [token_ids]</span><br><span class="line">    <span class="variable language_">self</span>._output_token_ids.extend(token_ids)</span><br><span class="line">    <span class="variable language_">self</span>._all_token_ids.extend(token_ids)</span><br></pre></td></tr></table></figure>
+
+<p>在 <code>__init__</code> 方法中，会设置 <code>num_prompt_tokens</code>，这个是不变的，<code>num_computed_tokens</code> 会初始化为 0。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="variable language_">self</span>.prompt = <span class="variable language_">self</span>.inputs.prompt</span><br><span class="line"><span class="variable language_">self</span>.prompt_token_ids = <span class="variable language_">self</span>.inputs.prompt_token_ids</span><br><span class="line"><span class="variable language_">self</span>.num_prompt_tokens = <span class="built_in">len</span>(<span class="variable language_">self</span>.prompt_token_ids)</span><br><span class="line"><span class="variable language_">self</span>.num_computed_tokens = <span class="number">0</span></span><br></pre></td></tr></table></figure>
+
+<p>所以在最开始时，<code>num_tokens</code> 和 <code>num_prompt_tokens</code> 是相等的。当 <code>prefill</code> 以后，<code>num_computed_tokens</code> 会逐渐（逐渐的原因是 prefill 可能会被 chunked 掉）等于 <code>num_prompt_tokens</code>。<code>decode</code> 以后，<code>num_tokens</code> 会等于 <code>num_prompt_tokens</code> 加上 <code>num_output_tokens</code>。如果 <code>computed_tokens</code> 等于 <code>num_tokens</code>，说明已经开始 decode 了，要开始一个 token 一个 token 计算了。</p>
+<p>在调度过程中没有直接用 <code>computed_tokens</code> 等于 <code>num_prompt_tokens</code> 的原因是：如果一个 request 被抢占掉，那么 <code>num_tokens</code> 在 request 恢复的时候其实应该是 <code>num_prompt_tokens</code> 加上 <code>num_output_tokens</code>，这里做了一个统一的判断。如果把preempted的request重新处理的话其实相当于多了一些output tokens的prompt的新request。</p>
+<h2 id="Scheduler"><a href="#Scheduler" class="headerlink" title="Scheduler"></a>Scheduler</h2><p>从 EngineCore 的 step 方法来看，目前的调度是同步的 <code>schedule | execute model | update_from_output | schedule | execute model | update_from_output</code>，这样会导致计算和调度之间的时间差，这个时间差会导致计算的时间没有充分利用，从而导致资源的浪费。后面的版本应该会有优化。</p>
+<p>Scheduler 的 V1 版本把一些 chunked prefill 还有 prefix caching 的内容拆离出去，做得比较通用。</p>
+<p>vLLM 实现了一种所有或无（all-or-nothing）驱逐策略，即要么驱逐一个序列中的所有块，要么不驱逐任何块。</p>
+<p>接下来看看来自 <code>v1/core/scheduler.py</code> 的 V1 版本的 <code>schedule</code> 实现。</p>
+<p>Scheduler 有个 waiting list 和 running list（位置代表权重，是 FIFO 的）。</p>
+<p>从 running list 中获取 request 然后通过 <code>kv_cache_manager</code> 执行 <code>append_slots</code> 把新的 block 追加到 request 的 block chain 当中。如果最后一个 block 的 slot 还够的话，就不会追加新的 block。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">new_blocks = <span class="variable language_">self</span>.kv_cache_manager.append_slots(</span><br><span class="line">    request, num_new_tokens)</span><br></pre></td></tr></table></figure>
+
+<p>如果当前的 <code>kv_cache</code> 的 block table 满了，则会抢占一个 running list 中的 request（放入 waiting list 中）并且把他的 cache block 都 free 掉，这里的 free 是引用计数的形式，如果引用计数为 0 就会被释放，但如果多个 request 共享了一个 block 就还不会被真正释放。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> new_blocks <span class="keyword">is</span> <span class="literal">None</span>:</span><br><span class="line">    <span class="comment"># The request cannot be scheduled.</span></span><br><span class="line">    <span class="comment"># Preempt the lowest-priority request.</span></span><br><span class="line">    preempted_req = <span class="variable language_">self</span>.running.pop()</span><br><span class="line">    <span class="variable language_">self</span>.kv_cache_manager.free(preempted_req)</span><br><span class="line">    preempted_req.status = RequestStatus.PREEMPTED</span><br><span class="line">    <span class="variable language_">self</span>.waiting.appendleft(preempted_req)</span><br><span class="line">    preempted_reqs.append(preempted_req)</span><br></pre></td></tr></table></figure>
+
+<p>加入到 <code>scheduled_running_reqs</code> 中，消耗这次调度的 token budget，这个 budget 用完以后就会停止调度了。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">scheduled_running_reqs.append(request)</span><br><span class="line">req_to_new_block_ids[request.request_id] = [</span><br><span class="line">    b.block_id <span class="keyword">for</span> b <span class="keyword">in</span> new_blocks</span><br><span class="line">]</span><br><span class="line">num_scheduled_tokens[request.request_id] = num_new_tokens</span><br><span class="line">token_budget -= num_new_tokens</span><br><span class="line">req_index += <span class="number">1</span></span><br></pre></td></tr></table></figure>
+
+<p>如果没有抢占请求则说明还是比较富裕的，尝试从 waiting list 中获取 request，waiting list 可能有新请求也可能有之前被抢占的请求，然后执行一遍上面的代码，不同的是需要从 <code>kv_cache_manager</code> 计算 <code>computed_tokens</code>，因为被之前被抢占的或者一些有共同前缀的 kv cache block 是已经缓存过的。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">request = <span class="variable language_">self</span>.waiting[<span class="number">0</span>]</span><br><span class="line"><span class="comment"># Get already-cached tokens.</span></span><br><span class="line">computed_blocks = <span class="variable language_">self</span>.kv_cache_manager.get_computed_blocks(</span><br><span class="line">    request)</span><br><span class="line"><span class="comment"># NOTE(woosuk): Since incomplete blocks are not eligible for</span></span><br><span class="line"><span class="comment"># sharing, `num_computed_tokens` is always a multiple of</span></span><br><span class="line"><span class="comment"># `block_size`.</span></span><br><span class="line">num_computed_tokens = <span class="built_in">len</span>(computed_blocks) * <span class="variable language_">self</span>.block_size</span><br></pre></td></tr></table></figure>
+
+<p>最后把每个 request 分配到的 tokens 数量记录到 <code>SchedulerOutput</code> 当中。</p>
+<p><code>update_from_output</code> 接受 <code>SchedulerOutput</code> 和 <code>ModelExecutorOutput</code>，更新 request 的状态，例如更新已经计算的 token 数量，更新 kv cache 的 block 等。对于每个请求都会检查 <code>request.num_computed_tokens == request.num_tokens</code> 从而判断是否已经开始 decode 的部分了。然后构造 <code>EngineCoreOutput</code>，并且检查是否需要停止这个 request。<code>_check_stop</code> 方法会检查是否已经生成了 eos token 或者已经达到了最大长度，并且 free 掉对应的 request。所有没有 stop 的 request 会重新加入到 running 队列中。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> request.num_computed_tokens == request.num_tokens:</span><br><span class="line">    req_index = model_runner_output.req_id_to_index[req_id]</span><br><span class="line">    <span class="comment"># NOTE(woosuk): Currently, we assume that each request</span></span><br><span class="line">    <span class="comment"># generates at most one token at each step.</span></span><br><span class="line">    token_id = sampled_token_ids[req_index]</span><br><span class="line">    request.append_output_token_ids(token_id)</span><br><span class="line">    num_new_tokens = <span class="number">1</span></span><br><span class="line">    <span class="comment"># <span class="doctag">TODO:</span> Update the KV cache manager for prefix caching.</span></span><br><span class="line"></span><br><span class="line">    <span class="comment"># Check for stop and update request state.</span></span><br><span class="line">    <span class="comment"># This must be called before me make the EngineCoreOutput.</span></span><br><span class="line">    stopped = <span class="variable language_">self</span>._check_stop(request)</span><br><span class="line"></span><br><span class="line">    <span class="comment"># Add EngineCoreOutput for this Request.</span></span><br><span class="line">    output = EngineCoreOutput(</span><br><span class="line">        request_id=req_id,</span><br><span class="line">        new_token_ids=request.output_token_ids[-num_new_tokens:],</span><br><span class="line">        finished=request.is_finished(),</span><br><span class="line">        finish_reason=request.get_finished_reason(),</span><br><span class="line">        stop_reason=request.stop_reason)</span><br><span class="line">    engine_core_outputs.append(output)</span><br><span class="line"></span><br><span class="line">    <span class="comment"># Breakout of the loop.</span></span><br><span class="line">    <span class="keyword">if</span> stopped:</span><br><span class="line">        <span class="keyword">continue</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="SchedulerOutput"><a href="#SchedulerOutput" class="headerlink" title="SchedulerOutput"></a>SchedulerOutput</h3><p>该类包含了调度器的输出信息。以下是各个字段的作用：</p>
+<ul>
+<li><p><strong>scheduled_new_reqs: List[NewRequestData]</strong></p>
+<ul>
+<li>作用：存储新请求的数据列表，这些请求是刚刚被调度的。</li>
+</ul>
+</li>
+<li><p><strong>scheduled_resumed_reqs: List[ResumedRequestData]</strong></p>
+<ul>
+<li>作用：存储恢复请求的数据列表，这些请求是之前被暂停，现在重新被调度的。</li>
+</ul>
+</li>
+<li><p><strong>scheduled_running_reqs: List[RunningRequestData]</strong></p>
+<ul>
+<li>作用：存储正在运行请求的数据列表，这些请求在当前调度周期内继续运行。</li>
+</ul>
+</li>
+<li><p><strong>num_scheduled_tokens: Dict[str, int]</strong></p>
+<ul>
+<li>作用：存储每个请求调度的token数量，键是请求的ID，值是对应的token数量。</li>
+</ul>
+</li>
+<li><p><strong>total_num_scheduled_tokens: int</strong></p>
+<ul>
+<li>作用：存储所有请求调度的token总数。</li>
+</ul>
+</li>
+<li><p><strong>scheduled_encoder_inputs: Dict[str, List[int]]</strong></p>
+<ul>
+<li>作用：存储每个请求的编码器输入，键是请求的ID，值是对应的编码器输入列表。</li>
+</ul>
+</li>
+<li><p><strong>preempted_req_ids: Set[str]</strong></p>
+<ul>
+<li>作用：存储被抢占的请求ID集合，这些请求在当前调度周期内被暂停。</li>
+</ul>
+</li>
+<li><p><strong>finished_req_ids: Set[str]</strong></p>
+<ul>
+<li>作用：存储已完成的请求ID集合，这些请求在当前调度周期内完成。</li>
+</ul>
+</li>
+<li><p><strong>free_encoder_input_ids: List[Tuple[str, int]]</strong></p>
+<ul>
+<li>作用：存储空闲的编码器输入ID列表，每个元素是一个元组，包含请求ID和对应的编码器输入ID。</li>
+</ul>
+</li>
+</ul>
+<p>这些字段共同描述了调度器在一个调度周期内的所有操作和状态变化。</p>
+<h2 id="KVCacheManager"><a href="#KVCacheManager" class="headerlink" title="KVCacheManager"></a>KVCacheManager</h2><p>来自<code>v1/core/kv_cache_manager.py</code>，这是v1版本的实现。</p>
+<p>kv cache比较简单，<br>这个<a target="_blank" rel="noopener" href="https://medium.com/my-musings-with-llms/understanding-kv-cache-and-paged-attention-in-llms-a-deep-dive-into-efficient-inference-62fa372432ce">博客</a>中的图片很好地阐述了kvcache的作用。</p>
+<img data-src="/zh-CN/2024/12/10/vLLM-%E5%88%86%E6%9E%902-%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E/kvcache.gif" class="" title="KV Cache">
+
+<p>但涉及PagedAttention的实现，就需要管理block。这类似于操作系统中的虚拟地址、页表和物理页的关系。</p>
+<p>PagedAttention的主要思想是基于操作系统中分页（paging）的经典概念。传统的注意力算法通常要求keys和values在内存空间中连续存储，<br>而PagedAttention则允许在非连续的内存空间中存储keys和values。</p>
+<p>PagedAttention将每个序列（sequence）的KV缓存（KV cache）分成固定大小的块（block）。<br>每个块包含一个固定数量的token的key和value向量。这意味着，即使keys和values不连续存储，也可以有效地访问和操作它们。</p>
+<p>block的管理会有一个类似于页表的结构，用于映射block的逻辑地址到物理地址。</p>
+<img data-src="/zh-CN/2024/12/10/vLLM-%E5%88%86%E6%9E%902-%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E/block_table.png" class="">
+
+<p>论文中的这个图很好的表示了他们的关系，如果新生成的token填满了当前block就会分配一个新的block用于新token的生成。</p>
+<p>共享的prefix cache指的是提示词的前缀一样的情况，他们的位置编码也不变的情况下可以在不同的sequence之间共享。<br>例如对于一个英语到法语翻译的提示词，前面有很多事可以共享的，对于跨请求的kv cache来说可以基于这个前缀来共享kv cache的block。</p>
+<table>
+<thead>
+<tr>
+<th>序列</th>
+<th>前缀 (Prefix)</th>
+<th>输入任务 (Task Input)</th>
+<th>完整提示 (Complete Prompt)</th>
+<th>LLM 输出 (LLM Output)</th>
+<th>输出任务 (Task Output)</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Sequence A</strong></td>
+<td>Translate English to French: <br> “sea otter” =&gt; “loutre de mer” <br> “peppermint” =&gt; “menthe poivrée” <br> “plush giraffe” =&gt; “girafe en peluche”</td>
+<td>“cheese” =&gt;</td>
+<td>Translate English to French: <br> “sea otter” =&gt; “loutre de mer” <br> “peppermint” =&gt; “menthe poivrée” <br> “plush giraffe” =&gt; “girafe en peluche” <br> “cheese” =&gt;</td>
+<td>fromage</td>
+<td>fromage</td>
+</tr>
+<tr>
+<td><strong>Sequence B</strong></td>
+<td>Translate English to French: <br> “sea otter” =&gt; “loutre de mer” <br> “peppermint” =&gt; “menthe poivrée” <br> “plush giraffe” =&gt; “girafe en peluche”</td>
+<td>“I love you” =&gt;</td>
+<td>Translate English to French: <br> “sea otter” =&gt; “loutre de mer” <br> “peppermint” =&gt; “menthe poivrée” <br> “plush giraffe” =&gt; “girafe en peluche” <br> “I love you” =&gt;</td>
+<td>Je t’aime</td>
+<td>Je t’aime</td>
+</tr>
+</tbody></table>
+<p><code>free_block_queue</code>是一个链表，用于分配block，初始化时将<code>block_pool</code>中的所有blocks串起来。它通过链表实现对<code>KVCacheBlock</code>的管理，删除操作是O(1)的，没有使用标准库中的dequeue。</p>
+<p><code>KVCacheBlock</code>除了prev和next指针，还有<code>ref_count</code>和<code>_block_hash</code>，用于prefix caching的计算。其key是父block的hash和当前block的tokens ids的hash。</p>
+<p><code>block_pool</code>代表物理block的映射关系，例如<code>0 -&gt; 第一块block</code>。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># A Block pool of all kv-cache blocks.</span></span><br><span class="line"><span class="variable language_">self</span>.block_pool: <span class="type">List</span>[KVCacheBlock] = [</span><br><span class="line">    KVCacheBlock(idx) <span class="keyword">for</span> idx <span class="keyword">in</span> <span class="built_in">range</span>(num_gpu_blocks)</span><br><span class="line">]</span><br></pre></td></tr></table></figure>
+
+<p><code>cached_block_hash_to_block</code> 保存的数据结构是 <code>&#123;block_hash: &#123;block ID: block&#125;&#125;</code></p>
+<p><code>req_to_blocks</code> 保存了 request到 block列表的映射关系，<code>&#123;request ID: [block ID]&#125;</code></p>
+<p>block的eviction的定义，<code>eviction candidate == in free queue and ref_cnt == 0</code>。</p>
+<h3 id="get-computed-blocks方法"><a href="#get-computed-blocks方法" class="headerlink" title="get_computed_blocks方法"></a><code>get_computed_blocks</code>方法</h3><p>根据request获取已经计算过（缓存过）的block，获取kv cache blocks的方式是通过block hash 从<code>cached_block_hash_to_block</code>寻找的。<br>hash的计算是之前的block hash加上当前token ids做一次hash，第一个block则没有父block只用当前自己的token ids做hash。</p>
+<h3 id="append-slots方法"><a href="#append-slots方法" class="headerlink" title="append_slots方法"></a><code>append_slots</code>方法</h3><p>会为需要新计算的token ids分配block（如果现有的block不够的话）。</p>
+<h2 id="Worker"><a href="#Worker" class="headerlink" title="Worker"></a>Worker</h2><h3 id="GPUModelRunner"><a href="#GPUModelRunner" class="headerlink" title="GPUModelRunner"></a>GPUModelRunner</h3><p><code>v1/worker</code>中的<code>gpu_runner.py</code>v1版本的实现。</p>
+<p>首先依赖一个大的config参数<code>vllm_config</code>，包含了<code>model_config</code>，<code>cache_config</code>，<code>scheduler_config</code>，<code>device_config</code>等。</p>
+<p>初始化kv cache的dtype，对照表如下，half就是fp16，float就是fp32，默认是和模型的dtype一样。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">STR_DTYPE_TO_TORCH_DTYPE = &#123;</span><br><span class="line">    <span class="string">&quot;half&quot;</span>: torch.half,</span><br><span class="line">    <span class="string">&quot;bfloat16&quot;</span>: torch.bfloat16,</span><br><span class="line">    <span class="string">&quot;float&quot;</span>: torch.<span class="built_in">float</span>,</span><br><span class="line">    <span class="string">&quot;fp8&quot;</span>: torch.uint8,</span><br><span class="line">    <span class="string">&quot;fp8_e4m3&quot;</span>: torch.uint8,</span><br><span class="line">    <span class="string">&quot;fp8_e5m2&quot;</span>: torch.uint8,</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>初始化<code>sliding_window</code>的配置，这个东西在Qwen里面才用到。</p>
+<p>初始化<code>block_size</code>，决定了kv cache中连续保存的token的数量，也就是PagedAttention中的那个block的大小，Prefix cache也是以block为维度的。</p>
+<p>初始化<code>kv_heads</code>，这个决定了kv head的数量，如果指定了 <code>tensor_parallel_size</code>，会根据这个参数平均分给每个GPU。</p>
+<p>初始化<code>head_size</code>，基于model config，是model config里面的<code>head_dim</code>。</p>
+<p>初始化<code>hidden_size</code>，就是model config里面的<code>hidden_size</code>，就是<code>d_model</code>或者<code>embed_dim</code>，代表同一个长度。</p>
+<p>初始化<code>kv_cache</code>。</p>
+<p>初始化<code>encoder_cache</code> encoder结果的缓存。</p>
+<p>初始化<code>input_registry</code> 和多模态的支持有关系。</p>
+<p>初始化<code>requests</code> dict用于request的状态保存，这里的request就是一个文本的sequence。</p>
+<p>初始化<code>InputBatch</code>，<code>max_num_seq</code>决定了batch的宽度，<code>max_model_len</code>决定了batch的长度。这个Batch对象负责管理在用于前向传播的batch当中的request的插入和删除。</p>
+<p>初始化<code>use_cuda_graph</code> 这个由 enforce_eager 决定，默认是会加载整个计算图。</p>
+<p>初始化<code>positions</code>: <code>torch.zeros(self.max_num_tokens, dtype=torch.int64, device=self.device)</code>。</p>
+<p>初始化<code>input_embeds</code>，可以看到，宽度是<code>max_num_tokens</code>，长度是<code>hidden_size</code>，这个是用来存储输入的embedding的。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="variable language_">self</span>.inputs_embeds = torch.zeros(</span><br><span class="line">    (<span class="variable language_">self</span>.max_num_tokens, <span class="variable language_">self</span>.hidden_size),</span><br><span class="line">    dtype=<span class="variable language_">self</span>.dtype,</span><br><span class="line">    device=<span class="variable language_">self</span>.device)</span><br></pre></td></tr></table></figure>
+
+<h3 id="InputBatch"><a href="#InputBatch" class="headerlink" title="InputBatch"></a>InputBatch</h3><p>InputBatch在整个工程中负责管理和处理批量输入请求，确保请求的高效处理和管理。</p>
+<h3 id="execute-model-方法"><a href="#execute-model-方法" class="headerlink" title="execute_model 方法"></a><code>execute_model</code> 方法</h3><p><code>execute_model</code>是整个<code>schedule | compute | update</code>循环中的核心部分，负责执行模型的前向传播。</p>
+<h4 id="update-states方法"><a href="#update-states方法" class="headerlink" title="_update_states方法"></a><code>_update_states</code>方法</h4><p>在每次运行一个 batch 时，会根据调度器（scheduler）的要求调整每个 batch 中请求的优先级。调度器会更新请求的状态缓存 <code>id -&gt; CachedRequestState</code> 和 <code>input_batch</code> 的缓存，移除被抢占和停止的请求，并将新加入的请求放入 batch 中。因此，runner 只负责执行，具体的策略由调度器决定。</p>
+<p><code>CachedRequestState</code> 记录了请求 ID、使用的缓存块 ID 以及已计算的 token 数量。</p>
+<h4 id="excute-encoder方法"><a href="#excute-encoder方法" class="headerlink" title="_excute_encoder方法"></a><code>_excute_encoder</code>方法</h4><p>执行多模态中的encoder，对于新的多模态的encode，调用<code>model.process_mm_inputs</code>存入到encoder_cache当中。</p>
+<p><code>self.model.compute_logits</code>使用<br><code>vllm/model_executor/layers/logits_processor.py</code>中的<code>LogitsProcessor</code>，从<code>hidden_states</code>计算<code>logits</code>。</p>
+<p><code>self.model.sample</code>使用<code>vllm/model_executor/layers/sampler.py</code>中的sampler进行sample。</p>
+<p>最终得到<code>sampled_token_ids = sampler_output.sampled_token_ids</code>。</p>
+<h4 id="gather-encoder-outputs-方法"><a href="#gather-encoder-outputs-方法" class="headerlink" title="_gather_encoder_outputs 方法"></a><code>_gather_encoder_outputs</code> 方法</h4><p>从<code>encoder_cache</code>中获取当前batch需要用到的encoder的输出。</p>
+<h4 id="prepare-inputs方法"><a href="#prepare-inputs方法" class="headerlink" title="_prepare_inputs方法"></a><code>_prepare_inputs</code>方法</h4><p><code>input_batch.block_table</code> 在 GPU 上，而 <code>input_batch.block_table_cpu_tensor</code> 在 CPU 上。<br>前面提到 batch 的整理是在 CPU 上进行的，这里是将要推理的部分拷贝到 GPU 上的 <code>block_table</code> 中。由于使用了 PagedAttention，因此所有的序列都是按 block 为粒度进行切分的。</p>
+<p>获取<code>input_ids</code>，构造出传给FlashAttention的数据，例如<code>block_table</code>，和<code>query_start_loc</code>和<code>seq_start_loc</code>用于定位query和seq的位置。</p>
+<p>input_ids, attn_metadata, logits_indices</p>
+<h4 id="prepare-sampling方法"><a href="#prepare-sampling方法" class="headerlink" title="_prepare_sampling方法"></a><code>_prepare_sampling</code>方法</h4><p>构造出sampling的参数，获取每个request的<code>temperature</code>，<code>top_k</code>，<code>top_p</code>等参数。</p>
+<h3 id="GPUWorker"><a href="#GPUWorker" class="headerlink" title="GPUWorker"></a>GPUWorker</h3><p><code>v1/worker</code>中的<code>gpu_worker.py</code>v1版本的实现。<br>初始化GPUModelRunner，如果开始了<code>VLLM_TORCH_PROFILER_DIR</code>就会调用<code>torch.profiler.profile</code>。</p>
+<p><code>determine_num_available_blocks</code>会通过profile的方式决定可以使用的block数量。<br>然后根据block数量调用Runner的<code>initialize_kv_cache</code>。</p>
+<p>做一些GPU的dtype支持检查，比如一些老的GPU是不支持bf16的。</p>
+<p>FlashAttentionMetadata 包含了input的结构和对应的block table的映射。</p>
+
+      
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+        <div class="post-eof"></div>
+      
+    </footer>
+  </article>
+</div>
+
+
+
+
+    
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2024/12/03/FlashAttention-%E8%A7%A3%E6%9E%90/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="undefined | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          <a href="/zh-CN/2024/12/03/FlashAttention-%E8%A7%A3%E6%9E%90/" class="post-title-link" itemprop="url">FlashAttention 解析</a>
+        </h2>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2024-12-03 16:40:50" itemprop="dateCreated datePublished" datetime="2024-12-03T16:40:50+08:00">2024-12-03</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2025-03-14 13:50:06" itemprop="dateModified" datetime="2025-03-14T13:50:06+08:00">2025-03-14</time>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2024/12/03/FlashAttention-%E8%A7%A3%E6%9E%90/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2024/12/03/FlashAttention-解析/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+          <p>FlashAttention是一种新型的注意力算法，它能够准确计算注意力，且只需进行远远少于传统方法的内存访问。这个算法的主要目标是尽可能避免内存的读取和写入，这是注意力机制性能瓶颈的一个关键因素。该论文提出了一个IO-aware的精确注意力算法，它使用tiling（贴瓷砖，代表数据分片）来减少GPU高带宽内存与低带宽内存之间的内存读取/写入次数。</p>
+<p>该算法基于注意力矩阵通常稀疏这一观察结果：注意力矩阵只有少数元素非零。它通过将输入矩阵Q、K、V分成更小的块来实现，从而避免了计算全矩阵乘积Q*K^T的内存占用问题。通过块级别的处理，FlashAttention使得矩阵操作可以在现代GPU的内存限制下进行，并仅读取/写入每个切片的非零元素。这降低了需要的内存访问次数，使整个过程更快和更高效。</p>
+<p>FlashAttention通过分“瓦片化”的方式计算能够更快的一个原因是将矩阵放入更高速的缓存当中，高速的叫SRAM，低速的叫HBM。</p>
+<p>第一代 FlashAttention 只是把QK切片，这个只要把矩阵切分在SRAM，然后计算出结果再存回HBM，这个比较简单。</p>
+<p>第二代 FlashAttention 把 softmax 的计算也放在了SRAM上。</p>
+<p>源自<a target="_blank" rel="noopener" href="https://jrodthoughts.medium.com/understanding-flashattention-3-one-of-the-most-important-algortihms-to-make-transformers-fast-7d21b0f6e6a4">博客</a>描述的结构中可以看出。</p>
+<img data-src="/zh-CN/2024/12/03/FlashAttention-%E8%A7%A3%E6%9E%90/qkv.webp" class="">
+
+<p>他这里面标得感觉不是很清楚，其中的O_2应该是最终的结果O，里面的l_1/l_2 * A^1 / l_1 就还原出了最终结果的分母，也就是scale法则。</p>
+<p>第三代 FlashAttention 减少了上面提到的scale，不再每一步做除法，而是放到最后再除。还有就是针对交叉注意力中的mask的优化，跳过了被mask的部分。还有就是CUDA Thread warps的优化提高了并行度。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>FlashAttention通过利用高速缓存和分块技术，显著减少了内存访问次数，提高了注意力计算的效率。第一代主要通过切分QK矩阵并利用SRAM缓存，第二代将softmax计算也放入SRAM，第三代则进一步优化了scale计算和mask处理，并提升了并行度。</p>
+
+      
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+        <div class="post-eof"></div>
+      
+    </footer>
+  </article>
+</div>
+
+
+
 
     
 
@@ -1911,255 +2306,6 @@
 <p>对应的go代码：</p>
 <figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line">   <span class="comment">//go:noline</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">schedule</span><span class="params">()</span></span> &#123;</span><br><span class="line">	<span class="keyword">if</span> gosave(&amp;sched.gg0.Sched) &#123;</span><br><span class="line">		curgg := sched.curgg</span><br><span class="line">		<span class="keyword">switch</span> curgg.status &#123;</span><br><span class="line">		<span class="keyword">case</span> _Grunnable:</span><br><span class="line">			<span class="built_in">panic</span>(<span class="string">&quot;invalid status&quot;</span>)</span><br><span class="line">		<span class="keyword">case</span> _Grunning:</span><br><span class="line">			curgg.status = _Grunnable</span><br><span class="line">			ggput(curgg)</span><br><span class="line">			<span class="keyword">break</span></span><br><span class="line">		<span class="keyword">case</span> _Gdead:</span><br><span class="line">			<span class="keyword">break</span></span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">    <span class="comment">// 调度循环</span></span><br><span class="line">	<span class="keyword">for</span>  &#123;</span><br><span class="line">		<span class="comment">// println(&quot;find g&quot;)</span></span><br><span class="line">		gg := ggget()</span><br><span class="line">		<span class="keyword">if</span> gg == <span class="literal">nil</span> &#123;</span><br><span class="line">			time.Sleep(time.Second)</span><br><span class="line">			<span class="keyword">continue</span></span><br><span class="line">		&#125;</span><br><span class="line">		gg.status = _Grunning</span><br><span class="line">		sched.curgg = gg</span><br><span class="line">		gogogo(&amp;gg.Sched)</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 <p>这样就能实现一个简单的单goroutine上跑多个gogoroutine的上下文切换了。</p>
-
-      
-    </div>
-
-    
-    
-    
-
-    <footer class="post-footer">
-        <div class="post-eof"></div>
-      
-    </footer>
-  </article>
-</div>
-
-
-
-
-    
-
-
-<div class="post-block">
-  
-  
-
-  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2020/05/13/Spark-Ray-PS-MPI%E7%AD%89%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E%E5%92%8C%E6%A1%86%E6%9E%B6%E7%9A%84%E6%80%BB%E7%BB%93/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="ggaaooppeenngg">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="ggaaooppeenngg">
-      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
-    </span>
-
-    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
-      <meta itemprop="name" content="undefined | ggaaooppeenngg">
-      <meta itemprop="description" content="">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          <a href="/zh-CN/2020/05/13/Spark-Ray-PS-MPI%E7%AD%89%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E%E5%92%8C%E6%A1%86%E6%9E%B6%E7%9A%84%E6%80%BB%E7%BB%93/" class="post-title-link" itemprop="url">Spark/Ray/PS/MPI等计算引擎和框架的小总结</a>
-        </h2>
-
-        <div class="post-meta-container">
-          <div class="post-meta">
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-calendar"></i>
-      </span>
-      <span class="post-meta-item-text">发表于</span>
-
-      <time title="创建时间：2020-05-13 23:29:47" itemprop="dateCreated datePublished" datetime="2020-05-13T23:29:47+08:00">2020-05-13</time>
-    </span>
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-calendar-check"></i>
-      </span>
-      <span class="post-meta-item-text">更新于</span>
-      <time title="修改时间：2025-03-14 13:50:06" itemprop="dateModified" datetime="2025-03-14T13:50:06+08:00">2025-03-14</time>
-    </span>
-
-  
-  
-  <span class="post-meta-item">
-    
-      <span class="post-meta-item-icon">
-        <i class="far fa-comment"></i>
-      </span>
-      <span class="post-meta-item-text">Disqus：</span>
-    
-    <a title="disqus" href="/zh-CN/2020/05/13/Spark-Ray-PS-MPI%E7%AD%89%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E%E5%92%8C%E6%A1%86%E6%9E%B6%E7%9A%84%E6%80%BB%E7%BB%93/#disqus_thread" itemprop="discussionUrl">
-      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2020/05/13/Spark-Ray-PS-MPI等计算引擎和框架的总结/" itemprop="commentCount"></span>
-    </a>
-  </span>
-  
-  
-</div>
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-          <p>大规模的并发并行计算考虑的问题主要关于数据、计算的吞吐量还有容错。不管是设计者还是使用者，关心的是在期望上（因为可能会失败）运行任务的效率，从设计者的角度来讲要提供一个可靠高效的环境，从使用者的角度来讲这个东西需要足够的简单，简单意味着编程效率也保证了可靠性。大数据的整套技术栈在解决一些吞吐量大的批处理问题时得心应手，但是到了深度学习的场景，计算吞吐的要求反而提高了，比较现实点的情况是很多时候我们考虑的是能处理多大的数据量的日志，和多快能把一个ImageNet ResNet50训练完。这个区别在于 Spark 或者 Hadoop 的 MapReduce 的设计和 Tensorflow 以及 PyTorch 的设计理念不同以及对应的计算场景的不同。到了强化学习的场景又是一个大融合，强化学习的场景不光有迭代式的反向误差传播的计算，同时也包含了大规模的仿真环境的计算，Ray主要是在这方面提供了一个一站式的解决框架。分布式系统的问题某种程度上和操作系统的问题其实很类似，都是要考量如何从整个系统的角度充分利用物理资源，从错误中恢复，满足效率。这篇文章主要是比较一下几种主流的计算引擎或者框架或者说是算法的异同。</p>
-<h1 id="Spark-MapReduce"><a href="#Spark-MapReduce" class="headerlink" title="Spark(MapReduce)"></a>Spark(MapReduce)</h1><p>我把Spark和MapReduce都归于大数据栈这一类，RDD(Resillient Distributed Dataset) 和 MapReduce<br>这两者的区别没有和MPI/PS的区别大那么多。</p>
-<img data-src="/zh-CN/2020/05/13/Spark-Ray-PS-MPI%E7%AD%89%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E%E5%92%8C%E6%A1%86%E6%9E%B6%E7%9A%84%E6%80%BB%E7%BB%93/spark.png" class="">
-
-<p>MapReduce 有 JobTracker，Spark 有 Driver</p>
-<p>MapReduce 有 TaskTracker，Spark 有 Executor</p>
-<p>MapReduce 中间结果是基于 HDFS，会落盘，Spark 中间结果是基于内存的，也可以落盘，主要是利用内存做缓存</p>
-<p>MapReduce 计算抽象由Map和Reduce构成，Spark 的 RDD 有一系列的Transform和Action，封装程度更高</p>
-<p>MapReduce 的错误处理比较简单，把失败的Map重试就好了，重试是一种非常好理解的错误处理。<br>Spark 的重试是根据 RDD 的有向无环图中的血缘关系计算的，可以理解为从失败的拓扑序上重新计算，也可以有中间的checkpoint。</p>
-<img data-src="/zh-CN/2020/05/13/Spark-Ray-PS-MPI%E7%AD%89%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E%E5%92%8C%E6%A1%86%E6%9E%B6%E7%9A%84%E6%80%BB%E7%BB%93/rdd.png" class="">
-
-<p>RDD 的特性是只读的，在机器学习场景下参数不大的时候 MLLib 通过把参数存到 Driver 上来计算，当参数比较大特别是深度网络的参数大得吓人 Driver 存不下的时候,<br>只能通过新增 RDD，对于要频繁更新的模型参数要生成非常多的 RDD，这是 Spark 在深度学习上设计的缺陷。<br>一般来说一些简单的机器学习任务通过 sklearn 就能完成，当数据量比较大的时候就需要通过 Spark 的MLLib来处理。<br>当然 MLLib 现在也在开始从RDD-based转向SparkSQL用的Dataframe-based，从大的角度上讲两者互相融合是可行的，可能需要一些时间。<br>上 Spark 用 Yarn 调度 Tensorflow，还是用 Kuberenetes 调度 Spark 和 Tensorflow，我个人支持后者，而且这种分层是我比较喜欢的一种分层。</p>
-<h1 id="Ray"><a href="#Ray" class="headerlink" title="Ray"></a>Ray</h1><p>Ray 的基本抽象就是 Remote 或者 Actor，一个是分布式调用函数，一个式分布式调用类。Ray 和 Ray 的 RLlib 主要面对的问题是强化学习有大量的 simulating 的环境，比如仿真一局Dota，涉及到模拟一局Dota，反馈Agent的神经网络，是并行计算和神经网络训练的结合。当然 Ray 本身的抽象就是个分布式 goroutine，所以某种程度上可以完成的事情不光是强化学习一种任务，比如HypterTunning等一些并行计算的模型也是试用的。</p>
-<img data-src="/zh-CN/2020/05/13/Spark-Ray-PS-MPI%E7%AD%89%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E%E5%92%8C%E6%A1%86%E6%9E%B6%E7%9A%84%E6%80%BB%E7%BB%93/ray.png" class="">
-
-<p>反过来想，如果没有 Ray 的话，如何做这个系统呢，要构建大批量的仿真计算环境，然后能根据仿真的反馈训练神经网络。<br>这两个任务的调度控制就是一个问题，当然放到 k8s 的调度器里做似乎也可以，然后涉及这些分布式任务的同步问题，<br>需要构建这些任务的关系和信息传输，似乎用一些 DAG （比如 argo）的 workflow 也能解决，但他们之间通信的高效性似乎会是一个问题，需要<br>选择一种高效的远程调用传输方式，肯能gRPC也可以，还有他们的元数据管理用什么呢，自己搞个Redis似乎也行。<br>Ray 从这些方面综合考虑了这些问题提供了一个一站式的RL训练平台。</p>
-<h1 id="PS和MPI"><a href="#PS和MPI" class="headerlink" title="PS和MPI"></a>PS和MPI</h1><p>MPI和PS的介绍有很多，我也不需要费篇幅唠叨。</p>
-<p>PS和MPI是比较常用的分布式深度学习的训练方式，两者的主要区别在于Paramater Server，在PS的场景下参数统一走一个或者shard多个PS更新。</p>
-<img data-src="/zh-CN/2020/05/13/Spark-Ray-PS-MPI%E7%AD%89%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E%E5%92%8C%E6%A1%86%E6%9E%B6%E7%9A%84%E6%80%BB%E7%BB%93/ps_worker_arch.png" class="">
-
-<p>在MPI的场景下每个Worker是对等的（或者分层级对等，比如主机上的四张卡走NVLink，主机之间走万兆网卡）工作节点，使用AllReduce参数的同步在Worker之间进行。</p>
-<img data-src="/zh-CN/2020/05/13/Spark-Ray-PS-MPI%E7%AD%89%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E%E5%92%8C%E6%A1%86%E6%9E%B6%E7%9A%84%E6%80%BB%E7%BB%93/mpi.png" class="">
-
-<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>MPI在我出生前应该就有了，但是MapReduce之所以能火起来主要还是在 fault-tolerance 上，MPI的抽象比较基础，但是MapReduce和Spark在廉价大集群上的表现非常亮眼，对于没那么并行化理想的场景能够tolerate，时间到了深度学习的场景这玩意儿又冒出来了，一方面是深度学习的计算资源好得不得了，因为配备GPU的机器和传统的机器比起来好很多，对于这种纯粹的并行计算框架来说非常友好，错误处理的问题就没那么严重，即使是这样也慢慢开始有人着手优化MPI/PS的fault tolerance，在一些并行化退化的场景下能够把训练并行度降级不至于完全失败的工作。</p>
-<p>从长远来看 Ray 还会有很多进化的空间，Spark 也会更好地适配深度学习场景，深度学习本身在System上的优化也层出不穷，大家对于大规模的并发并行计算系统的方方面面的要求都会越来越高。</p>
-
-      
-    </div>
-
-    
-    
-    
-
-    <footer class="post-footer">
-        <div class="post-eof"></div>
-      
-    </footer>
-  </article>
-</div>
-
-
-
-
-    
-
-
-<div class="post-block">
-  
-  
-
-  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2019/10/14/%E8%B4%9D%E5%8F%B6%E6%96%AF%E4%BC%98%E5%8C%96%E4%B9%8B%E9%AB%98%E6%96%AF%E8%BF%87%E7%A8%8B%E5%92%8C%E5%BA%94%E7%94%A8/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="ggaaooppeenngg">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="ggaaooppeenngg">
-      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
-    </span>
-
-    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
-      <meta itemprop="name" content="undefined | ggaaooppeenngg">
-      <meta itemprop="description" content="">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          <a href="/zh-CN/2019/10/14/%E8%B4%9D%E5%8F%B6%E6%96%AF%E4%BC%98%E5%8C%96%E4%B9%8B%E9%AB%98%E6%96%AF%E8%BF%87%E7%A8%8B%E5%92%8C%E5%BA%94%E7%94%A8/" class="post-title-link" itemprop="url">贝叶斯优化之高斯过程和应用</a>
-        </h2>
-
-        <div class="post-meta-container">
-          <div class="post-meta">
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-calendar"></i>
-      </span>
-      <span class="post-meta-item-text">发表于</span>
-
-      <time title="创建时间：2019-10-14 01:21:32" itemprop="dateCreated datePublished" datetime="2019-10-14T01:21:32+08:00">2019-10-14</time>
-    </span>
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-calendar-check"></i>
-      </span>
-      <span class="post-meta-item-text">更新于</span>
-      <time title="修改时间：2025-03-14 13:50:06" itemprop="dateModified" datetime="2025-03-14T13:50:06+08:00">2025-03-14</time>
-    </span>
-
-  
-  
-  <span class="post-meta-item">
-    
-      <span class="post-meta-item-icon">
-        <i class="far fa-comment"></i>
-      </span>
-      <span class="post-meta-item-text">Disqus：</span>
-    
-    <a title="disqus" href="/zh-CN/2019/10/14/%E8%B4%9D%E5%8F%B6%E6%96%AF%E4%BC%98%E5%8C%96%E4%B9%8B%E9%AB%98%E6%96%AF%E8%BF%87%E7%A8%8B%E5%92%8C%E5%BA%94%E7%94%A8/#disqus_thread" itemprop="discussionUrl">
-      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2019/10/14/贝叶斯优化之高斯过程和应用/" itemprop="commentCount"></span>
-    </a>
-  </span>
-  
-  
-</div>
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-          <h2 id="贝叶斯优化-BO"><a href="#贝叶斯优化-BO" class="headerlink" title="贝叶斯优化(BO)"></a>贝叶斯优化(BO)</h2><p>贝叶斯优化是一种黑盒优化方法，一般有几个特征：</p>
-<p>输入纬度不大，一般小于 20 个，时间复杂度是$O(n^3)$<br>有设定的取值空间<br>目标函数需要是连续的（我觉得这个好像不是必须的，离散的也可以）<br>目标函数的计算非常消耗成本（时间等等）<br>目标函数是黑盒的，没有明确的结构<br>目标函数（derivative-free）没有一阶二阶导数（不然就可以用梯度下降去算了）</p>
-<p>因为这些特性，在做机器学习的超参数调优的时候特别合适。</p>
-<blockquote>
-<p>BayesOpt consists of two main components: a Bayesian statistical model for modeling the objective function, and an acquisition function for deciding where to sample next.</p>
-</blockquote>
-<p>贝叶斯优化主要是要两个部分，一个是统计模型比如高斯过程(GP)，一个是采样函数(AC)决定下一个样本从拿里获取。</p>
-<h2 id="高斯过程-GP"><a href="#高斯过程-GP" class="headerlink" title="高斯过程(GP)"></a>高斯过程(GP)</h2><p>高斯过程是贝叶斯优化中的一种统计模型，先抛开具体的数学问题，简单讲一下就是，假设我在一个变量空间（比如多个超参数）采样了一个目标函数（我们训练结果的 evaluation），然后我们会得到一个后验分布，这就类似条件概率里面，我们知道了某个事情发生以后，如果随机变量是相关的，我们有更大的概率确定其他变量的分布。例如下图，绿色是我们的分布空间，每次采样以后，分布的空间就会缩小，进而接近我们的曲线。</p>
-<img data-src="/zh-CN/2019/10/14/%E8%B4%9D%E5%8F%B6%E6%96%AF%E4%BC%98%E5%8C%96%E4%B9%8B%E9%AB%98%E6%96%AF%E8%BF%87%E7%A8%8B%E5%92%8C%E5%BA%94%E7%94%A8/GP.gif" class="">
-
-<p>从数学上描述这件事情就需要高斯分布和高斯过程了。高斯分布我相信大家都耳熟能详，他由平均值 $\mu$ 还有标准差 $\sigma$ 决定分布。高斯过程的本质是一个多元高斯分布，只不过他是无限空间上的，定义高斯过程需要一个核函数定义他的协方差矩阵，也就是一个矩阵定义多个随机变量的相关性。当然了，有限的离散点用协方差矩阵可以，如果取值是连续的就需要核函数描述这个“无限”的协方差矩阵了。</p>
-<p>协方差的核函数就很多选项，<a target="_blank" rel="noopener" href="https://distill.pub/2019/visual-exploration-gaussian-processes/">A Visual Exploration of Gaussian Processes</a> 提供了一个非常 intuitive 的可视化来解释 GP 和各种描述协方差矩阵的核函数。</p>
-<p>高斯过程被定义为一个<a target="_blank" rel="noopener" href="https://zh.wikipedia.org/wiki/%E9%9A%8F%E6%9C%BA%E8%BF%87%E7%A8%8B">随机过程</a>，相当于每个样本点自己也是个随机函数，对于高斯分布来说，每个样本点也是一个高斯分布函数就是高斯过程，<a target="_blank" rel="noopener" href="http://www.cs.cornell.edu/courses/cs4780/2018fa/lectures/lecturenote15.html">cs4780 的 Lecture 15</a>有非常详细的解释。</p>
-<blockquote>
-<p>Definition: A GP is a (potentially infinte) collection of random variables (RV) such that the joint distribution of every finite subset of RVs is multivariate Gaussian:<br>$ f \sim GP(\mu, k), $<br>where $\mu(\mathbf{x})$ and $k(\mathbf{x}, \mathbf{x}’)$ are the mean resp. covariance function! Now, in order to model the predictive distribution $P(f_* \mid \mathbf{x}_*, D)$ we can use a Bayesian approach by using a GP prior: $P(f\mid \mathbf{x}) \sim \mathcal{N}(\mu, \Sigma)$ and condition it on the training data $D$ to model the joint distribution of $f=f(X)$ (vector of training observations) and $f_* = f(\mathbf{x}_*)$ (prediction at test input).</p>
-</blockquote>
-<h2 id="采样函数"><a href="#采样函数" class="headerlink" title="采样函数"></a>采样函数</h2><p>采样函数一般有 expected improvement(EI)，当然还有 probability improvement(PI), upper confidence bound(UCB), knowledge gradient(KG),entropy search and predictive entropy search 等等。<br>采样的策略有两种：<br>Explore：探索新的点，这种采样有助于估计更准确的；<br>Exploit：利用已有结果附近的点进行采样，从而希望找到更大的；</p>
-<p>这两个标准是互相矛盾的，如何在这两者之间寻找一个平衡点可以说是采样函数面对的主要挑战。</p>
-<blockquote>
-<p>Expected improvement is a popular acquisition function owing to its good practical performance and an analytic form that is easy to compute. As the name suggests it rewards evaluation of the objective $f$ based on the expected improvement relative to the current best. If $f^* = \max_i y_i$ is the current best observed outcome and our goal is to maximize $f$, then EI is defined as</p>
-</blockquote>
-<blockquote>
-<p>$\text{EI}(x) = \mathbb{E}\bigl[\max((f(x) - f^*), 0)\bigr]$</p>
-</blockquote>
-<p>在 Facebook 的 Ax 在<a target="_blank" rel="noopener" href="https://ax.dev/docs/bayesopt">这里</a>提到使用了 PyTorch 的一个 BoTorch 用的就是 EI，就是期望的增加度。</p>
-<p>高斯分布式的期望就是 $\mu$ 所以是很好算的，$f^*$ 是已知的定值，<a target="_blank" rel="noopener" href="http://ash-aldujaili.github.io/blog/2018/02/01/ei/">这里</a>有一个计算的推导。</p>
-<p>BoTorch 提供了一个优化的 EI 叫 Noisy EI，主要功能是抗噪。</p>
-<blockquote>
-<p>The above definition of the EI function assumes that the objective function is observed free of noise. In many types of experiments, such as those found in A/B testing and reinforcement learning, the observations are typically noisy. For these cases, BoTorch implements an efficient variant of EI, called Noisy EI, which allow for optimization of highly noisy outcomes, along with any number of constraints (i.e., ensuring that auxiliary outcomes do not increase or decrease too much). For more on Noisy EI, see our <a target="_blank" rel="noopener" href="https://research.fb.com/efficient-tuning-of-online-systems-using-bayesian-optimization/">blog post</a>.</p>
-</blockquote>
-<p>这是采样的过程的一个示例：</p>
-<img data-src="/zh-CN/2019/10/14/%E8%B4%9D%E5%8F%B6%E6%96%AF%E4%BC%98%E5%8C%96%E4%B9%8B%E9%AB%98%E6%96%AF%E8%BF%87%E7%A8%8B%E5%92%8C%E5%BA%94%E7%94%A8/bo_1d_opt.gif" class="">
-
-
-<h2 id="应用"><a href="#应用" class="headerlink" title="应用"></a>应用</h2><p>高斯过程本身可以用来回归和分类，使用高斯过程的贝叶斯优化有很多具体的应用场景，除了超参数优化之外，对于网络结果（层数，数据并行度）等等也是可以使用的。<br>除此之外像 horovod 也使用了贝叶斯优化，在这个目录<a target="_blank" rel="noopener" href="https://github.com/horovod/horovod/tree/master/horovod/common/optim">下面</a>。</p>
-<blockquote>
-<p>Horovod comes with several adjustable “knobs” that can affect runtime performance, including –fusion-threshold-mb and –cycle-time-ms (tensor fusion), –cache-capacity (response cache), and hierarchical collective algorithms –hierarchical-allreduce and –hierarchical-allgather.</p>
-</blockquote>
-<p>他主要是服务于一些 Tensor Fusion 和 response cache 等参数以及层级 collective 通信选择，<a target="_blank" rel="noopener" href="https://horovod.readthedocs.io/en/latest/autotune.html">文档</a>提到了通过设置一些参数细致控制调优的过程。</p>
-<h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2><ol>
-<li> <a target="_blank" rel="noopener" href="https://blog.csdn.net/qq_23947237/article/details/78265026">一个例子搞清楚（先验分布/后验分布/似然估计）</a></li>
-<li> <a target="_blank" rel="noopener" href="https://arxiv.org/abs/1807.02811">A Tutorial on Bayesian Optimization</a></li>
-<li> <a target="_blank" rel="noopener" href="https://papers.nips.cc/paper/4522-practical-bayesian-optimization-of-machine-learning-algorithms.pdf">Practical Bayesian Optimization of Machine Learning Algorithms</a></li>
-<li> <a target="_blank" rel="noopener" href="https://github.com/hibayesian/awesome-automl-papers">Awesome-AutoML-Papers</a></li>
-<li> <a target="_blank" rel="noopener" href="http://www.gaussianprocess.org/gpml/chapters/RW.pdf">Gaussian Processes for Machine Learning</a></li>
-</ol>
 
       
     </div>
