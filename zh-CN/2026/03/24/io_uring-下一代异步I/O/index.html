@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.3.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="_85tctgPWrqH2EPVuuD5IT6KE-tW8nH0hTISJDMnShg">
+  <meta name="baidu-site-verification" content="bb16c5b1fd3302c18e0015bef11eea42">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha256-dABdfBfUoC8vJUBOwGVdm8L9qlMWaHTIfXt+7GnZCIo=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.css" integrity="sha256-gkQVf8UKZgQ0HyuxL/VnacadJ+D2Kox2TCEBuNQg5+w=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="引言：从 Bluesky 的 epoll 瓶颈说起2024 年 1 月，Bluesky 工程师发表了一篇文章，讲述了他们在将 Go 服务扩展到 192 核裸金属服务器时遭遇的一个深层运行时瓶颈。 他们的 AppView V2 服务是一个 ConnectRPC 服务器，平均每个请求要向 ScyllaDB 发起约 15.2 次查询。在配备 2×96 核 AMD Genoa-X CPU、512GB RA">
+<meta property="og:type" content="article">
+<meta property="og:title" content="io_uring：Linux 下一代异步 I&#x2F;O 基础设施">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2026/03/24/io_uring-%E4%B8%8B%E4%B8%80%E4%BB%A3%E5%BC%82%E6%AD%A5I/O/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="引言：从 Bluesky 的 epoll 瓶颈说起2024 年 1 月，Bluesky 工程师发表了一篇文章，讲述了他们在将 Go 服务扩展到 192 核裸金属服务器时遭遇的一个深层运行时瓶颈。 他们的 AppView V2 服务是一个 ConnectRPC 服务器，平均每个请求要向 ScyllaDB 发起约 15.2 次查询。在配备 2×96 核 AMD Genoa-X CPU、512GB RA">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://ggaaooppeenngg.github.io/images/io_uring-mmap-mechanism.jpg">
+<meta property="article:published_time" content="2026-03-24T09:50:00.000Z">
+<meta property="article:modified_time" content="2026-03-24T09:53:43.472Z">
+<meta property="article:author" content="ggaaooppeenngg">
+<meta property="article:tag" content="Linux">
+<meta property="article:tag" content="io_uring">
+<meta property="article:tag" content="性能优化">
+<meta property="article:tag" content="系统编程">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://ggaaooppeenngg.github.io/images/io_uring-mmap-mechanism.jpg">
+
+
+<link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2026/03/24/io_uring-%E4%B8%8B%E4%B8%80%E4%BB%A3%E5%BC%82%E6%AD%A5I/O/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://ggaaooppeenngg.github.io/zh-CN/2026/03/24/io_uring-%E4%B8%8B%E4%B8%80%E4%BB%A3%E5%BC%82%E6%AD%A5I/O/","path":"zh-CN/2026/03/24/io_uring-下一代异步I/O/","title":"io_uring：Linux 下一代异步 I/O 基础设施"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>io_uring：Linux 下一代异步 I/O 基础设施 | ggaaooppeenngg</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-62096626-1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"UA-62096626-1","only_pageview":false,"measure_protocol_api_secret":null}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+  <script src="/js/third-party/analytics/baidu-analytics.js"></script>
+  <script async src="https://hm.baidu.com/hm.js?bb16c5b1fd3302c18e0015bef11eea42"></script>
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">ggaaooppeenngg</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">为什么计算机科学是无限的但生命是有限的</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">156</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">18</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">85</span></a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%BC%95%E8%A8%80%EF%BC%9A%E4%BB%8E-Bluesky-%E7%9A%84-epoll-%E7%93%B6%E9%A2%88%E8%AF%B4%E8%B5%B7"><span class="nav-number">1.</span> <span class="nav-text">引言：从 Bluesky 的 epoll 瓶颈说起</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#epoll-%E7%9A%84%E5%B1%80%E9%99%90%E6%80%A7"><span class="nav-number">2.</span> <span class="nav-text">epoll 的局限性</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#epoll-%E7%9A%84%E7%97%9B%E7%82%B9"><span class="nav-number">2.1.</span> <span class="nav-text">epoll 的痛点</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#io-uring%EF%BC%9A%E8%AE%BE%E8%AE%A1%E5%93%B2%E5%AD%A6"><span class="nav-number">3.</span> <span class="nav-text">io_uring：设计哲学</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%A0%B8%E5%BF%83%E6%9E%B6%E6%9E%84"><span class="nav-number">3.1.</span> <span class="nav-text">核心架构</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%9B%B6%E6%8B%B7%E8%B4%9D%E6%9C%BA%E5%88%B6%E8%AF%A6%E8%A7%A3"><span class="nav-number">4.</span> <span class="nav-text">零拷贝机制详解</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%A4%E4%B8%AA%E9%98%B6%E6%AE%B5"><span class="nav-number">4.1.</span> <span class="nav-text">两个阶段</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E9%98%B6%E6%AE%B5%E4%B8%80%EF%BC%9Aio-uring-setup-%E2%80%94-%E5%86%85%E6%A0%B8%E5%88%86%E9%85%8D%E7%89%A9%E7%90%86%E9%A1%B5"><span class="nav-number">4.1.1.</span> <span class="nav-text">阶段一：io_uring_setup() — 内核分配物理页</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E9%98%B6%E6%AE%B5%E4%BA%8C%EF%BC%9Ammap-%E4%B8%89%E6%AC%A1-%E2%80%94-%E6%8F%92%E5%85%A5%E7%94%A8%E6%88%B7%E6%80%81%E6%98%A0%E5%B0%84"><span class="nav-number">4.1.2.</span> <span class="nav-text">阶段二：mmap() 三次 — 插入用户态映射</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%95%B0%E6%8D%AE%E6%B5%81%EF%BC%9A%E9%9B%B6%E6%8B%B7%E8%B4%9D%E5%A6%82%E4%BD%95%E5%AE%9E%E7%8E%B0"><span class="nav-number">4.2.</span> <span class="nav-text">数据流：零拷贝如何实现</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%A1%B5%E8%A1%A8%E5%88%87%E6%8D%A2%E4%BC%98%E5%8C%96"><span class="nav-number">4.3.</span> <span class="nav-text">页表切换优化</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%A7%E8%83%BD%E5%AF%B9%E6%AF%94"><span class="nav-number">5.</span> <span class="nav-text">性能对比</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AE%9E%E6%88%98%EF%BC%9A%E4%BD%BF%E7%94%A8-liburing"><span class="nav-number">6.</span> <span class="nav-text">实战：使用 liburing</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AE%89%E8%A3%85"><span class="nav-number">6.1.</span> <span class="nav-text">安装</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Hello-World-%E7%A4%BA%E4%BE%8B"><span class="nav-number">6.2.</span> <span class="nav-text">Hello World 示例</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%94%9F%E4%BA%A7%E7%8E%AF%E5%A2%83%E8%80%83%E9%87%8F"><span class="nav-number">7.</span> <span class="nav-text">生产环境考量</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%86%85%E6%A0%B8%E7%89%88%E6%9C%AC%E8%A6%81%E6%B1%82"><span class="nav-number">7.1.</span> <span class="nav-text">内核版本要求</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BA%91%E5%8E%82%E5%95%86%E6%94%AF%E6%8C%81%E6%83%85%E5%86%B5"><span class="nav-number">7.2.</span> <span class="nav-text">云厂商支持情况</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%B0%83%E8%AF%95%E5%B7%A5%E5%85%B7"><span class="nav-number">7.3.</span> <span class="nav-text">调试工具</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%B7%B2%E7%9F%A5%E5%9D%91%E7%82%B9"><span class="nav-number">7.4.</span> <span class="nav-text">已知坑点</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%94%9F%E6%80%81%E7%8E%B0%E7%8A%B6"><span class="nav-number">8.</span> <span class="nav-text">生态现状</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%87%87%E7%94%A8-io-uring-%E7%9A%84%E9%A1%B9%E7%9B%AE"><span class="nav-number">8.1.</span> <span class="nav-text">采用 io_uring 的项目</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%AF%AD%E8%A8%80%E6%94%AF%E6%8C%81%E7%9F%A9%E9%98%B5"><span class="nav-number">8.2.</span> <span class="nav-text">语言支持矩阵</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AD%A6%E4%B9%A0%E8%B5%84%E6%BA%90"><span class="nav-number">9.</span> <span class="nav-text">学习资源</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AE%98%E6%96%B9%E8%B5%84%E6%96%99"><span class="nav-number">9.1.</span> <span class="nav-text">官方资料</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%95%99%E7%A8%8B"><span class="nav-number">9.2.</span> <span class="nav-text">教程</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%A4%BA%E4%BE%8B%E4%BB%A3%E7%A0%81"><span class="nav-number">9.3.</span> <span class="nav-text">示例代码</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93%EF%BC%9A%E4%BB%80%E4%B9%88%E6%97%B6%E5%80%99%E8%AF%A5%E7%94%A8-io-uring"><span class="nav-number">10.</span> <span class="nav-text">总结：什么时候该用 io_uring</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%80%82%E7%94%A8%E5%9C%BA%E6%99%AF"><span class="nav-number">10.1.</span> <span class="nav-text">适用场景</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%8D%E9%80%82%E7%94%A8%E5%9C%BA%E6%99%AF"><span class="nav-number">10.2.</span> <span class="nav-text">不适用场景</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%9C%AA%E6%9D%A5%E5%B1%95%E6%9C%9B"><span class="nav-number">10.3.</span> <span class="nav-text">未来展望</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8F%82%E8%80%83%E8%B5%84%E6%96%99"><span class="nav-number">11.</span> <span class="nav-text">参考资料</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">85</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">18</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">156</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/ggaaooppeenngg" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;ggaaooppeenngg" rel="noopener me" target="_blank"><i class="github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:peng.gao.dut@gmail.com" title="E-Mail → mailto:peng.gao.dut@gmail.com" rel="noopener me" target="_blank"><i class="envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+        <div class="back-to-top animated" role="button" aria-label="返回顶部">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2026/03/24/io_uring-%E4%B8%8B%E4%B8%80%E4%BB%A3%E5%BC%82%E6%AD%A5I/O/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="io_uring：Linux 下一代异步 I/O 基础设施 | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          io_uring：Linux 下一代异步 I/O 基础设施
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+      
+
+      <time title="创建时间：2026-03-24 17:50:00 / 修改时间：17:53:43" itemprop="dateCreated datePublished" datetime="2026-03-24T17:50:00+08:00">2026-03-24</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/%E6%8A%80%E6%9C%AF/" itemprop="url" rel="index"><span itemprop="name">技术</span></a>
+        </span>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2026/03/24/io_uring-%E4%B8%8B%E4%B8%80%E4%BB%A3%E5%BC%82%E6%AD%A5I/O/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2026/03/24/io_uring-下一代异步I/O/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h2 id="引言：从-Bluesky-的-epoll-瓶颈说起"><a href="#引言：从-Bluesky-的-epoll-瓶颈说起" class="headerlink" title="引言：从 Bluesky 的 epoll 瓶颈说起"></a>引言：从 Bluesky 的 epoll 瓶颈说起</h2><p>2024 年 1 月，Bluesky 工程师发表了一篇文章，讲述了他们在将 Go 服务扩展到 192 核裸金属服务器时遭遇的一个深层运行时瓶颈。</p>
+<p>他们的 AppView V2 服务是一个 ConnectRPC 服务器，平均每个请求要向 ScyllaDB 发起约 15.2 次查询。在配备 2×96 核 AMD Genoa-X CPU、512GB RAM 的服务器上，他们遇到了两个核心瓶颈：</p>
+<ol>
+<li><strong>GC 压力</strong>：通过调高 GOGC 参数（从 100 到 500），用内存换 CPU 时间</li>
+<li><strong>epoll 瓶颈</strong>：Go 的 Netpoll 在单次 EPoll 调用中最多只缓冲 128 个 socket，而实际场景中有数千个 socket 就绪，导致 <code>syscall.EpollWait</code> 占据了近 65% 的 CPU 时间</li>
+</ol>
+<p>他们的解决方案是：<strong>在每台主机上启动 8 个 Go 运行时实例，将网络负载分摊开来</strong>。性能提升显著：</p>
+<ul>
+<li>ScyllaDB 查询吞吐量：130 万次/秒 → 280 万次/秒</li>
+<li>前端请求吞吐：9 万次/秒 → 18.5 万次/秒</li>
+<li>p50/p99 延迟下降超过 50%</li>
+<li>CPU 利用率：80% → 40%</li>
+</ul>
+<p>这个故事揭示了一个反直觉的工程规律：<strong>在极高并发 I/O 场景下，运行时本身（而非业务逻辑）会成为瓶颈</strong>。</p>
+<p>而 io_uring，正是为了解决这类问题而生的。</p>
+<hr>
+<h2 id="epoll-的局限性"><a href="#epoll-的局限性" class="headerlink" title="epoll 的局限性"></a>epoll 的局限性</h2><p>epoll 是 Linux 2.6+ 引入的 I/O 多路复用机制，替代了 select/poll。它的工作原理是：</p>
+<ol>
+<li>内核维护一个就绪事件列表</li>
+<li>用户空间通过 <code>epoll_wait()</code> 轮询获取就绪事件</li>
+<li>支持 LT（水平触发）、ET（边缘触发）等模式</li>
+</ol>
+<h3 id="epoll-的痛点"><a href="#epoll-的痛点" class="headerlink" title="epoll 的痛点"></a>epoll 的痛点</h3><table>
+<thead>
+<tr>
+<th>痛点</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>上下文切换开销</strong></td>
+<td>每次 <code>epoll_wait()</code> 都要从用户态切换到内核态</td>
+</tr>
+<tr>
+<td><strong>数据拷贝</strong></td>
+<td>就绪事件需要从内核空间拷贝到用户空间</td>
+</tr>
+<tr>
+<td><strong>锁竞争</strong></td>
+<td>高并发下 epoll 实例的锁成为瓶颈</td>
+</tr>
+<tr>
+<td><strong>中断风暴</strong></td>
+<td>每个事件到达都可能触发中断</td>
+</tr>
+<tr>
+<td><strong>单次缓冲限制</strong></td>
+<td>如 Go Netpoll 单次只缓冲 128 个 socket</td>
+</tr>
+</tbody></table>
+<p>Bluesky 遇到的正是 epoll 的<strong>系统性瓶颈</strong>——当连接数突破某个阈值，抽象层的开销就藏不住了。</p>
+<hr>
+<h2 id="io-uring：设计哲学"><a href="#io-uring：设计哲学" class="headerlink" title="io_uring：设计哲学"></a>io_uring：设计哲学</h2><p>io_uring 是 Linux 5.1+ 引入的异步 I/O 接口，由 Jens Axboe（FIO 作者）设计。它的核心设计哲学是：</p>
+<blockquote>
+<p><strong>让 I/O 提交和完成都无需系统调用，通过共享内存实现零拷贝通信。</strong></p>
+</blockquote>
+<h3 id="核心架构"><a href="#核心架构" class="headerlink" title="核心架构"></a>核心架构</h3><p>io_uring 基于<strong>共享环形缓冲区</strong>：</p>
+<ul>
+<li>**SQ (Submission Queue)**：提交队列，用户空间将 I/O 请求放入这里</li>
+<li>**CQ (Completion Queue)**：完成队列，内核将完成的通知放入这里</li>
+<li>**SQE (Submission Queue Entry)**：提交队列条目，描述一个 I/O 请求</li>
+<li>**CQE (Completion Queue Entry)**：完成队列条目，描述 I/O 完成结果</li>
+</ul>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">用户空间                              内核空间</span><br><span class="line">┌─────────────────┐                ┌─────────────────┐</span><br><span class="line">│  SQ Ring        │◄────共享内存────►│  SQ Ring        │</span><br><span class="line">│  (提交队列)      │                │  (提交队列)      │</span><br><span class="line">├─────────────────┤                ├─────────────────┤</span><br><span class="line">│  CQ Ring        │◄────共享内存────►│  CQ Ring        │</span><br><span class="line">│  (完成队列)      │                │  (完成队列)      │</span><br><span class="line">└─────────────────┘                └─────────────────┘</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="零拷贝机制详解"><a href="#零拷贝机制详解" class="headerlink" title="零拷贝机制详解"></a>零拷贝机制详解</h2><p>io_uring 的”零拷贝”不是魔法，而是<strong>巧妙的虚拟内存映射设计</strong>。</p>
+<h3 id="两个阶段"><a href="#两个阶段" class="headerlink" title="两个阶段"></a>两个阶段</h3><h4 id="阶段一：io-uring-setup-—-内核分配物理页"><a href="#阶段一：io-uring-setup-—-内核分配物理页" class="headerlink" title="阶段一：io_uring_setup() — 内核分配物理页"></a>阶段一：<code>io_uring_setup()</code> — 内核分配物理页</h4><p>内核分配物理页 P1, P2, P3，并在<strong>内核页表</strong>中建立映射。此时用户进程页表中没有任何映射，用户态无法访问这些物理页。</p>
+<h4 id="阶段二：mmap-三次-—-插入用户态映射"><a href="#阶段二：mmap-三次-—-插入用户态映射" class="headerlink" title="阶段二：mmap() 三次 — 插入用户态映射"></a>阶段二：<code>mmap()</code> 三次 — 插入用户态映射</h4><p>内核在用户进程的页表里插入新条目——把用户态的某段虚拟地址（比如 <code>0x7f000000</code>）也指向同一批物理页。</p>
+<p><img data-src="/images/io_uring-mmap-mechanism.jpg" alt="io_uring mmap 机制"></p>
+<p><strong>关键</strong>：</p>
+<ul>
+<li>用户态虚拟地址 <code>0x7f000000</code> → 物理页 P1</li>
+<li>内核态虚拟地址 <code>0xffff8000</code> → <strong>同一个</strong>物理页 P1</li>
+<li><strong>权限位不同</strong>：用户态是 <code>RW|User</code>，内核态是 <code>RW|Kernel-only</code></li>
+</ul>
+<blockquote>
+<p><strong>mmap() 做了什么</strong></p>
+<ul>
+<li><code>io_uring_setup()</code> — 内核分配物理页 P1/P2/P3，建立内核虚拟地址→物理页的映射</li>
+<li><code>mmap()</code> 三次 — 在用户进程页表里插入新条目：用户虚拟地址 → 同一批物理页 P1/P2/P3</li>
+<li>写入后 — 用户写 <code>0x7f000000</code>，内核读 <code>0xffff8000...</code>，落在同一物理字节，零拷贝</li>
+</ul>
+</blockquote>
+<h3 id="数据流：零拷贝如何实现"><a href="#数据流：零拷贝如何实现" class="headerlink" title="数据流：零拷贝如何实现"></a>数据流：零拷贝如何实现</h3><p>用户程序写 SQ Ring：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sqring-&gt;tail++;  <span class="comment">// 虚拟地址 0x7f000000，CPU 翻译到物理页 P1</span></span><br></pre></td></tr></table></figure>
+
+<p>内核程序读 SQ Ring：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">tail = sqring-&gt;tail;  <span class="comment">// 虚拟地址 0xffff8000，CPU 翻译到同一个物理页 P1</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>数据从未被复制</strong>，只是同一块物理内存有两个”门牌号”。</p>
+<h3 id="页表切换优化"><a href="#页表切换优化" class="headerlink" title="页表切换优化"></a>页表切换优化</h3><table>
+<thead>
+<tr>
+<th>切换场景</th>
+<th>CR3 是否切换</th>
+<th>原因</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>用户进程 A → 内核线程</td>
+<td>❌ 不切换</td>
+<td>内核线程借用进程 A 的页表，只访问内核映射区</td>
+</tr>
+<tr>
+<td>内核线程 → 内核线程</td>
+<td>❌ 不切换</td>
+<td>所有内核页表的内核映射区完全相同</td>
+</tr>
+<tr>
+<td>内核线程 → 用户进程 B</td>
+<td>✅ 必须切换</td>
+<td>进程 B 的用户态映射不同，需要换页表</td>
+</tr>
+</tbody></table>
+<p>如果调度序列是：<strong>进程 A → kworker → kworker2 → 进程 A</strong>，整个过程 CR3 一直是<strong>进程 A 的页表</strong>，完全不需要切换！</p>
+<hr>
+<h2 id="性能对比"><a href="#性能对比" class="headerlink" title="性能对比"></a>性能对比</h2><table>
+<thead>
+<tr>
+<th>操作</th>
+<th>epoll</th>
+<th>io_uring</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>提交请求</td>
+<td><code>epoll_ctl()</code> syscall</td>
+<td>写 SQ Ring (无 syscall)</td>
+</tr>
+<tr>
+<td>等待事件</td>
+<td><code>epoll_wait()</code> syscall</td>
+<td>读 CQ Ring (无 syscall)</td>
+</tr>
+<tr>
+<td>数据拷贝</td>
+<td>就绪事件从内核拷贝到用户</td>
+<td>零拷贝 (共享内存)</td>
+</tr>
+<tr>
+<td>上下文切换</td>
+<td>每次 wait 都要切换</td>
+<td>初始化后几乎不切换</td>
+</tr>
+<tr>
+<td>并发能力</td>
+<td>万级并发 OK</td>
+<td>十万级并发轻松</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="实战：使用-liburing"><a href="#实战：使用-liburing" class="headerlink" title="实战：使用 liburing"></a>实战：使用 liburing</h2><h3 id="安装"><a href="#安装" class="headerlink" title="安装"></a>安装</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># Ubuntu/Debian</span></span><br><span class="line">apt install liburing-dev</span><br><span class="line"></span><br><span class="line"><span class="comment"># 源码编译</span></span><br><span class="line">git <span class="built_in">clone</span> https://github.com/axboe/liburing</span><br><span class="line"><span class="built_in">cd</span> liburing</span><br><span class="line">./configure</span><br><span class="line">make</span><br><span class="line"><span class="built_in">sudo</span> make install</span><br></pre></td></tr></table></figure>
+
+<h3 id="Hello-World-示例"><a href="#Hello-World-示例" class="headerlink" title="Hello World 示例"></a>Hello World 示例</h3><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;liburing.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;stdio.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;string.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;fcntl.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;unistd.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="type">int</span> <span class="title function_">main</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">io_uring</span> <span class="title">ring</span>;</span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">io_uring_sqe</span> *<span class="title">sqe</span>;</span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">io_uring_cqe</span> *<span class="title">cqe</span>;</span></span><br><span class="line">    <span class="type">char</span> buf[<span class="number">256</span>];</span><br><span class="line">    <span class="type">int</span> fd;</span><br><span class="line">    <span class="type">int</span> ret;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 初始化 io_uring</span></span><br><span class="line">    ret = io_uring_queue_init(<span class="number">32</span>, &amp;ring, <span class="number">0</span>);</span><br><span class="line">    <span class="keyword">if</span> (ret &lt; <span class="number">0</span>) &#123;</span><br><span class="line">        perror(<span class="string">&quot;io_uring_queue_init&quot;</span>);</span><br><span class="line">        <span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 打开文件</span></span><br><span class="line">    fd = open(<span class="string">&quot;test.txt&quot;</span>, O_RDONLY);</span><br><span class="line">    <span class="keyword">if</span> (fd &lt; <span class="number">0</span>) &#123;</span><br><span class="line">        perror(<span class="string">&quot;open&quot;</span>);</span><br><span class="line">        <span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 获取提交队列条目</span></span><br><span class="line">    sqe = io_uring_get_sqe(&amp;ring);</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 准备读请求</span></span><br><span class="line">    io_uring_prep_read(sqe, fd, buf, <span class="keyword">sizeof</span>(buf), <span class="number">0</span>);</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 提交请求</span></span><br><span class="line">    ret = io_uring_submit(&amp;ring);</span><br><span class="line">    <span class="keyword">if</span> (ret &lt; <span class="number">0</span>) &#123;</span><br><span class="line">        perror(<span class="string">&quot;io_uring_submit&quot;</span>);</span><br><span class="line">        <span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 等待完成</span></span><br><span class="line">    ret = io_uring_wait_cqe(&amp;ring, &amp;cqe);</span><br><span class="line">    <span class="keyword">if</span> (ret &lt; <span class="number">0</span>) &#123;</span><br><span class="line">        perror(<span class="string">&quot;io_uring_wait_cqe&quot;</span>);</span><br><span class="line">        <span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 检查结果</span></span><br><span class="line">    <span class="keyword">if</span> (cqe-&gt;res &lt; <span class="number">0</span>) &#123;</span><br><span class="line">        <span class="built_in">fprintf</span>(<span class="built_in">stderr</span>, <span class="string">&quot;read failed: %d\n&quot;</span>, cqe-&gt;res);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="built_in">printf</span>(<span class="string">&quot;Read %d bytes: %.*s\n&quot;</span>, cqe-&gt;res, cqe-&gt;res, buf);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 标记完成</span></span><br><span class="line">    io_uring_cqe_seen(&amp;ring, cqe);</span><br><span class="line"></span><br><span class="line">    close(fd);</span><br><span class="line">    io_uring_queue_exit(&amp;ring);</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>编译：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">gcc -o hello_uring hello_uring.c -luring</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="生产环境考量"><a href="#生产环境考量" class="headerlink" title="生产环境考量"></a>生产环境考量</h2><h3 id="内核版本要求"><a href="#内核版本要求" class="headerlink" title="内核版本要求"></a>内核版本要求</h3><table>
+<thead>
+<tr>
+<th>特性</th>
+<th>最低内核版本</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>基础 io_uring</td>
+<td>5.1</td>
+</tr>
+<tr>
+<td>链接操作 (IOSQE_IO_LINK)</td>
+<td>5.5</td>
+</tr>
+<tr>
+<td>缓冲区选择</td>
+<td>5.6</td>
+</tr>
+<tr>
+<td>轮询模式 (IORING_SETUP_SQPOLL)</td>
+<td>5.11</td>
+</tr>
+<tr>
+<td>注册文件描述符</td>
+<td>5.6</td>
+</tr>
+</tbody></table>
+<p><strong>建议</strong>：生产环境使用 5.10+ LTS 内核。</p>
+<h3 id="云厂商支持情况"><a href="#云厂商支持情况" class="headerlink" title="云厂商支持情况"></a>云厂商支持情况</h3><ul>
+<li><strong>AWS</strong>：Amazon Linux 2 默认 4.14，需升级；Amazon Linux 2023 默认 5.10+</li>
+<li><strong>GCP</strong>：Cos 默认较新，Ubuntu 镜像需确认</li>
+<li><strong>Azure</strong>：Ubuntu 20.04+ 支持良好</li>
+<li><strong>阿里云/腾讯云</strong>：需确认具体实例类型</li>
+</ul>
+<h3 id="调试工具"><a href="#调试工具" class="headerlink" title="调试工具"></a>调试工具</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 查看内核支持</span></span><br><span class="line"><span class="built_in">cat</span> /boot/config-$(<span class="built_in">uname</span> -r) | grep IO_URING</span><br><span class="line"></span><br><span class="line"><span class="comment"># 检查 io_uring 状态</span></span><br><span class="line"><span class="built_in">cat</span> /proc/sys/fs/io_uring-*</span><br><span class="line"></span><br><span class="line"><span class="comment"># 追踪系统调用</span></span><br><span class="line">strace -e io_uring_* ./your_program</span><br><span class="line"></span><br><span class="line"><span class="comment"># 性能分析</span></span><br><span class="line">bpftrace -e <span class="string">&#x27;tracepoint:syscalls:sys_enter_io_uring_* &#123; @[comm] = count(); &#125;&#x27;</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="已知坑点"><a href="#已知坑点" class="headerlink" title="已知坑点"></a>已知坑点</h3><ol>
+<li><strong>内存限制</strong>：<code>ulimit -l</code> 可能限制锁内存大小，io_uring 需要锁内存</li>
+<li><strong>文件系统</strong>：NFS 等网络文件系统支持有限</li>
+<li><strong>权限问题</strong>：某些操作可能需要 CAP_IPC_LOCK 能力</li>
+</ol>
+<hr>
+<h2 id="生态现状"><a href="#生态现状" class="headerlink" title="生态现状"></a>生态现状</h2><h3 id="采用-io-uring-的项目"><a href="#采用-io-uring-的项目" class="headerlink" title="采用 io_uring 的项目"></a>采用 io_uring 的项目</h3><table>
+<thead>
+<tr>
+<th>项目</th>
+<th>状态</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Nginx</td>
+<td>实验性</td>
+<td>部分模块支持</td>
+</tr>
+<tr>
+<td>Redis</td>
+<td>部分支持</td>
+<td>持久化模块</td>
+</tr>
+<tr>
+<td>Node.js</td>
+<td>实验中</td>
+<td>uv 库</td>
+</tr>
+<tr>
+<td>Python</td>
+<td>实验性</td>
+<td>asyncio 后端选项</td>
+</tr>
+<tr>
+<td>vLLM</td>
+<td>✅ 生产</td>
+<td>FlexKV 使用 io_uring 处理 SSD I/O</td>
+</tr>
+</tbody></table>
+<h3 id="语言支持矩阵"><a href="#语言支持矩阵" class="headerlink" title="语言支持矩阵"></a>语言支持矩阵</h3><table>
+<thead>
+<tr>
+<th>语言</th>
+<th>库</th>
+<th>成熟度</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>C</td>
+<td>liburing</td>
+<td>✅ 官方</td>
+</tr>
+<tr>
+<td>Rust</td>
+<td>tokio-uring, io-uring</td>
+<td>✅ 成熟</td>
+</tr>
+<tr>
+<td>Go</td>
+<td>golang.org/x/exp/io/uring</td>
+<td>⚠️ 实验性</td>
+</tr>
+<tr>
+<td>Python</td>
+<td>python-liburing</td>
+<td>⚠️ 非官方</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="学习资源"><a href="#学习资源" class="headerlink" title="学习资源"></a>学习资源</h2><h3 id="官方资料"><a href="#官方资料" class="headerlink" title="官方资料"></a>官方资料</h3><ul>
+<li><a target="_blank" rel="noopener" href="https://kernel.dk/io_uring.pdf">io_uring.pdf</a> — Jens Axboe 原始设计文档</li>
+<li><a target="_blank" rel="noopener" href="https://github.com/axboe/liburing">axboe/liburing</a> — 官方库和示例</li>
+<li><a target="_blank" rel="noopener" href="https://github.com/torvalds/linux/tree/master/Documentation/io_uring">内核文档</a></li>
+</ul>
+<h3 id="教程"><a href="#教程" class="headerlink" title="教程"></a>教程</h3><ul>
+<li><a target="_blank" rel="noopener" href="https://unixism.net/loti/">Lord of the io_uring</a> ⭐ 强烈推荐 — 从零开始，每章都有代码示例</li>
+<li><a target="_blank" rel="noopener" href="https://www.evennotes.cn/zh/post/io_uring/">io_uring 入门指南（中文）</a></li>
+</ul>
+<h3 id="示例代码"><a href="#示例代码" class="headerlink" title="示例代码"></a>示例代码</h3><ul>
+<li><a target="_blank" rel="noopener" href="https://github.com/axboe/liburing/tree/master/examples">liburing/examples</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/shuveb/loti-examples">loti-examples</a></li>
+</ul>
+<hr>
+<h2 id="总结：什么时候该用-io-uring"><a href="#总结：什么时候该用-io-uring" class="headerlink" title="总结：什么时候该用 io_uring"></a>总结：什么时候该用 io_uring</h2><h3 id="适用场景"><a href="#适用场景" class="headerlink" title="适用场景"></a>适用场景</h3><ul>
+<li>✅ 高并发网络服务（&gt;10K 连接）</li>
+<li>✅ 数据库、存储引擎</li>
+<li>✅ 低延迟要求的应用</li>
+<li>✅ 大量随机 I/O 场景</li>
+</ul>
+<h3 id="不适用场景"><a href="#不适用场景" class="headerlink" title="不适用场景"></a>不适用场景</h3><ul>
+<li>❌ 连接数少（&lt;100）</li>
+<li>❌ 内核版本受限（&lt;5.1）</li>
+<li>❌ 需要广泛兼容性的场景</li>
+</ul>
+<h3 id="未来展望"><a href="#未来展望" class="headerlink" title="未来展望"></a>未来展望</h3><p>io_uring 正在成为 Linux I/O 的默认选择。随着内核普及和语言绑定的成熟，它有望在以下方面带来变革：</p>
+<ol>
+<li><strong>网络框架重构</strong>：现有 epoll 框架（如 Netty、Tokio）可能重写后端</li>
+<li><strong>数据库优化</strong>：存储引擎直接利用 io_uring 降低延迟</li>
+<li><strong>云原生基础设施</strong>：Service Mesh、API Gateway 等中间件受益</li>
+</ol>
+<p>正如 Bluesky 的案例所示，在极端场景下，<strong>运行时抽象会变成瓶颈</strong>。io_uring 提供了一种更底层的、更高效的 I/O 模型，让我们能够突破这些瓶颈。</p>
+<p>对于追求极致性能的系统工程师来说，io_uring 不是”要不要学”的问题，而是”什么时候学”的问题。</p>
+<hr>
+<h2 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a>参考资料</h2><ol>
+<li>Bluesky Engineering. “Scaling AppView to 192 Cores.” <a target="_blank" rel="noopener" href="https://jazco.dev/2024/01/10/golang-and-epoll/">https://jazco.dev/2024/01/10/golang-and-epoll/</a></li>
+<li>Jens Axboe. “io_uring: A New Linux Async I/O Subsystem.” <a target="_blank" rel="noopener" href="https://kernel.dk/io_uring.pdf">https://kernel.dk/io_uring.pdf</a></li>
+<li>Shuveb Hussain. “Lord of the io_uring.” <a target="_blank" rel="noopener" href="https://unixism.net/loti/">https://unixism.net/loti/</a></li>
+<li>Linux Kernel Documentation. “io_uring.” <a target="_blank" rel="noopener" href="https://github.com/torvalds/linux/tree/master/Documentation/io_uring">https://github.com/torvalds/linux/tree/master/Documentation/io_uring</a></li>
+</ol>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Linux/" rel="tag"># Linux</a>
+              <a href="/tags/io-uring/" rel="tag"># io_uring</a>
+              <a href="/tags/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96/" rel="tag"># 性能优化</a>
+              <a href="/tags/%E7%B3%BB%E7%BB%9F%E7%BC%96%E7%A8%8B/" rel="tag"># 系统编程</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/zh-CN/2026/03/16/agent-skill-self-improvement/" rel="prev" title="Agent Skill 自提升机制：以结果为导向的进化设计">
+                  <i class="fa fa-angle-left"></i> Agent Skill 自提升机制：以结果为导向的进化设计
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/zh-CN/2026/04/03/nvidia-gb200-architecture-deep-dive/" rel="next" title="NVIDIA GB200 架构深度解析：机柜级 AI 超级计算机">
+                  NVIDIA GB200 架构深度解析：机柜级 AI 超级计算机 <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 2014 – 
+    <span itemprop="copyrightYear">2026</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+  </div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/mist/" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.umd.js" integrity="sha256-a+H7FYzJv6oU2hfsfDGM2Ohw/cR9v+hPfxHCLdmCrE8=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lozad.js/1.16.0/lozad.min.js" integrity="sha256-mOFREFhqmHeQbXpK2lp4nA3qooVgACfh88fpJftLBbc=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/sidebar.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+  <script src="/js/third-party/fancybox.js"></script>
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"ggaaooppeenngg","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>
