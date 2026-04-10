@@ -255,22 +255,22 @@
 <p>为什么在跑 GLM-5 时 FlashMLA 需要开启 <code>flashmla_kv</code> 配置才能支持 FP8 KV Cache？FP8 格式具体是如何设计的？DSA 的 token-level sparse attention 是如何通过 indices tensor 实现的？本文从论文算法到代码实现，深入剖析 FlashMLA 的核心机制。</p>
 </blockquote>
 <h2 id="目录"><a href="#目录" class="headerlink" title="目录"></a>目录</h2><ul>
-<li>[问题起源：flashmla_kv 配置](#问题起源 flashmla_kv-配置)</li>
+<li><a href="#%E9%97%AE%E9%A2%98%E8%B5%B7%E6%BA%90">问题起源</a></li>
 <li><a href="#fp8-kv-cache-%E6%A0%BC%E5%BC%8F%E8%AF%A6%E8%A7%A3">FP8 KV Cache 格式详解</a></li>
 <li><a href="#dsa-%E7%A8%80%E7%96%8F%E6%B3%A8%E6%84%8F%E5%8A%9B%E6%9C%BA%E5%88%B6">DSA 稀疏注意力机制</a></li>
 <li><a href="#%E8%AE%BA%E6%96%87%E7%AE%97%E6%B3%95%E4%B8%8E%E4%BB%A3%E7%A0%81%E5%AF%B9%E5%BA%94">论文算法与代码对应</a></li>
 <li><a href="#%E4%B8%BA%E4%BB%80%E4%B9%88-decode-%E9%98%B6%E6%AE%B5%E5%BF%85%E9%A1%BB%E7%94%A8-fp8">为什么 decode 阶段必须用 FP8</a></li>
-<li><a href="#lmcache-%E9%9B%86%E6%88%90%E6%8C%91%E6%88%98">LMCache 集成挑战</a></li>
 <li><a href="#%E5%AE%9E%E8%B7%B5%E6%8C%87%E5%8D%97">实践指南</a></li>
+<li><a href="#%E6%80%BB%E7%BB%93">总结</a></li>
 <li><a href="#%E5%8F%82%E8%80%83%E8%B5%84%E6%96%99">参考资料</a></li>
 </ul>
 <hr>
-<h2 id="问题起源：flashmla-kv-配置"><a href="#问题起源：flashmla-kv-配置" class="headerlink" title="问题起源：flashmla_kv 配置"></a>问题起源：flashmla_kv 配置</h2><p>在部署 GLM-5 或 DeepSeek-V3.2 系列模型时，很多用户会遇到一个配置问题：</p>
+<h2 id="问题起源"><a href="#问题起源" class="headerlink" title="问题起源"></a>问题起源</h2><p>在部署 GLM-5 或 DeepSeek-V3.2 系列模型时，很多用户会遇到一个配置问题：</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 错误配置：decode 阶段无法使用 FP8 KV Cache</span></span><br><span class="line">config = &#123;</span><br><span class="line">    <span class="string">&quot;use_flashmla&quot;</span>: <span class="literal">True</span>,</span><br><span class="line">    <span class="string">&quot;flashmla_kv&quot;</span>: <span class="literal">False</span>  <span class="comment"># ❌ 这会导致 decode 性能下降</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment"># 正确配置</span></span><br><span class="line">config = &#123;</span><br><span class="line">    <span class="string">&quot;use_flashmla&quot;</span>: <span class="literal">True</span>,</span><br><span class="line">    <span class="string">&quot;flashmla_kv&quot;</span>: <span class="literal">True</span>  <span class="comment"># ✅ 启用 FP8 KV Cache 支持</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <p><strong>为什么会有这个配置？</strong></p>
 <p>这涉及到 FlashMLA 的<strong>多个 kernel 对 dtype 的严格要求</strong>。让我们通过实证测试来看：</p>
-<h3 id="实证测试：FlashMLA-KV-Cache-Dtype-支持矩阵"><a href="#实证测试：FlashMLA-KV-Cache-Dtype-支持矩阵" class="headerlink" title="实证测试：FlashMLA KV Cache Dtype 支持矩阵"></a>实证测试：FlashMLA KV Cache Dtype 支持矩阵</h3><p>下面是通过实际运行 FlashMLA 测试得到的结果（测试文件：<code>tests/test_flashmla_dtype_support.py</code>）：</p>
+<h3 id="实证测试：FlashMLA-KV-Cache-Dtype-支持矩阵"><a href="#实证测试：FlashMLA-KV-Cache-Dtype-支持矩阵" class="headerlink" title="实证测试：FlashMLA KV Cache Dtype 支持矩阵"></a>实证测试：FlashMLA KV Cache Dtype 支持矩阵</h3><p>下面是通过实际运行 FlashMLA 测试得到的结果（测试文件：<a target="_blank" rel="noopener" href="https://github.com/ggaaooppeenngg/ggaaooppeenngg.github.io/blob/main/examples/test_flashmla_dtype_support.py">tests/test_flashmla_dtype_support.py</a>）：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line">==========================================================================</span><br><span class="line">FlashMLA KV Cache Dtype Support — Empirical Verification</span><br><span class="line">==========================================================================</span><br><span class="line"></span><br><span class="line">--------------------------------------------------------------------------</span><br><span class="line">KERNEL: flash_mla_sparse_fwd (sparse_prefill_fwd)</span><br><span class="line">KV dtype: BFloat16 only</span><br><span class="line">--------------------------------------------------------------------------</span><br><span class="line">[PASS] BFloat16 kv: accepted as expected</span><br><span class="line">[PASS] FP8 kv : correctly rejected</span><br><span class="line">Error: Expected kv.dtype() == torch::kBFloat16 to be true, but got false.</span><br><span class="line"></span><br><span class="line">--------------------------------------------------------------------------</span><br><span class="line">KERNEL: flash_mla_with_kvcache dense (dense_decode_fwd)</span><br><span class="line">SM90: KV matches Q (BF16 or FP16) | SM100 (GB200): NOT SUPPORTED</span><br><span class="line">--------------------------------------------------------------------------</span><br><span class="line">[PASS] BFloat16 q+kv: correctly rejected (Error: BF16 Dense MLA is not supported on SM100)</span><br><span class="line">[PASS] Float16 q+kv : correctly rejected</span><br><span class="line">[PASS] FP8 kv : correctly rejected</span><br><span class="line"></span><br><span class="line">--------------------------------------------------------------------------</span><br><span class="line">KERNEL: flash_mla_with_kvcache sparse (sparse_decode_fwd)</span><br><span class="line">KV dtype: FP8 / Int8 / UInt8 only (Q is always BFloat16)</span><br><span class="line">--------------------------------------------------------------------------</span><br><span class="line">[PASS] FP8 kv : accepted as expected</span><br><span class="line">[PASS] BFloat16 kv: correctly rejected</span><br><span class="line">Error: key must have dtype fp8_e4m3fn or int8 or uint8</span><br><span class="line">[PASS] Float16 kv : correctly rejected</span><br></pre></td></tr></table></figure>
 
 <h3 id="测试结果总结"><a href="#测试结果总结" class="headerlink" title="测试结果总结"></a>测试结果总结</h3><table>
@@ -357,12 +357,6 @@
 <li>量化 KV：<code>KV_bf16 → KV_fp8 + scale_inv</code></li>
 <li>打包成 656 bytes/token 格式</li>
 <li>传给 <code>sparse_decode_fwd</code> kernel</li>
-</ul>
-<p>**如果 <code>flashmla_kv=False</code>**：</p>
-<ul>
-<li>KV 保持 BF16 格式</li>
-<li><code>sparse_decode_fwd</code> 拒绝接受</li>
-<li>只能回退到 <code>dense_decode_fwd</code>（慢 2.5-3x）</li>
 </ul>
 <hr>
 <h3 id="GB200-SM100-实测结果"><a href="#GB200-SM100-实测结果" class="headerlink" title="GB200 (SM100) 实测结果"></a>GB200 (SM100) 实测结果</h3><p>以下是实际在 NVIDIA GB200 (SM100/Blackwell) 上运行的 benchmark 结果：</p>
@@ -1024,7 +1018,7 @@
 <li><strong>FlashMLA Kernel Benchmark</strong><ul>
 <li>四种 kernel 配置的性能对比测试</li>
 <li>包含完整的 FP8 量化/反量化实现</li>
-<li><a target="_blank" rel="noopener" href="https://github.com/ggaaooppeenngg/ggaaooppeenngg.github.io/blob/main/examples/benchmark_flashmla.py">GitHub: examples/benchmark_flashmla.py</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/ggaaooppeenngg/ggaaooppeenng.github.io/blob/main/examples/benchmark_flashmla.py">GitHub: examples/benchmark_flashmla.py</a></li>
 </ul>
 </li>
 </ol>
@@ -1037,13 +1031,13 @@
 <p>理解这些机制对于：</p>
 <ul>
 <li><strong>正确配置推理服务</strong>（如 <code>flashmla_kv</code> 参数）</li>
-<li><strong>集成 KV Cache 管理系统</strong>（如 LMCache）</li>
+<li><strong>集成 KV Cache 管理系统</strong></li>
 <li><strong>性能调优和故障排查</strong></li>
 </ul>
 <p>都至关重要。</p>
 <p>随着更多模型采用类似技术（GLM-5、Qwen-3 等），掌握 FlashMLA 的原理将成为 LLM 部署工程师的必备技能。</p>
 <hr>
-<p><em>最后更新：2026-04-10</em></p>
+<h2 id="参考资料-1"><a href="#参考资料-1" class="headerlink" title="参考资料"></a>参考资料</h2><p><em>最后更新：2026-04-10</em></p>
 <p><em>作者注：本文基于 FlashMLA 开源代码和 DeepSeek 技术报告整理，部分实现细节可能随版本更新而变化。</em></p>
 
       
