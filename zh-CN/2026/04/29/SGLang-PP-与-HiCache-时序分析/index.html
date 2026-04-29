@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.3.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="_85tctgPWrqH2EPVuuD5IT6KE-tW8nH0hTISJDMnShg">
+  <meta name="baidu-site-verification" content="bb16c5b1fd3302c18e0015bef11eea42">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha256-dABdfBfUoC8vJUBOwGVdm8L9qlMWaHTIfXt+7GnZCIo=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.css" integrity="sha256-gkQVf8UKZgQ0HyuxL/VnacadJ+D2Kox2TCEBuNQg5+w=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="概述SGLang 的 Pipeline Parallelism (PP) 模式下，HiCache 负责 KV cache 的异步 prefetch（Host→GPU）和 backup（GPU→Host）。本文从 PP 调度器的外层事件循环出发，追踪 Load 和 Write 的完整时序，揭示 write_ack 比 load_ack 多延迟的根本原因。 一、PP 事件循环每个 iteration">
+<meta property="og:type" content="article">
+<meta property="og:title" content="SGLang PP 与 HiCache 时序分析">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2026/04/29/SGLang-PP-%E4%B8%8E-HiCache-%E6%97%B6%E5%BA%8F%E5%88%86%E6%9E%90/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="概述SGLang 的 Pipeline Parallelism (PP) 模式下，HiCache 负责 KV cache 的异步 prefetch（Host→GPU）和 backup（GPU→Host）。本文从 PP 调度器的外层事件循环出发，追踪 Load 和 Write 的完整时序，揭示 write_ack 比 load_ack 多延迟的根本原因。 一、PP 事件循环每个 iteration">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-04-28T16:00:00.000Z">
+<meta property="article:modified_time" content="2026-04-29T14:51:39.892Z">
+<meta property="article:author" content="ggaaooppeenngg">
+<meta property="article:tag" content="KV Cache">
+<meta property="article:tag" content="SGLang">
+<meta property="article:tag" content="Pipeline Parallelism">
+<meta property="article:tag" content="HiCache">
+<meta property="article:tag" content="时序分析">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2026/04/29/SGLang-PP-%E4%B8%8E-HiCache-%E6%97%B6%E5%BA%8F%E5%88%86%E6%9E%90/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://ggaaooppeenngg.github.io/zh-CN/2026/04/29/SGLang-PP-%E4%B8%8E-HiCache-%E6%97%B6%E5%BA%8F%E5%88%86%E6%9E%90/","path":"zh-CN/2026/04/29/SGLang-PP-与-HiCache-时序分析/","title":"SGLang PP 与 HiCache 时序分析"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>SGLang PP 与 HiCache 时序分析 | ggaaooppeenngg</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-62096626-1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"UA-62096626-1","only_pageview":false,"measure_protocol_api_secret":null}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+  <script src="/js/third-party/analytics/baidu-analytics.js"></script>
+  <script async src="https://hm.baidu.com/hm.js?bb16c5b1fd3302c18e0015bef11eea42"></script>
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">ggaaooppeenngg</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">为什么计算机科学是无限的但生命是有限的</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">173</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">23</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">90</span></a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%A6%82%E8%BF%B0"><span class="nav-number">1.</span> <span class="nav-text">概述</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%80%E3%80%81PP-%E4%BA%8B%E4%BB%B6%E5%BE%AA%E7%8E%AF"><span class="nav-number">2.</span> <span class="nav-text">一、PP 事件循环</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%8C%E3%80%81Load-%E6%97%B6%E5%BA%8F%EF%BC%88Host%E2%86%92GPU%EF%BC%89"><span class="nav-number">3.</span> <span class="nav-text">二、Load 时序（Host→GPU）</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%A7%A6%E5%8F%91%E6%97%B6%E6%9C%BA"><span class="nav-number">3.1.</span> <span class="nav-text">触发时机</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AE%8C%E6%95%B4%E6%97%B6%E5%BA%8F"><span class="nav-number">3.2.</span> <span class="nav-text">完整时序</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%97%B6%E5%BA%8F%E5%9B%BE"><span class="nav-number">3.3.</span> <span class="nav-text">时序图</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%89%E3%80%81Write-%E6%97%B6%E5%BA%8F%EF%BC%88GPU%E2%86%92Host%EF%BC%89"><span class="nav-number">4.</span> <span class="nav-text">三、Write 时序（GPU→Host）</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%A7%A6%E5%8F%91%E6%97%B6%E6%9C%BA-1"><span class="nav-number">4.1.</span> <span class="nav-text">触发时机</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AE%8C%E6%95%B4%E6%97%B6%E5%BA%8F-1"><span class="nav-number">4.2.</span> <span class="nav-text">完整时序</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%97%B6%E5%BA%8F%E5%9B%BE-1"><span class="nav-number">4.3.</span> <span class="nav-text">时序图</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9B%9B%E3%80%81%E5%BB%B6%E8%BF%9F%E5%AF%B9%E6%AF%94"><span class="nav-number">5.</span> <span class="nav-text">四、延迟对比</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BB%A5%E5%90%8C%E4%B8%80%E4%B8%AA-Prefill-batch-%E4%B8%BA%E5%9F%BA%E5%87%86"><span class="nav-number">5.1.</span> <span class="nav-text">以同一个 Prefill batch 为基准</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AF%B9%E6%AF%94%E8%A1%A8"><span class="nav-number">5.2.</span> <span class="nav-text">对比表</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88-write-ack-%E5%A4%9A%E5%BB%B6%E8%BF%9F%EF%BC%9F"><span class="nav-number">5.3.</span> <span class="nav-text">为什么 write_ack 多延迟？</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%94%E3%80%81PP-%E9%97%B4%E5%90%8C%E6%AD%A5%E9%97%AE%E9%A2%98"><span class="nav-number">6.</span> <span class="nav-text">五、PP 间同步问题</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#5-1-ack-theft"><span class="nav-number">6.1.</span> <span class="nav-text">5.1 ack theft</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-2-Count-Sync%EF%BC%88PR-22878%EF%BC%89"><span class="nav-number">6.2.</span> <span class="nav-text">5.2 Count Sync（PR #22878）</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%AD%E3%80%81%E6%80%BB%E7%BB%93"><span class="nav-number">7.</span> <span class="nav-text">六、总结</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">90</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">23</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">173</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/ggaaooppeenngg" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;ggaaooppeenngg" rel="noopener me" target="_blank"><i class="github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:peng.gao.dut@gmail.com" title="E-Mail → mailto:peng.gao.dut@gmail.com" rel="noopener me" target="_blank"><i class="envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+        <div class="back-to-top animated" role="button" aria-label="返回顶部">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2026/04/29/SGLang-PP-%E4%B8%8E-HiCache-%E6%97%B6%E5%BA%8F%E5%88%86%E6%9E%90/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="SGLang PP 与 HiCache 时序分析 | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          SGLang PP 与 HiCache 时序分析
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+      
+
+      <time title="创建时间：2026-04-29 00:00:00 / 修改时间：22:51:39" itemprop="dateCreated datePublished" datetime="2026-04-29T00:00:00+08:00">2026-04-29</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/AI-Infra/" itemprop="url" rel="index"><span itemprop="name">AI Infra</span></a>
+        </span>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2026/04/29/SGLang-PP-%E4%B8%8E-HiCache-%E6%97%B6%E5%BA%8F%E5%88%86%E6%9E%90/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2026/04/29/SGLang-PP-与-HiCache-时序分析/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h2 id="概述"><a href="#概述" class="headerlink" title="概述"></a>概述</h2><p>SGLang 的 Pipeline Parallelism (PP) 模式下，HiCache 负责 KV cache 的异步 prefetch（Host→GPU）和 backup（GPU→Host）。本文从 PP 调度器的外层事件循环出发，追踪 Load 和 Write 的完整时序，揭示 write_ack 比 load_ack 多延迟的根本原因。</p>
+<h2 id="一、PP-事件循环"><a href="#一、PP-事件循环" class="headerlink" title="一、PP 事件循环"></a>一、PP 事件循环</h2><p>每个 iteration 执行以下 6 步：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">iter=N:</span><br><span class="line">  ① recv_forward()              ← 接收 upstream output</span><br><span class="line">  ② check_hicache_events()      ← 查询 HiCache 异步事件（load_ack / write_ack）</span><br><span class="line">  ③ send_forward()              ← 向 downstream 传递 output</span><br><span class="line">  ④ get_next_batch_to_run()     ← 选下一批 batch（prefix match → eviction → load）</span><br><span class="line">  ⑤ _pp_launch_batch()          ← launch forward</span><br><span class="line">  ⑥ _pp_process_batch_result()  ← 处理上一批 batch 的结果（insert → write）</span><br></pre></td></tr></table></figure>
+
+<p><strong>核心设计</strong>：<code>process_batch_result</code> 处理的是 <code>mbs[next_mb_id]</code>——上一轮 launch 的 batch。同一个 iter 内，调度器同时在处理两个不同 batch 的生命周期阶段。</p>
+<h2 id="二、Load-时序（Host→GPU）"><a href="#二、Load-时序（Host→GPU）" class="headerlink" title="二、Load 时序（Host→GPU）"></a>二、Load 时序（Host→GPU）</h2><h3 id="触发时机"><a href="#触发时机" class="headerlink" title="触发时机"></a>触发时机</h3><p><strong>iter=N 的 <code>get_next_batch_to_run</code></strong> —— prefill 阶段 prefix match 发现 host_hit，发起 load_back。</p>
+<h3 id="完整时序"><a href="#完整时序" class="headerlink" title="完整时序"></a>完整时序</h3><table>
+<thead>
+<tr>
+<th>步骤</th>
+<th>发生在</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1. load 发起</td>
+<td>iter=N <code>get_next_batch_to_run</code></td>
+<td>match_prefix → host_hit → load_back → start_loading</td>
+</tr>
+<tr>
+<td>2. CUDA copy 启动</td>
+<td>iter=N <code>get_next_batch_to_run</code></td>
+<td>GPU 从 Host 异步拉取 KV cache，CUDA event 入队</td>
+</tr>
+<tr>
+<td>3. forward 逐层等待</td>
+<td>iter=N <code>_pp_launch_batch</code></td>
+<td>forward 通过 consumer_index 逐层等待对应 layer 的 load 完成</td>
+</tr>
+<tr>
+<td>4. load_ack 消费</td>
+<td>iter≥N+1 <code>check_hicache_events</code></td>
+<td>loading_check → event.query()=True → 消费 ack</td>
+</tr>
+</tbody></table>
+<p><strong>关键</strong>：load 是 <strong>prefetch</strong>——在 forward 之前触发，CUDA copy 和 forward 可以重叠（逐层等待、逐层执行）。</p>
+<h3 id="时序图"><a href="#时序图" class="headerlink" title="时序图"></a>时序图</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">iter=N:</span><br><span class="line">  ② check_hicache_events()</span><br><span class="line">     └─ 消费更早的 load_ack</span><br><span class="line">  ④ get_next_batch_to_run()</span><br><span class="line">     └─ match_prefix → host_hit → load_back() → start_loading()</span><br><span class="line">     └─ CUDA copy 启动，event 入队</span><br><span class="line">  ⑤ _pp_launch_batch()</span><br><span class="line">     └─ forward 逐层等待 load 完成</span><br><span class="line"></span><br><span class="line">iter=N+1:</span><br><span class="line">  ② check_hicache_events()</span><br><span class="line">     └─ loading_check() → event.query()=True → load_ack ✓</span><br></pre></td></tr></table></figure>
+
+<p><strong>延迟</strong>：load_ack 比 load 发起晚 <strong>1 iter</strong>。</p>
+<h2 id="三、Write-时序（GPU→Host）"><a href="#三、Write-时序（GPU→Host）" class="headerlink" title="三、Write 时序（GPU→Host）"></a>三、Write 时序（GPU→Host）</h2><h3 id="触发时机-1"><a href="#触发时机-1" class="headerlink" title="触发时机"></a>触发时机</h3><p><strong>iter=N 的 <code>process_batch_result</code></strong> —— 处理上一轮 launch 的 batch 结果，insert 时触发 write_backup。</p>
+<h3 id="完整时序-1"><a href="#完整时序-1" class="headerlink" title="完整时序"></a>完整时序</h3><table>
+<thead>
+<tr>
+<th>步骤</th>
+<th>发生在</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1. forward 执行</td>
+<td>iter=N-1 <code>_pp_launch_batch</code></td>
+<td>Prefill batch 在 GPU 上计算，生成 KV cache</td>
+</tr>
+<tr>
+<td>2. write 发起</td>
+<td>iter=N <code>process_batch_result</code></td>
+<td>处理 iter=N-1 的 batch → insert → write_backup → start_writing</td>
+</tr>
+<tr>
+<td>3. CUDA copy 启动</td>
+<td>iter=N <code>process_batch_result</code></td>
+<td>GPU 异步写回 Host，CUDA event 入队</td>
+</tr>
+<tr>
+<td>4. write_ack 消费</td>
+<td>iter≥N+1 <code>check_hicache_events</code></td>
+<td>writing_check → event.query()=True → 消费 ack</td>
+</tr>
+</tbody></table>
+<p><strong>关键</strong>：write 是 <strong>post-write</strong>——必须在 forward 算完、拿到完整 KV cache 后才能触发。</p>
+<h3 id="时序图-1"><a href="#时序图-1" class="headerlink" title="时序图"></a>时序图</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">iter=N-1:</span><br><span class="line">  ④ get_next_batch_to_run() → 选出 Prefill A</span><br><span class="line">  ⑤ _pp_launch_batch() → forward(Prefill A)</span><br><span class="line"></span><br><span class="line">iter=N:</span><br><span class="line">  ⑥ _pp_process_batch_result()</span><br><span class="line">     └─ 处理 iter=N-1 的 Prefill A</span><br><span class="line">     └─ insert() → write_backup() → start_writing()</span><br><span class="line">     └─ CUDA copy 启动，event 入队</span><br><span class="line"></span><br><span class="line">iter=N+1:</span><br><span class="line">  ② check_hicache_events()</span><br><span class="line">     └─ writing_check() → event.query()=True → write_ack ✓</span><br></pre></td></tr></table></figure>
+
+<p><strong>延迟</strong>：write_ack 比 write 发起晚 <strong>1 iter</strong>，但 write 本身比 forward 晚 <strong>1 iter</strong>（因为 process_batch_result 处理上一批 batch）。</p>
+<h2 id="四、延迟对比"><a href="#四、延迟对比" class="headerlink" title="四、延迟对比"></a>四、延迟对比</h2><h3 id="以同一个-Prefill-batch-为基准"><a href="#以同一个-Prefill-batch-为基准" class="headerlink" title="以同一个 Prefill batch 为基准"></a>以同一个 Prefill batch 为基准</h3><p>追踪一个 Prefill batch 从 launch 到 write_ack 的完整生命周期：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">iter=1:</span><br><span class="line">  ④ get_next_batch_to_run()</span><br><span class="line">     └─ 选出 Prefill A</span><br><span class="line">     └─ match_prefix → host_hit → load_back() → start_loading()</span><br><span class="line">  ⑤ _pp_launch_batch() → forward(Prefill A)</span><br><span class="line"></span><br><span class="line">iter=2:</span><br><span class="line">  ② check_hicache_events()</span><br><span class="line">     └─ loading_check() → load_ack ✓</span><br><span class="line">        ↑ load_ack: 1 iter delay</span><br><span class="line"></span><br><span class="line">iter=3:</span><br><span class="line">  ⑥ process_batch_result()</span><br><span class="line">     └─ 处理 iter=1 的 Prefill A</span><br><span class="line">     └─ insert() → write_backup() → start_writing()</span><br><span class="line">  ② check_hicache_events()</span><br><span class="line">     └─ (write_ack 还没完成)</span><br><span class="line"></span><br><span class="line">iter=4:</span><br><span class="line">  ② check_hicache_events()</span><br><span class="line">     └─ writing_check() → write_ack ✓</span><br><span class="line">        ↑ write_ack: 3 iter delay from Prefill launch</span><br></pre></td></tr></table></figure>
+
+<h3 id="对比表"><a href="#对比表" class="headerlink" title="对比表"></a>对比表</h3><table>
+<thead>
+<tr>
+<th>事件</th>
+<th>触发时机</th>
+<th>ack 入队时机</th>
+<th>ack 消费时机</th>
+<th>相对于 Prefill launch 的延迟</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>load</td>
+<td>iter=1 <code>get_next_batch_to_run</code></td>
+<td>iter=1</td>
+<td>iter=2</td>
+<td><strong>1 iter</strong></td>
+</tr>
+<tr>
+<td>write</td>
+<td>iter=3 <code>process_batch_result</code>（处理 iter=1 的 batch）</td>
+<td>iter=3</td>
+<td>iter=4</td>
+<td><strong>3 iter</strong></td>
+</tr>
+</tbody></table>
+<h3 id="为什么-write-ack-多延迟？"><a href="#为什么-write-ack-多延迟？" class="headerlink" title="为什么 write_ack 多延迟？"></a>为什么 write_ack 多延迟？</h3><p>两个因素叠加：</p>
+<p><strong>1. <code>process_batch_result</code> 滞后一轮</strong></p>
+<p>它处理 <code>mbs[next_mb_id]</code>（上一轮 launch 的 batch），以 PP2 为例偏移 2 iter。所以 write 比 load 晚 2 iter 才触发。</p>
+<p><strong>2. CUDA event query 需要等下一轮 check</strong></p>
+<p>无论 load 还是 write，ack 入队后最早等下一轮 <code>check_hicache_events</code> 才能消费。两者各加 1 iter。</p>
+<p><strong>综合</strong>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">Load:  iter=1 发起 → iter=1 ack 入队 → iter=2 消费</span><br><span class="line">Write: iter=1 forward → iter=3 process_result 发起 → iter=3 ack 入队 → iter=4 消费</span><br></pre></td></tr></table></figure>
+
+<p><strong>Load 是 prefetch（forward 之前），Write 是 post-write（forward 之后）</strong>。这个架构差异决定了 Write 必然比 Load 多延迟。</p>
+<h2 id="五、PP-间同步问题"><a href="#五、PP-间同步问题" class="headerlink" title="五、PP 间同步问题"></a>五、PP 间同步问题</h2><h3 id="5-1-ack-theft"><a href="#5-1-ack-theft" class="headerlink" title="5.1 ack theft"></a>5.1 ack theft</h3><p>早期实现中，PP1 的 <code>writing_check()</code> 绕过 <code>check_hicache_events</code> guard，消费了 PP0 的 write_ack，导致 PP0 端 pending event 永远无法完成。</p>
+<p><strong>修复</strong>：将 PP rank 分支移入 <code>writing_check</code>/<code>loading_check</code> 内部，强制 PP1 replay 事件。</p>
+<h3 id="5-2-Count-Sync（PR-22878）"><a href="#5-2-Count-Sync（PR-22878）" class="headerlink" title="5.2 Count Sync（PR #22878）"></a>5.2 Count Sync（PR #22878）</h3><p>PP0 比 PP1 早 1-2 iter 积累 write ack（output relay 延迟），导致 <code>ack_write_queue</code> 差异。PR #22878 通过 piggybacking write-ack consumption counts 在 PP ranks 间同步，确保 radix tree 一致性。</p>
+<h2 id="六、总结"><a href="#六、总结" class="headerlink" title="六、总结"></a>六、总结</h2><table>
+<thead>
+<tr>
+<th>维度</th>
+<th>Load</th>
+<th>Write</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>触发函数</strong></td>
+<td><code>get_next_batch_to_run</code></td>
+<td><code>process_batch_result</code></td>
+</tr>
+<tr>
+<td><strong>触发契机</strong></td>
+<td>prefix match 发现 host_hit</td>
+<td>insert → _inc_hit_count</td>
+</tr>
+<tr>
+<td><strong>与 forward 关系</strong></td>
+<td>forward <strong>之前</strong>（prefetch）</td>
+<td>forward <strong>之后</strong>（post-write）</td>
+</tr>
+<tr>
+<td><strong>CUDA copy 与 forward</strong></td>
+<td>可重叠（逐层等待）</td>
+<td>串行（forward 算完才触发）</td>
+</tr>
+<tr>
+<td><strong>ack 消费延迟</strong></td>
+<td>+1 iter</td>
+<td>+3 iter（含 process_result 偏移）</td>
+</tr>
+</tbody></table>
+<p><strong>核心结论</strong>：</p>
+<ol>
+<li>PP 调度器每个 iter 同时做两件事：<code>get_next_batch_to_run</code> 选下一批 batch，<code>process_batch_result</code> 处理上一批 batch 的结果</li>
+<li>Load 是 prefetch（forward 之前触发），Write 是 post-write（forward 之后触发）</li>
+<li><code>process_batch_result</code> 处理 <code>mbs[next_mb_id]</code> 的 iter 偏移是 Write 延迟的根本原因</li>
+<li>PP 间需要 count sync 补偿 output relay 带来的时序差异</li>
+</ol>
+<hr>
+<p><em>本文基于 SGLang 源码分析，涉及文件：<code>hiradix_cache.py</code>、<code>cache_controller.py</code>。</em></p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/KV-Cache/" rel="tag"># KV Cache</a>
+              <a href="/tags/SGLang/" rel="tag"># SGLang</a>
+              <a href="/tags/Pipeline-Parallelism/" rel="tag"># Pipeline Parallelism</a>
+              <a href="/tags/HiCache/" rel="tag"># HiCache</a>
+              <a href="/tags/%E6%97%B6%E5%BA%8F%E5%88%86%E6%9E%90/" rel="tag"># 时序分析</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/zh-CN/2026/04/24/SGLang-PP%E5%B9%B6%E8%A1%8C%E5%88%86%E6%9E%90/" rel="prev" title="SGLang Pipeline Parallelism 深度分析">
+                  <i class="fa fa-angle-left"></i> SGLang Pipeline Parallelism 深度分析
+                </a>
+            </div>
+            <div class="post-nav-item">
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 2014 – 
+    <span itemprop="copyrightYear">2026</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+  </div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/mist/" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.umd.js" integrity="sha256-a+H7FYzJv6oU2hfsfDGM2Ohw/cR9v+hPfxHCLdmCrE8=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lozad.js/1.16.0/lozad.min.js" integrity="sha256-mOFREFhqmHeQbXpK2lp4nA3qooVgACfh88fpJftLBbc=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/sidebar.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+  <script src="/js/third-party/fancybox.js"></script>
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"ggaaooppeenngg","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>
