@@ -21,15 +21,15 @@
 
 <script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
 
-    <meta name="description" content="DeepSeek-V4 KV Cache 深度分析 DeepSeek-V4 系列引入了多项关键升级：(1) 结合压缩稀疏注意力（CSA）和重度压缩注意力（HCA）的混合注意力架构；(2) 流形约束超连接（mHC）；(3) Muon 优化器。  DeepSeek-V4 彻底改变了 KV Cache 的设计，从 V3 的 MLA（多头潜在注意力）转向 CSA + HCA 混合注意力架构，通过序列维度压">
+    <meta name="description" content="DeepSeek-V4 KV Cache 深度分析 DeepSeek-V4 series incorporate several key upgrades: (1) hybrid attention architecture that combines Compressed Sparse Attention (CSA) and Heavily Compressed Attention (HCA);">
 <meta property="og:type" content="article">
 <meta property="og:title" content="DeepSeek-V4 KV Cache 深度分析">
 <meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2026/05/14/DeepSeek-V4-KV-Cache/index.html">
 <meta property="og:site_name" content="ggaaooppeenngg">
-<meta property="og:description" content="DeepSeek-V4 KV Cache 深度分析 DeepSeek-V4 系列引入了多项关键升级：(1) 结合压缩稀疏注意力（CSA）和重度压缩注意力（HCA）的混合注意力架构；(2) 流形约束超连接（mHC）；(3) Muon 优化器。  DeepSeek-V4 彻底改变了 KV Cache 的设计，从 V3 的 MLA（多头潜在注意力）转向 CSA + HCA 混合注意力架构，通过序列维度压">
+<meta property="og:description" content="DeepSeek-V4 KV Cache 深度分析 DeepSeek-V4 series incorporate several key upgrades: (1) hybrid attention architecture that combines Compressed Sparse Attention (CSA) and Heavily Compressed Attention (HCA);">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2026-05-14T13:30:00.000Z">
-<meta property="article:modified_time" content="2026-05-14T13:13:06.546Z">
+<meta property="article:modified_time" content="2026-05-14T13:35:53.392Z">
 <meta property="article:author" content="ggaaooppeenngg">
 <meta property="article:tag" content="LLM">
 <meta property="article:tag" content="DeepSeek">
@@ -122,7 +122,7 @@
       <div class="sidebar-panel-container">
         <!--noindex-->
         <div class="post-toc-wrap sidebar-panel">
-            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#DeepSeek-V4-KV-Cache-%E6%B7%B1%E5%BA%A6%E5%88%86%E6%9E%90"><span class="nav-number">1.</span> <span class="nav-text">DeepSeek-V4 KV Cache 深度分析</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%80%E3%80%81%E6%A0%B8%E5%BF%83%E6%9E%B6%E6%9E%84%E5%8F%82%E6%95%B0"><span class="nav-number">1.1.</span> <span class="nav-text">一、核心架构参数</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#compress-ratios-%E6%95%B0%E7%BB%84-%E2%86%92-%E5%B1%82%E7%B1%BB%E5%9E%8B"><span class="nav-number">1.1.1.</span> <span class="nav-text">compress_ratios 数组 → 层类型</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%8C%E3%80%81KV-Cache-%E7%BB%93%E6%9E%84%E9%9D%A9%E5%91%BD"><span class="nav-number">1.2.</span> <span class="nav-text">二、KV Cache 结构革命</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#V3-MLA-vs-V4-CSA-HCA"><span class="nav-number">1.2.1.</span> <span class="nav-text">V3 MLA vs V4 CSA&#x2F;HCA</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#V4-KV-entry-%E6%9E%84%E6%88%90%EF%BC%88512-%E7%BB%B4%EF%BC%89"><span class="nav-number">1.2.2.</span> <span class="nav-text">V4 KV entry 构成（512 维）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BB%A3%E7%A0%81%E8%AF%81%E6%8D%AE"><span class="nav-number">1.2.3.</span> <span class="nav-text">代码证据</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%89%E3%80%81%E4%B8%A4%E7%A7%8D%E6%B3%A8%E6%84%8F%E5%8A%9B%E6%9C%BA%E5%88%B6%E7%9A%84-KV-Cache-%E5%8E%8B%E7%BC%A9"><span class="nav-number">1.3.</span> <span class="nav-text">三、两种注意力机制的 KV Cache 压缩</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-CSA%EF%BC%88%E5%8E%8B%E7%BC%A9%E7%A8%80%E7%96%8F%E6%B3%A8%E6%84%8F%E5%8A%9B%EF%BC%89%E2%80%94-%E8%BD%BB%E5%BA%A6%E5%8E%8B%E7%BC%A9"><span class="nav-number">1.3.1.</span> <span class="nav-text">1. CSA（压缩稀疏注意力）— 轻度压缩</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-HCA%EF%BC%88%E9%87%8D%E5%BA%A6%E5%8E%8B%E7%BC%A9%E6%B3%A8%E6%84%8F%E5%8A%9B%EF%BC%89%E2%80%94-%E9%87%8D%E5%BA%A6%E5%8E%8B%E7%BC%A9"><span class="nav-number">1.3.2.</span> <span class="nav-text">2. HCA（重度压缩注意力）— 重度压缩</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9B%9B%E3%80%81%E7%B4%A2%E5%BC%95%E5%99%A8%EF%BC%88Indexer%EF%BC%89%E6%9C%BA%E5%88%B6%EF%BC%88CSA-%E7%8B%AC%E6%9C%89%EF%BC%89"><span class="nav-number">1.4.</span> <span class="nav-text">四、索引器（Indexer）机制（CSA 独有）</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%BB%93%E6%9E%84"><span class="nav-number">1.4.1.</span> <span class="nav-text">结构</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Indexer-Cache-%E5%A4%A7%E5%B0%8F%EF%BC%881M-tokens%EF%BC%89"><span class="nav-number">1.4.2.</span> <span class="nav-text">Indexer Cache 大小（1M tokens）</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%94%E3%80%81RoPE-%E7%9A%84%E7%89%B9%E6%AE%8A%E5%A4%84%E7%90%86"><span class="nav-number">1.5.</span> <span class="nav-text">五、RoPE 的特殊处理</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%89%E5%A4%84%E5%BA%94%E7%94%A8-RoPE%EF%BC%88Section-2-3-3%EF%BC%89"><span class="nav-number">1.5.1.</span> <span class="nav-text">三处应用 RoPE（Section 2.3.3）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E8%BE%93%E5%87%BA%E4%B9%9F%E8%A6%81%E5%8A%A0-RoPE%EF%BC%9F"><span class="nav-number">1.5.2.</span> <span class="nav-text">为什么输出也要加 RoPE？</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%AD%E3%80%81%E7%B2%BE%E5%BA%A6%E9%85%8D%E7%BD%AE"><span class="nav-number">1.6.</span> <span class="nav-text">六、精度配置</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%A4%E7%A7%8D%E7%B2%BE%E5%BA%A6%E6%A8%A1%E5%BC%8F"><span class="nav-number">1.6.1.</span> <span class="nav-text">两种精度模式</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%AE%BA%E6%96%87%E4%BE%9D%E6%8D%AE"><span class="nav-number">1.6.2.</span> <span class="nav-text">论文依据</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%83%E3%80%81%E6%80%BB-KV-Cache-%E8%AE%A1%E7%AE%97%E5%85%AC%E5%BC%8F"><span class="nav-number">1.7.</span> <span class="nav-text">七、总 KV Cache 计算公式</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%80%9A%E7%94%A8%E5%85%AC%E5%BC%8F"><span class="nav-number">1.7.1.</span> <span class="nav-text">通用公式</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%AB%E3%80%81%E6%95%B0%E5%80%BC%E7%BB%93%E6%9E%9C%EF%BC%88N-1-048-576-1M-tokens%EF%BC%89"><span class="nav-number">1.8.</span> <span class="nav-text">八、数值结果（N &#x3D; 1,048,576 &#x3D; 1M tokens）</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#BF16-%E5%9F%BA%E5%87%86%EF%BC%88vLLM-%E5%8D%9A%E5%AE%A2%E7%AE%97%E6%B3%95%EF%BC%89"><span class="nav-number">1.8.1.</span> <span class="nav-text">BF16 基准（vLLM 博客算法）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%B7%B7%E5%90%88%E7%B2%BE%E5%BA%A6%E5%AE%9E%E9%99%85%E9%83%A8%E7%BD%B2%EF%BC%88FP8-BF16-FP4%EF%BC%89"><span class="nav-number">1.8.2.</span> <span class="nav-text">混合精度实际部署（FP8 + BF16 + FP4）</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B9%9D%E3%80%81%E5%90%84%E7%BB%84%E4%BB%B6%E5%8D%A0%E6%AF%94%EF%BC%88BF16-%E5%9F%BA%E5%87%86%EF%BC%89"><span class="nav-number">1.9.</span> <span class="nav-text">九、各组件占比（BF16 基准）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8D%81%E3%80%81%E4%B8%BA%E4%BB%80%E4%B9%88%E8%83%BD%E8%BF%99%E4%B9%88%E5%B0%8F%EF%BC%9F%E5%85%B3%E9%94%AE%E6%B4%9E%E5%AF%9F"><span class="nav-number">1.10.</span> <span class="nav-text">十、为什么能这么小？关键洞察</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8D%81%E4%B8%80%E3%80%81RoPE-%E7%9A%84%E7%89%B9%E6%AE%8A%E5%A4%84%E7%90%86%E8%AF%A6%E8%A7%A3"><span class="nav-number">1.11.</span> <span class="nav-text">十一、RoPE 的特殊处理详解</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%89%E5%A4%84%E5%BA%94%E7%94%A8-RoPE%EF%BC%88Section-2-3-3%EF%BC%89-1"><span class="nav-number">1.11.1.</span> <span class="nav-text">三处应用 RoPE（Section 2.3.3）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E8%BE%93%E5%87%BA%E4%B9%9F%E8%A6%81%E5%8A%A0-RoPE%EF%BC%9F-1"><span class="nav-number">1.11.2.</span> <span class="nav-text">为什么输出也要加 RoPE？</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8D%81%E4%BA%8C%E3%80%81Forward-%E8%AE%A1%E7%AE%97%E6%B5%81%E7%A8%8B%E5%9B%BE%EF%BC%88V4-Pro%EF%BC%89"><span class="nav-number">1.12.</span> <span class="nav-text">十二、Forward 计算流程图（V4-Pro）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8D%81%E4%B8%89%E3%80%81%E5%92%8C-vLLM-%E9%83%A8%E7%BD%B2%E5%AF%B9%E9%BD%90"><span class="nav-number">1.13.</span> <span class="nav-text">十三、和 vLLM 部署对齐</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8D%81%E5%9B%9B%E3%80%81%E6%80%BB%E7%BB%93"><span class="nav-number">1.14.</span> <span class="nav-text">十四、总结</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8F%82%E8%80%83"><span class="nav-number">1.15.</span> <span class="nav-text">参考</span></a></li></ol></li></ol></div>
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#DeepSeek-V4-KV-Cache-%E6%B7%B1%E5%BA%A6%E5%88%86%E6%9E%90"><span class="nav-number">1.</span> <span class="nav-text">DeepSeek-V4 KV Cache 深度分析</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%99%84%E5%BD%95%EF%BC%9APython-%E8%AE%A1%E7%AE%97%E5%99%A8%E4%BB%A3%E7%A0%81"><span class="nav-number">1.1.</span> <span class="nav-text">附录：Python 计算器代码</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%80%E3%80%81%E6%A0%B8%E5%BF%83%E6%9E%B6%E6%9E%84%E5%8F%82%E6%95%B0"><span class="nav-number">1.2.</span> <span class="nav-text">一、核心架构参数!</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#compress-ratios-%E6%95%B0%E7%BB%84-%E2%86%92-%E5%B1%82%E7%B1%BB%E5%9E%8B"><span class="nav-number">1.2.1.</span> <span class="nav-text">compress_ratios 数组 → 层类型</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%8C%E3%80%81KV-Cache-%E7%BB%93%E6%9E%84%E9%9D%A9%E5%91%BD"><span class="nav-number">1.3.</span> <span class="nav-text">二、KV Cache 结构革命!</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#V3-MLA-vs-V4-CSA-HCA"><span class="nav-number">1.3.1.</span> <span class="nav-text">V3 MLA vs V4 CSA&#x2F;HCA!</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#V4-KV-entry-%E6%9E%84%E6%88%90%EF%BC%88512-%E7%BB%B4%EF%BC%89"><span class="nav-number">1.3.2.</span> <span class="nav-text">V4 KV entry 构成（512 维）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BB%A3%E7%A0%81%E8%AF%81%E6%8D%AE"><span class="nav-number">1.3.3.</span> <span class="nav-text">代码证据!</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%89%E3%80%81%E5%8E%8B%E7%BC%A9%E6%9C%BA%E5%88%B6%E8%AF%A6%E8%A7%A3"><span class="nav-number">1.4.</span> <span class="nav-text">三、压缩机制详解!</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-HCA%EF%BC%88Heavily-Compressed-Attention%EF%BC%89%E2%80%94-%E9%87%8D%E5%BA%A6%E5%8E%8B%E7%BC%A9"><span class="nav-number">1.4.1.</span> <span class="nav-text">1. HCA（Heavily Compressed Attention）— 重度压缩!</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-CSA%EF%BC%88Compressed-Sparse-Attention%EF%BC%89%E2%80%94-%E8%BD%BB%E5%BA%A6%E5%8E%8B%E7%BC%A9"><span class="nav-number">1.4.2.</span> <span class="nav-text">2. CSA（Compressed Sparse Attention）— 轻度压缩!</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9B%9B%E3%80%81%E7%B4%A2%E5%BC%95%E5%99%A8%EF%BC%88Indexer%EF%BC%89%E6%9C%BA%E5%88%B6%EF%BC%88CSA-%E7%8B%AC%E6%9C%89%EF%BC%89"><span class="nav-number">1.5.</span> <span class="nav-text">四、索引器（Indexer）机制（CSA 独有）!</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%BB%93%E6%9E%84"><span class="nav-number">1.5.1.</span> <span class="nav-text">结构</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8D%81%E4%BA%8C%E3%80%81%E5%92%8C-vLLM-%E9%83%A8%E7%BD%B2%E5%AF%B9%E9%BD%90"><span class="nav-number">1.6.</span> <span class="nav-text">十二、和 vLLM 部署对齐!</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8D%81%E4%B8%89%E3%80%81%E6%80%BB%E7%BB%93"><span class="nav-number">1.7.</span> <span class="nav-text">十三、总结!</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8F%82%E8%80%83"><span class="nav-number">1.8.</span> <span class="nav-text">参考!</span></a></li></ol></li></ol></div>
         </div>
         <!--/noindex-->
 
@@ -215,7 +215,7 @@
       <span class="post-meta-item-text">发表于</span>
       
 
-      <time title="创建时间：2026-05-14 21:30:00 / 修改时间：21:13:06" itemprop="dateCreated datePublished" datetime="2026-05-14T21:30:00+08:00">2026-05-14</time>
+      <time title="创建时间：2026-05-14 21:30:00 / 修改时间：21:35:53" itemprop="dateCreated datePublished" datetime="2026-05-14T21:30:00+08:00">2026-05-14</time>
     </span>
 
   
@@ -242,11 +242,24 @@
     
     
     <div class="post-body" itemprop="articleBody"><h1 id="DeepSeek-V4-KV-Cache-深度分析"><a href="#DeepSeek-V4-KV-Cache-深度分析" class="headerlink" title="DeepSeek-V4 KV Cache 深度分析"></a>DeepSeek-V4 KV Cache 深度分析</h1><blockquote>
-<p>DeepSeek-V4 系列引入了多项关键升级：(1) 结合压缩稀疏注意力（CSA）和重度压缩注意力（HCA）的混合注意力架构；(2) 流形约束超连接（mHC）；(3) Muon 优化器。</p>
+<p>DeepSeek-V4 series incorporate several key upgrades: (1) hybrid attention architecture that combines Compressed Sparse Attention (CSA) and Heavily Compressed Attention (HCA); (2) Manifold-Constrained Hyper-Connections (mHC); (3) Muon optimizer.</p>
 </blockquote>
-<p>DeepSeek-V4 彻底改变了 KV Cache 的设计，从 V3 的 MLA（多头潜在注意力）转向 <strong>CSA + HCA 混合注意力架构</strong>，通过<strong>序列维度压缩</strong>而非仅靠隐维度压缩来大幅降低 KV Cache 开销。</p>
+<p>DeepSeek-V4 彻底改变了 KV Cache 的设计，从 V3 的 MLA（Multi-head Latent Attention）转向 <strong>CSA + HCA 混合注意力架构</strong>，通过<strong>序列维度压缩</strong>而非仅靠隐维度压缩来大幅降低 KV Cache 开销。</p>
 <hr>
-<h2 id="一、核心架构参数"><a href="#一、核心架构参数" class="headerlink" title="一、核心架构参数"></a>一、核心架构参数</h2><table>
+<h2 id="附录：Python-计算器代码"><a href="#附录：Python-计算器代码" class="headerlink" title="附录：Python 计算器代码"></a>附录：Python 计算器代码</h2><p>以下代码可直接运行，计算任意序列长度下的 KV Cache 大小：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># DeepSeek-V4-Pro KV Cache Size Calculator!</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 参考文献：</span></span><br><span class="line"><span class="comment"># - config.json: https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro/blob/main/config.json</span></span><br><span class="line"><span class="comment"># - model.py: https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro/blob/main/inference/model.py</span></span><br><span class="line"><span class="comment"># - paper: https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro/blob/main/DeepSeek_V4.pdf!</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># ── 模型参数（来自 config.json） ──────────────────────────────!</span></span><br><span class="line">NUM_LAYERS = <span class="number">61</span></span><br><span class="line">HEAD_DIM = <span class="number">512</span>  <span class="comment"># c: KV entry 维度（RoPE 包含在 512 内）</span></span><br><span class="line">ROPE_DIM = <span class="number">64</span>   <span class="comment"># r: 最后 64 维携带 RoPE</span></span><br><span class="line">NOPE_DIM = HEAD_DIM - ROPE_DIM  <span class="comment"># 448</span></span><br><span class="line">WINDOW = <span class="number">128</span>    <span class="comment"># w: 滑动窗口大小</span></span><br><span class="line">INDEX_DIM = <span class="number">128</span>  <span class="comment"># c_I: indexer KV 维度</span></span><br><span class="line">CSA_RATIO = <span class="number">4</span>     <span class="comment"># CSA 压缩比</span></span><br><span class="line">HCA_RATIO = <span class="number">128</span>   <span class="comment"># HCA 压缩比</span></span><br><span class="line">N_CSA = <span class="number">30</span>   <span class="comment"># CSA 层数（2,4,6,...,60）</span></span><br><span class="line">N_HCA = <span class="number">31</span>   <span class="comment"># HCA 层数（0,1,3,5,...,59）</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># ── 精度配置 ──────────────────────────────────────!</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">bf16_bytes</span>():</span><br><span class="line">    <span class="string">&quot;&quot;&quot;BF16 基准：所有元素 2 bytes。&quot;&quot;&quot;</span></span><br><span class="line">    s_kv = HEAD_DIM * <span class="number">2</span>  <span class="comment"># 512 × 2 = 1024</span></span><br><span class="line">    s_idx = INDEX_DIM * <span class="number">2</span>  <span class="comment"># 128 × 2 = 256</span></span><br><span class="line">    <span class="keyword">return</span> s_kv, s_idx</span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">mixed_bytes</span>():</span><br><span class="line">    <span class="string">&quot;&quot;&quot;混合精度部署：nope FP8 (1B) + rope BF16 (2B) + indexer FP4 (0.5B)。&quot;&quot;&quot;</span></span><br><span class="line">    s_kv = NOPE_DIM * <span class="number">1</span> + ROPE_DIM * <span class="number">2</span>  <span class="comment"># 448×1 + 64×2 = 576</span></span><br><span class="line">    s_idx = INDEX_DIM * <span class="number">0.5</span>  <span class="comment"># 128 × 0.5 = 64 (FP4)</span></span><br><span class="line">    <span class="keyword">return</span> s_kv, s_idx</span><br><span class="line"></span><br><span class="line"><span class="comment"># ── 核心计算 ──────────────────────────────────────!</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">calc_kvcache</span>(<span class="params">seq_len: <span class="built_in">int</span>, precision=<span class="string">&quot;bf16&quot;</span></span>):</span><br><span class="line">    <span class="string">&quot;&quot;&quot;</span></span><br><span class="line"><span class="string">    计算 DeepSeek-V4-Pro 的 KV Cache 大小。</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">    Args:</span></span><br><span class="line"><span class="string">        seq_len: 序列长度（token 数）</span></span><br><span class="line"><span class="string">        precision: &quot;bf16&quot; 或 &quot;mixed&quot;（FP8+BF16+FP4）</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">    Returns:</span></span><br><span class="line"><span class="string">        包含各组件和总大小的字典（字节）</span></span><br><span class="line"><span class="string">    &quot;&quot;&quot;</span></span><br><span class="line">    s_kv, s_idx = bf16_bytes() <span class="keyword">if</span> precision == <span class="string">&quot;bf16&quot;</span> <span class="keyword">else</span> mixed_bytes()</span><br><span class="line"></span><br><span class="line">    <span class="comment"># CSA 层 (ratio=4): Shared-KV + Indexer + SWA</span></span><br><span class="line">    csa_compressed = (seq_len // CSA_RATIO + WINDOW) * s_kv</span><br><span class="line">    csa_indexer = (seq_len // CSA_RATIO) * s_idx</span><br><span class="line">    csa_swa = WINDOW * s_kv</span><br><span class="line">    csa_per_layer = csa_compressed + csa_indexer + csa_swa</span><br><span class="line"></span><br><span class="line">    <span class="comment"># HCA 层 (ratio=128): Shared-KV + SWA（无 Indexer）</span></span><br><span class="line">    hca_compressed = (seq_len // HCA_RATIO + WINDOW) * s_kv</span><br><span class="line">    hca_swa = WINDOW * s_kv</span><br><span class="line">    hca_per_layer = hca_compressed + hca_swa</span><br><span class="line"></span><br><span class="line">    total = N_CSA * csa_per_layer + N_HCA * hca_per_layer</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> &#123;</span><br><span class="line">        <span class="string">&quot;csa_per_layer&quot;</span>: csa_per_layer,</span><br><span class="line">        <span class="string">&quot;hca_per_layer&quot;</span>: hca_per_layer,</span><br><span class="line">        <span class="string">&quot;csa_total&quot;</span>: N_CSA * csa_per_layer,</span><br><span class="line">        <span class="string">&quot;hca_total&quot;</span>: N_HCA * hca_per_layer,</span><br><span class="line">        <span class="string">&quot;total_bytes&quot;</span>: total,</span><br><span class="line">        <span class="string">&quot;total_gib&quot;</span>: total / (<span class="number">1024</span>**<span class="number">3</span>),</span><br><span class="line">        <span class="comment"># 组件分解</span></span><br><span class="line">        <span class="string">&quot;csa_shared_kv&quot;</span>: N_CSA * (seq_len // CSA_RATIO) * s_kv,</span><br><span class="line">        <span class="string">&quot;csa_indexer&quot;</span>: N_CSA * (seq_len // CSA_RATIO) * s_idx,</span><br><span class="line">        <span class="string">&quot;hca_shared_kv&quot;</span>: N_HCA * (seq_len // HCA_RATIO) * s_kv,</span><br><span class="line">        <span class="string">&quot;all_windows&quot;</span>: (N_CSA + N_HCA) * WINDOW * s_kv,</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">fmt</span>(<span class="params">b</span>):</span><br><span class="line">    <span class="string">&quot;&quot;&quot;格式化字节数为可读字符串。&quot;&quot;&quot;</span></span><br><span class="line">    <span class="keyword">if</span> b &gt;= <span class="number">1024</span>**<span class="number">3</span>:</span><br><span class="line">        <span class="keyword">return</span> <span class="string">f&quot;<span class="subst">&#123;b / (<span class="number">1024</span>**<span class="number">3</span>):<span class="number">.2</span>f&#125;</span> GiB&quot;</span></span><br><span class="line">    <span class="keyword">return</span> <span class="string">f&quot;<span class="subst">&#123;b / (<span class="number">1024</span>**<span class="number">2</span>):<span class="number">.2</span>f&#125;</span> MiB&quot;</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">report</span>(<span class="params">seq_len: <span class="built_in">int</span></span>):</span><br><span class="line">    <span class="built_in">print</span>(<span class="string">&quot;=&quot;</span> * <span class="number">60</span>)</span><br><span class="line">    <span class="built_in">print</span>(<span class="string">f&quot; DeepSeek-V4-Pro KV Cache | seq_len = <span class="subst">&#123;seq_len:,&#125;</span>&quot;</span>)</span><br><span class="line">    <span class="built_in">print</span>(<span class="string">&quot;=&quot;</span> * <span class="number">60</span>)</span><br><span class="line">    <span class="built_in">print</span>(<span class="string">f&quot; <span class="subst">&#123;N_CSA&#125;</span> CSA 层 (ratio=<span class="subst">&#123;CSA_RATIO&#125;</span>) + <span class="subst">&#123;N_HCA&#125;</span> HCA 层 (ratio=<span class="subst">&#123;HCA_RATIO&#125;</span>)&quot;</span>)</span><br><span class="line">    <span class="built_in">print</span>(<span class="string">f&quot; head_dim=<span class="subst">&#123;HEAD_DIM&#125;</span> (nope=<span class="subst">&#123;NOPE_DIM&#125;</span> + rope=<span class="subst">&#123;ROPE_DIM&#125;</span>)&quot;</span>)</span><br><span class="line">    <span class="built_in">print</span>(<span class="string">f&quot; index_dim=<span class="subst">&#123;INDEX_DIM&#125;</span>, window=<span class="subst">&#123;WINDOW&#125;</span>&quot;</span>)</span><br><span class="line">    <span class="built_in">print</span>()</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> prec <span class="keyword">in</span> [<span class="string">&quot;bf16&quot;</span>, <span class="string">&quot;mixed&quot;</span>]:</span><br><span class="line">        r = calc_kvcache(seq_len, prec)</span><br><span class="line">        s_kv, s_idx = bf16_bytes() <span class="keyword">if</span> prec == <span class="string">&quot;bf16&quot;</span> <span class="keyword">else</span> mixed_bytes()</span><br><span class="line">        label = <span class="string">&quot;BF16 基准&quot;</span> <span class="keyword">if</span> prec == <span class="string">&quot;bf16&quot;</span> <span class="keyword">else</span> <span class="string">&quot;FP8 kv + BF16 rope + FP4 indexer&quot;</span></span><br><span class="line">        <span class="built_in">print</span>(<span class="string">f&quot; ── <span class="subst">&#123;label&#125;</span> (S_kv=<span class="subst">&#123;s_kv&#125;</span>, S_idx=<span class="subst">&#123;s_idx&#125;</span>) ──&quot;</span>)</span><br><span class="line">        <span class="built_in">print</span>(<span class="string">f&quot;  CSA 单层: <span class="subst">&#123;fmt(r[<span class="string">&#x27;csa_per_layer&#x27;</span>]):&gt;10s&#125;</span>  HCA 单层: <span class="subst">&#123;fmt(r[<span class="string">&#x27;hca_per_layer&#x27;</span>]):&gt;10s&#125;</span>&quot;</span>)</span><br><span class="line">        <span class="built_in">print</span>(<span class="string">f&quot;  组件分解:&quot;</span>)</span><br><span class="line">        <span class="keyword">for</span> name, val <span class="keyword">in</span> [</span><br><span class="line">            (<span class="string">&quot;CSA Shared-KV 压缩&quot;</span>, r[<span class="string">&quot;csa_shared_kv&quot;</span>]),</span><br><span class="line">            (<span class="string">&quot;CSA Indexer&quot;</span>, r[<span class="string">&quot;csa_indexer&quot;</span>]),</span><br><span class="line">            (<span class="string">&quot;HCA Shared-KV 压缩&quot;</span>, r[<span class="string">&quot;hca_shared_kv&quot;</span>]),</span><br><span class="line">            (<span class="string">&quot;滑动窗口 (61 层)&quot;</span>, r[<span class="string">&quot;all_windows&quot;</span>]),</span><br><span class="line">        ]:</span><br><span class="line">            <span class="built_in">print</span>(<span class="string">f&quot;    <span class="subst">&#123;name:30s&#125;</span> <span class="subst">&#123;fmt(val):&gt;10s&#125;</span> (<span class="subst">&#123;val/r[<span class="string">&#x27;total_bytes&#x27;</span>]*<span class="number">100</span>:<span class="number">.1</span>f&#125;</span>%)&quot;</span>)</span><br><span class="line">        <span class="built_in">print</span>(<span class="string">f&quot; <span class="subst">&#123;<span class="string">&#x27;─&#x27;</span> * <span class="number">56</span>&#125;</span>&quot;</span>)</span><br><span class="line">        <span class="built_in">print</span>(<span class="string">f&quot; <span class="subst">&#123;<span class="string">&#x27;Total&#x27;</span>:30s&#125;</span> <span class="subst">&#123;fmt(r[<span class="string">&#x27;total_bytes&#x27;</span>]):&gt;10s&#125;</span>&quot;</span>)</span><br><span class="line">        <span class="built_in">print</span>()</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> __name__ == <span class="string">&quot;__main__&quot;</span>:</span><br><span class="line">    report(<span class="number">1_048_576</span>)  <span class="comment"># 1M tokens</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>运行结果</strong>（Python 3.x）：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line">============================================================</span><br><span class="line"> DeepSeek-V4-Pro KV Cache | seq_len = 1,048,576</span><br><span class="line">============================================================</span><br><span class="line"> 30 CSA 层 (ratio=4) + 31 HCA 层 (ratio=128)</span><br><span class="line"> head_dim=512 (nope=448 + rope=64)</span><br><span class="line"> index_dim=128, window=128</span><br><span class="line"></span><br><span class="line"> ── BF16 基准 (S_kv=1024, S_idx=256) ──</span><br><span class="line">  CSA 单层: 320.12 MiB  HCA 单层: 8.12 MiB</span><br><span class="line">  组件分解:</span><br><span class="line">    CSA Shared-KV 压缩             7,500.00 MiB (77.9%)</span><br><span class="line">    CSA Indexer                         1,920.00 MiB (19.5%)</span><br><span class="line">    HCA Shared-KV 压缩               248.00 MiB (2.5%)</span><br><span class="line">    滑动窗口 (61 层)                       7.50 MiB (0.1%)</span><br><span class="line">─────────────────────────────────────────────────────────────</span><br><span class="line"> Total                         9,675.50 MiB (9.62 GiB)</span><br><span class="line"></span><br><span class="line">── FP8 kv + BF16 rope + FP4 indexer (S_kv=576, S_idx=64.0) ──</span><br><span class="line">  CSA 单层: 160.07 MiB  HCA 单层: 4.57 MiB</span><br><span class="line">  组件分解:</span><br><span class="line">    CSA Shared-KV 压缩             4,218.75 MiB (87.4%)</span><br><span class="line">    CSA Indexer                           480.00 MiB (9.7%)</span><br><span class="line">    HCA Shared-KV 压缩                   139.50 MiB (2.8%)</span><br><span class="line">    滑动窗口 (61 层)                               4.25 MiB (0.1%)</span><br><span class="line">─────────────────────────────────────────────────────────────</span><br><span class="line"> Total                         4,822.50 MiB (4.83 GiB)</span><br></pre></td></tr></table></figure>
+
+<p><strong>对比 V3.2</strong>（61 层，每 token 1152 bytes）：</p>
+<ul>
+<li>V3.2 BF16: 61 × 1,048,576 × 1152 / 1024³ ≈ <strong>83.9 GiB</strong></li>
+<li>V4-Pro BF16: <strong>9.62 GiB</strong> (8.7× 压缩)</li>
+<li>V4-Pro 混合精度: <strong>4.83 GiB</strong> (17.4× 压缩) ✅!</li>
+</ul>
+<hr>
+<h2 id="一、核心架构参数"><a href="#一、核心架构参数" class="headerlink" title="一、核心架构参数!"></a>一、核心架构参数!</h2><table>
 <thead>
 <tr>
 <th>参数</th>
@@ -306,7 +319,7 @@
 </tbody></table>
 <p>数据来源：<a target="_blank" rel="noopener" href="https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro/blob/main/config.json">config.json</a></p>
 <h3 id="compress-ratios-数组-→-层类型"><a href="#compress-ratios-数组-→-层类型" class="headerlink" title="compress_ratios 数组 → 层类型"></a>compress_ratios 数组 → 层类型</h3><p>compress_ratios 有 62 个元素（61 层 + 1 层 MTP）：</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">索引: 0  1  2  3  4  5  6  ... 59 60 61</span><br><span class="line">值:   128 128 4  128 4  128 4  ... 128 4  0</span><br><span class="line">类型: HCA HCA CSA HCA CSA HCA CSA ... HCA CSA MTP</span><br></pre></td></tr></table></figure>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">索引: 0  1  2  3  4  5  ... 59 60 61</span><br><span class="line">值:   128 128 4  128 4  128 ... 128 4  0</span><br><span class="line">类型: HCA HCA CSA HCA CSA HCA ... HCA CSA MTP</span><br></pre></td></tr></table></figure>
 
 <table>
 <thead>
@@ -333,7 +346,7 @@
 </tr>
 </tbody></table>
 <hr>
-<h2 id="二、KV-Cache-结构革命"><a href="#二、KV-Cache-结构革命" class="headerlink" title="二、KV Cache 结构革命"></a>二、KV Cache 结构革命</h2><h3 id="V3-MLA-vs-V4-CSA-HCA"><a href="#V3-MLA-vs-V4-CSA-HCA" class="headerlink" title="V3 MLA vs V4 CSA/HCA"></a>V3 MLA vs V4 CSA/HCA</h3><table>
+<h2 id="二、KV-Cache-结构革命"><a href="#二、KV-Cache-结构革命" class="headerlink" title="二、KV Cache 结构革命!"></a>二、KV Cache 结构革命!</h2><h3 id="V3-MLA-vs-V4-CSA-HCA"><a href="#V3-MLA-vs-V4-CSA-HCA" class="headerlink" title="V3 MLA vs V4 CSA/HCA!"></a>V3 MLA vs V4 CSA/HCA!</h3><table>
 <thead>
 <tr>
 <th>对比项</th>
@@ -362,25 +375,57 @@
 <td><strong>序列维度压缩</strong> (4:1 或 128:1)</td>
 </tr>
 </tbody></table>
-<h3 id="V4-KV-entry-构成（512-维）"><a href="#V4-KV-entry-构成（512-维）" class="headerlink" title="V4 KV entry 构成（512 维）"></a>V4 KV entry 构成（512 维）</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">KV entry (512 维)</span><br><span class="line">┌────────────────────────────┬──────────────┐</span><br><span class="line">│ nope 维度 (448 个元素) │ rope 维度 (64)│</span><br><span class="line">│ FP8: 448 × 1 byte     │ BF16: 64 × 2  │</span><br><span class="line">│ = 448 bytes            │ = 128 bytes  │</span><br><span class="line">└────────────────────────────┴──────────────┘</span><br><span class="line">合计 = 576 bytes/entry (混合精度)</span><br></pre></td></tr></table></figure>
+<h3 id="V4-KV-entry-构成（512-维）"><a href="#V4-KV-entry-构成（512-维）" class="headerlink" title="V4 KV entry 构成（512 维）"></a>V4 KV entry 构成（512 维）</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">KV entry (512 dims)</span><br><span class="line">┌────────────────────────────┬──────────────┐</span><br><span class="line">│ nope 维度 (448 个元素) │ rope 维度 (64)│</span><br><span class="line">│ FP8: 448 × 1 byte     │ BF16: 64 × 2  │</span><br><span class="line">│ = 448 bytes            │ = 128 bytes │</span><br><span class="line">└────────────────────────────┴──────────────┘</span><br><span class="line">合计 = 576 bytes/entry (混合精度)</span><br></pre></td></tr></table></figure>
 
 <p><strong>论文原文</strong>（Section 2.3.4）：</p>
 <blockquote>
 <p>“我们采用混合存储格式：RoPE 维度使用 BF16 精度，其余维度使用 FP8 精度。”</p>
 </blockquote>
-<h3 id="代码证据"><a href="#代码证据" class="headerlink" title="代码证据"></a>代码证据</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># model.py, Attention.__init__</span></span><br><span class="line"><span class="variable language_">self</span>.head_dim = args.head_dim  <span class="comment"># 512</span></span><br><span class="line"><span class="variable language_">self</span>.rope_head_dim = args.rope_head_dim  <span class="comment"># 64</span></span><br><span class="line"><span class="variable language_">self</span>.nope_head_dim = <span class="variable language_">self</span>.head_dim - <span class="variable language_">self</span>.rope_head_dim  <span class="comment"># 448</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># KV cache 分配：512 维，不是 576</span></span><br><span class="line"><span class="variable language_">self</span>.register_buffer(<span class="string">&quot;kv_cache&quot;</span>,</span><br><span class="line">    torch.zeros(args.max_batch_size, kv_cache_size, <span class="variable language_">self</span>.head_dim),</span><br><span class="line">    persistent=<span class="literal">False</span>)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 写入时：前 448 维 FP8，后 64 维 BF16</span></span><br><span class="line">kv = <span class="variable language_">self</span>.wkv(x)  <span class="comment"># Linear(7168 → 512)</span></span><br><span class="line">kv = <span class="variable language_">self</span>.kv_norm(kv)</span><br><span class="line">apply_rotary_emb(kv[..., -<span class="number">64</span>:], freqs_cis)  <span class="comment"># RoPE 对后 64 维原地施加</span></span><br><span class="line">act_quant(kv[..., :-<span class="number">64</span>], <span class="number">64</span>, scale_fmt, scale_dtype, <span class="literal">True</span>)  <span class="comment"># FP8 量化（前 448 维）</span></span><br></pre></td></tr></table></figure>
+<h3 id="代码证据"><a href="#代码证据" class="headerlink" title="代码证据!"></a>代码证据!</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># model.py, Attention.__init__</span></span><br><span class="line"><span class="variable language_">self</span>.head_dim = args.head_dim  <span class="comment"># 512</span></span><br><span class="line"><span class="variable language_">self</span>.rope_head_dim = args.rope_head_dim  <span class="comment"># 64</span></span><br><span class="line"><span class="variable language_">self</span>.nope_head_dim = <span class="variable language_">self</span>.head_dim - <span class="variable language_">self</span>.rope_head_dim  <span class="comment"># 448!</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># KV cache 分配：512 维，不是 576</span></span><br><span class="line"><span class="variable language_">self</span>.register_buffer(<span class="string">&quot;kv_cache&quot;</span>,</span><br><span class="line">    torch.zeros(args.max_batch_size, kv_cache_size, <span class="variable language_">self</span>.head_dim),</span><br><span class="line">    persistent=<span class="literal">False</span>)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 写入时：前 448 维 FP8，后 64 维 BF16</span></span><br><span class="line">kv = <span class="variable language_">self</span>.wkv(x)  <span class="comment"># Linear(7168 → 512)</span></span><br><span class="line">kv = <span class="variable language_">self</span>.kv_norm(kv)</span><br><span class="line">apply_rotary_emb(kv[..., -<span class="number">64</span>:], freqs_cis)  <span class="comment"># RoPE 对后 64 维原地施加</span></span><br><span class="line">act_quant(kv[..., :-<span class="number">64</span>], <span class="number">64</span>, scale_fmt, scale_dtype, <span class="literal">True</span>)  <span class="comment"># FP8 量化（前 448 维）</span></span><br></pre></td></tr></table></figure>
 
 <p><strong>结论</strong>：V4 的 512 维包含 RoPE（后 64 维），所以存储是 576 bytes/entry（混合精度），相比 V3 的 640 bytes/token 还小。</p>
 <hr>
-<h2 id="三、两种注意力机制的-KV-Cache-压缩"><a href="#三、两种注意力机制的-KV-Cache-压缩" class="headerlink" title="三、两种注意力机制的 KV Cache 压缩"></a>三、两种注意力机制的 KV Cache 压缩</h2><h3 id="1-CSA（压缩稀疏注意力）—-轻度压缩"><a href="#1-CSA（压缩稀疏注意力）—-轻度压缩" class="headerlink" title="1. CSA（压缩稀疏注意力）— 轻度压缩"></a>1. CSA（压缩稀疏注意力）— 轻度压缩</h3><ul>
+<h2 id="三、压缩机制详解"><a href="#三、压缩机制详解" class="headerlink" title="三、压缩机制详解!"></a>三、压缩机制详解!</h2><h3 id="1-HCA（Heavily-Compressed-Attention）—-重度压缩"><a href="#1-HCA（Heavily-Compressed-Attention）—-重度压缩" class="headerlink" title="1. HCA（Heavily Compressed Attention）— 重度压缩!"></a>1. HCA（Heavily Compressed Attention）— 重度压缩!</h3><ul>
+<li><strong>压缩比</strong>：128:1（每 128 个 token → 1 个压缩 KV entry）</li>
+<li><strong>无 overlap</strong>（论文明确：”does not perform overlapped compression”）</li>
+<li><strong>无稀疏选择</strong>：对所有压缩条目做全量密集注意力（提供全局”低分辨率概览”）</li>
+<li><strong>滑动窗口</strong>：同样保留最近 128 个 token!</li>
+</ul>
+<p><strong>单层 KV Cache 计算</strong>（1M tokens）：</p>
+<table>
+<thead>
+<tr>
+<th>组件</th>
+<th>entries</th>
+<th>bytes/entry</th>
+<th>小计</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>压缩 KV</td>
+<td>1M/128</td>
+<td>576</td>
+<td>4.5 MB</td>
+</tr>
+<tr>
+<td>SWA</td>
+<td>128</td>
+<td>1088</td>
+<td>135 KB</td>
+</tr>
+<tr>
+<td><strong>总计</strong></td>
+<td></td>
+<td></td>
+<td><strong>~4.6 MB/层</strong> (无 Indexer)</td>
+</tr>
+</tbody></table>
+<h3 id="2-CSA（Compressed-Sparse-Attention）—-轻度压缩"><a href="#2-CSA（Compressed-Sparse-Attention）—-轻度压缩" class="headerlink" title="2. CSA（Compressed Sparse Attention）— 轻度压缩!"></a>2. CSA（Compressed Sparse Attention）— 轻度压缩!</h3><ul>
 <li><strong>压缩比</strong>：4:1（每 4 个 token → 1 个压缩 KV entry）</li>
 <li><strong>窗口大小</strong>：8 个 token（含 50% overlap，步长=4）</li>
-<li><strong>稀疏选择</strong>：闪电索引器（FP4 精度）选取 top-1024 最相关的压缩块</li>
-<li><strong>滑动窗口</strong>：保留最近 128 个 token 的原始未压缩 KV</li>
+<li><strong>稀疏选择</strong>：Lightning Indexer（FP4 精度）选取 top-1024 最相关的压缩块</li>
+<li><strong>滑动窗口</strong>：保留最近 128 个 token 的原始未压缩 KV!</li>
 </ul>
-<p><strong>压缩流程</strong>（代码追踪）：</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">4 个原始 hidden states (bf16, 7168 维)</span><br><span class="line">  ↓ wkv (float32, 独立权重)</span><br><span class="line">  4 × [512] float32  ← 4 个 token 的 KV</span><br><span class="line">  ↓ softmax 加权求和（4→1，含 overlap 的 8 个 token）</span><br><span class="line">  1 × [512] float32  ← 压缩完成</span><br><span class="line">  ↓ RMSNorm → bf16</span><br><span class="line">  1 × [512] bf16</span><br><span class="line">  ↓ RoPE（只对后 64 维施加，位置=4j）</span><br><span class="line">  ↓ FP8 量化（只对前 448 维）</span><br><span class="line">  1 × [512] = 576 bytes ← 写入 CSA KV cache</span><br></pre></td></tr></table></figure>
-
 <p><strong>单层 KV Cache 计算</strong>（1M tokens）：</p>
 <table>
 <thead>
@@ -416,307 +461,40 @@
 <td><strong>~160 MB/层</strong></td>
 </tr>
 </tbody></table>
-<h3 id="2-HCA（重度压缩注意力）—-重度压缩"><a href="#2-HCA（重度压缩注意力）—-重度压缩" class="headerlink" title="2. HCA（重度压缩注意力）— 重度压缩"></a>2. HCA（重度压缩注意力）— 重度压缩</h3><ul>
-<li><strong>压缩比</strong>：128:1（每 128 个 token → 1 个压缩 KV entry）</li>
-<li><strong>无 overlap</strong>（论文明确：”does not perform overlapped compression”）</li>
-<li><strong>无稀疏选择</strong>：对所有压缩条目做全量密集注意力（提供全局”低分辨率概览”）</li>
-<li><strong>滑动窗口</strong>：同样保留最近 128 个 token</li>
-</ul>
-<p><strong>单层 KV Cache 计算</strong>（1M tokens）：</p>
-<table>
-<thead>
-<tr>
-<th>组件</th>
-<th>entries</th>
-<th>bytes/entry</th>
-<th>小计</th>
-</tr>
-</thead>
-<tbody><tr>
-<td>压缩 KV</td>
-<td>1M/128</td>
-<td>576</td>
-<td>4.5 MB</td>
-</tr>
-<tr>
-<td>SWA</td>
-<td>128</td>
-<td>1088</td>
-<td>135 KB</td>
-</tr>
-<tr>
-<td><strong>总计</strong></td>
-<td></td>
-<td></td>
-<td><strong>~4.6 MB/层</strong> (无 Indexer)</td>
-</tr>
-</tbody></table>
 <hr>
-<h2 id="四、索引器（Indexer）机制（CSA-独有）"><a href="#四、索引器（Indexer）机制（CSA-独有）" class="headerlink" title="四、索引器（Indexer）机制（CSA 独有）"></a>四、索引器（Indexer）机制（CSA 独有）</h2><p>索引器是 CSA 的”导航系统”，用来决定<strong>哪些压缩块最值得关注</strong>。</p>
+<h2 id="四、索引器（Indexer）机制（CSA-独有）"><a href="#四、索引器（Indexer）机制（CSA-独有）" class="headerlink" title="四、索引器（Indexer）机制（CSA 独有）!"></a>四、索引器（Indexer）机制（CSA 独有）!</h2><p>索引器是 CSA 的”导航系统”，用来决定<strong>哪些压缩块最值得关注</strong>。</p>
 <h3 id="结构"><a href="#结构" class="headerlink" title="结构"></a>结构</h3><ul>
-<li><strong>独立压缩器</strong>：自己的 wkv 和 wgate 权重（head_dim=128，不是 512）</li>
+<li><strong>独立 Compressor</strong>：自己的 wkv 和 wgate 权重（head_dim=128，不是 512）</li>
 <li><strong>FP4 量化</strong>：Hadamard 旋转 + fp4_act_quant（全 128 维）</li>
-<li><strong>计算流程</strong>：<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">Query token t → 索引器 query (128 维) → 和所有压缩块的索引器 key 算分</span><br><span class="line">→ Top-k (1024) → 选出最相关的 1024 个压缩块</span><br></pre></td></tr></table></figure></li>
-</ul>
-<h3 id="Indexer-Cache-大小（1M-tokens）"><a href="#Indexer-Cache-大小（1M-tokens）" class="headerlink" title="Indexer Cache 大小（1M tokens）"></a>Indexer Cache 大小（1M tokens）</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">(1M/4) × 128 dims × 0.5 byte (FP4) = 16 MB/层</span><br></pre></td></tr></table></figure>
-
-<p><strong>论文 Section 5.2.1</strong>：</p>
-<blockquote>
-<p>“索引器中的 QK 激活被缓存、加载，并完全以 FP4 精度计算。”</p>
-</blockquote>
-<hr>
-<h2 id="五、RoPE-的特殊处理"><a href="#五、RoPE-的特殊处理" class="headerlink" title="五、RoPE 的特殊处理"></a>五、RoPE 的特殊处理</h2><h3 id="三处应用-RoPE（Section-2-3-3）"><a href="#三处应用-RoPE（Section-2-3-3）" class="headerlink" title="三处应用 RoPE（Section 2.3.3）"></a>三处应用 RoPE（Section 2.3.3）</h3><ol>
-<li><strong>Query 向量</strong> (q_t,i) → last 64 dims</li>
-<li><strong>KV entry 向量</strong> (C_Comp) → last 64 dims</li>
-<li><strong>Core attention 输出</strong> (o_t,i) → last 64 dims（位置 = -i）</li>
-</ol>
-<h3 id="为什么输出也要加-RoPE？"><a href="#为什么输出也要加-RoPE？" class="headerlink" title="为什么输出也要加 RoPE？"></a>为什么输出也要加 RoPE？</h3><p>因为 KV entry 同时作为 K 和 V，压缩后的 entry 带绝对位置信息。如果直接输出：</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">o_t,i = Σ attn_weight_j × C_Comp_j(R(j))  ← 携带绝对位置 R(j)</span><br></pre></td></tr></table></figure>
-
-<p>对输出施加 RoPE(position=-i)：</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">R(-i) × o_t,i = Σ attn_weight_j × C_Comp_j(R(j-i))  ← 转为相对位置</span><br></pre></td></tr></table></figure>
-
-<p><strong>论文原文</strong>：</p>
-<blockquote>
-<p>“注意力输出的贡献将与 query 和 KV entry 之间的距离相关。”</p>
-</blockquote>
-<hr>
-<h2 id="六、精度配置"><a href="#六、精度配置" class="headerlink" title="六、精度配置"></a>六、精度配置</h2><h3 id="两种精度模式"><a href="#两种精度模式" class="headerlink" title="两种精度模式"></a>两种精度模式</h3><table>
-<thead>
-<tr>
-<th>符号</th>
-<th>含义</th>
-<th>BF16 基准</th>
-<th>混合精度部署</th>
-</tr>
-</thead>
-<tbody><tr>
-<td>$S_{kv}$</td>
-<td>Shared-KV 每元素字节</td>
-<td>$512 \times 2 = 1024$</td>
-<td>$448 \times 1 + 64 \times 2 = 576$</td>
-</tr>
-<tr>
-<td>$S_{idx}$</td>
-<td>Indexer 每元素字节</td>
-<td>$128 \times 2 = 256$</td>
-<td>$128 \times 0.5 = 64$ (FP4)</td>
-</tr>
-</tbody></table>
-<h3 id="论文依据"><a href="#论文依据" class="headerlink" title="论文依据"></a>论文依据</h3><p><strong>Section 2.3.4</strong>：</p>
-<blockquote>
-<p>“RoPE 维度使用 BF16 精度，其余维度使用 FP8 精度。”</p>
-</blockquote>
-<p><strong>Section 5.2.1</strong>：</p>
-<blockquote>
-<p>“索引器中的 QK 激活完全以 FP4 精度计算。”</p>
-</blockquote>
-<hr>
-<h2 id="七、总-KV-Cache-计算公式"><a href="#七、总-KV-Cache-计算公式" class="headerlink" title="七、总 KV Cache 计算公式"></a>七、总 KV Cache 计算公式</h2><h3 id="通用公式"><a href="#通用公式" class="headerlink" title="通用公式"></a>通用公式</h3><p>设序列长度 $N$，CSA 层数 $N_{CSA}=30$，HCA 层数 $N_{HCA}=31$：</p>
-<p>$$\text{Total KV} = N_{CSA} \times \text{PerCSA} + N_{HCA} \times \text{PerHCA}$$</p>
-<p>其中：</p>
-<p>$$\text{PerCSA} = \underbrace{(\frac{N}{4} + w) \times S_{kv}}<em>{\text{Shared-KV}} + \underbrace{\frac{N}{4} \times S</em>{idx}}_{\text{Indexer}}$$</p>
-<p>$$\text{PerHCA} = \underbrace{(\frac{N}{128} + w) \times S_{kv}}_{\text{Shared-KV only}}$$</p>
-<hr>
-<h2 id="八、数值结果（N-1-048-576-1M-tokens）"><a href="#八、数值结果（N-1-048-576-1M-tokens）" class="headerlink" title="八、数值结果（N = 1,048,576 = 1M tokens）"></a>八、数值结果（N = 1,048,576 = 1M tokens）</h2><h3 id="BF16-基准（vLLM-博客算法）"><a href="#BF16-基准（vLLM-博客算法）" class="headerlink" title="BF16 基准（vLLM 博客算法）"></a>BF16 基准（vLLM 博客算法）</h3><p><strong>CSA 30 层</strong>：</p>
-<table>
-<thead>
-<tr>
-<th>组件</th>
-<th>计算</th>
-<th>结果</th>
-</tr>
-</thead>
-<tbody><tr>
-<td>Shared-KV 压缩</td>
-<td>262,144 × 1024</td>
-<td>256.00 MiB</td>
-</tr>
-<tr>
-<td>Shared-KV 窗口</td>
-<td>128 × 1024</td>
-<td>0.125 MiB</td>
-</tr>
-<tr>
-<td>Indexer 压缩</td>
-<td>262,144 × 256</td>
-<td>64.00 MiB</td>
-</tr>
-<tr>
-<td><strong>CSA 单层</strong></td>
-<td></td>
-<td><strong>320.13 MiB</strong></td>
-</tr>
-<tr>
-<td><strong>30 层 CSA</strong></td>
-<td>320.13 × 30</td>
-<td><strong>9,603.75 MiB</strong></td>
-</tr>
-</tbody></table>
-<p><strong>HCA 31 层</strong>：</p>
-<table>
-<thead>
-<tr>
-<th>组件</th>
-<th>计算</th>
-<th>结果</th>
-</tr>
-</thead>
-<tbody><tr>
-<td>Shared-KV 压缩</td>
-<td>8,192 × 1024</td>
-<td>8.00 MiB</td>
-</tr>
-<tr>
-<td>Shared-KV 窗口</td>
-<td>128 × 1024</td>
-<td>0.125 MiB</td>
-</tr>
-<tr>
-<td><strong>HCA 单层</strong></td>
-<td></td>
-<td><strong>8.13 MiB</strong></td>
-</tr>
-<tr>
-<td><strong>31 层 HCA</strong></td>
-<td>8.13 × 31</td>
-<td><strong>251.88 MiB</strong></td>
-</tr>
-</tbody></table>
-<p><strong>总计（BF16）</strong>：9,603.75 + 251.88 = <strong>9,855.63 MiB ≈ 9.62 GiB</strong> ✅（和 vLLM 博客完全一致）</p>
-<h3 id="混合精度实际部署（FP8-BF16-FP4）"><a href="#混合精度实际部署（FP8-BF16-FP4）" class="headerlink" title="混合精度实际部署（FP8 + BF16 + FP4）"></a>混合精度实际部署（FP8 + BF16 + FP4）</h3><table>
-<thead>
-<tr>
-<th>组件</th>
-<th>bytes/entry</th>
-<th>30 层 CSA</th>
-<th>31 层 HCA</th>
-</tr>
-</thead>
-<tbody><tr>
-<td>CSA 压缩 KV</td>
-<td>576</td>
-<td>4.23 GiB</td>
-<td>—</td>
-</tr>
-<tr>
-<td>CSA Indexer</td>
-<td>64 (FP4)</td>
-<td>0.47 GiB</td>
-<td>—</td>
-</tr>
-<tr>
-<td>CSA SWA</td>
-<td>576</td>
-<td>2.11 MiB</td>
-<td>—</td>
-</tr>
-<tr>
-<td>HCA 压缩 KV</td>
-<td>576</td>
-<td>—</td>
-<td>0.14 GiB</td>
-</tr>
-<tr>
-<td>HCA SWA</td>
-<td>576</td>
-<td>—</td>
-<td>2.18 MiB</td>
-</tr>
-<tr>
-<td><strong>总计</strong></td>
-<td></td>
-<td><strong>~4.84 GiB</strong></td>
-<td></td>
-</tr>
-</tbody></table>
-<p><strong>压缩比</strong>：</p>
-<ul>
-<li>V3.2 KV Cache (61 层) = 83.9 GiB</li>
-<li>V4-Pro 混合精度 = 4.84 GiB</li>
-<li><strong>压缩比</strong>：83.9 / 4.84 ≈ <strong>17.3×</strong> ✅</li>
+<li><strong>计算流程</strong>：<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">  Query token t → indexer query (128 维) → 和所有压缩块的索引器 key 算分</span><br><span class="line">  → Top-k (1024) → 选出最相关的 1024 个压缩块</span><br><span class="line">  ```!</span><br><span class="line"></span><br><span class="line">### Indexer Cache 大小（1M tokens）</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+(1M/4) × 128 dims × 0.5 byte (FP4) = 16 MB/层<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">**论文 Section 5.2.1**：</span><br><span class="line">&gt; &quot;索引器中的 QK 激活被缓存、加载，并完全以 FP4 精度计算。&quot;</span><br><span class="line"></span><br><span class="line">---</span><br><span class="line"></span><br><span class="line">## 五、RoPE 的特殊处理!</span><br><span class="line"></span><br><span class="line">### 三处应用 RoPE（Section 2.3.3）</span><br><span class="line"></span><br><span class="line">1. **Query 向量** (q_t,i) → last 64 dims</span><br><span class="line">2. **KV entry 向量** (C_Comp) → last 64 dims</span><br><span class="line">3. **Core attention 输出** (o_t,i) → last 64 dims（位置 = -i）</span><br><span class="line"></span><br><span class="line">### 为什么输出也要加 RoPE？!</span><br><span class="line"></span><br><span class="line">因为 KV entry 同时作为 K 和 V，压缩后的 entry 带绝对位置信息。如果直接输出：</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+o_t,i = Σ attn_weight_j × C_Comp_j(R(j))  ← 携带绝对位置 R(j)<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">对输出施加 RoPE(position=-i)：</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+R(-i) × o_t,i = Σ attn_weight_j × C_Comp_j(R(j-i))  ← 转为相对位置<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">**论文原文**：</span><br><span class="line">&gt; &quot;注意力输出的贡献将与 query 和 KV entry 之间的距离相关。&quot;</span><br><span class="line"></span><br><span class="line">---</span><br><span class="line"></span><br><span class="line">## 六、精度配置!</span><br><span class="line"></span><br><span class="line">### 两种精度模式!</span><br><span class="line"></span><br><span class="line">| 符号 | 含义 | BF16 基准 | 混合精度部署 |</span><br><span class="line">|------|------|-----------|--------------|</span><br><span class="line">| $S_&#123;kv&#125;$ | Shared-KV 每元素字节 | $512 \times 2 = 1024$ | $448 \times 1 + 64 \times 2 = 576$ |</span><br><span class="line">| $S_&#123;idx&#125;$ | Indexer 每元素字节 | $128 \times 2 = 256$ | $128 \times 0.5 = 64$ (FP4) |</span><br><span class="line"></span><br><span class="line">### 论文依据!</span><br><span class="line"></span><br><span class="line">**Section 2.3.4**：</span><br><span class="line">&gt; &quot;RoPE 维度使用 BF16 精度，其余维度使用 FP8 精度。&quot;</span><br><span class="line"></span><br><span class="line">**Section 5.2.1**：</span><br><span class="line">&gt; &quot;索引器中的 QK 激活完全以 FP4 精度计算。&quot;</span><br><span class="line"></span><br><span class="line">---</span><br><span class="line"></span><br><span class="line">## 七、总 KV Cache 计算公式!</span><br><span class="line"></span><br><span class="line">### 通用公式!</span><br><span class="line"></span><br><span class="line">设序列长度 $N$，CSA 层数 $N_&#123;CSA&#125;=30$，HCA 层数 $N_&#123;HCA&#125;=31$：</span><br><span class="line"></span><br><span class="line">$$\text&#123;Total KV&#125; = N_&#123;CSA&#125; \times \text&#123;PerCSA&#125; + N_&#123;HCA&#125; \times \text&#123;PerHCA&#125;$$</span><br><span class="line"></span><br><span class="line">其中：</span><br><span class="line"></span><br><span class="line">$$\text&#123;PerCSA&#125; = \underbrace&#123;(\frac&#123;N&#125;&#123;4&#125; + w) \times S_&#123;kv&#125;&#125;_&#123;\text&#123;Shared-KV&#125;&#125; + \underbrace&#123;\frac&#123;N&#125;&#123;4&#125; \times S_&#123;idx&#125;&#125;_&#123;\text&#123;Indexer&#125;&#125;$$</span><br><span class="line"></span><br><span class="line">$$\text&#123;PerHCA&#125; = \underbrace&#123;(\frac&#123;N&#125;&#123;128&#125; + w) \times S_&#123;kv&#125;&#125;_&#123;\text&#123;Shared-KV only&#125;&#125;$$</span><br><span class="line"></span><br><span class="line">---</span><br><span class="line"></span><br><span class="line">## 八、数值结果（N = 1,048,576 = 1M tokens）!</span><br><span class="line"></span><br><span class="line">### BF16 基准（vLLM 博客算法）</span><br><span class="line"></span><br><span class="line">**CSA 30 层**：</span><br><span class="line"></span><br><span class="line">| 组件 | 计算 | 结果 |</span><br><span class="line">|------|------|------|</span><br><span class="line">| Shared-KV 压缩 | 262,144 × 1024 | 256.00 MiB |</span><br><span class="line">| Shared-KV 窗口 | 128 × 1024 | 0.125 MiB |</span><br><span class="line">| Indexer 压缩 | 262,144 × 256 | 64.00 MiB |</span><br><span class="line">| **CSA 单层** | | **320.13 MiB** |</span><br><span class="line">| **30 层 CSA** | 320.13 × 30 | **9,603.75 MiB** |</span><br><span class="line"></span><br><span class="line">**HCA 31 层**：</span><br><span class="line"></span><br><span class="line">| 组件 | 计算 | 结果 |</span><br><span class="line">|------|------|------|</span><br><span class="line">| Shared-KV 压缩 | 8,192 × 1024 | 8.00 MiB |</span><br><span class="line">| Shared-KV 窗口 | 128 × 1024 | 0.125 MiB |</span><br><span class="line">| **HCA 单层** | | **8.13 MiB** |</span><br><span class="line">| **31 层 HCA** | 8.13 × 31 | **251.88 MiB** |</span><br><span class="line"></span><br><span class="line">**总计（BF16）**：9,603.75 + 251.88 = **9,855.63 MiB ≈ 9.62 GiB** ✅（和 vLLM 博客完全一致）</span><br><span class="line"></span><br><span class="line">### 混合精度实际部署（FP8 + BF16 + FP4）</span><br><span class="line"></span><br><span class="line">| 组件 | bytes/entry | 30 层 CSA | 31 层 HCA |</span><br><span class="line">|------|---------------|------------|------------|</span><br><span class="line">| CSA 压缩 KV | 576 | 4.23 GiB | — |</span><br><span class="line">| CSA Indexer | 64 (FP4) | 0.47 GiB | — |</span><br><span class="line">| CSA SWA | 576 | 2.11 MiB | — |</span><br><span class="line">| HCA 压缩 KV | 576 | — | 0.14 GiB |</span><br><span class="line">| HCA SWA | 576 | — | 2.18 MiB |</span><br><span class="line">| **总计** | | **~4.84 GiB** | |</span><br><span class="line"></span><br><span class="line">**压缩比**：</span><br><span class="line">- V3.2 KV Cache (61 层) = 83.9 GiB</span><br><span class="line">- V4-Pro 混合精度 = 4.84 GiB</span><br><span class="line">- **压缩比**：83.9 / 4.84 ≈ **17.3×** ✅!</span><br><span class="line"></span><br><span class="line">---</span><br><span class="line"></span><br><span class="line">## 九、各组件占比（BF16 基准）!</span><br><span class="line"></span><br><span class="line">| 组件 | MiB | 百分比 |</span><br><span class="line">|------|-----|--------|</span><br><span class="line">| CSA Shared-KV 压缩 | 7,680.00 | 77.9% ← 绝对主体 |</span><br><span class="line">| CSA Indexer | 1,920.00 | 19.5% ← 不可忽略 |</span><br><span class="line">| HCA Shared-KV 压缩 | 248.00 | 2.5% ← 128× 压缩极高效 |</span><br><span class="line">| 滑动窗口 (全部 61 层) | 7.63 | 0.1% ← 可忽略 |</span><br><span class="line">| **总计** | **9,855.63** | **100%** |</span><br><span class="line"></span><br><span class="line">CSA 的 Indexer 占了近 20%，是不能漏算的部分。</span><br><span class="line"></span><br><span class="line">---</span><br><span class="line"></span><br><span class="line">## 十、为什么能这么小？关键洞察!</span><br><span class="line"></span><br><span class="line">1. **序列维度压缩**（V3 只压缩隐维度，V4 同时压缩序列长度）</span><br><span class="line">   - CSA: L → L/4</span><br><span class="line">   - HCA: L → L/128</span><br><span class="line"></span><br><span class="line">2. **稀疏注意力**（CSA 只访问 top-1024 个压缩块，而非全部 L/4 个）</span><br><span class="line"></span><br><span class="line">3. **分层设计**：CSA 负责精准的中程依赖，HCA 负责全局概览，互为补充</span><br><span class="line"></span><br><span class="line">4. **混合精度**：</span><br><span class="line">   - RoPE 维度：BF16（2 bytes，保证位置精度）</span><br><span class="line">   - 其余维度：FP8（1 byte，节省空间）</span><br><span class="line">   - Indexer：FP4（0.5 byte，最激进）</span><br><span class="line"></span><br><span class="line">5. **磁盘 KV Cache**：压缩后的 KV 块可以落盘存储，共享前缀的请求复用缓存*</span><br><span class="line"></span><br><span class="line">---</span><br><span class="line"></span><br><span class="line">## 十一、Forward 计算流程图（V4-Pro）!</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<pre><code>              Hidden State [batch, seq_len, 7168]
+                        │
+        ┌───────────────┴───────────────┐
+        ▼                               ▼
+   Q Down-proj                    KV 通路
+</code></pre>
+  [7168 → 1536]                  [7168 → 512] (wkv)<pre><code>        │                               │
+        ▼                               ▼
+</code></pre>
+   Q Up-proj (1536→128×512)    ┌──→ 压缩 (CSA: ratio=4 / HCA: ratio=128)<pre><code>        │                    │     ├─→ RoPE (后 64 维, BF16)
+</code></pre>
+  Q [batch, seq_len, 128, 512] │     ├─→ FP8 量化 (前 448 维)<pre><code>        │                    │     └─→ 写入 KV cache
+</code></pre>
+  ┌─→ RoPE (后 64 维)       │<br>  │         │                    │<br>  │    Q [batch, seq_len, 128, 512]  KV cache [batch, N/ratio, 512]<br>  │         │                    │<br>  │         └──→ Indexer (仅 CSA) ──→ Top-k → 1024 个选中<br>  │                                      │<br>  └──→ Attention(Q, K=selected_1024, V=selected_1024)<pre><code>        │
+        └──→ + SWA (最近 128 个 token)
+        │
+        ▼
+  Output [batch, seq_len, 7168]
+</code></pre>
+```</li>
 </ul>
 <hr>
-<h2 id="九、各组件占比（BF16-基准）"><a href="#九、各组件占比（BF16-基准）" class="headerlink" title="九、各组件占比（BF16 基准）"></a>九、各组件占比（BF16 基准）</h2><table>
-<thead>
-<tr>
-<th>组件</th>
-<th>MiB</th>
-<th>百分比</th>
-</tr>
-</thead>
-<tbody><tr>
-<td>CSA Shared-KV 压缩</td>
-<td>7,680.00</td>
-<td>77.9% ← 绝对主体</td>
-</tr>
-<tr>
-<td>CSA Indexer</td>
-<td>1,920.00</td>
-<td>19.5% ← 不可忽略</td>
-</tr>
-<tr>
-<td>HCA Shared-KV 压缩</td>
-<td>248.00</td>
-<td>2.5% ← 128× 压缩极高效</td>
-</tr>
-<tr>
-<td>滑动窗口 (全部 61 层)</td>
-<td>7.63</td>
-<td>0.1% ← 可忽略</td>
-</tr>
-<tr>
-<td><strong>总计</strong></td>
-<td><strong>9,855.63</strong></td>
-<td><strong>100%</strong></td>
-</tr>
-</tbody></table>
-<p>CSA 的 Indexer 占了近 20%，是不能漏算的部分。</p>
-<hr>
-<h2 id="十、为什么能这么小？关键洞察"><a href="#十、为什么能这么小？关键洞察" class="headerlink" title="十、为什么能这么小？关键洞察"></a>十、为什么能这么小？关键洞察</h2><ol>
-<li><p><strong>序列维度压缩</strong>（V3 只压缩隐维度，V4 同时压缩序列长度）</p>
-<ul>
-<li>CSA: L → L/4</li>
-<li>HCA: L → L/128</li>
-</ul>
-</li>
-<li><p><strong>稀疏注意力</strong>（CSA 只访问 top-1024 个压缩块，而非全部 L/4 个）</p>
-</li>
-<li><p><strong>分层设计</strong>：CSA 负责精准的中程依赖，HCA 负责全局概览，互为补充</p>
-</li>
-<li><p><strong>混合精度</strong>：</p>
-<ul>
-<li>RoPE 维度：BF16（2 bytes，保证位置精度）</li>
-<li>其余维度：FP8（1 byte，节省空间）</li>
-<li>Indexer：FP4（0.5 byte，最激进）</li>
-</ul>
-</li>
-<li><p><strong>磁盘 KV Cache</strong>：压缩后的 KV 块可以落盘存储，共享前缀的请求复用缓存</p>
-</li>
-</ol>
-<hr>
-<h2 id="十一、RoPE-的特殊处理详解"><a href="#十一、RoPE-的特殊处理详解" class="headerlink" title="十一、RoPE 的特殊处理详解"></a>十一、RoPE 的特殊处理详解</h2><h3 id="三处应用-RoPE（Section-2-3-3）-1"><a href="#三处应用-RoPE（Section-2-3-3）-1" class="headerlink" title="三处应用 RoPE（Section 2.3.3）"></a>三处应用 RoPE（Section 2.3.3）</h3><ol>
-<li><strong>Query 向量</strong> (q_t,i) → last 64 dims</li>
-<li><strong>KV entry 向量</strong> (C_Comp) → last 64 dims</li>
-<li><strong>Core attention 输出</strong> (o_t,i) → last 64 dims（位置 = -i）</li>
-</ol>
-<h3 id="为什么输出也要加-RoPE？-1"><a href="#为什么输出也要加-RoPE？-1" class="headerlink" title="为什么输出也要加 RoPE？"></a>为什么输出也要加 RoPE？</h3><p>因为 KV entry 同时作为 K 和 V，压缩后的 entry 带绝对位置信息。如果直接输出：</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">o_t,i = Σ attn_weight_j × C_Comp_j(R(j))  ← 携带绝对位置 R(j)</span><br></pre></td></tr></table></figure>
-
-<p>对输出施加 RoPE(position=-i)：</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">R(-i) × o_t,i = Σ attn_weight_j × C_Comp_j(R(j-i))  ← 转为相对位置</span><br></pre></td></tr></table></figure>
-
-<p><strong>论文原文</strong>：</p>
+<h2 id="十二、和-vLLM-部署对齐"><a href="#十二、和-vLLM-部署对齐" class="headerlink" title="十二、和 vLLM 部署对齐!"></a>十二、和 vLLM 部署对齐!</h2><p>vLLM 博客明确验证了 V4 的计算：</p>
 <blockquote>
-<p>“注意力输出的贡献将与 query 和 KV entry 之间的距离相关。”</p>
-</blockquote>
-<hr>
-<h2 id="十二、Forward-计算流程图（V4-Pro）"><a href="#十二、Forward-计算流程图（V4-Pro）" class="headerlink" title="十二、Forward 计算流程图（V4-Pro）"></a>十二、Forward 计算流程图（V4-Pro）</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">                Hidden State [batch, seq_len, 7168]</span><br><span class="line">                          │</span><br><span class="line">          ┌───────────────┴───────────────┐</span><br><span class="line">          ▼                               ▼</span><br><span class="line">     Q Down-proj                    KV 通路</span><br><span class="line">[7168 → 1536]                  [7168 → 512] (wkv)</span><br><span class="line">          │                               │</span><br><span class="line">          ▼                               ▼</span><br><span class="line"> Q Up-proj (1536→128×512)    ┌──→ 压缩 (CSA: ratio=4 / HCA: ratio=128)</span><br><span class="line">          │                    │     ├─→ RoPE (后 64 维, BF16)</span><br><span class="line">Q [batch, seq_len, 128, 512] │     ├─→ FP8 量化 (前 448 维)</span><br><span class="line">          │                    │     └─→ 写入 KV cache</span><br><span class="line">┌─→ RoPE (后 64 维)       │</span><br><span class="line">│         │                    │</span><br><span class="line">│    Q [batch, seq_len, 128, 512]  KV cache [batch, N/ratio, 512]</span><br><span class="line">│         │                    │</span><br><span class="line">│         └──→ Indexer (仅 CSA) ──→ Top-k → 1024 个选中</span><br><span class="line">│                                      │</span><br><span class="line">└──→ Attention(Q, K=selected_1024, V=selected_1024)</span><br><span class="line">          │</span><br><span class="line">          └──→ + SWA (最近 128 个 token)</span><br><span class="line">          │</span><br><span class="line">          ▼</span><br><span class="line">    Output [batch, seq_len, 7168]</span><br></pre></td></tr></table></figure>
-
-<hr>
-<h2 id="十三、和-vLLM-部署对齐"><a href="#十三、和-vLLM-部署对齐" class="headerlink" title="十三、和 vLLM 部署对齐"></a>十三、和 vLLM 部署对齐</h2><p>vLLM 博客明确验证了 V4 的计算：</p>
-<blockquote>
-<p>“使用 FP4 索引器缓存和 FP8 注意力缓存，相比 BF16 估计值进一步减少约 <strong>2×</strong>。”</p>
+<p>“using fp4 indexer cache and fp8 attention cache, which further reduces the KV cache size by roughly <strong>2×</strong> compared to the bf16 estimate!”</p>
 </blockquote>
 <table>
 <thead>
@@ -743,16 +521,16 @@
 </tr>
 </tbody></table>
 <hr>
-<h2 id="十四、总结"><a href="#十四、总结" class="headerlink" title="十四、总结"></a>十四、总结</h2><p>DeepSeek-V4 通过<strong>序列维度压缩 + 混合精度存储 + 稀疏选择</strong>，将 1M tokens 的 KV Cache 从 V3.2 的 83.9 GiB 压缩到 <strong>4.84 GiB</strong>（17.3× 压缩）。</p>
+<h2 id="十三、总结"><a href="#十三、总结" class="headerlink" title="十三、总结!"></a>十三、总结!</h2><p>DeepSeek-V4 通过<strong>序列维度压缩 + 混合精度存储 + 稀疏选择</strong>，将 1M tokens 的 KV Cache 从 V3.2 的 83.9 GiB 压缩到 <strong>4.84 GiB</strong>（17.3× 压缩）。</p>
 <p>核心创新：</p>
 <ul>
 <li><strong>CSA</strong>：4:1 压缩 + overlap + Indexer 稀疏选择</li>
 <li><strong>HCA</strong>：128:1 重度压缩，提供全局概览</li>
 <li><strong>混合精度</strong>：RoPE (BF16) + 内容 (FP8) + Indexer (FP4)</li>
 </ul>
-<p>这套架构让百万 token 上下文从”不可能”变成”日常可用” 🐾</p>
+<p>这套架构让百万 token 上下文从”不可能”变成”日常可用” 🐾!</p>
 <hr>
-<h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2><ol>
+<h2 id="参考"><a href="#参考" class="headerlink" title="参考!"></a>参考!</h2><ol>
 <li><a target="_blank" rel="noopener" href="https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro/blob/main/DeepSeek_V4.pdf">DeepSeek-V4 论文</a> (2026) Section 2.3</li>
 <li><a target="_blank" rel="noopener" href="https://github.com/vllm-project/vllm-project.github.io/blob/main/_posts/2026-04-24-deepseek-v4.md">vLLM 博客：DeepSeek V4 in vLLM</a> (2026-04-24)</li>
 <li><a target="_blank" rel="noopener" href="https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro/blob/main/config.json">config.json</a></li>
