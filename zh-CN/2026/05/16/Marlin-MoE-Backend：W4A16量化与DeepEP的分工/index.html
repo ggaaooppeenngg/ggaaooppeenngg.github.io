@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.3.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="_85tctgPWrqH2EPVuuD5IT6KE-tW8nH0hTISJDMnShg">
+  <meta name="baidu-site-verification" content="bb16c5b1fd3302c18e0015bef11eea42">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha256-dABdfBfUoC8vJUBOwGVdm8L9qlMWaHTIfXt+7GnZCIo=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.css" integrity="sha256-gkQVf8UKZgQ0HyuxL/VnacadJ+D2Kox2TCEBuNQg5+w=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="背景：MoE 推理的两个瓶颈在大模型推理中，MoE（Mixture of Experts）架构面临两个独立的性能瓶颈： 1. 计算瓶颈 — 专家权重太大，算不过来 DeepSeek-V3&#x2F;V4 的 routed expert 权重： 12345单个 expert: 7168 × 3072 × 2 (gate+up) + 3072 × 7168 (down)           &#x3D; 44 MB +">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Marlin MoE Backend：W4A16 量化与 DeepEP 的分工">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2026/05/16/Marlin-MoE-Backend%EF%BC%9AW4A16%E9%87%8F%E5%8C%96%E4%B8%8EDeepEP%E7%9A%84%E5%88%86%E5%B7%A5/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="背景：MoE 推理的两个瓶颈在大模型推理中，MoE（Mixture of Experts）架构面临两个独立的性能瓶颈： 1. 计算瓶颈 — 专家权重太大，算不过来 DeepSeek-V3&#x2F;V4 的 routed expert 权重： 12345单个 expert: 7168 × 3072 × 2 (gate+up) + 3072 × 7168 (down)           &#x3D; 44 MB +">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-05-15T16:10:00.000Z">
+<meta property="article:modified_time" content="2026-05-15T16:37:23.768Z">
+<meta property="article:author" content="ggaaooppeenngg">
+<meta property="article:tag" content="vLLM">
+<meta property="article:tag" content="DeepSeek">
+<meta property="article:tag" content="MoE">
+<meta property="article:tag" content="Marlin">
+<meta property="article:tag" content="量化">
+<meta property="article:tag" content="DeepEP">
+<meta property="article:tag" content="CUDA Kernel">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2026/05/16/Marlin-MoE-Backend%EF%BC%9AW4A16%E9%87%8F%E5%8C%96%E4%B8%8EDeepEP%E7%9A%84%E5%88%86%E5%B7%A5/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://ggaaooppeenngg.github.io/zh-CN/2026/05/16/Marlin-MoE-Backend%EF%BC%9AW4A16%E9%87%8F%E5%8C%96%E4%B8%8EDeepEP%E7%9A%84%E5%88%86%E5%B7%A5/","path":"zh-CN/2026/05/16/Marlin-MoE-Backend：W4A16量化与DeepEP的分工/","title":"Marlin MoE Backend：W4A16 量化与 DeepEP 的分工"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>Marlin MoE Backend：W4A16 量化与 DeepEP 的分工 | ggaaooppeenngg</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-62096626-1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"UA-62096626-1","only_pageview":false,"measure_protocol_api_secret":null}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+  <script src="/js/third-party/analytics/baidu-analytics.js"></script>
+  <script async src="https://hm.baidu.com/hm.js?bb16c5b1fd3302c18e0015bef11eea42"></script>
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">ggaaooppeenngg</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">为什么计算机科学是无限的但生命是有限的</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-旅行路书"><a href="/travel/" rel="section"><i class="plane fa-fw"></i>旅行路书</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">176</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">22</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">92</span></a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%83%8C%E6%99%AF%EF%BC%9AMoE-%E6%8E%A8%E7%90%86%E7%9A%84%E4%B8%A4%E4%B8%AA%E7%93%B6%E9%A2%88"><span class="nav-number">1.</span> <span class="nav-text">背景：MoE 推理的两个瓶颈</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Marlin-%E6%98%AF%E4%BB%80%E4%B9%88"><span class="nav-number">2.</span> <span class="nav-text">Marlin 是什么</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%80%E3%80%81Marlin-GEMM-Kernel-%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90"><span class="nav-number">3.</span> <span class="nav-text">一、Marlin GEMM Kernel 源码分析</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-1-%E6%A0%B8%E5%BF%83%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84%EF%BC%88%E5%AF%84%E5%AD%98%E5%99%A8%E4%B8%AD%E7%9A%84-Tensor-Core-%E5%B8%83%E5%B1%80%EF%BC%89"><span class="nav-number">3.1.</span> <span class="nav-text">1.1 核心数据结构（寄存器中的 Tensor Core 布局）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#1-2-%E5%BC%82%E6%AD%A5%E6%8B%B7%E8%B4%9D%EF%BC%88Async-Copy%EF%BC%89%E2%80%94%E2%80%94-%E5%85%B3%E9%94%AE%E4%BC%98%E5%8C%96"><span class="nav-number">3.2.</span> <span class="nav-text">1.2 异步拷贝（Async Copy）—— 关键优化</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E2%91%A0-%E5%B8%A6%E9%A2%84%E6%B5%8B%E7%9A%84-A-%E6%8B%B7%E8%B4%9D%EF%BC%88%E6%94%AF%E6%8C%81-batch-%E4%B8%8D%E6%98%AF-16-%E5%80%8D%E6%95%B0%E7%9A%84%E6%83%85%E5%86%B5%EF%BC%89"><span class="nav-number">3.2.1.</span> <span class="nav-text">① 带预测的 A 拷贝（支持 batch 不是 16 倍数的情况）</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E2%91%A1-%E7%BB%95%E8%BF%87-L1-%E7%9A%84-B-%E6%8B%B7%E8%B4%9D%EF%BC%88%E6%9D%83%E9%87%8D%E5%8F%AA%E8%AF%BB%E4%B8%80%E6%AC%A1%EF%BC%8C%E4%B8%8D%E6%B1%A1%E6%9F%93-L2%EF%BC%89"><span class="nav-number">3.2.2.</span> <span class="nav-text">② 绕过 L1 的 B 拷贝（权重只读一次，不污染 L2）</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#1-3-INT4-%E5%8F%8D%E9%87%8F%E5%8C%96%EF%BC%88Dequant%EF%BC%89%E2%80%94%E2%80%94-%E7%BA%AF%E4%BD%8D%E8%BF%90%E7%AE%97"><span class="nav-number">3.3.</span> <span class="nav-text">1.3 INT4 反量化（Dequant）—— 纯位运算</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#1-4-Tensor-Core-MMA-%E6%8C%87%E4%BB%A4"><span class="nav-number">3.4.</span> <span class="nav-text">1.4 Tensor Core MMA 指令</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#1-5-%E5%8F%8C%E7%BC%93%E5%86%B2-Pipeline%EF%BC%88%E6%A0%B8%E5%BF%83%E6%80%A7%E8%83%BD%E6%9D%A5%E6%BA%90%EF%BC%89"><span class="nav-number">3.5.</span> <span class="nav-text">1.5 双缓冲 Pipeline（核心性能来源）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#1-6-Shared-Memory-%E5%B8%83%E5%B1%80%EF%BC%88Bank-Conflict-%E9%81%BF%E5%85%8D%EF%BC%89"><span class="nav-number">3.6.</span> <span class="nav-text">1.6 Shared Memory 布局（Bank Conflict 避免）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#1-7-%E6%A8%A1%E6%9D%BF%E5%8F%82%E6%95%B0%EF%BC%88%E7%BC%96%E8%AF%91%E6%9C%9F%E5%86%B3%E5%AE%9A%EF%BC%8C%E9%9B%B6%E5%BC%80%E9%94%80%EF%BC%89"><span class="nav-number">3.7.</span> <span class="nav-text">1.7 模板参数（编译期决定，零开销）</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%8C%E3%80%81Marlin-%E5%9C%A8-vLLM-%E4%B8%AD%E7%9A%84-MoE-Fused-Kernel"><span class="nav-number">4.</span> <span class="nav-text">二、Marlin 在 vLLM 中的 MoE Fused Kernel</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-1-%E8%B0%83%E7%94%A8%E5%85%B3%E7%B3%BB%E5%9B%BE"><span class="nav-number">4.1.</span> <span class="nav-text">2.1 调用关系图</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-2-vLLM-%E4%B8%AD%E7%9A%84%E5%AE%8C%E6%95%B4%E8%B0%83%E7%94%A8%E9%93%BE"><span class="nav-number">4.2.</span> <span class="nav-text">2.2 vLLM 中的完整调用链</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-3-MoE-Fused-%E4%BA%86%E4%BB%80%E4%B9%88%EF%BC%88%E4%B8%8E-Unfused-%E5%AF%B9%E6%AF%94%EF%BC%89"><span class="nav-number">4.3.</span> <span class="nav-text">2.3 MoE Fused 了什么（与 Unfused 对比）</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%89%E3%80%81Marlin-vs-DeepEP%EF%BC%9A%E5%88%86%E5%B7%A5%E6%98%8E%E7%A1%AE"><span class="nav-number">5.</span> <span class="nav-text">三、Marlin vs DeepEP：分工明确</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9B%9B%E3%80%81%E5%AE%8C%E6%95%B4-MoE-%E6%B5%81%E7%A8%8B%EF%BC%9AMarlin-DeepEP-%E5%8D%8F%E4%BD%9C"><span class="nav-number">6.</span> <span class="nav-text">四、完整 MoE 流程：Marlin + DeepEP 协作</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%94%E3%80%81%E6%95%B0%E5%80%BC%E5%AF%B9%E6%AF%94%EF%BC%9A%E6%9C%89-%E6%97%A0-Marlin-DeepEP"><span class="nav-number">7.</span> <span class="nav-text">五、数值对比：有&#x2F;无 Marlin + DeepEP</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%9C%BA%E6%99%AF%EF%BC%9Abatch-4096-EP-8-H200"><span class="nav-number">7.1.</span> <span class="nav-text">场景：batch&#x3D;4096, EP&#x3D;8, H200</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#5-1-Routed-Expert-%E8%AE%A1%E7%AE%97%EF%BC%88%E5%8D%95%E5%8D%A1-48-%E4%B8%AA%E4%B8%93%E5%AE%B6%EF%BC%8C%E6%9C%AC%E5%9C%B0-token-3072%EF%BC%89"><span class="nav-number">7.1.1.</span> <span class="nav-text">5.1 Routed Expert 计算（单卡 48 个专家，本地 token&#x3D;3072）</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#5-2-%E9%80%9A%E4%BF%A1%EF%BC%88DeepEP%EF%BC%89"><span class="nav-number">7.1.2.</span> <span class="nav-text">5.2 通信（DeepEP）</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#5-3-%E6%80%BB%E6%97%B6%E9%97%B4%E5%AF%B9%E6%AF%94"><span class="nav-number">7.1.3.</span> <span class="nav-text">5.3 总时间对比</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%AD%E3%80%81%E4%B8%BA%E4%BB%80%E4%B9%88%E8%BF%99%E4%B8%A4%E4%B8%AA%E4%BC%98%E5%8C%96%E4%B8%8D%E5%86%B2%E7%AA%81"><span class="nav-number">8.</span> <span class="nav-text">六、为什么这两个优化不冲突</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%83%E3%80%81%E9%92%88%E5%AF%B9-Hopper-SM90-%E7%9A%84%E6%BC%94%E8%BF%9B"><span class="nav-number">9.</span> <span class="nav-text">七、针对 Hopper (SM90) 的演进</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">10.</span> <span class="nav-text">总结</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">92</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">22</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">176</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/ggaaooppeenngg" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;ggaaooppeenngg" rel="noopener me" target="_blank"><i class="github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:peng.gao.dut@gmail.com" title="E-Mail → mailto:peng.gao.dut@gmail.com" rel="noopener me" target="_blank"><i class="envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+        <div class="back-to-top animated" role="button" aria-label="返回顶部">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2026/05/16/Marlin-MoE-Backend%EF%BC%9AW4A16%E9%87%8F%E5%8C%96%E4%B8%8EDeepEP%E7%9A%84%E5%88%86%E5%B7%A5/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="Marlin MoE Backend：W4A16 量化与 DeepEP 的分工 | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Marlin MoE Backend：W4A16 量化与 DeepEP 的分工
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+      
+
+      <time title="创建时间：2026-05-16 00:10:00 / 修改时间：00:37:23" itemprop="dateCreated datePublished" datetime="2026-05-16T00:10:00+08:00">2026-05-16</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/%E6%8A%80%E6%9C%AF/" itemprop="url" rel="index"><span itemprop="name">技术</span></a>
+        </span>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2026/05/16/Marlin-MoE-Backend%EF%BC%9AW4A16%E9%87%8F%E5%8C%96%E4%B8%8EDeepEP%E7%9A%84%E5%88%86%E5%B7%A5/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2026/05/16/Marlin-MoE-Backend：W4A16量化与DeepEP的分工/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h2 id="背景：MoE-推理的两个瓶颈"><a href="#背景：MoE-推理的两个瓶颈" class="headerlink" title="背景：MoE 推理的两个瓶颈"></a>背景：MoE 推理的两个瓶颈</h2><p>在大模型推理中，MoE（Mixture of Experts）架构面临两个独立的性能瓶颈：</p>
+<p><strong>1. 计算瓶颈 — 专家权重太大，算不过来</strong></p>
+<p>DeepSeek-V3/V4 的 routed expert 权重：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">单个 expert: 7168 × 3072 × 2 (gate+up) + 3072 × 7168 (down)</span><br><span class="line">           = 44 MB + 22 MB = 66 MB (BF16)</span><br><span class="line"></span><br><span class="line">384 个专家（EP=8，每卡 48 个）：</span><br><span class="line">  每卡权重大小 = 48 × 66 MB = 3.17 GB</span><br></pre></td></tr></table></figure>
+
+<p>生成阶段 batch=1，每个 token 只激活 6 个专家：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">计算量: 6 × 66 MB × 2 (读权重+写激活) ≈ 小</span><br><span class="line">权重大小: 3.17 GB → 必须全部从 HBM 读取</span><br></pre></td></tr></table></figure>
+
+<p><strong>问题：计算量小，但权重大，memory-bound。</strong></p>
+<hr>
+<p><strong>2. 通信瓶颈 — 专家分布在多卡，需要 All-to-All</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">batch=4096: 154 MB dispatch + 154 MB combine</span><br><span class="line">NVLink 900 GB/s → 理论上 342 μs</span><br><span class="line">实际更糟（拥塞 + 突发小消息）</span><br></pre></td></tr></table></figure>
+
+<p><strong>问题：跨卡通信延迟高，占 MoE 总时间 77%。</strong></p>
+<hr>
+<p>这两个瓶颈分别由 <strong>Marlin</strong>（解决计算）和 <strong>DeepEP</strong>（解决通信）来优化。</p>
+<hr>
+<h2 id="Marlin-是什么"><a href="#Marlin-是什么" class="headerlink" title="Marlin 是什么"></a>Marlin 是什么</h2><p>Marlin 是 <strong>W4A16</strong> 量化 kernel：</p>
+<ul>
+<li><strong>Weight (W)</strong>: INT4（4-bit 量化）</li>
+<li><strong>Activation (A)</strong>: FP16（16-bit 浮点，保持精度）</li>
+</ul>
+<p>GitHub: <a target="_blank" rel="noopener" href="https://github.com/IST-DASLab/marlin">https://github.com/IST-DASLab/marlin</a><br>论文: arXiv:2408.11743</p>
+<p>核心特点：</p>
+<ul>
+<li>针对 <strong>小 batch（1-32 tokens）</strong> 优化，正好契合生成阶段</li>
+<li>理论上 <strong>4x 内存压缩</strong>（INT4 vs FP16），实际达到 <strong>~3.5x 加速</strong></li>
+<li>已集成进 vLLM / SGLang 作为 MoE 后端的量化方案</li>
+</ul>
+<hr>
+<h2 id="一、Marlin-GEMM-Kernel-源码分析"><a href="#一、Marlin-GEMM-Kernel-源码分析" class="headerlink" title="一、Marlin GEMM Kernel 源码分析"></a>一、Marlin GEMM Kernel 源码分析</h2><blockquote>
+<p>文件：<code>marlin_cuda_kernel.cu</code>（822 行），针对 <strong>NVIDIA Ampere (SM80)</strong> 架构</p>
+</blockquote>
+<h3 id="1-1-核心数据结构（寄存器中的-Tensor-Core-布局）"><a href="#1-1-核心数据结构（寄存器中的-Tensor-Core-布局）" class="headerlink" title="1.1 核心数据结构（寄存器中的 Tensor Core 布局）"></a>1.1 核心数据结构（寄存器中的 Tensor Core 布局）</h3><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// Tensor Core 需要的分片布局（文档: CUDA C Programming Guide）</span></span><br><span class="line"><span class="keyword">using</span> FragA = Vec&lt;half2, <span class="number">4</span>&gt;;   <span class="comment">// A 矩阵碎片: 16×16, 存为 4 个 half2</span></span><br><span class="line"><span class="keyword">using</span> FragB = Vec&lt;half2, <span class="number">2</span>&gt;;   <span class="comment">// B 矩阵碎片: INT4 反量化后 → 2 个 half2</span></span><br><span class="line"><span class="keyword">using</span> FragC = Vec&lt;<span class="type">float</span>, <span class="number">4</span>&gt;;   <span class="comment">// C 矩阵碎片: FP32 累加（避免精度损失）</span></span><br><span class="line"><span class="keyword">using</span> FragS = Vec&lt;half2, <span class="number">1</span>&gt;;   <span class="comment">// scale 碎片（per-group）</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>对应关系：</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">FragA: [half2×4] = 8 个 FP16 = 一个 16×16 A 碎片</span><br><span class="line">FragB: [half2×2] = 4 个 FP16 = INT4 反量化后的 B 碎片</span><br><span class="line">FragC: [float×4] = 4 个 FP32 = MMA 累加结果</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h3 id="1-2-异步拷贝（Async-Copy）——-关键优化"><a href="#1-2-异步拷贝（Async-Copy）——-关键优化" class="headerlink" title="1.2 异步拷贝（Async Copy）—— 关键优化"></a>1.2 异步拷贝（Async Copy）—— 关键优化</h3><h4 id="①-带预测的-A-拷贝（支持-batch-不是-16-倍数的情况）"><a href="#①-带预测的-A-拷贝（支持-batch-不是-16-倍数的情况）" class="headerlink" title="① 带预测的 A 拷贝（支持 batch 不是 16 倍数的情况）"></a>① 带预测的 A 拷贝（支持 batch 不是 16 倍数的情况）</h4><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">__device__ <span class="keyword">inline</span> <span class="type">void</span> <span class="title">cp_async4_pred</span><span class="params">(<span class="type">void</span>* smem_ptr, <span class="type">const</span> <span class="type">void</span>* glob_ptr, <span class="type">bool</span> pred = <span class="literal">true</span>)</span> </span>&#123;</span><br><span class="line">  <span class="type">const</span> <span class="type">int</span> BYTES = <span class="number">16</span>;</span><br><span class="line">  <span class="type">uint32_t</span> smem = <span class="built_in">static_cast</span>&lt;<span class="type">uint32_t</span>&gt;(__cvta_generic_to_shared(smem_ptr));</span><br><span class="line">  <span class="function"><span class="keyword">asm</span> <span class="title">volatile</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="string">&quot;&#123;\n&quot;</span></span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="string">&quot;   .reg .pred p;\n&quot;</span></span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="string">&quot;   setp.ne.b32 p, %0, 0;\n&quot;</span>           <span class="comment">// pred=false 时跳过</span></span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="string">&quot;   @p cp.async.cg.shared.global [%1], [%2], %3;\n&quot;</span></span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="string">&quot;&#125;\n&quot;</span> :: <span class="string">&quot;r&quot;</span>((<span class="type">int</span>) pred), <span class="string">&quot;r&quot;</span>(smem), <span class="string">&quot;l&quot;</span>(glob_ptr), <span class="string">&quot;n&quot;</span>(BYTES)</span></span></span><br><span class="line"><span class="params"><span class="function">  )</span></span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="②-绕过-L1-的-B-拷贝（权重只读一次，不污染-L2）"><a href="#②-绕过-L1-的-B-拷贝（权重只读一次，不污染-L2）" class="headerlink" title="② 绕过 L1 的 B 拷贝（权重只读一次，不污染 L2）"></a>② 绕过 L1 的 B 拷贝（权重只读一次，不污染 L2）</h4><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">__device__ <span class="keyword">inline</span> <span class="type">void</span> <span class="title">cp_async4_stream</span><span class="params">(<span class="type">void</span>* smem_ptr, <span class="type">const</span> <span class="type">void</span>* glob_ptr)</span> </span>&#123;</span><br><span class="line">  <span class="type">const</span> <span class="type">int</span> BYTES = <span class="number">16</span>;</span><br><span class="line">  <span class="type">uint32_t</span> smem = <span class="built_in">static_cast</span>&lt;<span class="type">uint32_t</span>&gt;(__cvta_generic_to_shared(smem_ptr));</span><br><span class="line">  <span class="function"><span class="keyword">asm</span> <span class="title">volatile</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="string">&quot;&#123;\n&quot;</span></span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="string">&quot;   .reg .b64 p;\n&quot;</span></span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="string">&quot;   createpolicy.fractional.L2::evict_first.b64 p, 1.0;&quot;</span>  <span class="comment">// L2 evict_first</span></span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="string">&quot;   cp.async.cg.shared.global.L2::cache_hint [%0], [%1], %2, p;\n&quot;</span></span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="string">&quot;&#125;\n&quot;</span> :: <span class="string">&quot;r&quot;</span>(smem), <span class="string">&quot;l&quot;</span>(glob_ptr), <span class="string">&quot;n&quot;</span>(BYTES)</span></span></span><br><span class="line"><span class="params"><span class="function">  )</span></span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>为什么重要：</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">B (权重) 特点:</span><br><span class="line">  - 只读一次（memory-bound 场景）</span><br><span class="line">  - 如果进 L2，会挤占 A 和 C 的缓存空间</span><br><span class="line">  - L2::evict_first 告诉 GPU: &quot;用完就扔，别缓存&quot;</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h3 id="1-3-INT4-反量化（Dequant）——-纯位运算"><a href="#1-3-INT4-反量化（Dequant）——-纯位运算" class="headerlink" title="1.3 INT4 反量化（Dequant）—— 纯位运算"></a>1.3 INT4 反量化（Dequant）—— 纯位运算</h3><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">__device__ <span class="keyword">inline</span> FragB <span class="title">dequant</span><span class="params">(<span class="type">int</span> q)</span> </span>&#123;</span><br><span class="line">  <span class="type">const</span> <span class="type">int</span> LO = <span class="number">0x000f000f</span>;   <span class="comment">// 低 4 位 mask</span></span><br><span class="line">  <span class="type">const</span> <span class="type">int</span> HI = <span class="number">0x00f000f0</span>;   <span class="comment">// 高 4 位 mask</span></span><br><span class="line">  <span class="type">const</span> <span class="type">int</span> EX = <span class="number">0x64006400</span>;   <span class="comment">// magic number，对应 FP16 的 2^(-2)</span></span><br><span class="line"></span><br><span class="line">  <span class="comment">// lop3: 3 输入逻辑运算，一条指令完成 (a &amp; b) | c</span></span><br><span class="line">  <span class="type">int</span> lo = <span class="built_in">lop3</span>&lt;(<span class="number">0xf0</span> &amp; <span class="number">0xcc</span>) | <span class="number">0xaa</span>&gt;(q, LO, EX);  <span class="comment">// 提取低 4 位 + zero point 偏移</span></span><br><span class="line">  <span class="type">int</span> hi = <span class="built_in">lop3</span>&lt;(<span class="number">0xf0</span> &amp; <span class="number">0xcc</span>) | <span class="number">0xaa</span>&gt;(q, HI, EX);  <span class="comment">// 提取高 4 位 + zero point 偏移</span></span><br><span class="line"></span><br><span class="line">  FragB frag_b;</span><br><span class="line">  <span class="comment">// __hsub2: half2 减法，减去 8 (INT4 的 zero point)</span></span><br><span class="line">  frag_b[<span class="number">0</span>] = __hsub2(*<span class="built_in">reinterpret_cast</span>&lt;half2*&gt;(&amp;lo), </span><br><span class="line">                   *<span class="built_in">reinterpret_cast</span>&lt;<span class="type">const</span> half2*&gt;(&amp;SUB));</span><br><span class="line">  <span class="comment">// __hfma2: half2 FMA，乘以 scale</span></span><br><span class="line">  frag_b[<span class="number">1</span>] = __hfma2(*<span class="built_in">reinterpret_cast</span>&lt;half2*&gt;(&amp;hi), </span><br><span class="line">                    *<span class="built_in">reinterpret_cast</span>&lt;<span class="type">const</span> half2*&gt;(&amp;MUL), </span><br><span class="line">                    *<span class="built_in">reinterpret_cast</span>&lt;<span class="type">const</span> half2*&gt;(&amp;ADD));</span><br><span class="line">  <span class="keyword">return</span> frag_b;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>INT4 编码格式（GPTQ/AWQ）：</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">1 个 INT4 值 = 4 bits，范围 [-8, 7]</span><br><span class="line">2 个 INT4 打包进 1 个 INT8:</span><br><span class="line">  byte = [high_4bits, low_4bits]</span><br><span class="line"></span><br><span class="line">反量化公式:</span><br><span class="line">  FP16_value = (INT4_value + 8) × scale  ← zero point = -8</span><br></pre></td></tr></table></figure>
+
+<p><strong>关键技巧：</strong> 用 <code>lop3</code> 一条指令完成位提取 + zero point 偏移，避免多条指令。</p>
+<hr>
+<h3 id="1-4-Tensor-Core-MMA-指令"><a href="#1-4-Tensor-Core-MMA-指令" class="headerlink" title="1.4 Tensor Core MMA 指令"></a>1.4 Tensor Core MMA 指令</h3><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">__device__ <span class="keyword">inline</span> <span class="type">void</span> <span class="title">mma</span><span class="params">(<span class="type">const</span> FragA&amp; a_frag, <span class="type">const</span> FragB&amp; frag_b, FragC&amp; frag_c)</span> </span>&#123;</span><br><span class="line">  <span class="type">const</span> <span class="type">uint32_t</span>* a = <span class="built_in">reinterpret_cast</span>&lt;<span class="type">const</span> <span class="type">uint32_t</span>*&gt;(&amp;a_frag);</span><br><span class="line">  <span class="type">const</span> <span class="type">uint32_t</span>* b = <span class="built_in">reinterpret_cast</span>&lt;<span class="type">const</span> <span class="type">uint32_t</span>*&gt;(&amp;frag_b);</span><br><span class="line">  <span class="type">float</span>* c = <span class="built_in">reinterpret_cast</span>&lt;<span class="type">float</span>*&gt;(&amp;frag_c);</span><br><span class="line">  <span class="function"><span class="keyword">asm</span> <span class="title">volatile</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="string">&quot;mma.sync.aligned.m16n8k16.row.col.f32.f16.f16.f32 &quot;</span></span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="string">&quot;&#123;%0,%1,%2,%3&#125;, &#123;%4,%5,%6,%7&#125;, &#123;%8,%9&#125;, &#123;%10,%11,%12,%13&#125;;\n&quot;</span></span></span></span><br><span class="line"><span class="params"><span class="function">    : <span class="string">&quot;=f&quot;</span>(c[<span class="number">0</span>]), <span class="string">&quot;=f&quot;</span>(c[<span class="number">1</span>]), <span class="string">&quot;=f&quot;</span>(c[<span class="number">2</span>]), <span class="string">&quot;=f&quot;</span>(c[<span class="number">3</span>])</span></span></span><br><span class="line"><span class="params"><span class="function">    : <span class="string">&quot;r&quot;</span>(a[<span class="number">0</span>]), <span class="string">&quot;r&quot;</span>(a[<span class="number">1</span>]), <span class="string">&quot;r&quot;</span>(a[<span class="number">2</span>]), <span class="string">&quot;r&quot;</span>(a[<span class="number">3</span>]), </span></span></span><br><span class="line"><span class="params"><span class="function">      <span class="string">&quot;r&quot;</span>(b[<span class="number">0</span>]), <span class="string">&quot;r&quot;</span>(b[<span class="number">1</span>]),</span></span></span><br><span class="line"><span class="params"><span class="function">      <span class="string">&quot;f&quot;</span>(c[<span class="number">0</span>]), <span class="string">&quot;f&quot;</span>(c[<span class="number">1</span>]), <span class="string">&quot;f&quot;</span>(c[<span class="number">2</span>]), <span class="string">&quot;f&quot;</span>(c[<span class="number">3</span>])</span></span></span><br><span class="line"><span class="params"><span class="function">  )</span></span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>指令解释：</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">mma.sync.aligned.m16n8k16.row.col.f32.f16.f16.f32:</span><br><span class="line">  - m16n8k16: 操作 16×8×16 的 tile</span><br><span class="line">  - row.col: A 按行主序，B 按列主序</span><br><span class="line">  - f32.f16.f16.f32: C=FP32, A=FP16, B=FP16 (反量化后)</span><br><span class="line">  - 输出累加到 C (FP32 精度，避免多次累加后精度损失)</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h3 id="1-5-双缓冲-Pipeline（核心性能来源）"><a href="#1-5-双缓冲-Pipeline（核心性能来源）" class="headerlink" title="1.5 双缓冲 Pipeline（核心性能来源）"></a>1.5 双缓冲 Pipeline（核心性能来源）</h3><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// Pipeline 伪代码（stages=2）:</span></span><br><span class="line"><span class="keyword">for</span> (<span class="type">int</span> pipe = <span class="number">0</span>; pipe &lt; iters + stages - <span class="number">1</span>; pipe++) &#123;</span><br><span class="line">    <span class="comment">// Stage 1: 异步加载下一个 tile 到 shared memory</span></span><br><span class="line">    <span class="keyword">if</span> (pipe &lt; iters) &#123;</span><br><span class="line">        <span class="built_in">fetch_to_shared</span>(pipe % stages, pipe);  <span class="comment">// cp_async4_stream + cp_async_fence</span></span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// Stage 2: 等待上一个 tile 加载完成</span></span><br><span class="line">    <span class="keyword">if</span> (pipe &gt;= stages - <span class="number">1</span>) &#123;</span><br><span class="line">        <span class="built_in">wait_for_stage</span>();  <span class="comment">// cp_async_wait&lt;stages-2&gt;()</span></span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// Stage 3: 从 shared memory 读到寄存器</span></span><br><span class="line">    <span class="keyword">if</span> (pipe &gt;= stages - <span class="number">1</span>) &#123;</span><br><span class="line">        <span class="built_in">fetch_to_registers</span>(k % <span class="number">2</span>, (pipe - (stages - <span class="number">1</span>)) % stages);</span><br><span class="line">        <span class="comment">// 内部: ldsm4 (SMEM→Reg) + dequant (INT4→FP16)</span></span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// Stage 4: Tensor Core MMA</span></span><br><span class="line">    <span class="keyword">if</span> (pipe &gt;= stages - <span class="number">1</span>) &#123;</span><br><span class="line">        <span class="built_in">matmul</span>(k % <span class="number">2</span>);  <span class="comment">// mma() 调用 + dequant 交替</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>时间线（stages=2）：</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">Time →</span><br><span class="line">SM:   [fetch_A0][fetch_A1][fetch_A2][fetch_A3]...</span><br><span class="line">       ↑ wait    ↑ wait    ↑ wait</span><br><span class="line">Reg:        [mma_A0 ][mma_A1 ][mma_A2 ]...</span><br><span class="line">              ↑ dequant ↑ dequant ↑ dequant</span><br></pre></td></tr></table></figure>
+
+<p><strong>为什么有效：</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">- fetch (cp_async) 不占 SM 时间，硬件 DMA 异步执行</span><br><span class="line">- MMA 执行时，下一个 tile 正在加载</span><br><span class="line">- 掩盖了 HBM → SMEM 的延迟 (~400 cycles)</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h3 id="1-6-Shared-Memory-布局（Bank-Conflict-避免）"><a href="#1-6-Shared-Memory-布局（Bank-Conflict-避免）" class="headerlink" title="1.6 Shared Memory 布局（Bank Conflict 避免）"></a>1.6 Shared Memory 布局（Bank Conflict 避免）</h3><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// A 矩阵在 shared memory 中的 XOR 重排</span></span><br><span class="line"><span class="keyword">auto</span> transform_a = [&amp;] (<span class="type">int</span> i) &#123;</span><br><span class="line">    <span class="type">int</span> row = i / a_gl_rd_delta_o;</span><br><span class="line">    <span class="keyword">return</span> a_gl_rd_delta_o * row + (i % a_gl_rd_delta_o) ^ row;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p><strong>问题：</strong> 如果 8 个连续线程访问 shared memory 的连续地址，会触发 bank conflict。</p>
+<p><strong>XOR 重排：</strong> 让线程访问的地址分散到不同 bank：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">原始: 线程 0→地址 0, 线程 1→地址 1, ... → bank 0-7 冲突</span><br><span class="line">XOR后: 线程 0→地址 0^0=0, 线程 1→地址 1^0=1, 线程 2→地址 2^1=3, ...</span><br><span class="line">      → 分散到不同 bank，消除冲突</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h3 id="1-7-模板参数（编译期决定，零开销）"><a href="#1-7-模板参数（编译期决定，零开销）" class="headerlink" title="1.7 模板参数（编译期决定，零开销）"></a>1.7 模板参数（编译期决定，零开销）</h3><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;</span><br><span class="line">  <span class="type">const</span> <span class="type">int</span> threads,        <span class="comment">// 每个 threadblock 的线程数 (常 128-256)</span></span><br><span class="line">  <span class="type">const</span> <span class="type">int</span> thread_m_blocks, <span class="comment">// M 维度分片数 (batch 维度)</span></span><br><span class="line">  <span class="type">const</span> <span class="type">int</span> thread_n_blocks, <span class="comment">// N 维度分片数 (输出维度)</span></span><br><span class="line">  <span class="type">const</span> <span class="type">int</span> thread_k_blocks, <span class="comment">// K 维度分片数 (reduction 维度)</span></span><br><span class="line">  <span class="type">const</span> <span class="type">int</span> stages,         <span class="comment">// pipeline 阶段数 (常 2-4)</span></span><br><span class="line">  <span class="type">const</span> <span class="type">int</span> group_blocks    <span class="comment">// 量化 group 大小 (128/256 或 -1=per-channel)</span></span><br><span class="line">&gt;</span><br><span class="line"><span class="function">__global__ <span class="type">void</span> <span class="title">Marlin</span><span class="params">(...)</span></span></span><br></pre></td></tr></table></figure>
+
+<p><strong>为什么模板而不是运行时参数？</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">→ #pragma unroll 需要编译期常量</span><br><span class="line">→ Tensor Core 的 ldsm 指令需要编译期地址计算</span><br><span class="line">→ 编译器可以内联所有 lambda，零函数调用开销</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="二、Marlin-在-vLLM-中的-MoE-Fused-Kernel"><a href="#二、Marlin-在-vLLM-中的-MoE-Fused-Kernel" class="headerlink" title="二、Marlin 在 vLLM 中的 MoE Fused Kernel"></a>二、Marlin 在 vLLM 中的 MoE Fused Kernel</h2><blockquote>
+<p><strong>重要区分：</strong> Marlin Kernel（底层 GEMM）≠ MoE Fused Kernel（上层编排）。<br>MoE Fused Kernel <strong>调用</strong> Marlin Kernel 来做 expert 里的矩阵乘。</p>
+</blockquote>
+<h3 id="2-1-调用关系图"><a href="#2-1-调用关系图" class="headerlink" title="2.1 调用关系图"></a>2.1 调用关系图</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">┌────────────────────────────────┐</span><br><span class="line">│         MoE Layer (fused_moe.py)          │</span><br><span class="line">│  - Router GEMM                           │</span><br><span class="line">│  - topk 选择                            │</span><br><span class="line">└──────────────────┬───────────────────────┘</span><br><span class="line">                   │</span><br><span class="line">                   ▼</span><br><span class="line">┌────────────────────────────────┐</span><br><span class="line">│    MoE Fused Kernel (marlin_moe.py)       │</span><br><span class="line">│  - moe_align_block_size                  │</span><br><span class="line">│  - ops.moe_wna16_marlin_gemm (×2)      │</span><br><span class="line">│  - SwiGLU activation                     │</span><br><span class="line">│  - topk reduce                          │</span><br><span class="line">└─────────────┬───────────────────────────┘</span><br><span class="line">              │ 调用</span><br><span class="line">              ▼</span><br><span class="line">┌────────────────────────────────┐</span><br><span class="line">│         Marlin Kernel (C++/CUDA)           │</span><br><span class="line">│  - cp.async (HBM→SMEM)                │</span><br><span class="line">│  - ldsm4 (SMEM→Reg)                   │</span><br><span class="line">│  - dequant (INT4 → FP16)                 │</span><br><span class="line">│  - mma.sync (Tensor Core)                │</span><br><span class="line">│  - 双缓冲 Pipeline                      │</span><br><span class="line">└────────────────────────────────┘</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h3 id="2-2-vLLM-中的完整调用链"><a href="#2-2-vLLM-中的完整调用链" class="headerlink" title="2.2 vLLM 中的完整调用链"></a>2.2 vLLM 中的完整调用链</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 1. 用户调用</span></span><br><span class="line">output = FusedMoE.forward(x, topk_ids, topk_weights)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 2. 进入 fused_moe.py，选择 backend</span></span><br><span class="line">method = <span class="variable language_">self</span>._get_method(...)  <span class="comment"># 返回 MarlinExperts</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 3. 调用 Marlin backend</span></span><br><span class="line">output = method.apply(</span><br><span class="line">    hidden_states, topk_weights, topk_indices, ...</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 4. 进入 marlin_moe.py — MoE Fused Kernel</span></span><br><span class="line">output = fused_marlin_moe(</span><br><span class="line">    hidden_states, w1, w2, scales1, scales2, ...</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 5. 内部调用 Marlin GEMM (C++ extension)</span></span><br><span class="line"><span class="comment"># GEMM 1: gate+up</span></span><br><span class="line">intermediate = ops.moe_wna16_marlin_gemm(</span><br><span class="line">    hidden_states,      <span class="comment"># [M*topk, K]</span></span><br><span class="line">    w1,                  <span class="comment"># [num_experts, 2*N, K//8] INT4 packed</span></span><br><span class="line">    scales1,             <span class="comment"># per-group scales</span></span><br><span class="line">    sorted_token_ids,</span><br><span class="line">    expert_ids,</span><br><span class="line">    ...</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 6. SwiGLU activation</span></span><br><span class="line">gate, up = intermediate.chunk(<span class="number">2</span>, dim=-<span class="number">1</span>)</span><br><span class="line">activated = F.silu(gate) * up</span><br><span class="line"></span><br><span class="line"><span class="comment"># 7. GEMM 2: down</span></span><br><span class="line">output = ops.moe_wna16_marlin_gemm(</span><br><span class="line">    activated,           <span class="comment"># [M*topk, N]</span></span><br><span class="line">    w2,                  <span class="comment"># [num_experts, K, N//8] INT4 packed</span></span><br><span class="line">    scales2,</span><br><span class="line">    ...</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 8. topk 加权求和</span></span><br><span class="line"><span class="keyword">return</span> (output * topk_weights.unsqueeze(-<span class="number">1</span>)).<span class="built_in">sum</span>(dim=<span class="number">1</span>)</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h3 id="2-3-MoE-Fused-了什么（与-Unfused-对比）"><a href="#2-3-MoE-Fused-了什么（与-Unfused-对比）" class="headerlink" title="2.3 MoE Fused 了什么（与 Unfused 对比）"></a>2.3 MoE Fused 了什么（与 Unfused 对比）</h3><p><strong>传统分拆实现（Unfused）：</strong></p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 需要 3-4 个独立 kernel 调用</span></span><br><span class="line">copy_hbm_to_smem(A, B, Scales)       <span class="comment"># Kernel 1</span></span><br><span class="line">dequant_and_mma(A_tile, B_tile, Scales)  <span class="comment"># Kernel 2 (每个 expert)</span></span><br><span class="line">reduce_across_blocks()                   <span class="comment"># Kernel 3 (如果 multi-block)</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>MoE Fused Kernel（vLLM）：</strong></p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 一个 Python 函数，但内部调用 2 次 Marlin GEMM</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">fused_marlin_moe</span>(<span class="params">...</span>):</span><br><span class="line">    <span class="comment"># 所有操作在 2 次 kernel launch 内完成：</span></span><br><span class="line">    <span class="comment">#   GEMM 1 (gate+up) ← 一次 Marlin kernel launch</span></span><br><span class="line">    <span class="comment">#   SwiGLU (activation，轻量)</span></span><br><span class="line">    <span class="comment">#   GEMM 2 (down)     ← 一次 Marlin kernel launch</span></span><br><span class="line">    <span class="comment">#   topk reduce (轻量)</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>Marlin Kernel 内部 Fused：</strong></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 一个 CUDA kernel 内完成所有操作：</span></span><br><span class="line"><span class="function">__global__ <span class="type">void</span> <span class="title">Marlin</span><span class="params">(...)</span> </span>&#123;</span><br><span class="line">    <span class="comment">// 1. fetch_to_shared (HBM→SMEM) ← fused 进主循环</span></span><br><span class="line">    <span class="comment">// 2. fetch_to_registers (SMEM→Reg) ← fused 进主循环</span></span><br><span class="line">    <span class="comment">// 3. dequant + mma ← fused 进 matmul()</span></span><br><span class="line">    <span class="comment">// 4. 双缓冲 (stages=2) ← 掩盖所有内存延迟</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>FP16 vs W4A16 计算优势</strong></p>
+<p>以单个 expert 的 gate+up GEMM 为例：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">GEMM: [B, 7168] × [7168, 6144] → [B, 6144]</span><br><span class="line"></span><br><span class="line">BF16 (original):</span><br><span class="line">  权重: 7168 × 6144 × 2 bytes = 88.1 MB</span><br><span class="line">  FLOPs: 2 × B × 7168 × 6144</span><br><span class="line">  HBM 读取: 88.1 MB</span><br><span class="line">  Time (HBM 4.8 TB/s): 88.1 MB / 4800 MB/μs = 18.35 μs</span><br><span class="line"></span><br><span class="line">W4A16 (Marlin):</span><br><span class="line">  权重: 7168 × 6144 × 0.5 bytes (INT4) = 22.0 MB</span><br><span class="line">  Time (HBM 4.8 TB/s): 22.0 MB / 4800 MB/μs = 4.58 μs</span><br><span class="line">  </span><br><span class="line">  → 内存读取快 4x，实际 kernel 优化后 ~3.5x 加速</span><br></pre></td></tr></table></figure>
+
+<p><strong>为什么不用 W4A4？</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">W4A4: 权重 INT4 + 激活 INT4</span><br><span class="line">  → 激活也量化会损失精度，生成质量下降</span><br><span class="line"></span><br><span class="line">W4A16: 权重 INT4 + 激活 FP16</span><br><span class="line">  → 权重压缩 4x，激活保持精度</span><br><span class="line">  → 反量化在 kernel 内部完成（lop3 指令），延迟开销极小</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="三、Marlin-vs-DeepEP：分工明确"><a href="#三、Marlin-vs-DeepEP：分工明确" class="headerlink" title="三、Marlin vs DeepEP：分工明确"></a>三、Marlin vs DeepEP：分工明确</h2><table>
+<thead>
+<tr>
+<th>维度</th>
+<th>Marlin</th>
+<th>DeepEP</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>优化目标</strong></td>
+<td>计算（GEMM kernel）</td>
+<td>通信（All-to-All）</td>
+</tr>
+<tr>
+<td><strong>量化策略</strong></td>
+<td>W4A16（权重 INT4）</td>
+<td>FP8（dispatch）+ BF16（combine）</td>
+</tr>
+<tr>
+<td><strong>瓶颈类型</strong></td>
+<td>Memory-bound（读权重）</td>
+<td>Communication-bound（跨卡传输）</td>
+</tr>
+<tr>
+<td><strong>作用阶段</strong></td>
+<td>Expert 计算（本地）</td>
+<td>Expert 路由（跨卡）</td>
+</tr>
+<tr>
+<td><strong>集成位置</strong></td>
+<td>vLLM fused_moe kernel</td>
+<td>EP 通信库（独立）</td>
+</tr>
+<tr>
+<td><strong>硬件利用</strong></td>
+<td>Tensor Core (INT4) + 异步拷贝</td>
+<td>NCCL Gin + NVLink/RDMA</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="四、完整-MoE-流程：Marlin-DeepEP-协作"><a href="#四、完整-MoE-流程：Marlin-DeepEP-协作" class="headerlink" title="四、完整 MoE 流程：Marlin + DeepEP 协作"></a>四、完整 MoE 流程：Marlin + DeepEP 协作</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line">                        MoE Layer</span><br><span class="line">                            │</span><br><span class="line">      ┌─────────────────────┼─────────────────────┐</span><br><span class="line">      │                     │                     │</span><br><span class="line">[Router GEMM]        [Shared Expert]      [Routed Experts]</span><br><span class="line">      │                     │                     │</span><br><span class="line">      │                     │               ┌─────┴─────┐</span><br><span class="line">      │                     │               │  DeepEP   │</span><br><span class="line">      │                     │               │  dispatch │</span><br><span class="line">      │                     │               └─────┬─────┘</span><br><span class="line">      │                     │                     │</span><br><span class="line">      │                     │               ┌─────▼─────┐</span><br><span class="line">      │                     │               │  Marlin   │</span><br><span class="line">      │                     │               │ (W4A16)   │</span><br><span class="line">      │                     │               │ gate+up   │</span><br><span class="line">      │                     │               │ SwiGLU    │</span><br><span class="line">      │                     │               │ down      │</span><br><span class="line">      │                     │               └─────┬─────┘</span><br><span class="line">      │                     │                     │</span><br><span class="line">      │                     │               ┌─────▼─────┐</span><br><span class="line">      │                     │               │  DeepEP   │</span><br><span class="line">      │                     │               │  combine  │</span><br><span class="line">      │                     │               └─────┬─────┘</span><br><span class="line">      │                     │                     │</span><br><span class="line">      └─────────────────────┼─────────────────────┘</span><br><span class="line">                            ▼</span><br><span class="line">                      Output: [B, seq_len, dim]</span><br></pre></td></tr></table></figure>
+
+<p><strong>数据流：</strong></p>
+<ol>
+<li>Router 选出 topk=6 个专家</li>
+<li><strong>DeepEP dispatch</strong>：token 发给对应卡上的专家</li>
+<li><strong>Marlin GEMM</strong>：在本地用 W4A16 算 expert（权重小 4x）</li>
+<li><strong>DeepEP combine</strong>：结果收回原始卡</li>
+</ol>
+<hr>
+<h2 id="五、数值对比：有-无-Marlin-DeepEP"><a href="#五、数值对比：有-无-Marlin-DeepEP" class="headerlink" title="五、数值对比：有/无 Marlin + DeepEP"></a>五、数值对比：有/无 Marlin + DeepEP</h2><h3 id="场景：batch-4096-EP-8-H200"><a href="#场景：batch-4096-EP-8-H200" class="headerlink" title="场景：batch=4096, EP=8, H200"></a>场景：batch=4096, EP=8, H200</h3><h4 id="5-1-Routed-Expert-计算（单卡-48-个专家，本地-token-3072）"><a href="#5-1-Routed-Expert-计算（单卡-48-个专家，本地-token-3072）" class="headerlink" title="5.1 Routed Expert 计算（单卡 48 个专家，本地 token=3072）"></a>5.1 Routed Expert 计算（单卡 48 个专家，本地 token=3072）</h4><p><strong>没有 Marlin（BF16）：</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">gate+up: 2 × 3072 × 6144 × 7168 = 270.6G FLOPs</span><br><span class="line">  权重读取: 48 × 44.0 MB = 2.11 GB</span><br><span class="line">  时间: max(270.6G/3958G, 2.11GB/4.8GB/s) = 439.6 μs</span><br><span class="line"></span><br><span class="line">down: 2 × 3072 × 7168 × 3072 = 135.3G FLOPs</span><br><span class="line">  权重读取: 48 × 22.0 MB = 1.06 GB</span><br><span class="line">  时间: max(34.2, 220.8) = 220.8 μs</span><br><span class="line"></span><br><span class="line">计算合计: 660.4 μs (memory-bound)</span><br></pre></td></tr></table></figure>
+
+<p><strong>有 Marlin（W4A16）：</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">gate+up:</span><br><span class="line">  权重读取: 48 × 11.0 MB (INT4) = 528 MB</span><br><span class="line">  时间: max(68.4, 528MB/4.8GB/s) = 110 μs</span><br><span class="line"></span><br><span class="line">down:</span><br><span class="line">  权重读取: 48 × 5.5 MB (INT4) = 264 MB</span><br><span class="line">  时间: max(34.2, 264MB/4.8GB/s) = 55 μs</span><br><span class="line"></span><br><span class="line">计算合计: 165 μs (still memory-bound, 但快 4x)</span><br></pre></td></tr></table></figure>
+
+<h4 id="5-2-通信（DeepEP）"><a href="#5-2-通信（DeepEP）" class="headerlink" title="5.2 通信（DeepEP）"></a>5.2 通信（DeepEP）</h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">没有 DeepEP (NCCL all_to_all):</span><br><span class="line">  dispatch + combine: 342 μs</span><br><span class="line"></span><br><span class="line">有 DeepEP (V2, NVLink):</span><br><span class="line">  dispatch + combine: ~200 μs (1.7x 加速)</span><br></pre></td></tr></table></figure>
+
+<h4 id="5-3-总时间对比"><a href="#5-3-总时间对比" class="headerlink" title="5.3 总时间对比"></a>5.3 总时间对比</h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">没有优化:</span><br><span class="line">  Compute (BF16): 660 μs</span><br><span class="line">  Comm (NCCL):    342 μs</span><br><span class="line">  ─────────────────────</span><br><span class="line">  Total:          1002 μs</span><br><span class="line"></span><br><span class="line">只有 Marlin (W4A16):</span><br><span class="line">  Compute:         165 μs</span><br><span class="line">  Comm (NCCL):    342 μs</span><br><span class="line">  ─────────────────────</span><br><span class="line">  Total:          507 μs (快 2x)</span><br><span class="line"></span><br><span class="line">只有 DeepEP:</span><br><span class="line">  Compute (BF16): 660 μs</span><br><span class="line">  Comm:           200 μs</span><br><span class="line">  ─────────────────────</span><br><span class="line">  Total:          860 μs (快 1.3x)</span><br><span class="line"></span><br><span class="line">Marlin + DeepEP:</span><br><span class="line">  Compute:         165 μs</span><br><span class="line">  Comm:           200 μs</span><br><span class="line">  ─────────────────────</span><br><span class="line">  Total:          365 μs (快 2.7x)</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="六、为什么这两个优化不冲突"><a href="#六、为什么这两个优化不冲突" class="headerlink" title="六、为什么这两个优化不冲突"></a>六、为什么这两个优化不冲突</h2><p><strong>Marlin 优化 “算”：</strong></p>
+<ul>
+<li>权重压缩 4x → HBM 读取量降 4x</li>
+<li>针对小 batch（1-32 tokens），生成阶段完美契合</li>
+<li>本地计算，不涉及跨卡</li>
+</ul>
+<p><strong>DeepEP 优化 “传”：</strong></p>
+<ul>
+<li>All-to-All 通信优化 → 延迟降 1.7x</li>
+<li>Hybrid dispatch（NVLink + RDMA）→ 跨节点无压力</li>
+<li>0-SM 通信 → SM 全力算 GEMM</li>
+</ul>
+<p><strong>两者正交：</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">Marlin: 优化 &quot;每个 expert 的计算&quot;</span><br><span class="line">DeepEP: 优化 &quot;expert 之间的数据传输&quot;</span><br><span class="line"></span><br><span class="line">用了 Marlin → 计算更快 → 通信占比更高 → DeepEP 的收益更大</span><br><span class="line">用了 DeepEP → 通信更快 → 计算占比更高 → Marlin 的收益更大</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="七、针对-Hopper-SM90-的演进"><a href="#七、针对-Hopper-SM90-的演进" class="headerlink" title="七、针对 Hopper (SM90) 的演进"></a>七、针对 Hopper (SM90) 的演进</h2><p>Marlin 原始实现针对 **Ampere (SM80)**，使用 <code>mma.sync</code>（warp 级）和 <code>cp.async</code>（warp 级）。</p>
+<p><strong>Hopper (SM90) 的新特性：</strong><br>| 特性 | Ampere (SM80) | Hopper (SM90) |<br>|——|——————|—————–|<br>| <strong>Tensor Core</strong> | <code>mma.sync</code> (warp 级) | <code>wgmma.mma_async</code> (warpgroup 级，128 threads) |<br>| <strong>异步拷贝</strong> | <code>cp.async</code> (16B/次) | <code>cp.async.bulk</code> (128B/次) + TMA |<br>| <strong>FP8 支持</strong> | 无 | <strong>FP8 Tensor Core</strong> (FP8×FP8→FP16) |</p>
+<p><strong>Hopper 上的对应实现：DeepGEMM</strong></p>
+<p>DeepSeek 的 <strong>DeepGEMM</strong>（<a target="_blank" rel="noopener" href="https://github.com/deepseek-ai/DeepGEMM%EF%BC%89%E6%98%AF">https://github.com/deepseek-ai/DeepGEMM）是</a> Hopper 上的等价实现：</p>
+<ul>
+<li>使用 <code>wgmma.mma_async</code>（warpgroup 级，更大 tile 64×8×16）</li>
+<li>支持原生 FP8（无需 dequant，0 开销）</li>
+<li>TMA 硬件单元直接搬移矩阵块（不占线程）</li>
+</ul>
+<p><strong>对比：</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">Marlin (Ampere):     INT4×FP16 → FP32, lop3 dequant, mma.sync</span><br><span class="line">DeepGEMM (Hopper): FP8×FP8 → FP16, 原生硬件, wgmma.async</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><table>
+<thead>
+<tr>
+<th>库</th>
+<th>优化目标</th>
+<th>核心技术</th>
+<th>加速比</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Marlin</strong></td>
+<td>Expert 计算</td>
+<td>W4A16 量化 + <code>mma.sync</code> + 双缓冲 Pipeline</td>
+<td><strong>~4x</strong>（计算）</td>
+</tr>
+<tr>
+<td><strong>DeepEP</strong></td>
+<td>Expert 通信</td>
+<td>JIT + NCCL Gin + Hybrid dispatch</td>
+<td><strong>~1.7x</strong>（通信）</td>
+</tr>
+<tr>
+<td><strong>两者结合</strong></td>
+<td>端到端 MoE</td>
+<td>量化 + 通信协同</td>
+<td><strong>~2.7x</strong>（端到端）</td>
+</tr>
+</tbody></table>
+<p><strong>选择建议：</strong></p>
+<ul>
+<li><strong>只跑单卡 / 小 EP</strong>：用 Marlin 足够（W4A16 省显存 + 加速）</li>
+<li>**跑 EP=8+**：Marlin + DeepEP 一起上，效果叠加</li>
+<li>**Hopper (H100/H200)**：用 DeepGEMM（FP8）+ DeepEP（FP8 dispatch）获得最佳性能</li>
+</ul>
+<hr>
+<p><strong>参考：</strong></p>
+<ul>
+<li>Marlin GitHub: <a target="_blank" rel="noopener" href="https://github.com/IST-DASLab/marlin">https://github.com/IST-DASLab/marlin</a></li>
+<li>Marlin 论文: <a target="_blank" rel="noopener" href="https://arxiv.org/abs/2408.11743">https://arxiv.org/abs/2408.11743</a></li>
+<li>Marlin in vLLM: <a target="_blank" rel="noopener" href="https://github.com/vllm-project/vllm/blob/main/vllm/model_executor/layers/fused_moe/experts/marlin_moe.py">https://github.com/vllm-project/vllm/blob/main/vllm/model_executor/layers/fused_moe/experts/marlin_moe.py</a></li>
+<li>DeepEP GitHub: <a target="_blank" rel="noopener" href="https://github.com/deepseek-ai/DeepEP">https://github.com/deepseek-ai/DeepEP</a></li>
+<li>DeepGEMM GitHub: <a target="_blank" rel="noopener" href="https://github.com/deepseek-ai/DeepGEMM">https://github.com/deepseek-ai/DeepGEMM</a></li>
+<li>DeepSeek-V4 Pro: <a target="_blank" rel="noopener" href="https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro">https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro</a></li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/vLLM/" rel="tag"># vLLM</a>
+              <a href="/tags/DeepSeek/" rel="tag"># DeepSeek</a>
+              <a href="/tags/MoE/" rel="tag"># MoE</a>
+              <a href="/tags/Marlin/" rel="tag"># Marlin</a>
+              <a href="/tags/%E9%87%8F%E5%8C%96/" rel="tag"># 量化</a>
+              <a href="/tags/DeepEP/" rel="tag"># DeepEP</a>
+              <a href="/tags/CUDA-Kernel/" rel="tag"># CUDA Kernel</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/zh-CN/2026/05/15/DeepEP%EF%BC%9A%E4%B8%BAMoE%E8%80%8C%E7%94%9F%E7%9A%84%E6%9E%81%E8%87%B4%E9%80%9A%E4%BF%A1%E5%BA%93/" rel="prev" title="DeepEP：为 MoE 而生的极致通信库">
+                  <i class="fa fa-angle-left"></i> DeepEP：为 MoE 而生的极致通信库
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/zh-CN/2026/05/18/Marlin-MoE-Kernel-Deep-Analysis/" rel="next" title="Marlin MoE Kernel 深度分析">
+                  Marlin MoE Kernel 深度分析 <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 2014 – 
+    <span itemprop="copyrightYear">2026</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+  </div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/mist/" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.umd.js" integrity="sha256-a+H7FYzJv6oU2hfsfDGM2Ohw/cR9v+hPfxHCLdmCrE8=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lozad.js/1.16.0/lozad.min.js" integrity="sha256-mOFREFhqmHeQbXpK2lp4nA3qooVgACfh88fpJftLBbc=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/sidebar.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+  <script src="/js/third-party/fancybox.js"></script>
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"ggaaooppeenngg","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

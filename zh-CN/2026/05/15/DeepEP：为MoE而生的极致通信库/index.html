@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.3.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="_85tctgPWrqH2EPVuuD5IT6KE-tW8nH0hTISJDMnShg">
+  <meta name="baidu-site-verification" content="bb16c5b1fd3302c18e0015bef11eea42">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha256-dABdfBfUoC8vJUBOwGVdm8L9qlMWaHTIfXt+7GnZCIo=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.css" integrity="sha256-gkQVf8UKZgQ0HyuxL/VnacadJ+D2Kox2TCEBuNQg5+w=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="背景：MoE 的通信之痛DeepSeek-V3&#x2F;V4 这类大模型用了 **Expert Parallelism (EP)**：384 个专家分布在 8 张 GPU 上，每个 token 被路由到 6 个专家。 看起来很美好，但实际跑起来你会发现： 12每个 token → 6 个专家 → 分布在 8 张卡上→ 需要 All-to-All 通信：发给别人 + 收别人的结果  用标准的 NCCL al">
+<meta property="og:type" content="article">
+<meta property="og:title" content="DeepEP：为 MoE 而生的极致通信库">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2026/05/15/DeepEP%EF%BC%9A%E4%B8%BAMoE%E8%80%8C%E7%94%9F%E7%9A%84%E6%9E%81%E8%87%B4%E9%80%9A%E4%BF%A1%E5%BA%93/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="背景：MoE 的通信之痛DeepSeek-V3&#x2F;V4 这类大模型用了 **Expert Parallelism (EP)**：384 个专家分布在 8 张 GPU 上，每个 token 被路由到 6 个专家。 看起来很美好，但实际跑起来你会发现： 12每个 token → 6 个专家 → 分布在 8 张卡上→ 需要 All-to-All 通信：发给别人 + 收别人的结果  用标准的 NCCL al">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-05-15T15:55:00.000Z">
+<meta property="article:modified_time" content="2026-05-15T15:52:50.022Z">
+<meta property="article:author" content="ggaaooppeenngg">
+<meta property="article:tag" content="DeepSeek">
+<meta property="article:tag" content="分布式训练">
+<meta property="article:tag" content="MoE">
+<meta property="article:tag" content="GPU通信">
+<meta property="article:tag" content="源码分析">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2026/05/15/DeepEP%EF%BC%9A%E4%B8%BAMoE%E8%80%8C%E7%94%9F%E7%9A%84%E6%9E%81%E8%87%B4%E9%80%9A%E4%BF%A1%E5%BA%93/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://ggaaooppeenngg.github.io/zh-CN/2026/05/15/DeepEP%EF%BC%9A%E4%B8%BAMoE%E8%80%8C%E7%94%9F%E7%9A%84%E6%9E%81%E8%87%B4%E9%80%9A%E4%BF%A1%E5%BA%93/","path":"zh-CN/2026/05/15/DeepEP：为MoE而生的极致通信库/","title":"DeepEP：为 MoE 而生的极致通信库"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>DeepEP：为 MoE 而生的极致通信库 | ggaaooppeenngg</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-62096626-1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"UA-62096626-1","only_pageview":false,"measure_protocol_api_secret":null}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+  <script src="/js/third-party/analytics/baidu-analytics.js"></script>
+  <script async src="https://hm.baidu.com/hm.js?bb16c5b1fd3302c18e0015bef11eea42"></script>
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">ggaaooppeenngg</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">为什么计算机科学是无限的但生命是有限的</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-旅行路书"><a href="/travel/" rel="section"><i class="plane fa-fw"></i>旅行路书</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">176</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">22</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">92</span></a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%83%8C%E6%99%AF%EF%BC%9AMoE-%E7%9A%84%E9%80%9A%E4%BF%A1%E4%B9%8B%E7%97%9B"><span class="nav-number">1.</span> <span class="nav-text">背景：MoE 的通信之痛</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#DeepEP-%E6%98%AF%E4%BB%80%E4%B9%88"><span class="nav-number">2.</span> <span class="nav-text">DeepEP 是什么</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#V2-%E7%9A%84%E6%A0%B8%E5%BF%83%E6%9E%B6%E6%9E%84"><span class="nav-number">3.</span> <span class="nav-text">V2 的核心架构</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%BA%90%E7%A0%81%E7%BB%93%E6%9E%84"><span class="nav-number">3.1.</span> <span class="nav-text">源码结构</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#ElasticBuffer%EF%BC%9A%E7%BB%9F%E4%B8%80%E6%8E%A5%E5%8F%A3"><span class="nav-number">3.2.</span> <span class="nav-text">ElasticBuffer：统一接口</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%B7%B1%E5%85%A5%EF%BC%9AV2-%E5%81%9A%E4%BA%86%E4%BB%80%E4%B9%88%E4%BC%98%E5%8C%96"><span class="nav-number">4.</span> <span class="nav-text">深入：V2 做了什么优化</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-JIT-%E7%BC%96%E8%AF%91%EF%BC%88Just-In-Time%EF%BC%89"><span class="nav-number">4.1.</span> <span class="nav-text">1. JIT 编译（Just-In-Time）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-NCCL-Gin-%E5%90%8E%E7%AB%AF%EF%BC%88%E6%9B%BF%E4%BB%A3-NVSHMEM%EF%BC%89"><span class="nav-number">4.2.</span> <span class="nav-text">2. NCCL Gin 后端（替代 NVSHMEM）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-Hybrid-Dispatch%EF%BC%88NVLink-RDMA-%E6%B7%B7%E5%90%88%EF%BC%89"><span class="nav-number">4.3.</span> <span class="nav-text">3. Hybrid Dispatch（NVLink + RDMA 混合）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-0-SM-%E9%80%9A%E4%BF%A1%EF%BC%88Engram-PP-CP%EF%BC%89"><span class="nav-number">4.4.</span> <span class="nav-text">4. 0-SM 通信（Engram, PP, CP）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-%E5%88%86%E6%9E%90%E6%80%A7-SM-%E8%AE%A1%E7%AE%97%EF%BC%88%E5%91%8A%E5%88%AB-Autotune%EF%BC%89"><span class="nav-number">4.5.</span> <span class="nav-text">5. 分析性 SM 计算（告别 Autotune）</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%A7%E8%83%BD%E6%95%B0%E6%8D%AE"><span class="nav-number">5.</span> <span class="nav-text">性能数据</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9C%A8-DeepSeek-V4-%E4%B8%AD%E7%9A%84%E4%BD%9C%E7%94%A8"><span class="nav-number">6.</span> <span class="nav-text">在 DeepSeek-V4 中的作用</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">7.</span> <span class="nav-text">总结</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">92</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">22</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">176</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/ggaaooppeenngg" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;ggaaooppeenngg" rel="noopener me" target="_blank"><i class="github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:peng.gao.dut@gmail.com" title="E-Mail → mailto:peng.gao.dut@gmail.com" rel="noopener me" target="_blank"><i class="envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+        <div class="back-to-top animated" role="button" aria-label="返回顶部">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2026/05/15/DeepEP%EF%BC%9A%E4%B8%BAMoE%E8%80%8C%E7%94%9F%E7%9A%84%E6%9E%81%E8%87%B4%E9%80%9A%E4%BF%A1%E5%BA%93/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="DeepEP：为 MoE 而生的极致通信库 | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          DeepEP：为 MoE 而生的极致通信库
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+      
+
+      <time title="创建时间：2026-05-15 23:55:00 / 修改时间：23:52:50" itemprop="dateCreated datePublished" datetime="2026-05-15T23:55:00+08:00">2026-05-15</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/%E6%8A%80%E6%9C%AF/" itemprop="url" rel="index"><span itemprop="name">技术</span></a>
+        </span>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2026/05/15/DeepEP%EF%BC%9A%E4%B8%BAMoE%E8%80%8C%E7%94%9F%E7%9A%84%E6%9E%81%E8%87%B4%E9%80%9A%E4%BF%A1%E5%BA%93/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2026/05/15/DeepEP：为MoE而生的极致通信库/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h2 id="背景：MoE-的通信之痛"><a href="#背景：MoE-的通信之痛" class="headerlink" title="背景：MoE 的通信之痛"></a>背景：MoE 的通信之痛</h2><p>DeepSeek-V3/V4 这类大模型用了 **Expert Parallelism (EP)**：384 个专家分布在 8 张 GPU 上，每个 token 被路由到 6 个专家。</p>
+<p>看起来很美好，但实际跑起来你会发现：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">每个 token → 6 个专家 → 分布在 8 张卡上</span><br><span class="line">→ 需要 All-to-All 通信：发给别人 + 收别人的结果</span><br></pre></td></tr></table></figure>
+
+<p>用标准的 NCCL <code>all_to_all</code> 算一笔账（H200，NVLink 900 GB/s）：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">数据量: batch=4096, hidden=7168, topk=6, FP8</span><br><span class="line">dispatch: 4096 × 6 × 7168 × 1 × 7/8 = 154 MB</span><br><span class="line">combine:   同样 154 MB</span><br><span class="line"></span><br><span class="line">理论时间: 154 MB / 900 GB/s × 2 = 342 μs</span><br></pre></td></tr></table></figure>
+
+<p>实际更糟：</p>
+<ul>
+<li>8 卡并发通信，带宽打 7 折</li>
+<li>突发小消息（每个专家只收到几十个 token）</li>
+<li>全局同步屏障，最慢的卡拖慢所有人</li>
+</ul>
+<p><strong>结果：通信占了 MOE 总时间的 77%。</strong></p>
+<hr>
+<h2 id="DeepEP-是什么"><a href="#DeepEP-是什么" class="headerlink" title="DeepEP 是什么"></a>DeepEP 是什么</h2><p>DeepEP (DeepEveryParallel) 是 DeepSeek 开源的 <strong>MoE 专用通信库</strong>，专门解决上面的问题。</p>
+<p>GitHub: <a target="_blank" rel="noopener" href="https://github.com/deepseek-ai/DeepEP">https://github.com/deepseek-ai/DeepEP</a></p>
+<p>最新 V2 版本做了完全重构，核心特点：</p>
+<ul>
+<li><strong>JIT 编译</strong>：运行时生成最优 CUDA kernel，无需安装时编译</li>
+<li><strong>NCCL Gin 后端</strong>：轻量级的通信后端，替代厚重的 NVSHMEM</li>
+<li><strong>Hybrid 模式</strong>：同时支持 NVLink（节点内）+ RDMA（跨节点）</li>
+<li><strong>0-SM 通信</strong>：Engram/PP/CP 用 Copy Engine，不占计算资源</li>
+<li><strong>分析性 SM 调度</strong>：自动算出最优 SM 数，不再需要 autotune</li>
+</ul>
+<hr>
+<h2 id="V2-的核心架构"><a href="#V2-的核心架构" class="headerlink" title="V2 的核心架构"></a>V2 的核心架构</h2><h3 id="源码结构"><a href="#源码结构" class="headerlink" title="源码结构"></a>源码结构</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">csrc/</span><br><span class="line">├── kernels/</span><br><span class="line">│   ├── elastic/          ← V2 核心</span><br><span class="line">│   │   ├── dispatch.hpp  ← MoE dispatch kernel</span><br><span class="line">│   │   ├── combine.hpp   ← MoE combine kernel</span><br><span class="line">│   │   ├── barrier.hpp   ← 跨卡同步</span><br><span class="line">│   │   └── engram.hpp    ← 0-SM 远程内存访问</span><br><span class="line">│   └── legacy/           ← V1 (已废弃)</span><br><span class="line">├── jit/                  ← JIT 编译框架</span><br><span class="line">└── python_api.cpp        ← Python 绑定</span><br></pre></td></tr></table></figure>
+
+<h3 id="ElasticBuffer：统一接口"><a href="#ElasticBuffer：统一接口" class="headerlink" title="ElasticBuffer：统一接口"></a>ElasticBuffer：统一接口</h3><p>V2 把 high-throughput 和 low-latency 合并成一个接口：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> deep_ep <span class="keyword">import</span> ElasticBuffer</span><br><span class="line"></span><br><span class="line">buffer = ElasticBuffer(</span><br><span class="line">    group,                    <span class="comment"># NCCL communicator</span></span><br><span class="line">    num_max_tokens_per_rank=...,</span><br><span class="line">    hidden=<span class="number">7168</span>,</span><br><span class="line">    num_topk=<span class="number">6</span>,</span><br><span class="line">    use_fp8_dispatch=<span class="literal">True</span>,   <span class="comment"># FP8 量化 dispatch，减少通信量</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment"># Dispatch: 把 token 发到目标专家所在卡</span></span><br><span class="line">recv_x, recv_topk_idx, recv_topk_weights, handle, event = buffer.dispatch(</span><br><span class="line">    x, topk_idx, topk_weights,</span><br><span class="line">    num_experts=<span class="number">384</span>,</span><br><span class="line">    num_sms=_num_comm_sms,      <span class="comment"># 分析性计算，无需 autotune</span></span><br><span class="line">    async_with_compute_stream=<span class="literal">True</span>,  <span class="comment"># 与 GEMM 并行</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 本地算专家</span></span><br><span class="line">expert_output = expert(recv_x)</span><br><span class="line"></span><br><span class="line"><span class="comment"># Combine: 把结果收回来</span></span><br><span class="line">combined_x, event = buffer.combine(</span><br><span class="line">    expert_output, recv_topk_idx, recv_topk_weights,</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="深入：V2-做了什么优化"><a href="#深入：V2-做了什么优化" class="headerlink" title="深入：V2 做了什么优化"></a>深入：V2 做了什么优化</h2><h3 id="1-JIT-编译（Just-In-Time）"><a href="#1-JIT-编译（Just-In-Time）" class="headerlink" title="1. JIT 编译（Just-In-Time）"></a>1. JIT 编译（Just-In-Time）</h3><p>传统做法：安装时编译所有 kernel，要支持 sm_90、sm_100 得编译多遍。</p>
+<p>DeepEP V2：运行时根据参数生成最优 kernel：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// dispatch.hpp 里的 JIT 生成</span></span><br><span class="line"><span class="function"><span class="type">static</span> std::string <span class="title">generate_impl</span><span class="params">(<span class="type">const</span> Args&amp; args)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">return</span> fmt::format(<span class="string">R&quot;(</span></span><br><span class="line"><span class="string">#include &lt;deep_ep/impls/dispatch.cuh&gt;</span></span><br><span class="line"><span class="string">static void __instantiate_kernel() &#123;&#123;</span></span><br><span class="line"><span class="string">    auto ptr = &amp;dispatch_impl&lt;&#123;&#125;, &#123;&#125;, &#123;&#125;, ...&gt;;</span></span><br><span class="line"><span class="string">&#125;&#125;</span></span><br><span class="line"><span class="string">)&quot;</span>, args.num_warps, args.num_ranks, ...);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 运行时编译</span></span><br><span class="line"><span class="type">const</span> <span class="keyword">auto</span> code = DispatchPrologueRuntime::<span class="built_in">generate</span>(args);</span><br><span class="line"><span class="type">const</span> <span class="keyword">auto</span> runtime = jit::compiler-&gt;<span class="built_in">build</span>(<span class="string">&quot;dispatch&quot;</span>, code);</span><br><span class="line">DispatchPrologueRuntime::<span class="built_in">launch</span>(runtime, args, stream);</span><br></pre></td></tr></table></figure>
+
+<p><strong>好处：</strong></p>
+<ul>
+<li>安装时无需知道目标 GPU 架构</li>
+<li>每次调用根据实际参数（num_ranks, num_topk, hidden）生成最优版本</li>
+<li>无需手动 autotune，自动算出最优 SM 数</li>
+</ul>
+<hr>
+<h3 id="2-NCCL-Gin-后端（替代-NVSHMEM）"><a href="#2-NCCL-Gin-后端（替代-NVSHMEM）" class="headerlink" title="2. NCCL Gin 后端（替代 NVSHMEM）"></a>2. NCCL Gin 后端（替代 NVSHMEM）</h3><p>V1 用 NVSHMEM（NVIDIA 的 PGAS 库），依赖重、安装麻烦。</p>
+<p>V2 换成 <strong>NCCL Gin</strong>（Header-only，轻量）：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// dispatch.hpp 调用 NCCL Window</span></span><br><span class="line">ncclWindow_t nccl_window;      <span class="comment">// GPU 直接访问 peer 显存</span></span><br><span class="line">ncclDevComm_t nccl_dev_comm;   <span class="comment">// NCCL communicator</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// Kernel 内直接写对方显存，无需 CPU 参与</span></span><br><span class="line"><span class="built_in">launch_dispatch</span>(</span><br><span class="line">    ...,</span><br><span class="line">    nccl_dev_comm, nccl_window,</span><br><span class="line">    buffer,  <span class="comment">// 本地 buffer</span></span><br><span class="line">    ...</span><br><span class="line">);</span><br></pre></td></tr></table></figure>
+
+<p><strong>优势：</strong></p>
+<ul>
+<li>Header-only，无额外依赖</li>
+<li>复用已有的 NCCL communicator</li>
+<li>性能持平或优于 NVSHMEM</li>
+</ul>
+<hr>
+<h3 id="3-Hybrid-Dispatch（NVLink-RDMA-混合）"><a href="#3-Hybrid-Dispatch（NVLink-RDMA-混合）" class="headerlink" title="3. Hybrid Dispatch（NVLink + RDMA 混合）"></a>3. Hybrid Dispatch（NVLink + RDMA 混合）</h3><p>MoE 的实际部署往往跨节点：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">节点 A (4 卡 NVLink)  ←→  节点 B (4 卡 NVLink)</span><br><span class="line">     ↓ RDMA                    ↓ RDMA</span><br></pre></td></tr></table></figure>
+
+<p>DeepEP 的 Hybrid Dispatch：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (num_scaleout_ranks == <span class="number">1</span>) &#123;</span><br><span class="line">    <span class="comment">// 单节点：直接用 NVLink Window</span></span><br><span class="line">    func = <span class="string">&quot;dispatch_impl&lt;is_scaleup_nvlink, ...&gt;&quot;</span>;</span><br><span class="line">&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    <span class="comment">// 跨节点：Hybrid kernel</span></span><br><span class="line">    func = <span class="string">&quot;hybrid_dispatch_impl&lt;...&gt;&quot;</span>;</span><br><span class="line">    <span class="comment">// Warp 分工：</span></span><br><span class="line">    <span class="comment">//   Warp 0-3:   Notify warps   → 通知其他节点</span></span><br><span class="line">    <span class="comment">//   Warp 4-7:   Scaleout warps → RDMA 通信</span></span><br><span class="line">    <span class="comment">//   Warp 8-11:  Forward warps  → NVLink 通信</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>关键点：</strong> 不同通信域用不同 warp 处理，最大化并行度。</p>
+<hr>
+<h3 id="4-0-SM-通信（Engram-PP-CP）"><a href="#4-0-SM-通信（Engram-PP-CP）" class="headerlink" title="4. 0-SM 通信（Engram, PP, CP）"></a>4. 0-SM 通信（Engram, PP, CP）</h3><p>传统 GPU 通信 kernel 需要占用 SM（Streaming Multiprocessor）来执行。</p>
+<p>DeepEP V2 的 Engram/PP/CP 用 <strong>Copy Engine + RDMA</strong>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">传统:  SM 执行通信指令 → SM 被占用 → 计算等待</span><br><span class="line"></span><br><span class="line">DeepEP 0-SM:</span><br><span class="line">  Copy Engine (DMA 控制器) 执行数据传输</span><br><span class="line">  RDMA 直接在显存间搬运</span><br><span class="line">  SM 100% 用来算 GEMM</span><br></pre></td></tr></table></figure>
+
+<p>源码中 <code>engram.hpp</code> 实现了这个机制，特别适合：</p>
+<ul>
+<li><strong>Engram</strong>：远程显存访问（类似 RDMA 的 get/put）</li>
+<li>**PP (Pipeline Parallelism)**：流水线并行中的激活传递</li>
+<li>**CP (Context Parallelism)**：长序列的上下文并行</li>
+</ul>
+<hr>
+<h3 id="5-分析性-SM-计算（告别-Autotune）"><a href="#5-分析性-SM-计算（告别-Autotune）" class="headerlink" title="5. 分析性 SM 计算（告别 Autotune）"></a>5. 分析性 SM 计算（告别 Autotune）</h3><p>V1 需要跑 autotune 找最优 SM 数，V2 直接算出来：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 根据 EP 配置计算最优 SM 数</span></span><br><span class="line">_num_comm_sms = buffer.get_theoretical_num_sms(</span><br><span class="line">    num_experts=<span class="number">384</span>,</span><br><span class="line">    num_topk=<span class="number">6</span></span><br><span class="line">)</span><br><span class="line"><span class="comment"># 返回例如 6（EP8×4 RDMA）或 24（EP8 NVLink min）</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>原理：</strong> 根据通信域大小、消息大小、硬件带宽，用公式算出最优 SM 数，无需跑 benchmark。</p>
+<hr>
+<h2 id="性能数据"><a href="#性能数据" class="headerlink" title="性能数据"></a>性能数据</h2><p>官方测试配置：8K tokens/batch，hidden=7168，topk=8，FP8 dispatch + BF16 combine。</p>
+<table>
+<thead>
+<tr>
+<th>配置</th>
+<th>Dispatch 带宽</th>
+<th>Combine 带宽</th>
+<th>SM 占用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>EP8×2 RDMA (CX7)</td>
+<td>90 GB/s</td>
+<td>81 GB/s</td>
+<td>12</td>
+</tr>
+<tr>
+<td>EP8×4 RDMA (CX7)</td>
+<td>61 GB/s</td>
+<td>61 GB/s</td>
+<td><strong>6</strong></td>
+</tr>
+<tr>
+<td>EP8 NVLink (SM100)</td>
+<td><strong>726 GB/s</strong></td>
+<td><strong>740 GB/s</strong></td>
+<td>64 (max)</td>
+</tr>
+<tr>
+<td>EP8 NVLink (SM100, min)</td>
+<td>643 GB/s</td>
+<td>675 GB/s</td>
+<td><strong>24</strong></td>
+</tr>
+</tbody></table>
+<p><strong>对比 V1：</strong></p>
+<ul>
+<li>峰值性能提升 <strong>1.3x</strong></li>
+<li>SM 占用降低 <strong>4x</strong>（V1 用 24 SM，V2 只需 6 SM）</li>
+</ul>
+<p><strong>对应到我们的计算：</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">之前算的 (NCCL all_to_all):</span><br><span class="line">  batch=4096, All2All = 342 μs</span><br><span class="line"></span><br><span class="line">DeepEP V2 (EP8 NVLink):</span><br><span class="line">  154 MB / 726 GB/s × 2 = 213 μs</span><br><span class="line">  → 快 1.6x</span><br><span class="line"></span><br><span class="line">加上 JIT 优化 + 异步 overlap:</span><br><span class="line">  实际可能 ~150-200 μs</span><br><span class="line">  → 比标准 NCCL 快 2x+</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="在-DeepSeek-V4-中的作用"><a href="#在-DeepSeek-V4-中的作用" class="headerlink" title="在 DeepSeek-V4 中的作用"></a>在 DeepSeek-V4 中的作用</h2><p>回到 DeepSeek-V4 的推理流程：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">每个 Transformer Layer:</span><br><span class="line">  ├─ Attention (KV Cache 读取，占 99.8% 时间)</span><br><span class="line">  └─ MoE</span><br><span class="line">      ├─ Router GEMM (5.5M FLOPs, memory-bound)</span><br><span class="line">      ├─ Shared Expert (所有 token)</span><br><span class="line">      └─ Routed Expert (topk=6 个专家)</span><br><span class="line">          ├─ Dispatch: token → 目标卡  ← DeepEP 优化这里</span><br><span class="line">          ├─ 本地计算: gate+up+down</span><br><span class="line">          └─ Combine: 结果 ← 来源卡   ← DeepEP 优化这里</span><br></pre></td></tr></table></figure>
+
+<p><strong>没有 DeepEP：</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">MoE (batch=4096):</span><br><span class="line">  Shared: 136.73 μs</span><br><span class="line">  Routed + Comm: 102.55 + 342.53 = 445.08 μs</span><br><span class="line">  → Comm 占 77%</span><br></pre></td></tr></table></figure>
+
+<p><strong>用了 DeepEP：</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">MoE (batch=4096):</span><br><span class="line">  Shared: 136.73 μs</span><br><span class="line">  Routed + Comm: 102.55 + 200 μs = 302.55 μs</span><br><span class="line">  → Comm 占 66%，整体提速 ~15%</span><br></pre></td></tr></table></figure>
+
+<p>对于生成阶段（batch=1），DeepEP 的优化更明显：小消息合并、异步发送，把原本的瓶颈进一步压低。</p>
+<hr>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>DeepEP 不是又一个 NCCL wrapper，它针对 MoE 的 <strong>不规则通信模式</strong> 做了深度优化：</p>
+<ol>
+<li><strong>JIT 编译</strong> — 运行时生成最优 kernel，适配任意 GPU 架构</li>
+<li><strong>NCCL Gin</strong> — 轻量后端，替代厚重的 NVSHMEM</li>
+<li><strong>Hybrid Dispatch</strong> — NVLink + RDMA 混合，跨节点无压力</li>
+<li><strong>0-SM 通信</strong> — Copy Engine 干活，SM 全力算 GEMM</li>
+<li><strong>分析性调度</strong> — 自动算 SM 数，告别 autotune</li>
+<li><strong>FP8 支持</strong> — dispatch 时量化，再砍一半通信量</li>
+</ol>
+<p>如果你在跑 MoE 模型（DeepSeek-V3/V4、Mixtral、Qwen3-MoE），DeepEP 值得一试。</p>
+<hr>
+<p><strong>参考：</strong></p>
+<ul>
+<li>GitHub: <a target="_blank" rel="noopener" href="https://github.com/deepseek-ai/DeepEP">https://github.com/deepseek-ai/DeepEP</a></li>
+<li>DeepSeek-V4 Paper: <a target="_blank" rel="noopener" href="https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro">https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro</a></li>
+<li>vLLM DeepSeek-V4 分析: <a target="_blank" rel="noopener" href="https://github.com/vllm-project/vllm-project.github.io/blob/main/_posts/2026-04-24-deepseek-v4.md">https://github.com/vllm-project/vllm-project.github.io/blob/main/_posts/2026-04-24-deepseek-v4.md</a></li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/DeepSeek/" rel="tag"># DeepSeek</a>
+              <a href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%83/" rel="tag"># 分布式训练</a>
+              <a href="/tags/MoE/" rel="tag"># MoE</a>
+              <a href="/tags/GPU%E9%80%9A%E4%BF%A1/" rel="tag"># GPU通信</a>
+              <a href="/tags/%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90/" rel="tag"># 源码分析</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/zh-CN/2026/05/14/DeepSeek-V4-KV-Cache/" rel="prev" title="DeepSeek-V4 KV Cache 深度分析">
+                  <i class="fa fa-angle-left"></i> DeepSeek-V4 KV Cache 深度分析
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/zh-CN/2026/05/16/Marlin-MoE-Backend%EF%BC%9AW4A16%E9%87%8F%E5%8C%96%E4%B8%8EDeepEP%E7%9A%84%E5%88%86%E5%B7%A5/" rel="next" title="Marlin MoE Backend：W4A16 量化与 DeepEP 的分工">
+                  Marlin MoE Backend：W4A16 量化与 DeepEP 的分工 <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 2014 – 
+    <span itemprop="copyrightYear">2026</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+  </div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/mist/" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.umd.js" integrity="sha256-a+H7FYzJv6oU2hfsfDGM2Ohw/cR9v+hPfxHCLdmCrE8=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lozad.js/1.16.0/lozad.min.js" integrity="sha256-mOFREFhqmHeQbXpK2lp4nA3qooVgACfh88fpJftLBbc=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/sidebar.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+  <script src="/js/third-party/fancybox.js"></script>
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"ggaaooppeenngg","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>
