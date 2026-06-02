@@ -92,7 +92,7 @@
 
 
 <nav class="site-nav">
-  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-旅行路书"><a href="/travel/" rel="section"><i class="plane fa-fw"></i>旅行路书</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">186</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">23</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">94</span></a></li>
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-旅行路书"><a href="/travel/" rel="section"><i class="plane fa-fw"></i>旅行路书</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">188</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">23</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">95</span></a></li>
   </ul>
 </nav>
 
@@ -129,7 +129,7 @@
   <nav class="site-state">
       <div class="site-state-item site-state-posts">
         <a href="/archives/">
-          <span class="site-state-item-count">94</span>
+          <span class="site-state-item-count">95</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -140,7 +140,7 @@
       </div>
       <div class="site-state-item site-state-tags">
           <a href="/tags/">
-        <span class="site-state-item-count">186</span>
+        <span class="site-state-item-count">188</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
@@ -169,6 +169,198 @@
     </div>
 
     <div class="main-inner index posts-expand">
+
+    
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2024/12/13/vLLM-%E5%88%86%E6%9E%90-3-%E6%8E%A8%E7%90%86%E4%BC%98%E5%8C%96/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="undefined | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          <a href="/zh-CN/2024/12/13/vLLM-%E5%88%86%E6%9E%90-3-%E6%8E%A8%E7%90%86%E4%BC%98%E5%8C%96/" class="post-title-link" itemprop="url">vLLM 分析 3 推理优化</a>
+        </h2>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2024-12-13 17:14:56" itemprop="dateCreated datePublished" datetime="2024-12-13T17:14:56+08:00">2024-12-13</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2025-03-14 13:50:06" itemprop="dateModified" datetime="2025-03-14T13:50:06+08:00">2025-03-14</time>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2024/12/13/vLLM-%E5%88%86%E6%9E%90-3-%E6%8E%A8%E7%90%86%E4%BC%98%E5%8C%96/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2024/12/13/vLLM-分析-3-推理优化/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+          <p>这篇文章主要基于vLLM中做推理的优化做一个总结。</p>
+<h2 id="PagedAttention"><a href="#PagedAttention" class="headerlink" title="PagedAttention"></a>PagedAttention</h2><p>从<a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2309.06180">原始论文来看</a>，显存的浪费主要有几种。</p>
+<img data-src="/zh-CN/2024/12/13/vLLM-%E5%88%86%E6%9E%90-3-%E6%8E%A8%E7%90%86%E4%BC%98%E5%8C%96/memory_waste.jpeg" class="">
+
+<p>这张图里面表示的是每个token对应的kvcache的slot。对于一个context长度中用不到的slots部分，有预留的slots和不同空隙之间的slots空隙。</p>
+<p>vLLM参考了虚拟内存和内存页分配的逻辑构造了一个block table用于 kv cache block slots 和 token之间的关系。通过block表的管理<br>可以像操作系统一下减少内存碎片。<br>因为不同的sequence中token是有位置信息的，所有他们对应的kv slot也不一定一样。下图展示了他们的关系。</p>
+<img data-src="/zh-CN/2024/12/13/vLLM-%E5%88%86%E6%9E%90-3-%E6%8E%A8%E7%90%86%E4%BC%98%E5%8C%96/block_table.png" class="">
+
+<h2 id="Continuous-Batching"><a href="#Continuous-Batching" class="headerlink" title="Continuous Batching"></a>Continuous Batching</h2><p>“连续批量处理”（Continuous Batching），也称为”动态批量处理”（Dynamic Batching）或”迭代级调度批量处理”（Batching with Iteration-Level Scheduling），是一种选择Batch行的技术，用于优化计算和资源利用率。<br>它的主要区别在于与静态批处理相比，它会在每次推理迭代过程中动态调整Batch中的序列，例如vLLM会抢占部分序列，将序列的prefill阶段和decode阶段分开，不在同一个batch中处理。</p>
+<p>而HuggingFace的text-generation-inference的router<a target="_blank" rel="noopener" href="https://github.com/huggingface/text-generation-inference/blob/main/router/README.md">文档</a>中提到的：为了提高效率，特别是在文本生成和内存受限的LLM上，可以让客户端发送单个查询，然后路由器将这些查询合并或分离成批次，以最大限度地利用计算资源。这是因为在LLM中，运行模型的计算成本远远高于批处理的成本。当新请求到达时，当前正在<code>forward</code>的前向传播不中断，而是继续等待执行完毕。然后将当前正在处理的请求与新到的请求合并成一个批处理请求，再进行<code>forward</code>前向传播。在批处理请求中，任何一个请求完成（即模型产生了终止符或达到允许的最大长度），则从批处理请求中移除该请求，并释放相关资源。这种方法可以应用于多个请求，并且支持在不同参数下的处理（例如采样、不采样、温度控制等），因为每个请求在批处理中都可以独立进行处理。Anyscale 对这个过程有很好的<a target="_blank" rel="noopener" href="https://www.anyscale.com/blog/continuous-batching-llm-inference">解释</a>。</p>
+<img data-src="/zh-CN/2024/12/13/vLLM-%E5%88%86%E6%9E%90-3-%E6%8E%A8%E7%90%86%E4%BC%98%E5%8C%96/continous_batching.png" class="">
+
+<h3 id="Prefill-和-Decode"><a href="#Prefill-和-Decode" class="headerlink" title="Prefill 和 Decode"></a>Prefill 和 Decode</h3><p>在LLM推理过程中，一个Prompt的第一次执行（称为prefill）和后续的前向传播（称为decode）是不同的。Prefill阶段需要计算整个注意力矩阵并将其缓存到KV缓存中，计算规模较大，尤其是对于长度为10K或100K的提示词。而在decode阶段，只需计算新生成的token的注意力矩阵，计算规模较小。</p>
+<p>从Kimi的<a target="_blank" rel="noopener" href="https://arxiv.org/html/2407.00079v2">Mooncake</a>论文中的图片来看：</p>
+<img data-src="/zh-CN/2024/12/13/vLLM-%E5%88%86%E6%9E%90-3-%E6%8E%A8%E7%90%86%E4%BC%98%E5%8C%96/prefill_decode.png" class="">
+
+<p>左图显示，当prompt长度增加时，计算时间呈平方级别增加。右图显示，decode阶段只生成一个token，计算规模比线性增长还要慢一点，但由于需要复用之前的KV缓存，因此显存开销较大。Mooncake的解决方案是将prefill和decode分开处理，prefill计算规模大，decode计算规模小，通过KV缓存共享机制传递KV缓存。论文还提到了一些关于缓存调度的细节，这里不再展开。</p>
+<p>在Prefill阶段，所有的提示词（prompt）都是已知的，因此可以并行计算多个token，计算并行度较高。而在Decode阶段，只需根据新生成的token计算下一个token（之前的KV缓存已经保存了中间结果），因此计算规模较小。如果将Prefill和Decode放在同一个batch中计算，由于计算规模不对等，容易产生计算空隙（bubble）。</p>
+<p>Prefill像是一个矩阵和矩阵的乘法，而Decode则是一个向量和矩阵的乘法。</p>
+<h2 id="Chunked-Prefill"><a href="#Chunked-Prefill" class="headerlink" title="Chunked Prefill"></a>Chunked Prefill</h2><p>vLLM的<a target="_blank" rel="noopener" href="https://docs.google.com/document/d/1Z9TvqzzBPnh5WHcRwjvK2UEeFeq5zMZb5mFE8jR0HCs/edit?pli=1&tab=t.0">文档</a>很好的解释了prefill阶段和decode阶段的区别。</p>
+<p>考虑到vLLM进行生成的序列“ABC”。当它到达时，KV缓存基于block size的预设值（这里是2）在内存中分配对应的block（B1，B2，B3，B4），但它是空的。<br>我们知道序列的内容（A，B，C），但我们没有token id到块索引的映射。</p>
+<img data-src="/zh-CN/2024/12/13/vLLM-%E5%88%86%E6%9E%90-3-%E6%8E%A8%E7%90%86%E4%BC%98%E5%8C%96/prefill_1.png" class="">
+
+<p>考虑到这种情况，下一步是为序列ABC进行prefill。在调度过程中，我们为序列中每个token块分配块索引（B3，B4），即（[A, B], [C, _]）。</p>
+<img data-src="/zh-CN/2024/12/13/vLLM-%E5%88%86%E6%9E%90-3-%E6%8E%A8%E7%90%86%E4%BC%98%E5%8C%96/prefill_2.png" class="">
+
+<p>一旦确定了块映射，我们就可以通过运行模型的前向传播。这会将ABC token的KV激活值写入KV缓存中的相应位置。此外，前向传播将导致新token “D” 被采样。D的KV值尚未知晓。</p>
+<img data-src="/zh-CN/2024/12/13/vLLM-%E5%88%86%E6%9E%90-3-%E6%8E%A8%E7%90%86%E4%BC%98%E5%8C%96/prefill_3.png" class="">
+
+<p>现在，序列已经完成了预填充。我们可以安排一个解码步骤。这涉及为新token “D” 分配块映射。然而，由于它适合现有的块映射，调度器不需要分配新的映射。</p>
+<img data-src="/zh-CN/2024/12/13/vLLM-%E5%88%86%E6%9E%90-3-%E6%8E%A8%E7%90%86%E4%BC%98%E5%8C%96/prefill_4.png" class="">
+
+<p>然后我们再次运行模型，计算并将“D”的KV写入KV缓存。这会生成一个新的token “E”。</p>
+<img data-src="/zh-CN/2024/12/13/vLLM-%E5%88%86%E6%9E%90-3-%E6%8E%A8%E7%90%86%E4%BC%98%E5%8C%96/prefill_5.png" class="">
+
+<p>这个过程会重复进行直到解码完成。请注意，后续的分配可能是不连续的。</p>
+<img data-src="/zh-CN/2024/12/13/vLLM-%E5%88%86%E6%9E%90-3-%E6%8E%A8%E7%90%86%E4%BC%98%E5%8C%96/prefill_6.png" class="">
+
+
+<h2 id="Speculative-Decoding"><a href="#Speculative-Decoding" class="headerlink" title="Speculative Decoding"></a>Speculative Decoding</h2><p>Speculative Decoding利用小型、快速的草案（draft）模型生成初始token（token是输入信息的基本单元）时的高效性，而在验证阶段则依赖更大的、更准确的大型语言模型（LLM）进行验证。</p>
+<p>这个过程可以分为两步：</p>
+<ol>
+<li><strong>初始token生成</strong>：使用小型、快速的草案模型生成初始token。这一步骤快速生成token序列，使得下一步骤可以快速开始。</li>
+<li><strong>验证</strong>：使用更大的、更准确的LLM对初始token进行验证。这一步骤确保生成的token序列是准确的和有效的。</li>
+</ol>
+<p>这种技术通过将任务分成两个阶段来实现高效性和准确性：快速生成初始token，然后验证这些token以确保准确性。</p>
+<p>其实现方式如下：</p>
+<ul>
+<li>使用小模型进行多次decode，生成多个token序列。</li>
+<li>将这些token序列传递给大模型进行验证。大模型会生成对应的logits，形状为<code>(batch, sequence, vocab_size)</code>，并进行softmax处理。</li>
+<li>对于单步decode，logits的形状为<code>(batch, 1, vocab_size)</code>，其中的1表示最后一个token，在词汇表(vocab_size)上的概率分布。</li>
+</ul>
+<p>例如，将小模型生成的”abcd” token序列传递给大模型，得到”ABCD”的logits。A对应的是用于预测B的概率分布，在这个序列中就是预测第二个token的概率分布。将b对应的token id在A的<code>vocab_size</code>长度的log prob中的值取出，对应的可能是B token id的概率，也可能不是。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">a | b | c | d</span><br><span class="line">    ^   ^   ^</span><br><span class="line">  | A | B | C | D </span><br></pre></td></tr></table></figure>
+
+<p>最后，将b、c、d在大模型中对应的logits prob求和并取平均值。如果这个值大于一个阈值，就认为这个token是合理的，否则就拒绝。</p>
+<p>这种方法通过结合小模型的快速生成能力和大模型的高准确性，实现了高效且准确的token生成过程。</p>
+<p>根据论文[<a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2406.14066]%E6%9D%A5%E8%AF%B4%EF%BC%8C%E5%9C%A8continus">https://arxiv.org/pdf/2406.14066]来说，在continus</a> batching的情况下，Speculative Decoding可以提高推理速度，减少计算资源的浪费。</p>
+<img data-src="/zh-CN/2024/12/13/vLLM-%E5%88%86%E6%9E%90-3-%E6%8E%A8%E7%90%86%E4%BC%98%E5%8C%96/spd.png" class="">
+
+<p>在Target模型验证完以后，还会多生成一个bonus token，也就是上面的那个D。</p>
+<p>其中Decoding也产生了很多的方法，有基于模型的，也有model free的，才用大模型的一部分，或者直接从外部数据库来获取。</p>
+<blockquote>
+<p>结果表明，在低请求率下（具体来说，请求率为 4），提出 3 个或 5 个令牌会带来最显著的加速。然而，随着请求率的增加，提出更多令牌的优势迅速减弱：当请求率超过 12 时，提出 5 个令牌不再带来性能提升。同样，在请求率大于 16 时，提出 3 个令牌会导致性能下降。</p>
+</blockquote>
+<img data-src="/zh-CN/2024/12/13/vLLM-%E5%88%86%E6%9E%90-3-%E6%8E%A8%E7%90%86%E4%BC%98%E5%8C%96/p_l.png" class="">
+
+<p>其中不同的颗粒度的猜测长度也会对性能有影响。</p>
+<p>全局统一的长度；每个step所有request用一个长度；每个step每个request用不同的长度。</p>
+<p>相较于吞吐，Goodput规定只有没被拒绝的token才计算，用来衡量最总的性能。</p>
+<img data-src="/zh-CN/2024/12/13/vLLM-%E5%88%86%E6%9E%90-3-%E6%8E%A8%E7%90%86%E4%BC%98%E5%8C%96/pl_bs_gp_relation.png" class="">
+
+<p>这张图展示了猜测长度和batch size对于Goodput的影响。</p>
+<p>对于小批次，要多猜测（propose），小批次尺寸下每次请求需提议超 4 个 token 以实现最大有效吞吐量（goodput），且随着批次尺寸增大，最优猜测长度会降低；<br>对于大批次，则要少猜测，甚至不进行推测反而能获得更高有效吞吐量，因为大批次下推测失败成本显著增加，超过潜在收益。</p>
+<p>除了朴素的猜测模型，里面也提到了Medusa风格的猜测模型。预测3个token就有三个head分别预测每个位置。<br>里面的例子head 1猜了三个，对了1个，head 2猜了2个对了一个，head3猜了3个全错了，然后加上LLM的bonus token。</p>
+<img data-src="/zh-CN/2024/12/13/vLLM-%E5%88%86%E6%9E%90-3-%E6%8E%A8%E7%90%86%E4%BC%98%E5%8C%96/medusa.png" class="">
+
+<p>SmartSpec 估算Goodput的方法就是根据成功率计算期望长度再乘上Request对应的时间。<br>然后根据不同的batch size计算Goodput，让Goodput最大化，得到最佳Goodput从而让吞吐最大化。</p>
+<h2 id="Automatic-Prefix-Caching"><a href="#Automatic-Prefix-Caching" class="headerlink" title="Automatic Prefix Caching"></a>Automatic Prefix Caching</h2><p>一般的LLM请求的提示词会非常长，据说OpenAI的系统提示词已经有几K了，这个规模很适合做前缀缓存。<br>前缀缓存是指将提示词分成多个前缀，然后将这些前缀缓存到KV缓存中，这样在生成token的时候就可以直接使用KV缓存中的值，<br>而不需要重新计算。这样可以减少计算量，提高推理速度。<br>当然在vLLM中kv cache是分块的，所以prefix 也是分块的。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">                    Block 1                  Block 2                  Block 3</span><br><span class="line">         [A gentle breeze stirred] [the leaves as children] [laughed in the distance]</span><br><span class="line">Block 1: |&lt;--- block tokens ----&gt;|</span><br><span class="line">Block 2: |&lt;------- prefix ------&gt;| |&lt;--- block tokens ---&gt;|</span><br><span class="line">Block 3: |&lt;------------------ prefix --------------------&gt;| |&lt;--- block tokens ----&gt;|</span><br></pre></td></tr></table></figure>
+<h2 id="Multi-LoRA-Serving"><a href="#Multi-LoRA-Serving" class="headerlink" title="Multi-LoRA Serving"></a>Multi-LoRA Serving</h2><p>VLLM当中的LoRA Adaptor是可以动态加载的，因为他本身和基座模型保持独立。<br>这里要注意的一个点是，如果词汇表修改了，会影响最后的llm head，比如英文基座模型用中文词汇表，那么 vocab_size 就不一样了。<br>会导致llm head的输出维度不一样，这个时候就需要重新训练llm head。<br>所以要注意最后的llm head的输出维度。</p>
+<h2 id="Tensor-Parallelism"><a href="#Tensor-Parallelism" class="headerlink" title="Tensor Parallelism"></a>Tensor Parallelism</h2><p>张量并行（Tensor Parallelism）是一种将大型模型的计算任务分解到多个GPU上并行执行的技术。它通过将模型的权重矩阵切分成多个子矩阵，并将这些子矩阵分配到不同的GPU上进行计算，从而实现并行计算。</p>
+<p>在Transformer模型中，QKV（Query, Key, Value）矩阵乘法是计算量最大的部分之一。通过将QKV矩阵切分成更小的子矩阵，并将这些子矩阵分配到不同的GPU上，可以显著提高计算效率。</p>
+<p>例如，对于一个具有<code>d_model</code>维度的QKV矩阵，可以将其切分成<code>n</code>个子矩阵，每个子矩阵的维度为<code>d_model / n</code>。然后，将这些子矩阵分配到<code>n</code>个GPU上进行并行计算。这样，每个GPU只需要计算一个较小的子矩阵，从而减少了计算时间。</p>
+<p>张量并行的实现方式如下：</p>
+<ol>
+<li><strong>切分权重矩阵</strong>：将模型的权重矩阵切分成多个子矩阵。例如，对于一个<code>d_model x d_model</code>的权重矩阵，可以将其切分成<code>n</code>个<code>d_model x (d_model / n)</code>的子矩阵。</li>
+<li><strong>分配子矩阵</strong>：将切分后的子矩阵分配到不同的GPU上。例如，将第一个子矩阵分配到GPU 0，第二个子矩阵分配到GPU 1，以此类推。</li>
+<li><strong>并行计算</strong>：在每个GPU上并行执行矩阵乘法计算。例如，在GPU 0上计算输入矩阵与第一个子矩阵的乘积，在GPU 1上计算输入矩阵与第二个子矩阵的乘积，以此类推。</li>
+<li><strong>聚合结果</strong>：将所有GPU上的计算结果聚合起来，得到最终的输出。例如，将所有子矩阵的乘积结果相加，得到最终的QKV矩阵乘积结果。</li>
+</ol>
+<p>通过张量并行，可以显著提高大型模型的计算效率，减少推理时间，从而提高模型的推理速度和性能。</p>
+<h2 id="Pipeline-Parallelism"><a href="#Pipeline-Parallelism" class="headerlink" title="Pipeline Parallelism"></a>Pipeline Parallelism</h2><p>Pipeline Parallelism通过将模型的不同层分配到不同的GPU上来实现并行计算，特别是一些大型模型。这种方法可以提高计算效率，但也会引入一些挑战，例如在层之间传递数据时可能会产生延迟。此外，由于不同层的计算时间可能不一致，可能会导致某些GPU在等待其他GPU完成计算时处于空闲状态，从而产生计算空隙（bubble）。</p>
+<p>为了减少这些计算空隙，可以使用Chunked Prefill技术。Chunked Prefill通过将计算任务分成更小的块，从而缩短每个计算任务的时间。这使得在流水线并行中可以更灵活地安排计算任务，从而尽可能地填满计算空隙，提高整体计算效率。</p>
+<p>通过结合Pipeline Parallelism和Chunked Prefill，可以在保持高效计算的同时，最大限度地利用计算资源，减少计算空隙，提高模型推理的速度和效率。</p>
+<p>在vLLM当中 TP=n 且 PP=m 时，vLLM 引擎总共会有 n*m + 1 个进程。即使使用单个 GPU，我们也会有 2 个进程。</p>
+<h2 id="衡量LLM的服务指标"><a href="#衡量LLM的服务指标" class="headerlink" title="衡量LLM的服务指标"></a>衡量LLM的服务指标</h2><p>在衡量LLM服务性能时，Token相关的数据是一个重要的方面。以下是一些常见的Token相关指标：</p>
+<h3 id="Token-Throughput"><a href="#Token-Throughput" class="headerlink" title="Token Throughput"></a>Token Throughput</h3><p>Token Throughput表示每秒生成的token数量。它是衡量模型生成速度的一个重要指标，通常以tokens per minute (TPM)为单位。</p>
+<h3 id="Token-Latency"><a href="#Token-Latency" class="headerlink" title="Token Latency"></a>Token Latency</h3><p>Token Latency表示生成一个token所需的时间。它是衡量模型响应速度的一个重要指标，通常以毫秒(ms)为单位。Token Latency包括以下几个子指标：</p>
+<ul>
+<li>**TTFT (Time To First Token)**：从请求到第一个token生成的时间。例如，当prompt变长时，TTFT会变长；或者当kv cache不足时被抢占，TTFT也会变长。</li>
+<li>**TBT (Time Between Tokens)**：生成两个token之间的时间。例如，当batch size变大时，TBT会变大。</li>
+</ul>
+
+      
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+        <div class="post-eof"></div>
+      
+    </footer>
+  </article>
+</div>
+
+
+
 
     
 
@@ -2191,121 +2383,6 @@
 <h2 id="系统调用"><a href="#系统调用" class="headerlink" title="系统调用"></a>系统调用</h2><p>系统调用是使用 js 实现的，而且也不是像 linux 那种完整一套系统调用这个可能需要 WASI 的支持。<br>没有系统调用 M 也不会阻塞，等于是一个完全的单 P 单 M 多 G 的模型。</p>
 <figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">var</span> jsProcess = js.Global().Get(<span class="string">&quot;process&quot;</span>)</span><br><span class="line"><span class="keyword">var</span> jsFS = js.Global().Get(<span class="string">&quot;fs&quot;</span>)</span><br><span class="line"><span class="keyword">var</span> constants = jsFS.Get(<span class="string">&quot;constants&quot;</span>)</span><br></pre></td></tr></table></figure>
 
-
-      
-    </div>
-
-    
-    
-    
-
-    <footer class="post-footer">
-        <div class="post-eof"></div>
-      
-    </footer>
-  </article>
-</div>
-
-
-
-
-    
-
-
-<div class="post-block">
-  
-  
-
-  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2021/07/19/%E5%9C%A8goroutine%E4%B8%8A%E5%88%9B%E5%BB%BA%E5%8D%8F%E7%A8%8Bgogoroutine/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="ggaaooppeenngg">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="ggaaooppeenngg">
-      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
-    </span>
-
-    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
-      <meta itemprop="name" content="undefined | ggaaooppeenngg">
-      <meta itemprop="description" content="">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          <a href="/zh-CN/2021/07/19/%E5%9C%A8goroutine%E4%B8%8A%E5%88%9B%E5%BB%BA%E5%8D%8F%E7%A8%8Bgogoroutine/" class="post-title-link" itemprop="url">在goroutine上创建协程gogoroutine</a>
-        </h2>
-
-        <div class="post-meta-container">
-          <div class="post-meta">
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-calendar"></i>
-      </span>
-      <span class="post-meta-item-text">发表于</span>
-
-      <time title="创建时间：2021-07-19 14:14:54" itemprop="dateCreated datePublished" datetime="2021-07-19T14:14:54+08:00">2021-07-19</time>
-    </span>
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-calendar-check"></i>
-      </span>
-      <span class="post-meta-item-text">更新于</span>
-      <time title="修改时间：2025-03-14 13:50:06" itemprop="dateModified" datetime="2025-03-14T13:50:06+08:00">2025-03-14</time>
-    </span>
-
-  
-  
-  <span class="post-meta-item">
-    
-      <span class="post-meta-item-icon">
-        <i class="far fa-comment"></i>
-      </span>
-      <span class="post-meta-item-text">Disqus：</span>
-    
-    <a title="disqus" href="/zh-CN/2021/07/19/%E5%9C%A8goroutine%E4%B8%8A%E5%88%9B%E5%BB%BA%E5%8D%8F%E7%A8%8Bgogoroutine/#disqus_thread" itemprop="discussionUrl">
-      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2021/07/19/在goroutine上创建协程gogoroutine/" itemprop="commentCount"></span>
-    </a>
-  </span>
-  
-  
-</div>
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-          <p>目前实现的版本是参照<a target="_blank" rel="noopener" href="https://github.com/golang/go/blob/96824000ed89d13665f6f24ddc10b3bf812e7f47/src/runtime/proc.c">go0.x</a>的一个实现也就是只有一个m，在m上调度g，对应的是我们只用一个goroutine然后在goroutine上调度多个gogoroutine。在实现gogoroutine之前需要介绍一下go的调用惯例，这个<a target="_blank" rel="noopener" href="https://dr-knz.net/go-calling-convention-x86-64-2020.html">文章</a>讲的比较清楚。目前Golang在传递参数和返回值的时候是通过栈传递的。gcc会使用寄存器传递参数，golang有一个使用寄存器传递参数的<a target="_blank" rel="noopener" href="https://go.googlesource.com/proposal/+/refs/changes/78/248178/1/design/40724-register-calling.md">提案</a>。如果要实现一个goroutine上的协程可以利用这么一个调用惯例。</p>
-<h2 id="上下文切换"><a href="#上下文切换" class="headerlink" title="上下文切换"></a>上下文切换</h2><p>Go的上下文切换其实和操作系统的上下文切换比较类似，go的实现也是类似的，但相对来说比较简单，因为Go的调用惯例其他的寄存器在函数调用的时候是没有被使用的，主要是保存栈指针和一个指令寄存器PC就可以。Golang的抢占一开始是协作式的，入口是在函数调用的时候。在引入了异步抢占也就是让信号处理函数去切换到调度逻辑（这个切换的过程也类似后面讲到的gogo和gosave，但是他的入口是任何一个指令的地方都会发送所以要保存所有的寄存器）实现抢占以后就可以实现非协作的抢占了。</p>
-<p>现在实现的是相对简单的协作式抢占。</p>
-<p>0.x的代码是C写的，其中两个汇编函数实现的上下文的保存和切换。这里简单先补充一下Go中汇编的一些知识点。</p>
-<p>函数定义:</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"> TEXT 包名·函数名(SB),一些标签,$栈帧大小-参数大小(包括返回值)</span><br></pre></td></tr></table></figure>
-<p>SP表示栈指针，AX是对应的ax系列的寄存器。<br>保存上下文的汇编函数如下,gobuf是一个结构体有两个指针成员分别是sp和pc。</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">TEXT gosave(SB), NOSPLIT, $0</span><br><span class="line">		MOVQ	8(SP), AX		// 8(SP)是函数的第一个参数：gobuf的地址</span><br><span class="line">		MOVQ	SP, 0(AX)		// 保存SP也就是栈指针到 gobuf.sp 中。</span><br><span class="line">		MOVQ	0(SP), BX    // 0(SP)是函数的返回地址</span><br><span class="line">		MOVQ	BX, 8(AX)		// 将函数的返回地址保存到 gobuf.pc 中。</span><br><span class="line">		MOVL	$0, AX			// return 0</span><br><span class="line">		RET</span><br></pre></td></tr></table></figure>
-<p>这段函数其实主要是保存了gosave调用时的栈指针，而返回地址就是gosave返回后的下一条指令的地址，返回值是0，这个0可以标记到这个函数是从gosave返回的，这个要结合后面的gogo来理解。<br>现在来看gogo</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">TEXT gogo(SB), 7, $0</span><br><span class="line">		MOVQ	8(SP), AX		// 8(SP)是gobuf这个参数的地址</span><br><span class="line">		MOVQ	0(AX), SP		// 将栈针修改为之前保存的SP</span><br><span class="line">		MOVQ	8(AX), AX   // 获取PC</span><br><span class="line">		MOVQ	AX, 0(SP)		// 把 PC 放到0(SP)上</span><br><span class="line">		MOVL	$1, AX			// return 1</span><br><span class="line">		RET</span><br></pre></td></tr></table></figure>
-<p>gogo返回以后其实是返回到了之前gosave需要返回的地方，并且返回值是1。这里用寄存器做返回值是c里面的一种方式。所以如果一个gosave是返回0那么它是从真正的调用者那里返回的，如果返回的是1就是从gogo返回的，如果这里点理解了以后就可以实现一个上下文切换了。<br>对应Go的函数调用的版本就是：</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">TEXT ·gogogo(SB), NOSPLIT, $0-16</span><br><span class="line">MOVQ	8(SP), AX		// gogobuf</span><br><span class="line">MOVQ	0(AX), SP		// restore SP</span><br><span class="line">MOVQ	8(AX), AX</span><br><span class="line">MOVQ	AX, 0(SP)		// put PC on the stack</span><br><span class="line">MOVL	$1, 16(SP) // return true</span><br><span class="line">RET</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">TEXT ·gosave(SB), NOSPLIT, $0-16</span><br><span class="line">MOVQ	8(SP), AX		// gogobuf</span><br><span class="line">MOVQ	SP, 0(AX)		// save SP</span><br><span class="line">MOVQ	0(SP), BX</span><br><span class="line">MOVQ	BX, 8(AX)		// save PC</span><br><span class="line">MOVB	$0, 16(SP)		// return false</span><br><span class="line">RET</span><br></pre></td></tr></table></figure>
-<p>这面的区别是参数gobuf和返回值用了16个字节，因为Go的调用是用栈的，之前说到过。<br>0(SP)就是返回地址，8(SP)是gobuf，16(SP)是true或者false的返回地址。</p>
-<h2 id="gogoroutine的创建"><a href="#gogoroutine的创建" class="headerlink" title="gogoroutine的创建"></a>gogoroutine的创建</h2><p>原本函数做的两件事情就是分配栈和指定PC，pc只要对于一个新的gogoroutine指向函数指针就可以。</p>
-<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span></span><br><span class="line">	sys·<span class="built_in">newproc</span>(int32 siz, byte* fn, byte* arg0)</span><br><span class="line">	&#123;</span><br><span class="line">		byte *stk, *sp;</span><br><span class="line">		G *newg;</span><br><span class="line"></span><br><span class="line">	<span class="comment">//prints(&quot;newproc siz=&quot;);</span></span><br><span class="line">	<span class="comment">//sys·printint(siz);</span></span><br><span class="line">	<span class="comment">//prints(&quot; fn=&quot;);</span></span><br><span class="line">	<span class="comment">//sys·printpointer(fn);</span></span><br><span class="line"></span><br><span class="line">		siz = (siz<span class="number">+7</span>) &amp; ~<span class="number">7</span>;</span><br><span class="line">		<span class="keyword">if</span>(siz &gt; <span class="number">1024</span>)</span><br><span class="line">			<span class="keyword">throw</span>(<span class="string">&quot;sys·newproc: too many args&quot;</span>);</span><br><span class="line"></span><br><span class="line">		<span class="built_in">lock</span>(&amp;sched);</span><br><span class="line"></span><br><span class="line">		<span class="keyword">if</span>((newg = <span class="built_in">gfget</span>()) != nil)&#123;</span><br><span class="line">			newg-&gt;status = Gwaiting;</span><br><span class="line">			stk = newg-&gt;stack0;</span><br><span class="line">		&#125;<span class="keyword">else</span>&#123;</span><br><span class="line">			newg = <span class="built_in">mal</span>(<span class="built_in">sizeof</span>(G));</span><br><span class="line">			stk = <span class="built_in">mal</span>(<span class="number">4096</span>);</span><br><span class="line">			newg-&gt;stack0 = stk;</span><br><span class="line">			newg-&gt;status = Gwaiting;</span><br><span class="line">			newg-&gt;alllink = allg;</span><br><span class="line">			allg = newg;</span><br><span class="line">		&#125;</span><br></pre></td></tr></table></figure>
-<p>到这就是分配了一段给栈用的内存，内存的具体分配后面会有一个文章讲解。</p>
-<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">		<span class="comment">// 160 这个地方是一个约定</span></span><br><span class="line">   <span class="comment">// 一些小函数会利用栈之外的160个字节进行优化</span></span><br><span class="line">newg-&gt;stackguard = stk<span class="number">+160</span>;</span><br></pre></td></tr></table></figure>
-<p>上面多留出来的地方是一个x86的约定需要给出一个redzone给一些小函数优化用的，不用分配栈直接去使用栈外的这个redzone来增加效率。</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line">   // 栈是从高地址向低地址增长的，至于这个 4*8是留给什么的没搞清</span><br><span class="line">	sp = stk + 4096 - 4*8;</span><br><span class="line">	newg-&gt;stackbase = sp;</span><br><span class="line">    // 拷贝参数</span><br><span class="line">	sp -= siz;</span><br><span class="line">	mcpy(sp, (byte*)&amp;arg0, siz);</span><br><span class="line">   // 函数结束时返回到 goexit 进行收尾工作</span><br><span class="line">	sp -= 8;</span><br><span class="line">	*(byte**)sp = (byte*)sys·goexit;</span><br><span class="line">    // 留给 gogo 的修改返回地址用的地方</span><br><span class="line">  // 相当于假装在gogo的地方返回到了fn的函数指针</span><br><span class="line">	sp -= 8;	// retpc used by gogo</span><br><span class="line">	newg-&gt;sched.SP = sp;</span><br><span class="line">	newg-&gt;sched.PC = fn;</span><br><span class="line"></span><br><span class="line">	sched.gcount++;</span><br><span class="line">	goidgen++;</span><br><span class="line">	newg-&gt;goid = goidgen;</span><br><span class="line"></span><br><span class="line">	readylocked(newg);</span><br><span class="line">	unlock(&amp;sched);</span><br><span class="line"></span><br><span class="line">//prints(&quot; goid=&quot;);</span><br><span class="line">//sys·printint(newg-&gt;goid);</span><br><span class="line">//prints(&quot;\n&quot;);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<p>对应的go代码，Go当中获取函数地址的方式比较tricky，需要了解interface的layout，他是一个interface的头和一个interface包含的对象的地址。FuncPC就是通过转换获取这个函数地址，对应的实现可以在Go的<a target="_blank" rel="noopener" href="https://github.com/golang/go/blob/41d8e61a6b9d8f9db912626eb2bbc535e929fefc/src/runtime/proc.go#L447">源码</a>找到。</p>
-<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">NewProc</span><span class="params">(f <span class="keyword">interface</span>&#123;&#125;, args ...<span class="keyword">interface</span>&#123;&#125;)</span></span> &#123;</span><br><span class="line">		pc := FuncPC(f)</span><br><span class="line">		stack := Malloc(<span class="number">1024</span>)</span><br><span class="line">		sp := stack + <span class="number">1024</span> - <span class="number">4</span>*<span class="number">8</span></span><br><span class="line">		*(*<span class="type">uintptr</span>)(unsafe.Pointer(sp - <span class="number">8</span>)) = FuncPC(goexit) + <span class="number">1</span></span><br><span class="line">		gogoRoutine := GoGoRoutine&#123;&#125;</span><br><span class="line">		gogoRoutine.Sched.PC = pc</span><br><span class="line">		gogoRoutine.Sched.SP = sp - <span class="number">8</span> - <span class="number">8</span></span><br><span class="line">		gogoRoutine.Stack = stack</span><br><span class="line">		globalgoid++</span><br><span class="line">		gogoRoutine.goid = globalgoid</span><br><span class="line">		gogoRoutine.status = _Grunnable</span><br><span class="line">		ggput(&amp;gogoRoutine)</span><br><span class="line">	&#125;</span><br></pre></td></tr></table></figure>
-<h2 id="调度主体"><a href="#调度主体" class="headerlink" title="调度主体"></a>调度主体</h2><p>0.x版本的逻辑其实很简单，通过if(gosave)的方式可以判断是从哪里跳过来的。</p>
-<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// Scheduler loop: find g to run, run it, repeat.</span></span><br><span class="line">	<span class="function"><span class="type">static</span> <span class="type">void</span></span></span><br><span class="line"><span class="function">	<span class="title">scheduler</span><span class="params">(<span class="type">void</span>)</span></span></span><br><span class="line"><span class="function">	</span>&#123;</span><br><span class="line">		G* gp;</span><br><span class="line"></span><br><span class="line">		<span class="comment">// Initialization.</span></span><br><span class="line">		m-&gt;procid = <span class="built_in">getprocid</span>();</span><br><span class="line">		<span class="built_in">lock</span>(&amp;sched);</span><br><span class="line"></span><br><span class="line">		<span class="keyword">if</span>(<span class="built_in">gosave</span>(&amp;m-&gt;sched))&#123;</span><br><span class="line">     <span class="comment">// 这里的 gosave 返回的是 true</span></span><br><span class="line">            <span class="comment">// 说明是通过 gogo 过来的</span></span><br><span class="line">            <span class="comment">// 如果当前的 g 是 running 的话就保存上下文</span></span><br><span class="line"><span class="comment">// 切换成 runnable 放入到 queue 中</span></span><br><span class="line">            <span class="comment">// 走出 if 去到调度逻辑。</span></span><br><span class="line">			<span class="comment">// Jumped here via gosave/gogo, so didn&#x27;</span></span><br><span class="line">			<span class="comment">// execute lock(&amp;sched) above.</span></span><br><span class="line">			<span class="built_in">lock</span>(&amp;sched);</span><br><span class="line"></span><br><span class="line">			<span class="comment">// Just finished running m-&gt;curg.</span></span><br><span class="line">			gp = m-&gt;curg;</span><br><span class="line">			gp-&gt;m = nil;	<span class="comment">// for debugger</span></span><br><span class="line">			<span class="keyword">switch</span>(gp-&gt;status)&#123;</span><br><span class="line">			<span class="keyword">case</span> Grunnable:</span><br><span class="line">			<span class="keyword">case</span> Gdead:</span><br><span class="line">				<span class="comment">// Shouldn&#x27;t have been running!</span></span><br><span class="line">				<span class="keyword">throw</span>(<span class="string">&quot;bad gp-&gt;status in sched&quot;</span>);</span><br><span class="line">			<span class="keyword">case</span> Grunning:</span><br><span class="line">				gp-&gt;status = Grunnable;</span><br><span class="line">				<span class="built_in">gput</span>(gp);</span><br><span class="line">				<span class="keyword">break</span>;</span><br><span class="line">			<span class="keyword">case</span> Gmoribund:</span><br><span class="line">				gp-&gt;status = Gdead;</span><br><span class="line">				<span class="keyword">if</span>(--sched.gcount == <span class="number">0</span>)</span><br><span class="line">					sys·<span class="built_in">exit</span>(<span class="number">0</span>);</span><br><span class="line">				<span class="keyword">break</span>;</span><br><span class="line">			&#125;</span><br><span class="line">			<span class="built_in">notewakeup</span>(&amp;gp-&gt;stopped);</span><br><span class="line">		&#125;</span><br><span class="line">     <span class="comment">// 真正的 gosave 是返回 false的。</span></span><br><span class="line">	    <span class="comment">// 这个地方是 gosave 的返回地址</span></span><br><span class="line">    <span class="comment">// 也是 gogo 后 if 处理完的地方</span></span><br><span class="line">        <span class="comment">// 在这里寻找合适的g然后运行。</span></span><br><span class="line">		<span class="comment">// Find (or wait for) g to run.  Unlocks sched.</span></span><br><span class="line">		gp = <span class="built_in">nextgandunlock</span>();</span><br><span class="line"></span><br><span class="line">		<span class="built_in">noteclear</span>(&amp;gp-&gt;stopped);</span><br><span class="line">		gp-&gt;status = Grunning;</span><br><span class="line">		m-&gt;curg = gp;</span><br><span class="line">		gp-&gt;m = m;	<span class="comment">// for debugger</span></span><br><span class="line">		g = gp;</span><br><span class="line">		<span class="built_in">gogo</span>(&amp;gp-&gt;sched);</span><br><span class="line">	&#125;</span><br></pre></td></tr></table></figure>
-<p>对应的go代码：</p>
-<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line">   <span class="comment">//go:noline</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">schedule</span><span class="params">()</span></span> &#123;</span><br><span class="line">	<span class="keyword">if</span> gosave(&amp;sched.gg0.Sched) &#123;</span><br><span class="line">		curgg := sched.curgg</span><br><span class="line">		<span class="keyword">switch</span> curgg.status &#123;</span><br><span class="line">		<span class="keyword">case</span> _Grunnable:</span><br><span class="line">			<span class="built_in">panic</span>(<span class="string">&quot;invalid status&quot;</span>)</span><br><span class="line">		<span class="keyword">case</span> _Grunning:</span><br><span class="line">			curgg.status = _Grunnable</span><br><span class="line">			ggput(curgg)</span><br><span class="line">			<span class="keyword">break</span></span><br><span class="line">		<span class="keyword">case</span> _Gdead:</span><br><span class="line">			<span class="keyword">break</span></span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">    <span class="comment">// 调度循环</span></span><br><span class="line">	<span class="keyword">for</span>  &#123;</span><br><span class="line">		<span class="comment">// println(&quot;find g&quot;)</span></span><br><span class="line">		gg := ggget()</span><br><span class="line">		<span class="keyword">if</span> gg == <span class="literal">nil</span> &#123;</span><br><span class="line">			time.Sleep(time.Second)</span><br><span class="line">			<span class="keyword">continue</span></span><br><span class="line">		&#125;</span><br><span class="line">		gg.status = _Grunning</span><br><span class="line">		sched.curgg = gg</span><br><span class="line">		gogogo(&amp;gg.Sched)</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<p>这样就能实现一个简单的单goroutine上跑多个gogoroutine的上下文切换了。</p>
 
       
     </div>

@@ -92,7 +92,7 @@
 
 
 <nav class="site-nav">
-  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-旅行路书"><a href="/travel/" rel="section"><i class="plane fa-fw"></i>旅行路书</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">186</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">23</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">94</span></a></li>
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-旅行路书"><a href="/travel/" rel="section"><i class="plane fa-fw"></i>旅行路书</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">188</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">23</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">95</span></a></li>
   </ul>
 </nav>
 
@@ -129,7 +129,7 @@
   <nav class="site-state">
       <div class="site-state-item site-state-posts">
         <a href="/archives/">
-          <span class="site-state-item-count">94</span>
+          <span class="site-state-item-count">95</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -140,7 +140,7 @@
       </div>
       <div class="site-state-item site-state-tags">
           <a href="/tags/">
-        <span class="site-state-item-count">186</span>
+        <span class="site-state-item-count">188</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
@@ -169,6 +169,121 @@
     </div>
 
     <div class="main-inner index posts-expand">
+
+    
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2018/09/10/kube-proxy-%E5%88%86%E6%9E%90/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="undefined | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          <a href="/zh-CN/2018/09/10/kube-proxy-%E5%88%86%E6%9E%90/" class="post-title-link" itemprop="url">kube-proxy 分析</a>
+        </h2>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2018-09-10 22:13:29" itemprop="dateCreated datePublished" datetime="2018-09-10T22:13:29+08:00">2018-09-10</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2025-03-14 13:50:06" itemprop="dateModified" datetime="2025-03-14T13:50:06+08:00">2025-03-14</time>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2018/09/10/kube-proxy-%E5%88%86%E6%9E%90/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2018/09/10/kube-proxy-分析/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+          <p>kube-proxy 是一层代理，主要用于实现 Service 这个 Object。</p>
+<p>Service 有一个 ClusterIP，这是一个虚拟 IP 应对 Service 后面的 pod，pod 的销毁和创建会有 ip 不固定的问题。除了能够屏蔽后端的 pod 的 IP 之外，Service 还可以有负载均衡的作用。</p>
+<p>Endpoint 维护的是 Service 和 Pod 的映射关系，如果 pods 变动，Endpoint 也会变动。Service 本身指定义了 ClusterIP 和 port 的映射。Endpoints 记录了 pod 的 ip 和端口。</p>
+<p>主要的访问方式是通过 NAT 实现的，如果使用 iptables 的话，就设置匹配目标端口以后，DNAT 转发到目的地址。</p>
+<blockquote>
+<p> 我看代码的时候，发现有个函数叫 birth cry 挺有意思的，表示打程序启动的一条 log。</p>
+</blockquote>
+<p>Kube-proxy 主要监听两个对象，一个是 Service，一个是 Endpoint</p>
+<p>这些 Objects 对应的处理函数有不同的实现，现在先看一下 iptables 的实现</p>
+<p>当 Service 有更新的时候就会更新对应的 iptables 规则。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(c *ServiceConfig)</span></span> Run(stopCh &lt;-<span class="keyword">chan</span> <span class="keyword">struct</span>&#123;&#125;) &#123;</span><br><span class="line">        <span class="keyword">defer</span> utilruntime.HandleCrash()</span><br><span class="line"></span><br><span class="line">        glog.Info(<span class="string">&quot;Starting service config controller&quot;</span>)</span><br><span class="line">        <span class="keyword">defer</span> glog.Info(<span class="string">&quot;Shutting down service config controller&quot;</span>)</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> !controller.WaitForCacheSync(<span class="string">&quot;service config&quot;</span>, stopCh, c.listerSynced) &#123;</span><br><span class="line">                <span class="keyword">return</span></span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">for</span> i := <span class="keyword">range</span> c.eventHandlers &#123;</span><br><span class="line">                glog.V(<span class="number">3</span>).Infof(<span class="string">&quot;Calling handler.OnServiceSynced()&quot;</span>)</span><br><span class="line">                c.eventHandlers[i].OnServiceSynced()</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        &lt;-stopCh</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>会调用 OnServiceSynced，然后具体调用实现者的方法。</p>
+<h2 id="Proxier"><a href="#Proxier" class="headerlink" title="Proxier"></a>Proxier</h2><h3 id="Netfilter"><a href="#Netfilter" class="headerlink" title="Netfilter"></a>Netfilter</h3><p>Netfilter 是内核模块的控制代码，ipvs 和 iptables 都是基于 Netfilter 实现的。</p>
+<h3 id="iptables"><a href="#iptables" class="headerlink" title="iptables"></a>iptables</h3><p>用 iptables 配置 DNAT ，然后再用概率模块做负载均衡。kube-proxy iptables 的实现主要依赖于 filter 和 nat。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_"># </span><span class="language-bash">Masquerade</span></span><br><span class="line">-A KUBE-MARK-DROP -j MARK --set-xmark 0x8000/0x8000</span><br><span class="line">-A KUBE-MARK-MASQ -j MARK --set-xmark 0x4000/0x4000</span><br><span class="line">-A KUBE-POSTROUTING -m comment --comment &quot;kubernetes service traffic requiring SNAT&quot; -m mark --mark 0x4000/0x4000 -j MASQUERADE</span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">clusterIP and publicIP</span></span><br><span class="line">-A KUBE-SERVICES ! -s 10.244.0.0/16 -d 10.98.154.163/32 -p tcp -m comment --comment &quot;default/nginx: cluster IP&quot; -m tcp --dport 80 -j KUBE-MARK-MASQ</span><br><span class="line">-A KUBE-SERVICES -d 10.98.154.163/32 -p tcp -m comment --comment &quot;default/nginx: cluster IP&quot; -m tcp --dport 80 -j KUBE-SVC-4N57TFCL4MD7ZTDA</span><br><span class="line">-A KUBE-SERVICES -d 12.12.12.12/32 -p tcp -m comment --comment &quot;default/nginx: loadbalancer IP&quot; -m tcp --dport 80 -j KUBE-FW-4N57TFCL4MD7ZTDA</span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">Masq <span class="keyword">for</span> publicIP</span></span><br><span class="line">-A KUBE-FW-4N57TFCL4MD7ZTDA -m comment --comment &quot;default/nginx: loadbalancer IP&quot; -j KUBE-MARK-MASQ</span><br><span class="line">-A KUBE-FW-4N57TFCL4MD7ZTDA -m comment --comment &quot;default/nginx: loadbalancer IP&quot; -j KUBE-SVC-4N57TFCL4MD7ZTDA</span><br><span class="line">-A KUBE-FW-4N57TFCL4MD7ZTDA -m comment --comment &quot;default/nginx: loadbalancer IP&quot; -j KUBE-MARK-DROP</span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">Masq <span class="keyword">for</span> nodePort</span></span><br><span class="line">-A KUBE-NODEPORTS -p tcp -m comment --comment &quot;default/nginx:&quot; -m tcp --dport 30938 -j KUBE-MARK-MASQ</span><br><span class="line">-A KUBE-NODEPORTS -p tcp -m comment --comment &quot;default/nginx:&quot; -m tcp --dport 30938 -j KUBE-SVC-4N57TFCL4MD7ZTDA</span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">load balance <span class="keyword">for</span> each endpoints</span></span><br><span class="line">-A KUBE-SVC-4N57TFCL4MD7ZTDA -m comment --comment &quot;default/nginx:&quot; -m statistic --mode random --probability 0.33332999982 -j KUBE-SEP-UXHBWR5XIMVGXW3H</span><br><span class="line">-A KUBE-SVC-4N57TFCL4MD7ZTDA -m comment --comment &quot;default/nginx:&quot; -m statistic --mode random --probability 0.50000000000 -j KUBE-SEP-TOYRWPNILILHH3OR</span><br><span class="line">-A KUBE-SVC-4N57TFCL4MD7ZTDA -m comment --comment &quot;default/nginx:&quot; -j KUBE-SEP-6QCC2MHJZP35QQAR</span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">endpoint <span class="comment">#1</span></span></span><br><span class="line">-A KUBE-SEP-6QCC2MHJZP35QQAR -s 10.244.3.4/32 -m comment --comment &quot;default/nginx:&quot; -j KUBE-MARK-MASQ</span><br><span class="line">-A KUBE-SEP-6QCC2MHJZP35QQAR -p tcp -m comment --comment &quot;default/nginx:&quot; -m tcp -j DNAT --to-destination 10.244.3.4:80</span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">endpoint <span class="comment">#2</span></span></span><br><span class="line">-A KUBE-SEP-TOYRWPNILILHH3OR -s 10.244.2.4/32 -m comment --comment &quot;default/nginx:&quot; -j KUBE-MARK-MASQ</span><br><span class="line">-A KUBE-SEP-TOYRWPNILILHH3OR -p tcp -m comment --comment &quot;default/nginx:&quot; -m tcp -j DNAT --to-destination 10.244.2.4:80</span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">endpoint <span class="comment">#3</span></span></span><br><span class="line">-A KUBE-SEP-UXHBWR5XIMVGXW3H -s 10.244.1.2/32 -m comment --comment &quot;default/nginx:&quot; -j KUBE-MARK-MASQ</span><br><span class="line">-A KUBE-SEP-UXHBWR5XIMVGXW3H -p tcp -m comment --comment &quot;default/nginx:&quot; -m tcp -j DNAT --to-destination 10.244.1.2:80</span><br></pre></td></tr></table></figure>
+
+<p>这是一个实例，首先通过 clusterIP 的 -d 匹配目的地址，还有 dport 匹配目的端口，转入对应的 SVC 链。</p>
+<p>SVC 联通过 -m statistic 模块负载均衡到不同的 Endpoint 链上，每个 Endpoint 链又有一个 DNAT 到对应的 pod</p>
+<p>的 IP:port 上，总的来说就是用 DNAT 实现 clusterIP 的代理，用 statistic 模块实现按概率的负载均衡（按概率进入不同的 Endpoint 链当中）。</p>
+<h3 id="ipvs"><a href="#ipvs" class="headerlink" title="ipvs"></a>ipvs</h3><p>ipvs 有相对更好的性能，更复杂的负载均衡的算法以及健康状态检查等。</p>
+<p>可以看到 kube-ipvs0 上的  10.102.128.4 对应的 Service 的 ClusterIP，而 RealServer 映射到了不同的 Endpoint 上。</p>
+<p>iptables 的匹配是 hash 的，而不同根据一个链一个链的匹配，效率更高。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_"># </span><span class="language-bash">kubectl describe svc nginx-service</span></span><br><span class="line">Name:			nginx-service</span><br><span class="line">...</span><br><span class="line">Type:			ClusterIP</span><br><span class="line">IP:			    10.102.128.4</span><br><span class="line">Port:			http	3080/TCP</span><br><span class="line">Endpoints:		10.244.0.235:8080,10.244.1.237:8080</span><br><span class="line">Session Affinity:	None</span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">ip addr</span></span><br><span class="line">...</span><br><span class="line">73: kube-ipvs0: &lt;BROADCAST,NOARP&gt; mtu 1500 qdisc noop state DOWN qlen 1000</span><br><span class="line">    link/ether 1a:ce:f5:5f:c1:4d brd ff:ff:ff:ff:ff:ff</span><br><span class="line">    inet 10.102.128.4/32 scope global kube-ipvs0</span><br><span class="line">       valid_lft forever preferred_lft forever</span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">ipvsadm -<span class="built_in">ln</span></span></span><br><span class="line">IP Virtual Server version 1.2.1 (size=4096)</span><br><span class="line">Prot LocalAddress:Port Scheduler Flags</span><br><span class="line"><span class="meta prompt_">  -&gt; </span><span class="language-bash">RemoteAddress:Port           Forward Weight ActiveConn InActConn</span>     </span><br><span class="line">TCP  10.102.128.4:3080 rr</span><br><span class="line"><span class="meta prompt_">  -&gt; </span><span class="language-bash">10.244.0.235:8080            Masq    1      0          0</span>         </span><br><span class="line"><span class="meta prompt_">  -&gt; </span><span class="language-bash">10.244.1.237:8080            Masq    1      0          0</span>   </span><br></pre></td></tr></table></figure>
+
+
+
+      
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+        <div class="post-eof"></div>
+      
+    </footer>
+  </article>
+</div>
+
+
+
 
     
 
@@ -1344,133 +1459,6 @@
 <img data-src="/zh-CN/2017/12/19/kube-dns-service/kube-dns.png" class="">
 
 <h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>整体来说 kube-dns 还是一个比较简单的模块，基于 kube-apiserver 的一个控制器，提供中心化的 DNS 查询。</p>
-
-      
-    </div>
-
-    
-    
-    
-
-    <footer class="post-footer">
-        <div class="post-eof"></div>
-      
-    </footer>
-  </article>
-</div>
-
-
-
-
-    
-
-
-<div class="post-block">
-  
-  
-
-  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2017/11/27/kube-controller-%E5%88%86%E6%9E%90/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="ggaaooppeenngg">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="ggaaooppeenngg">
-      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
-    </span>
-
-    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
-      <meta itemprop="name" content="undefined | ggaaooppeenngg">
-      <meta itemprop="description" content="">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          <a href="/zh-CN/2017/11/27/kube-controller-%E5%88%86%E6%9E%90/" class="post-title-link" itemprop="url">kube-controller-manager 分析</a>
-        </h2>
-
-        <div class="post-meta-container">
-          <div class="post-meta">
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-calendar"></i>
-      </span>
-      <span class="post-meta-item-text">发表于</span>
-
-      <time title="创建时间：2017-11-27 21:30:11" itemprop="dateCreated datePublished" datetime="2017-11-27T21:30:11+08:00">2017-11-27</time>
-    </span>
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-calendar-check"></i>
-      </span>
-      <span class="post-meta-item-text">更新于</span>
-      <time title="修改时间：2025-03-14 13:50:06" itemprop="dateModified" datetime="2025-03-14T13:50:06+08:00">2025-03-14</time>
-    </span>
-
-  
-  
-  <span class="post-meta-item">
-    
-      <span class="post-meta-item-icon">
-        <i class="far fa-comment"></i>
-      </span>
-      <span class="post-meta-item-text">Disqus：</span>
-    
-    <a title="disqus" href="/zh-CN/2017/11/27/kube-controller-%E5%88%86%E6%9E%90/#disqus_thread" itemprop="discussionUrl">
-      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2017/11/27/kube-controller-分析/" itemprop="commentCount"></span>
-    </a>
-  </span>
-  
-  
-</div>
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-          <p>kube-controller-manager 可以认为是一个守护进程用于监视 apiserver 暴露的集群状态，并且不断地尝试把当前状态向集群的目标状态迁移。为了避免频繁查询 apiserver，apiserver 提供了 watch 接口用于监视资源的增加删除和更新，client-go 对此作了抽象，封装一层 informer 来表示本地 apiserver 状态的 cache。<a target="_blank" rel="noopener" href="https://v.qq.com/x/page/c03641vzw2m.html?start=7">这个视频</a> 有一个 Google 工程师讲解的 client-go 的详细内容，<a target="_blank" rel="noopener" href="https://www.kubernetes.org.cn/2693.html">这篇</a> 七牛前同事的文章介绍了 informer 的整体结构，写得也很好。</p>
-<h3 id="client-当中的-controller"><a href="#client-当中的-controller" class="headerlink" title="client 当中的 controller"></a>client 当中的 controller</h3><p>处理事件的 controller 由几部分构成，首先是 Config 当中的可配置部分，下图是 controller 的关系，controller 实现了 Controller 接口。</p>
-<img data-src="/zh-CN/2017/11/27/kube-controller-%E5%88%86%E6%9E%90/controller.png" class="">
-
-<p>controller 从 Queue 当中通过 Pop 获取对象交给 Process 回调处理，DeltaFIFO 和 FIFO 是类似的，只是 DeltaFIFO 可以处理删除事件，一般都用 DeltaFIFO。ListerWatcher 就是用客户端构造出来的，针对对应资源的 List Watch 方法的集合，List 用于获取最开始的对象获取，Watch 用于监控之后的变化，所有最开始的时候现有的对象会通过 List 传给 Add 回调，同步了当前状态以后再不断接受新的变化，但是 Watch 本身是有超时机制的，不能永久监听，所以再超时之后还会通过 List 方法，先同步一次再进行删除操作。Resync Period 表示把 cache 中的对象重新入队给回调函数处理，这种情况一般是可能你可能漏掉了更细操作，或者是之前的一些失败了。大部分情况用不到这个选项，可以非常相信 etcd 的功能。</p>
-<p>调用路径</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">cache.NewListWatchFromClient -&gt; listWatcher</span><br><span class="line">cache.NewIndexer -&gt; store</span><br><span class="line">cache.NewLister(store) -&gt; lister</span><br><span class="line">cache.NewReflector</span><br><span class="line">go refector.Run()</span><br></pre></td></tr></table></figure>
-
-<p>还有一个关键结构是 reflector，reflector 会把对象转化成对应的需要的对象并且 Add 到 Queue 当中去。</p>
-<p>Informer 本身的框架是异步的，所以为了做并发控制就引入了 workqueue 的组件，workqueue 有 rate limit 的功能，并且能够合并更新操作。</p>
-<p>注意不要修改传入的对象，因为他们要和 cache 一致，如果要写对象的话，需要使用 api.Scheme.Copy 这个函数，进行深度拷贝，所有的 k8s Object 都要支持深拷贝的方法。</p>
-<h3 id="kube-controller-当中的插件式-controller"><a href="#kube-controller-当中的插件式-controller" class="headerlink" title="kube-controller 当中的插件式 controller"></a>kube-controller 当中的插件式 controller</h3><p>在<code>k8s.io/kubernetes/cmd/kube-controller-manager/app/controllermanager.go </code> 中的<code>NewControllerInitializers</code> 函数有大部分 controller 的列表，<code>bootstrapsigner</code> 和 <code>tokencleaner</code> 是默认关闭的。</p>
-<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">var</span> ControllersDisabledByDefault = sets.NewString(</span><br><span class="line">	<span class="string">&quot;bootstrapsigner&quot;</span>,</span><br><span class="line">	<span class="string">&quot;tokencleaner&quot;</span>,</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
-
-<p>需要特殊初始化的是 <code>serviceaccount-tok</code>，另外的是 <code>NewControllerInitializers</code> 当中的 controller 了。所有的 controller 初始化函数都要满足如下接口。</p>
-<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// InitFunc is used to launch a particular controller.  It may run additional &quot;should I activate checks&quot;.</span></span><br><span class="line"><span class="comment">// Any error returned will cause the controller process to `Fatal`</span></span><br><span class="line"><span class="comment">// The bool indicates whether the controller was enabled.</span></span><br><span class="line"><span class="keyword">type</span> InitFunc <span class="function"><span class="keyword">func</span><span class="params">(ctx ControllerContext)</span></span> (<span class="type">bool</span>, <span class="type">error</span>)</span><br></pre></td></tr></table></figure>
-
-<h4 id="node-controller"><a href="#node-controller" class="headerlink" title="node controller"></a>node controller</h4><p>接下来看一个具体的 controller，<code>startNodeController</code>。</p>
-<p><code>startNodeController</code> 首先解析 <code>ClusterCIDR</code> 和 <code>ServiceCIDR</code> 两个子网范围，下面是 <code>NodeController</code> 初始化需要的参数。</p>
-<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">nodeController, err := nodecontroller.NewNodeController(</span><br><span class="line">	ctx.InformerFactory.Core().V1().Pods(),</span><br><span class="line">	ctx.InformerFactory.Core().V1().Nodes(),</span><br><span class="line">	ctx.InformerFactory.Extensions().V1beta1().DaemonSets(),</span><br><span class="line">	ctx.Cloud,</span><br><span class="line">	ctx.ClientBuilder.ClientOrDie(<span class="string">&quot;node-controller&quot;</span>),</span><br><span class="line">	ctx.Options.PodEvictionTimeout.Duration,</span><br><span class="line">	ctx.Options.NodeEvictionRate,</span><br><span class="line">	ctx.Options.SecondaryNodeEvictionRate,</span><br><span class="line">	ctx.Options.LargeClusterSizeThreshold,</span><br><span class="line">	ctx.Options.UnhealthyZoneThreshold,</span><br><span class="line">	ctx.Options.NodeMonitorGracePeriod.Duration,</span><br><span class="line">	ctx.Options.NodeStartupGracePeriod.Duration,</span><br><span class="line">	ctx.Options.NodeMonitorPeriod.Duration,</span><br><span class="line">	clusterCIDR,</span><br><span class="line">	serviceCIDR,</span><br><span class="line">	<span class="type">int</span>(ctx.Options.NodeCIDRMaskSize),</span><br><span class="line">	ctx.Options.AllocateNodeCIDRs,</span><br><span class="line">	ipam.CIDRAllocatorType(ctx.Options.CIDRAllocatorType),</span><br><span class="line">	ctx.Options.EnableTaintManager,</span><br><span class="line">	utilfeature.DefaultFeatureGate.Enabled(features.TaintBasedEvictions),</span><br><span class="line">	utilfeature.DefaultFeatureGate.Enabled(features.TaintNodesByCondition),</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
-
-<p>InformerFactory 是用来构造具体 resource 的 informer 的工厂类型，构造了 pods, nodes, daemonsets 的 informer, 说明 node controller 需要 watch 这几种 resource 的变化。</p>
-<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// Run starts an asynchronous loop that monitors the status of cluster nodes.</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(nc *Controller)</span></span> Run(stopCh &lt;-<span class="keyword">chan</span> <span class="keyword">struct</span>&#123;&#125;) &#123;</span><br><span class="line">        <span class="keyword">defer</span> utilruntime.HandleCrash()</span><br><span class="line"></span><br><span class="line">        glog.Infof(<span class="string">&quot;Starting node controller&quot;</span>)</span><br><span class="line">        <span class="keyword">defer</span> glog.Infof(<span class="string">&quot;Shutting down node controller&quot;</span>)</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> !controller.WaitForCacheSync(<span class="string">&quot;node&quot;</span>, stopCh, nc.nodeInformerSynced, nc.podInformerSynced, nc.daemonSetInformerSynced) &#123;</span><br><span class="line">                <span class="keyword">return</span></span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// Incorporate the results of node status pushed from kubelet to master.</span></span><br><span class="line">        <span class="keyword">go</span> wait.Until(<span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;</span><br><span class="line">                <span class="keyword">if</span> err := nc.monitorNodeStatus(); err != <span class="literal">nil</span> &#123;</span><br><span class="line">                        glog.Errorf(<span class="string">&quot;Error monitoring node status: %v&quot;</span>, err)</span><br><span class="line">                &#125;</span><br><span class="line">        &#125;, nc.nodeMonitorPeriod, wait.NeverStop)</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> nc.runTaintManager &#123;</span><br><span class="line">                <span class="keyword">go</span> nc.taintManager.Run(wait.NeverStop)</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> nc.useTaintBasedEvictions &#123;</span><br><span class="line">                <span class="comment">// Handling taint based evictions. Because we don&#x27;t want a dedicated logic in TaintManager for NC-originated</span></span><br><span class="line">                <span class="comment">// taints and we normally don&#x27;t rate limit evictions caused by taints, we need to rate limit adding taints.</span></span><br><span class="line">                <span class="keyword">go</span> wait.Until(nc.doNoExecuteTaintingPass, scheduler.NodeEvictionPeriod, wait.NeverStop)</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                <span class="comment">// Managing eviction of nodes:</span></span><br><span class="line">                <span class="comment">// When we delete pods off a node, if the node was not empty at the time we then</span></span><br><span class="line">                <span class="comment">// queue an eviction watcher. If we hit an error, retry deletion.</span></span><br><span class="line">                <span class="keyword">go</span> wait.Until(nc.doEvictionPass, scheduler.NodeEvictionPeriod, wait.NeverStop)</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        &lt;-stopCh</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>现在看一下运行的时候是如何做的，首先要调用 <code>controller.WaitForCacheSync</code> 等待 node，pod，daemonSet 的 inofrmer 同步，这是因为在 kube-controller-manager 当中使用的子 controller 使用的 informer 都是共享型的，也就是多个 controller 之间共享一个 informer  的 cache，所以在开始的时候需要保证所有的 sharedInformerFactory 创建的 informers 之间的 cache 先等待一次一致。controller 的读基本上是从 cache 读的，只要写才会打到 etcd 里面，然后等待 cache 的更新回调。</p>
-<img data-src="/zh-CN/2017/11/27/kube-controller-%E5%88%86%E6%9E%90/monitor_node_status.png" class="">
-
-<p>nodeController 主要分成两部分，一部分是 <code>monitorNodeStatus</code> , 它首先从 informer 的 cache 当中 list 新添加的节点和删除的节点，和 newZoneRepresentations。node 是分 zone 的，这在单可用区的 cluster 当中是个空字符串，但是如果 labels 中有 <code>failure-domain.beta.kubernetes.io/zone</code> 和 <code>failure-domain.beta.kubernetes.io/region</code> 就会构成不同的可用区的划分, 这个适用于仅仅在一家云厂商分不同可用区的时候可以用到。<a target="_blank" rel="noopener" href="https://kubernetes.io/docs/admin/multiple-zones/">这篇文档</a> 描述了多 zone 的 cluster 的内容，没有 zone 有相应的可用状态，如果某个 zone 变成不可用需要把 pod 从这个 zone 当中剔除，所以 pod 的 failover 是以 zone 为单位的。</p>
-<p>处理 node 比较啰嗦，<code>tryUpdateNodeStatus</code> 尝试获取当前的 conditions 更新并且获取 conditions。处理 node 过程主要是标记 node 为不可用的 node，或者把不可用的状态恢复过来。</p>
-<p>接下来的就是处理 pod eviction 的部分，另外，<a target="_blank" rel="noopener" href="https://kubernetes.io/docs/tasks/administer-cluster/out-of-resource/">这篇文档</a>解释了一些 kubelet 支持的资源耗尽的情况下 kubelet 的剔除策略。</p>
-<p><code>taintManager.Run</code> 处理 taint 的逻辑，<a target="_blank" rel="noopener" href="https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/">这篇文档</a> 解释了 taint 和 toleration 的关系，以及基于 taint 的 eviction 策略。首先看 node 的更新，然后把上面不能 tolerate 的 pod 传给 handlePodUpdate，然后 pod 有更新也会 handlePodUpdate，在 pod 更新的时间中会让 node 抢占一次。</p>
-<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">for</span> &#123;</span><br><span class="line">        <span class="keyword">select</span> &#123;</span><br><span class="line">        <span class="keyword">case</span> &lt;-stopCh:</span><br><span class="line">                <span class="keyword">break</span></span><br><span class="line">        <span class="keyword">case</span> nodeUpdate := &lt;-tc.nodeUpdateChannel:</span><br><span class="line">                tc.handleNodeUpdate(nodeUpdate)</span><br><span class="line">        <span class="keyword">case</span> podUpdate := &lt;-tc.podUpdateChannel:</span><br><span class="line">                <span class="comment">// If we found a Pod update we need to empty Node queue first.</span></span><br><span class="line">        priority:</span><br><span class="line">                <span class="keyword">for</span> &#123;</span><br><span class="line">                        <span class="keyword">select</span> &#123;</span><br><span class="line">                        <span class="keyword">case</span> nodeUpdate := &lt;-tc.nodeUpdateChannel:</span><br><span class="line">                                tc.handleNodeUpdate(nodeUpdate)</span><br><span class="line">                        <span class="keyword">default</span>:</span><br><span class="line">                                <span class="keyword">break</span> priority</span><br><span class="line">                        &#125;</span><br><span class="line">                &#125;</span><br><span class="line">                <span class="comment">// After Node queue is emptied we process podUpdate.</span></span><br><span class="line">                tc.handlePodUpdate(podUpdate)</span><br><span class="line">        &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>最后是 eviction 的部分，基于 eviction 的会把 pod 直接删除，基于 taint 只是打上标记，然后通过上面的 tiantManager 剔除。和 pod eviction 不同，taint eviction 是通过限制加 taint 的速率控制 raltelimit 的。</p>
-<h4 id="podGCController"><a href="#podGCController" class="headerlink" title="podGCController"></a>podGCController</h4><p>pod GC Controller 只 watch pod 一种资源，比较简单。</p>
-<p>在 <code>k8s.io/kubernetes/pkg/controller/podgc/gc_controller.go</code> 下。</p>
-<p><code>gcc.gcOrphaned</code> 删除 node 不存在的 pod，<code>gcc.gcUnscheduledTerminating</code> 删除正在终止，但是没有调度的 pod，<code>gcc.gcTerminated</code> 删除已经被终止的 pod。</p>
-<h4 id="其他-controller"><a href="#其他-controller" class="headerlink" title="其他 controller"></a>其他 controller</h4><p>其他 controller 也是类似的，从 apiserver 获取状态，并且向对应的状态迁移，这也是为什么 kubernetes 的命令和资源都是宣告式的原因。</p>
 
       
     </div>
