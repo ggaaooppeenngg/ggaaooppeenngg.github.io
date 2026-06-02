@@ -29,7 +29,7 @@
 <meta property="og:description" content="从残差到 mHC：一条清晰的三代演进路如果你训练过深层 Transformer，一定对残差连接（Residual Connection）不陌生。它是 ResNet 留下的最重要的遗产之一，也是今天所有大语言模型的标配。 但残差连接有个根本问题：它只有一条信息流。 DeepSeek 在 2025 年连发两篇论文，把这个问题彻底讲透了。故事的三步是：  Residual（2015）：x_&#123;l">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2026-06-01T16:00:00.000Z">
-<meta property="article:modified_time" content="2026-06-02T07:36:50.259Z">
+<meta property="article:modified_time" content="2026-06-02T13:44:16.628Z">
 <meta property="article:author" content="ggaaooppeenngg">
 <meta property="article:tag" content="DeepSeek">
 <meta property="article:tag" content="Transformer">
@@ -217,7 +217,7 @@
       <span class="post-meta-item-text">发表于</span>
       
 
-      <time title="创建时间：2026-06-02 00:00:00 / 修改时间：15:36:50" itemprop="dateCreated datePublished" datetime="2026-06-02T00:00:00+08:00">2026-06-02</time>
+      <time title="创建时间：2026-06-02 00:00:00 / 修改时间：21:44:16" itemprop="dateCreated datePublished" datetime="2026-06-02T00:00:00+08:00">2026-06-02</time>
     </span>
     <span class="post-meta-item">
       <span class="post-meta-item-icon">
@@ -271,14 +271,13 @@
 <blockquote>
 <p>为什么不把 1 条流扩成 n 条并行流，让不同深度的信息走不同的”车道”？</p>
 </blockquote>
-<p>HC 的公式长这样：</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">X_&#123;l+1&#125; = B_l X_l + C_l F(A_l X_l)</span><br></pre></td></tr></table></figure>
-
+<p>HC 的公式如下：</p>
+<p>$$X_{l+1} = B_l X_l + C_l F(A_l X_l)$$</p>
 <ul>
-<li><code>A_l</code>：把 n 条流压缩成 1 条，送给 Attention/MoE</li>
-<li><code>F</code>：正常的层计算</li>
-<li><code>C_l</code>：把 F 的输出扩回 n 条流</li>
-<li><code>B_l</code>：n×n 矩阵，控制 n 条流之间怎么混合（残差项）</li>
+<li>$A_l$：把 n 条流压缩成 1 条，送给 Attention/MoE</li>
+<li>$F$：正常的层计算</li>
+<li>$C_l$：把 F 的输出扩回 n 条流</li>
+<li>$B_l$：n×n 矩阵，控制 n 条流之间怎么混合（残差项）</li>
 </ul>
 <p>n=4 的时候，FLOPs 几乎没增加（F 只算 1 次），但信息容量翻了 4 倍。</p>
 <p>听起来完美，对吧？</p>
@@ -287,9 +286,8 @@
 <p>HC 里的 <code>B_l</code> 是完全可学习的，没有任何约束。当模型叠到 60 层、参数量到万亿级时，这个无约束的矩阵会出问题：</p>
 <p><strong>多层复合后，信号被无限放大或衰减。</strong></p>
 <p>数学上，HC 跨层递归展开后得到：</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">x_L = (Π B_i) x_l + Σ (Π B_j) C_i^T F(...)</span><br></pre></td></tr></table></figure>
-
-<p><code>Π B_i</code> 是多层 B 矩阵的复合。因为 B 无约束，这个复合矩阵的谱范数可以远大于 1，也可以接近 0。</p>
+<p>$$x_L = \left(\prod B_i\right) x_l + \sum \left(\prod B_j\right) C_i^T F(…)$$</p>
+<p>$\prod B_i$ 是多层 $B$ 矩阵的复合。因为 $B$ 无约束，这个复合矩阵的谱范数可以远大于 1，也可以接近 0。</p>
 <p><strong>实测结果（DeepSeek 27B 实验）：</strong><br>HC 的复合映射增益（Amax Gain Magnitude）达到 <strong>~3000</strong>，意味着信号在前向传播中可以被放大 3000 倍。训练到第 12k 步，loss 直接 spike，梯度范数爆炸。</p>
 <p>HC 的作者（ByteDance Seed 团队）在 ICLR 2025 发表了这个想法，但没有解决稳定性问题。</p>
 <hr>
@@ -297,11 +295,11 @@
 <blockquote>
 <p>把 HC 中的残差混合矩阵 <code>B_l</code> 约束在<strong>双随机矩阵流形</strong>上。</p>
 </blockquote>
-<h3 id="什么是双随机矩阵？"><a href="#什么是双随机矩阵？" class="headerlink" title="什么是双随机矩阵？"></a>什么是双随机矩阵？</h3><p>一个 n×n 矩阵，满足：</p>
+<h3 id="什么是双随机矩阵？"><a href="#什么是双随机矩阵？" class="headerlink" title="什么是双随机矩阵？"></a>什么是双随机矩阵？</h3><p>一个 $n \times n$ 矩阵，满足：</p>
 <ul>
 <li>所有元素非负</li>
-<li>每行之和等于 1</li>
-<li>每列之和等于 1</li>
+<li>每行之和等于 $1$</li>
+<li>每列之和等于 $1$</li>
 </ul>
 <p>这样的矩阵，谱范数 <strong>永远 ≤ 1</strong>。也就是说，它永远不会放大信号。</p>
 <p>而且，双随机矩阵在乘法下是<strong>封闭</strong>的：两个双随机矩阵相乘，结果还是双随机矩阵。这意味着叠 100 层，复合映射仍然稳定。</p>
@@ -324,15 +322,14 @@
 <li>简单 token（”the”, “a”）：<code>B</code> ≈ 单位矩阵，4 条流基本不混合，省计算</li>
 <li>复杂 token（需要深度推理）：<code>B</code> 大幅混合，让更多层的信息参与</li>
 </ul>
-<p>这是 1 条流做不到的——普通残差对所有 token 都是 <code>x + F(x)</code>。</p>
+<p>这是 1 条流做不到的——普通残差对所有 token 都是 $x + F(x)$。</p>
 <p><strong>为什么选 n=4？</strong><br>论文实测：n=4 是性价比最优的点。n=2 效果不够，n=8 的 Sinkhorn 开销（8×8 矩阵 × 20 次迭代）显著增加，但收益递减。</p>
 <hr>
 <h2 id="工程优化：为什么只多-6-7-开销？"><a href="#工程优化：为什么只多-6-7-开销？" class="headerlink" title="工程优化：为什么只多 6.7% 开销？"></a>工程优化：为什么只多 6.7% 开销？</h2><p>mHC 看起来很重：每行代码都有矩阵运算、Sinkhorn 迭代、4 倍 hidden state……</p>
 <p>但 DeepSeek 做了三件事，把开销压到了 **仅 +6.7%**：</p>
 <h3 id="1-Kernel-Fusion（算子融合）"><a href="#1-Kernel-Fusion（算子融合）" class="headerlink" title="1. Kernel Fusion（算子融合）"></a>1. Kernel Fusion（算子融合）</h3><p>用 TileLang 把整个 mHC 计算——RMSNorm + 线性投影 + Sigmoid + Sinkhorn——融合成一个 CUDA kernel，减少内存读写。</p>
 <h3 id="2-Selective-Recomputing（选择性重计算）"><a href="#2-Selective-Recomputing（选择性重计算）" class="headerlink" title="2. Selective Recomputing（选择性重计算）"></a>2. Selective Recomputing（选择性重计算）</h3><p>前向时只保存每块的第一个层输入，反向时重新计算 mHC 的中间激活。最优块大小由公式给出：</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">L_r* ≈ √(nL / (n+2))</span><br></pre></td></tr></table></figure>
-
+<p>$$L_r^* \approx \sqrt{\frac{nL}{n+2}}$$</p>
 <h3 id="3-Overlapping-with-DualPipe"><a href="#3-Overlapping-with-DualPipe" class="headerlink" title="3. Overlapping with DualPipe"></a>3. Overlapping with DualPipe</h3><p>把 mHC 的计算和流水线通信重叠。在 DualPipe 调度中，<code>F_post,res</code> kernel 放到高优先级流，避免阻塞 All-to-All 通信。</p>
 <hr>
 <h2 id="实验效果：又强又稳"><a href="#实验效果：又强又稳" class="headerlink" title="实验效果：又强又稳"></a>实验效果：又强又稳</h2><p>DeepSeek 用 27B MoE 模型做了对比实验：</p>
@@ -485,7 +482,7 @@
 
   
 
-  <script class="next-config" data-name="enableMath" type="application/json">false</script><script class="next-config" data-name="mathjax" type="application/json">{"enable":true,"tags":"none","mhchem":false,"js":{"url":"https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-mml-chtml.js","integrity":"sha256-MASABpB4tYktI2Oitl4t+78w/lyA+D7b/s9GEP0JOGI="}}</script>
+  <script class="next-config" data-name="enableMath" type="application/json">true</script><script class="next-config" data-name="mathjax" type="application/json">{"enable":true,"tags":"none","mhchem":false,"js":{"url":"https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-mml-chtml.js","integrity":"sha256-MASABpB4tYktI2Oitl4t+78w/lyA+D7b/s9GEP0JOGI="}}</script>
 <script src="/js/third-party/math/mathjax.js"></script>
 
 
