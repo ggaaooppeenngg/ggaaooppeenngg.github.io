@@ -558,7 +558,7 @@ $$</p>
         <i class="far fa-calendar-check"></i>
       </span>
       <span class="post-meta-item-text">更新于</span>
-      <time title="修改时间：2026-06-09 16:14:58" itemprop="dateModified" datetime="2026-06-09T16:14:58+08:00">2026-06-09</time>
+      <time title="修改时间：2026-06-09 16:16:42" itemprop="dateModified" datetime="2026-06-09T16:16:42+08:00">2026-06-09</time>
     </span>
     <span class="post-meta-item">
       <span class="post-meta-item-icon">
@@ -787,6 +787,90 @@ $$</p>
 </tbody>
 </table>
 <p>整个 mHC 模块靠这 <strong>24 维</strong>（<code>4 + 4 + 16</code>）的 per-token 动态参数，让模型在不增加 Attn/FFN 权重的前提下，把残差通道数从 1 拓展到 4，同时保留稳定性和信息守恒。这也是为什么 mHC 比简单的「4× 重复同一个层」效果好——因为 cascade 是 <strong>input-aware 的、有可学习的 routing</strong>，不是机械复制。</p>
+<hr>
+<h3 id="pre-post-comb-是激活值（activations），不是权重！">pre / post / comb 是激活值（activations），不是权重！</h3>
+<p>每个 forward pass 的每个 token 都要重新算一遍——它们从输入 <code>x</code> 经过 GEMM + 非线性派生出来，<strong>不在 checkpoint 里，也不参与梯度更新作为参数</strong>。</p>
+<p>看 <code>Block.init</code> 里被声明为 <code>nn.Parameter</code> 的才是权重，这层只有 6 个：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># deepseek_v4.py - Block.__init__()</span></span><br><span class="line"><span class="variable language_">self</span>.hc_attn_fn    = nn.Parameter(torch.empty(mix_hc, hc_dim))  <span class="comment"># [24, 28672] ← 权重</span></span><br><span class="line"><span class="variable language_">self</span>.hc_ffn_fn     = nn.Parameter(torch.empty(mix_hc, hc_dim))  <span class="comment"># [24, 28672] ← 权重</span></span><br><span class="line"><span class="variable language_">self</span>.hc_attn_base  = nn.Parameter(torch.empty(mix_hc))         <span class="comment"># [24]        ← 权重</span></span><br><span class="line"><span class="variable language_">self</span>.hc_ffn_base   = nn.Parameter(torch.empty(mix_hc))         <span class="comment"># [24]        ← 权重</span></span><br><span class="line"><span class="variable language_">self</span>.hc_attn_scale = nn.Parameter(torch.empty(<span class="number">3</span>))                <span class="comment"># [3]         ← 权重</span></span><br><span class="line"><span class="variable language_">self</span>.hc_ffn_scale  = nn.Parameter(torch.empty(<span class="number">3</span>))                <span class="comment"># [3]         ← 权重</span></span><br></pre></td></tr></table></figure>
+<p>而 <code>pre</code> / <code>post</code> / <code>comb</code> 在 <code>hc_pre()</code> 里作为<strong>局部变量</strong>返回：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># deepseek_v4.py - hc_pre()</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">hc_pre</span>(<span class="params">self, x, hc_fn, hc_scale, hc_base</span>):</span><br><span class="line">    x = x.flatten(<span class="number">2</span>).<span class="built_in">float</span>()                  <span class="comment"># [N, 28672] ← 激活</span></span><br><span class="line">    rsqrt = torch.rsqrt(x.square().mean(-<span class="number">1</span>) + eps)  <span class="comment"># [N, 1]   ← 激活</span></span><br><span class="line">    mixes = F.linear(x, hc_fn) * rsqrt        <span class="comment"># [N, 24]   ← 激活</span></span><br><span class="line">    pre, post, comb = hc_split_sinkhorn(mixes, ...)  <span class="comment"># ← 全部是激活</span></span><br><span class="line">    <span class="comment"># pre/post/comb 是从 mixes（激活）派生的，只是中间结果</span></span><br></pre></td></tr></table></figure>
+<p><strong>结论</strong>：<code>pre</code> / <code>post</code> / <code>comb</code> 是<strong>激活值</strong>，和 Attention 里的 Q/K/V、<code>softmax</code> 输出完全同性质。</p>
+<table>
+<thead>
+<tr>
+<th>名称</th>
+<th>类别</th>
+<th>形状</th>
+<th>是否依赖输入</th>
+<th>是否在 checkpoint</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>hc_fn</code></td>
+<td><strong>权重</strong></td>
+<td>[24, 28672]</td>
+<td>❌</td>
+<td>✅</td>
+</tr>
+<tr>
+<td><code>hc_scale</code></td>
+<td><strong>权重</strong></td>
+<td>[3]</td>
+<td>❌</td>
+<td>✅</td>
+</tr>
+<tr>
+<td><code>hc_base</code></td>
+<td><strong>权重</strong></td>
+<td>[24]</td>
+<td>❌</td>
+<td>✅</td>
+</tr>
+<tr>
+<td><code>x</code> (input residual)</td>
+<td>激活</td>
+<td>[N, 4, 7168]</td>
+<td>✅</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><code>mixes</code></td>
+<td>激活</td>
+<td>[N, 24]</td>
+<td>✅</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><code>pre</code></td>
+<td>激活</td>
+<td>[N, 4]</td>
+<td>✅</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><code>post</code></td>
+<td>激活</td>
+<td>[N, 4]</td>
+<td>✅</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><code>comb</code></td>
+<td>激活</td>
+<td>[N, 4, 4]</td>
+<td>✅</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><code>layer_input</code> (= y)</td>
+<td>激活</td>
+<td>[N, 7168]</td>
+<td>✅</td>
+<td>❌</td>
+</tr>
+</tbody>
+</table>
 <hr>
 <h2 id="4-条流到底解决了什么问题？">4 条流到底解决了什么问题？</h2>
 <p>很多人问：为什么是 4 条流？不是 2 条或 8 条？</p>
