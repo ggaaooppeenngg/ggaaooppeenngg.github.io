@@ -558,7 +558,7 @@ $$</p>
         <i class="far fa-calendar-check"></i>
       </span>
       <span class="post-meta-item-text">更新于</span>
-      <time title="修改时间：2026-06-09 16:13:18" itemprop="dateModified" datetime="2026-06-09T16:13:18+08:00">2026-06-09</time>
+      <time title="修改时间：2026-06-09 16:14:58" itemprop="dateModified" datetime="2026-06-09T16:14:58+08:00">2026-06-09</time>
     </span>
     <span class="post-meta-item">
       <span class="post-meta-item-icon">
@@ -713,6 +713,80 @@ $$</p>
 <h3 id="三者组合-完整-mHC-一层">三者组合 = 完整 mHC 一层</h3>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">x_in      = pre[0]*s0 + pre[1]*s1 + pre[2]*s2 + pre[3]*s3     # collapse: 4→1</span><br><span class="line">x_out     = Attn/FFN(x_in)                                      # 主路径</span><br><span class="line">s0&#x27;       = post[0]*x_out + comb[:,0,0]*s0 + comb[:,1,0]*s1 + ...  # expand: 1→4 + routing</span><br><span class="line">s1&#x27;       = post[1]*x_out + comb[:,0,1]*s0 + ...</span><br><span class="line">s2&#x27;       = post[2]*x_out + ...</span><br><span class="line">s3&#x27;       = post[3]*x_out + ...</span><br></pre></td></tr></table></figure>
 <p><strong>一句话总结</strong>：pre 决定「当前 token 更依赖哪路历史」，post 决定「当前层输出对各路的重要程度」，comb 决定「各路历史之间怎么交叉混合」——三者都是<strong>每个 token 动态生成</strong>的。</p>
+<hr>
+<h3 id="为什么只有-comb-用-Sinkhorn，而-pre-post-用-sigmoid？">为什么只有 comb 用 Sinkhorn，而 pre / post 用 sigmoid？</h3>
+<table>
+<thead>
+<tr>
+<th>张量</th>
+<th>形状</th>
+<th>数学约束</th>
+<th>激活函数</th>
+<th>范围</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>pre</code></td>
+<td>[N, 4]</td>
+<td>非负即可（下游 Attention/FFN 有自己的 RMSNorm 兜底）</td>
+<td><code>sigmoid + eps</code></td>
+<td><code>(eps, 1+eps)</code></td>
+</tr>
+<tr>
+<td><code>post</code></td>
+<td>[N, 4]</td>
+<td>允许放大/衰减，无归一化要求</td>
+<td><code>2 * sigmoid</code></td>
+<td><code>(0, 2)</code></td>
+</tr>
+<tr>
+<td><code>comb</code></td>
+<td>[N, 4, 4]</td>
+<td><strong>必须双随机</strong>——否则信息会衰减或爆炸，4 路 residual 无法稳定 cascade</td>
+<td><strong>Sinkhorn 20 次迭代</strong></td>
+<td>行和=列和=1</td>
+</tr>
+</tbody>
+</table>
+<p>comb 是唯一的「多路输入 ↔ 多路输出」路由矩阵。如果不归一化：</p>
+<ul>
+<li>行和 &lt; 1 → 某路 output 信号弱化（残差衰减）</li>
+<li>行和 &gt; 1 → 某路 output 信号爆炸（数值不稳定）</li>
+<li>列和不平衡 → 某路 input 被多个 output 重复使用，变相加权，类似 attention 的 mode collapse</li>
+</ul>
+<p>Sinkhorn 用 20 次迭代把这个 4×4 矩阵推到「行和=列和=1」，等价于<strong>离散最优传输（Optimal Transport）</strong>：把 4 个 input 槽位的信息无损分流到 4 个 output 槽位。</p>
+<hr>
+<h3 id="整张语义图：pre-post-comb-组合-完整-mHC-一层">整张语义图：pre / post / comb 组合 = 完整 mHC 一层</h3>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">输入 4 路 residual ─┬─ s_0 ─┐</span><br><span class="line">                ├─ s_1 ─┤</span><br><span class="line">                ├─ s_2 ─┤  pre 加权求和</span><br><span class="line">                └─ s_3 ─┘   (collapse: 4→1)</span><br><span class="line">                       ↓</span><br><span class="line">                    x_in = Σ_k pre[k] · s_k</span><br><span class="line">                       ↓</span><br><span class="line">                    Attn/FFN(x_in) ─→ x_out</span><br><span class="line">                       ↓</span><br><span class="line">                ┌─ post[0]·x_out ─┐</span><br><span class="line">                ├─ post[1]·x_out ─┤</span><br><span class="line">                ├─ post[2]·x_out ┤  comb 交叉混合</span><br><span class="line">                └─ post[3]·x_out └┘  (expand: 1→4 + routing)</span><br><span class="line">                       ↓</span><br><span class="line">输出 4 路 residual&#x27; ─┬─ s_0&#x27; = post[0]·x_out + Σ_i comb[i,0]·s_i</span><br><span class="line">                  ├─ s_1&#x27; = post[1]·x_out + Σ_i comb[i,1]·s_i</span><br><span class="line">                  ├─ s_2&#x27; = post[2]·x_out + Σ_i comb[i,2]·s_i</span><br><span class="line">                  └─ s_3&#x27; = post[3]·x_out + Σ_i comb[i,3]·s_i</span><br></pre></td></tr></table></figure>
+<p><strong>一句话总结</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>张量</th>
+<th>形状</th>
+<th>一句话</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>pre</code></td>
+<td>[N, 4]</td>
+<td>「这个 token，我要从 4 路 residual 里听谁的更多一点」——collapse 权重</td>
+</tr>
+<tr>
+<td><code>post</code></td>
+<td>[N, 4]</td>
+<td>「Attn 结果要广播给 4 路，每路放大多少」——per-stream 增益</td>
+</tr>
+<tr>
+<td><code>comb</code></td>
+<td>[N, 4, 4]</td>
+<td>「4 路 input 怎么洗牌成 4 路 output」——Sinkhorn 双随机路由矩阵</td>
+</tr>
+</tbody>
+</table>
+<p>整个 mHC 模块靠这 <strong>24 维</strong>（<code>4 + 4 + 16</code>）的 per-token 动态参数，让模型在不增加 Attn/FFN 权重的前提下，把残差通道数从 1 拓展到 4，同时保留稳定性和信息守恒。这也是为什么 mHC 比简单的「4× 重复同一个层」效果好——因为 cascade 是 <strong>input-aware 的、有可学习的 routing</strong>，不是机械复制。</p>
 <hr>
 <h2 id="4-条流到底解决了什么问题？">4 条流到底解决了什么问题？</h2>
 <p>很多人问：为什么是 4 条流？不是 2 条或 8 条？</p>
