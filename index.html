@@ -558,7 +558,7 @@ $$</p>
         <i class="far fa-calendar-check"></i>
       </span>
       <span class="post-meta-item-text">更新于</span>
-      <time title="修改时间：2026-06-09 16:25:04" itemprop="dateModified" datetime="2026-06-09T16:25:04+08:00">2026-06-09</time>
+      <time title="修改时间：2026-06-09 16:27:22" itemprop="dateModified" datetime="2026-06-09T16:27:22+08:00">2026-06-09</time>
     </span>
     <span class="post-meta-item">
       <span class="post-meta-item-icon">
@@ -599,7 +599,7 @@ $$</p>
 <p>但残差连接有个根本问题：<strong>它只有一条信息流</strong>。</p>
 <p>DeepSeek 在 2025 年连发两篇论文，把这个问题彻底讲透了。故事的三步是：</p>
 <ol>
-<li><strong>Residual（2015）</strong>：<code>x_&#123;l+1&#125; = x_l + F(x_l)</code> — 一条流，稳定但表达弱</li>
+<li><strong>Residual（2015）</strong>：<code>$x_&#123;l+1&#125; = x_l + F(x_l)$</code> — 一条流，稳定但表达弱</li>
 <li><strong>HC（2024）</strong>：把残差流拓宽到 n 条并行流，表达能力暴涨，但训练直接崩</li>
 <li><strong>mHC（2025）</strong>：给 HC 加上数学约束，又强又稳</li>
 </ol>
@@ -942,7 +942,7 @@ $$</p>
 </tbody>
 </table>
 <h4 id="论文-mHC-公式">论文 mHC 公式</h4>
-<p>$$X_{l+1} = B_l X_l + C_l \cdot F(A_l X_l)$$</p>
+<p>$x_{l+1} = B_l X_l + C_l \cdot F(A_l X_l)$</p>
 <h4 id="代码里就是">代码里就是</h4>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># model.py L832-852 (完整 forward)</span></span><br><span class="line">x_in      = Σ pre[k] * residual[k]              <span class="comment"># Aₗ: collapse (L838)</span></span><br><span class="line">x_out     = Attention/FFN(x_in)                 <span class="comment"># F(Aₗ·X)</span></span><br><span class="line">residual<span class="string">&#x27; = comb @ (post * x_out) + post * residual  # Bₗ + Cₗ (L849-852)</span></span><br></pre></td></tr></table></figure>
 <h4 id="一句话背下来">一句话背下来</h4>
