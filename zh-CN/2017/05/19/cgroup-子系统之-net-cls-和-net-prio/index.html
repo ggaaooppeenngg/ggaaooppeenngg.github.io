@@ -21,12 +21,12 @@
 
 <script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
 
-    <meta name="description" content="在分析net_cls和net_prio之前先要解释几个东西，一个是网络的 QoS 以及 netfilter。 网络 QoS IP 服务模型是尽力而为的，这样的模型不能体现某些流量的重要性，所以诞生了QOS技术，Linux 很早就提供了流量控制接口，命令行工具是tc。 协议栈的 QoS 主要由三部分组成。 qdisc 队列规则（queueing discipline)，class 控制策略，filt">
+    <meta name="description" content="在分析net_cls和net_prio之前先要解释几个东西，一个是网络的 QoS 以及 netfilter。  网络 QoS IP 服务模型是尽力而为的，这样的模型不能体现某些流量的重要性，所以诞生了QOS技术，Linux 很早就提供了流量控制接口，命令行工具是tc。 协议栈的 QoS 主要由三部分组成。 qdisc 队列规则（queueing discipline)，class 控制策略，fil">
 <meta property="og:type" content="article">
 <meta property="og:title" content="cgroup 子系统之 net_cls 和 net_prio">
 <meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2017/05/19/cgroup-%E5%AD%90%E7%B3%BB%E7%BB%9F%E4%B9%8B-net-cls-%E5%92%8C-net-prio/index.html">
 <meta property="og:site_name" content="ggaaooppeenngg">
-<meta property="og:description" content="在分析net_cls和net_prio之前先要解释几个东西，一个是网络的 QoS 以及 netfilter。 网络 QoS IP 服务模型是尽力而为的，这样的模型不能体现某些流量的重要性，所以诞生了QOS技术，Linux 很早就提供了流量控制接口，命令行工具是tc。 协议栈的 QoS 主要由三部分组成。 qdisc 队列规则（queueing discipline)，class 控制策略，filt">
+<meta property="og:description" content="在分析net_cls和net_prio之前先要解释几个东西，一个是网络的 QoS 以及 netfilter。  网络 QoS IP 服务模型是尽力而为的，这样的模型不能体现某些流量的重要性，所以诞生了QOS技术，Linux 很早就提供了流量控制接口，命令行工具是tc。 协议栈的 QoS 主要由三部分组成。 qdisc 队列规则（queueing discipline)，class 控制策略，fil">
 <meta property="og:locale" content="zh_CN">
 <meta property="og:image" content="http://linux-ip.net/articles/Traffic-Control-HOWTO/images/pfifo_fast-qdisc.png">
 <meta property="og:image" content="http://www.cisco.com/c/dam/en/us/support/docs/quality-of-service-qos/qos-link-efficiency-mechanisms/24906-152-n.gif">
@@ -136,7 +136,7 @@
       <div class="sidebar-panel-container">
         <!--noindex-->
         <div class="post-toc-wrap sidebar-panel">
-            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%BD%91%E7%BB%9C-QoS"><span class="nav-number">1.</span> <span class="nav-text">网络 QoS</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#pfifo"><span class="nav-number">1.1.</span> <span class="nav-text">pfifo</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#HTB-Hierarchical-Token-Bucket"><span class="nav-number">1.2.</span> <span class="nav-text">HTB (Hierarchical Token Bucket)</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BD%BF%E7%94%A8"><span class="nav-number">1.3.</span> <span class="nav-text">使用</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AE%9E%E7%8E%B0"><span class="nav-number">1.4.</span> <span class="nav-text">实现</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%A1%A5%E5%85%85"><span class="nav-number">2.</span> <span class="nav-text">补充</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#netfilter"><span class="nav-number">2.1.</span> <span class="nav-text">netfilter</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#iptables"><span class="nav-number">2.2.</span> <span class="nav-text">iptables</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#cgroup-%E5%AD%90%E7%B3%BB%E7%BB%9F-net-cls-Network-classifier-cgroup"><span class="nav-number">3.</span> <span class="nav-text">cgroup 子系统 net_cls (Network classifier cgroup)</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#cgroup-net-prio-%E5%AD%90%E7%B3%BB%E7%BB%9F"><span class="nav-number">4.</span> <span class="nav-text">cgroup net_prio 子系统</span></a></li></ol></div>
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%BD%91%E7%BB%9C-qos"><span class="nav-number">1.</span> <span class="nav-text"> 网络 QoS</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#pfifo"><span class="nav-number">1.1.</span> <span class="nav-text"> pfifo</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#htb-hierarchical-token-bucket"><span class="nav-number">1.2.</span> <span class="nav-text"> HTB (Hierarchical Token Bucket)</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BD%BF%E7%94%A8"><span class="nav-number">1.3.</span> <span class="nav-text"> 使用</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AE%9E%E7%8E%B0"><span class="nav-number">1.4.</span> <span class="nav-text"> 实现</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%A1%A5%E5%85%85"><span class="nav-number">2.</span> <span class="nav-text"> 补充</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#netfilter"><span class="nav-number">2.1.</span> <span class="nav-text"> netfilter</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#iptables"><span class="nav-number">2.2.</span> <span class="nav-text"> iptables</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#cgroup-%E5%AD%90%E7%B3%BB%E7%BB%9F-net_cls-network-classifier-cgroup"><span class="nav-number">3.</span> <span class="nav-text"> cgroup 子系统 net_cls (Network classifier cgroup)</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#cgroup-net_prio-%E5%AD%90%E7%B3%BB%E7%BB%9F"><span class="nav-number">4.</span> <span class="nav-text"> cgroup net_prio 子系统</span></a></li></ol></div>
         </div>
         <!--/noindex-->
 
@@ -262,12 +262,12 @@
     
     
     <div class="post-body" itemprop="articleBody"><p>在分析<code>net_cls</code>和<code>net_prio</code>之前先要解释几个东西，一个是网络的 QoS 以及 netfilter。</p>
-<h2 id="网络-QoS">网络 QoS</h2>
+<h2 id="网络-qos"><a class="markdownIt-Anchor" href="#网络-qos"></a> 网络 QoS</h2>
 <p>IP 服务模型是尽力而为的，这样的模型不能体现某些流量的重要性，所以诞生了<code>QOS</code>技术，Linux 很早就提供了流量控制接口，命令行工具是<code>tc</code>。</p>
 <p>协议栈的 QoS 主要由三部分组成。</p>
 <p>qdisc 队列规则（queueing discipline)，class 控制策略，filter 根据 filter 划入具体的控制策略（class）。</p>
 <p>一般由流程是这样的，当一个 qdisc 被入队的时候，会循环匹配其中的 filter 如果匹配到了的话，就会将 packet 入队到对应的 class 当中，大部分情况下被 class 的“所有者”代表的 qdisc 入队。一些没有匹配的 packet 会进入默认的 class。下面将会介绍几种常用的 queue discpline。</p>
-<h3 id="pfifo">pfifo</h3>
+<h3 id="pfifo"><a class="markdownIt-Anchor" href="#pfifo"></a> pfifo</h3>
 <p>默认 qdisc 就是 pfifo，实现在 <code>net/sched/sch_prio.c</code>。</p>
 <p>设有三个优先级的队列，优先级由高到低分别是</p>
 <ol start="0">
@@ -276,15 +276,15 @@
 <li>“bulk”</li>
 </ol>
 <p>先消费 0 队列再消费 1 队列，依次类推，一般的<code>packet</code>都是属于 1。</p>
-<p><img data-src="http://linux-ip.net/articles/Traffic-Control-HOWTO/images/pfifo_fast-qdisc.png" alt="pfifo"></p>
+<p><img data-src="http://linux-ip.net/articles/Traffic-Control-HOWTO/images/pfifo_fast-qdisc.png" alt="pfifo" /></p>
 <p>用 IP 的 ToS 可以映射到这些队列，对应的关系如图。</p>
-<p><img data-src="http://www.cisco.com/c/dam/en/us/support/docs/quality-of-service-qos/qos-link-efficiency-mechanisms/24906-152-n.gif" alt="tos"></p>
+<p><img data-src="http://www.cisco.com/c/dam/en/us/support/docs/quality-of-service-qos/qos-link-efficiency-mechanisms/24906-152-n.gif" alt="tos" /></p>
 <img data-src="/zh-CN/2017/05/19/cgroup-%E5%AD%90%E7%B3%BB%E7%BB%9F%E4%B9%8B-net-cls-%E5%92%8C-net-prio/map.jpg" class="">
 <p>他的实现依赖下面这个结构，bands 一般是 3 个，代表三个不同优先级的队列，然后<code>filter_list</code>是他的过滤器列表，最后<code>prio2band</code>就是上图的<code>ToS To Queue</code> 的映射中的<code>Linux priority 到 Band</code>的那部分，<code>queues</code>保存的是三个<code>fifo</code>的<code>qdisc</code>，也就是三个最简单的队列。</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">struct prio_sched_data &#123;</span><br><span class="line">	int bands;</span><br><span class="line">	struct tcf_proto __rcu *filter_list;</span><br><span class="line">	u8  prio2band[TC_PRIO_MAX+1];</span><br><span class="line">	struct Qdisc *queues[TCQ_PRIO_BANDS];</span><br><span class="line">&#125;;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
 <p>这里虽然和 IP 的 ToS 暂时没有关系，但是最后<code>cgroup</code>的部分会提到怎么联系起来的。</p>
 <p>pfifo enqueue 的时候会调用<code>prio_classify</code>根据<code>skb-&gt;priority</code>来选择队列进行入队，dequeue 的时候则 round robin 每次依次从优先级高到低取出一个 packet。</p>
-<h3 id="HTB-Hierarchical-Token-Bucket">HTB (Hierarchical Token Bucket)</h3>
+<h3 id="htb-hierarchical-token-bucket"><a class="markdownIt-Anchor" href="#htb-hierarchical-token-bucket"></a> HTB (Hierarchical Token Bucket)</h3>
 <p>HTB 是一个层级令牌桶的 qdisc，而且可以加入 class，HTB 的整体结构如下，HTB 的作者在<a target="_blank" rel="noopener" href="http://luxik.cdi.cz/~devik/qos/htb/manual/theory.htm">这里</a> 解释了他的设计。</p>
 <p>这里简单解释一下，每个 class 有一个 AR（保障速率）CR（最大速率），P（优先级），level（在树中的层次），quantum（量子，一个动态参数），和实际的速率 R，中间层的 class 通过计算子层的速率获得。</p>
 <p>Leaf 没有子节点，并且只有 Leaf 有传输功能的 queue，其他只是帮助构造层级关系。</p>
@@ -306,31 +306,31 @@
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">       Qc Rp</span><br><span class="line">Bc = -----------------------------  iff min[Pi over D(p)]&gt;=Pc  [eq2]</span><br><span class="line">     sum[Qi over D(p) where Pi=Pc]</span><br><span class="line"></span><br><span class="line">Bc = 0   otherwise      [eq3]</span><br></pre></td></tr></table></figure>
 <p>如果没有父节点的话，Bc 就是 0。这样算出来代表的意义是什么呢，就是说先服务优先级更高的节点，并且按照量子的大小在同优先级的节点中分配速率。</p>
 <p>然后我们具体看一下 HTB 调度器是如何工作的。</p>
-<p><img data-src="http://luxik.cdi.cz/~devik/qos/htb/manual/feed1.gif" alt="htb_sch_1"></p>
-<p><img data-src="http://luxik.cdi.cz/~devik/qos/htb/manual/feed2.gif" alt="htb_sch_2"></p>
+<p><img data-src="http://luxik.cdi.cz/~devik/qos/htb/manual/feed1.gif" alt="htb_sch_1" /></p>
+<p><img data-src="http://luxik.cdi.cz/~devik/qos/htb/manual/feed2.gif" alt="htb_sch_2" /></p>
 <p>每个 class 有个 slot 包含不同的 prio 级别，指向 yellow 的子节点，然后每个层级包含一个 slot 也有不同的 prio 级别指向这一层中 green 的节点，上图展示了的是有两个 prio 的 slot，右边的 self slot 有个白色的是用于 yellow red 的 wait list。</p>
 <p>假设当前如图 1 的状态，所有节点都是绿的没有 packet 到来，现在有有两个包到达 C 和 D，然后激活它们，并且它们现在都是绿的，所以 self slot 指向他们，然后因为 D 的优先级更高，所以先把 D 出队。所以你可以发现，出队的顺序很简答，就是按照优先级从 self slot 里面把绿色的包按顺序取出来就可以。</p>
-<p><img data-src="http://luxik.cdi.cz/~devik/qos/htb/manual/feed3.gif" alt="feed3"></p>
-<p><img data-src="http://luxik.cdi.cz/~devik/qos/htb/manual/feed4.gif" alt="feed4"></p>
+<p><img data-src="http://luxik.cdi.cz/~devik/qos/htb/manual/feed3.gif" alt="feed3" /></p>
+<p><img data-src="http://luxik.cdi.cz/~devik/qos/htb/manual/feed4.gif" alt="feed4" /></p>
 <p>然后我们看一下更复杂的情况，在图 3 中，我们从 D 中出队一个 packet(<code>htb_dequeue</code>)，然后<code>htb_charge_class</code>会增加 D 的速率，导致 D 变成 yellow，离开 self slot （通过<code>htb_deactivate_prios</code>和<code>htb_remove_class_from_row</code>)，然后添加到 B 的 slot 里面 (<code>htb_activate_prios</code>)，并且递归向上添加<code>htb_add_class_to_row</code>，D 会在一段时间后进入 self slot 的白色等待区，然后 D 又会变回绿色。现在如果选择的话，就会从 C 出队，因为虽然 C 的优先级低但是 C 不需要借别人的速率。</p>
 <p>在图 4，假设 C 已经完全消耗了速率达到了最大限速，这个时候 D 就会开始工作然后把 B 消耗完，B 被消耗了以后就会去消耗 A，从这里就可以看到一个借取的过程。</p>
-<p><img data-src="http://luxik.cdi.cz/~devik/qos/htb/manual/feed5.gif" alt="htb_sch_5"></p>
-<p><img data-src="http://luxik.cdi.cz/~devik/qos/htb/manual/feed6.gif" alt="htb_sch_6"></p>
+<p><img data-src="http://luxik.cdi.cz/~devik/qos/htb/manual/feed5.gif" alt="htb_sch_5" /></p>
+<p><img data-src="http://luxik.cdi.cz/~devik/qos/htb/manual/feed6.gif" alt="htb_sch_6" /></p>
 <p>现在说一个更复杂一点的例子，在图 5 中，A 已经被消耗光了，E 开始工作，然后 C 也能开始工作，变成图 6 的样子。注意即使 D 没有被使用但是他的优先级还会被 class slot 维持，也就是红线。但是 C 和 E 都是同一个优先级，这样的话，就要使用 DRR 算法（也就是在 RR 算法上给每个变量加一个权重，也就是之前的那个量子 quantom)。然后也可以发现一个 class 可以对不同的优先级（红色和蓝色）保持 active。</p>
 <p>下面是一个 HTB 的全貌图，抽象的可以理解成一个从父 class 中根据优先级带权重的分享令牌的一个算法。</p>
-<p><img data-src="http://linux-ip.net/articles/Traffic-Control-HOWTO/images/htb-class.png" alt="htb arch"></p>
+<p><img data-src="http://linux-ip.net/articles/Traffic-Control-HOWTO/images/htb-class.png" alt="htb arch" /></p>
 <p>下面三个值对应的就是三种颜色。</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">/* used internaly to keep status of single class */</span><br><span class="line">enum htb_cmode &#123;</span><br><span class="line">	HTB_CANT_SEND,		/* class can&#x27;t send and can&#x27;t borrow */</span><br><span class="line">	HTB_MAY_BORROW,		/* class can&#x27;t send but may borrow */</span><br><span class="line">	HTB_CAN_SEND		/* class can send */</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
 <p>HTB 的实现依赖于</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line">struct htb_sched &#123;</span><br><span class="line">	struct Qdisc_class_hash clhash;</span><br><span class="line">	int			defcls;		/* class where unclassified flows go to */</span><br><span class="line">	int			rate2quantum;	/* quant = rate / rate2quantum */</span><br><span class="line"></span><br><span class="line">	/* filters for qdisc itself */</span><br><span class="line">	struct tcf_proto __rcu	*filter_list;</span><br><span class="line"></span><br><span class="line">#define HTB_WARN_TOOMANYEVENTS	0x1</span><br><span class="line">	unsigned int		warned;	/* only one warning */</span><br><span class="line">	int			direct_qlen;</span><br><span class="line">	struct work_struct	work;</span><br><span class="line"></span><br><span class="line">	/* non shaped skbs; let them go directly thru */</span><br><span class="line">	struct qdisc_skb_head	direct_queue;</span><br><span class="line">	long			direct_pkts;</span><br><span class="line"></span><br><span class="line">	struct qdisc_watchdog	watchdog;</span><br><span class="line"></span><br><span class="line">	s64			now;	/* cached dequeue time */</span><br><span class="line">	struct list_head	drops[TC_HTB_NUMPRIO];/* active leaves (for drops) */</span><br><span class="line"></span><br><span class="line">	/* time of nearest event per level (row) */</span><br><span class="line">	s64			near_ev_cache[TC_HTB_MAXDEPTH];</span><br><span class="line"></span><br><span class="line">	int			row_mask[TC_HTB_MAXDEPTH];</span><br><span class="line"></span><br><span class="line">	struct htb_level	hlevel[TC_HTB_MAXDEPTH];</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
 <p>其中<code>hlevel</code>对应的就是<code>self slot</code>，而<code>clhash</code> 可以通过 classid 找到 <code>hub_class</code>，其中的<code>-&gt;un.inner</code>就是对应的<code>class slot</code>，<code>-&gt;un.leaf</code>对应的就是叶子结点。</p>
-<h3 id="使用">使用</h3>
+<h3 id="使用"><a class="markdownIt-Anchor" href="#使用"></a> 使用</h3>
 <p>qdisc 参数</p>
 <p>parent major:minor  或者 <em>root</em>。</p>
 <p>一个 qdisc 是根节点就是 root，否则其他的情况指定 parent。其中 major:minor 是 class 的 handle id，每个 class 都要指定一个 id 用于标识。</p>
 <p><em>handle major:</em> ，这个语法有点奇怪，是可选的，如果 qdisc 下面还要分类（多个 class)，则需要指定这个 hanlde。对于 root，通常是&quot;1:&quot;。</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">// handle 是一组用户指定的标示符，格式为 major:minor。</span><br><span class="line">// 如果是一条 queueing discipline，minor 需要一直为 0。</span><br><span class="line"># tc qdisc add dev eth0 root handle 1: htb</span><br><span class="line"></span><br><span class="line">// parent 指明该新增的 class 添加到那一个父 handle 上去</span><br><span class="line">// classid 指明该 class handle 的唯一 ID，minor 需要是非零值</span><br><span class="line">// ceil 定义 rate 的上界</span><br><span class="line"># tc class add dev eth0 parent 1:1 classid 1:6 htb rate 256kbit ceil 512kbit</span><br><span class="line"></span><br><span class="line">// 新建一个带宽为 100kbps 的 root class, 其 classid 为 1:1</span><br><span class="line"># tc class add dev eth0 parent 1: classid 1:1 htb rate 100kbps ceil 100kbps</span><br><span class="line">// 接着建立两个子 class，指定其 parent 为 1:1，ceil 用来限制子类最大的带宽</span><br><span class="line"># tc class add dev eth0 parent 1:1 classid 1:10 htb rate 40kbps ceil 100kbps</span><br><span class="line"># tc class add dev eth0 parent 1:1 classid 1:11 htb rate 60kbps ceil 100kbps</span><br><span class="line">// 随后建立 filter 指定哪些类型的 packet 进入那个 class</span><br><span class="line"># tc filter add dev eth0 protocol ip parent 1:0 prio 1 u32 match ip src 1.2.3.4 match ip dport 80 0xffff flowid 1:10</span><br><span class="line"># tc filter add dev eth0 protocol ip parent 1:0 prio 1 u32 match ip src 1.2.3.4 flow 1:11</span><br><span class="line">// 最后为这些 class 添加 queuing disciplines</span><br><span class="line"># tc qdisc add dev eth0 parent 1:10 handle 20: pfifo limit 5</span><br><span class="line"># tc qdisc add dev eth0 parent 1:11 handle 30: sfq perturb 10</span><br></pre></td></tr></table></figure>
-<h3 id="实现">实现</h3>
+<h3 id="实现"><a class="markdownIt-Anchor" href="#实现"></a> 实现</h3>
 <p>用 rtnetlink 接口实现 API。</p>
 <p>在<code>include/net/sch_generic.h</code>下有<code>Qdisc_ops</code>,<code>Qdisc_class_ops</code>,<code>tcf_proto_ops</code>的定义。</p>
 <p>同一个文件下还有<code>Qdisc_class_ops</code>的定义。</p>
@@ -340,14 +340,14 @@
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">dev_queue_xmit -&gt;</span><br><span class="line">	__dev_queue_xmit -&gt;</span><br><span class="line">    	__dev_xmit_skb -&gt;</span><br><span class="line">    		qdisc-&gt;enqueue</span><br><span class="line">    		__qdisc_run -&gt;</span><br><span class="line">    		  qdisc_restart -&gt;</span><br><span class="line">    		    qdisc-&gt;dequeue -&gt;</span><br><span class="line">    		      sch_direct_xmit</span><br></pre></td></tr></table></figure>
 <p>在<code>enqueue</code>的时候会主动唤起<code>dequeue</code>也可能是硬件发送就绪会唤醒发送软中断来<code>dequeue</code>，描述的整个过程大概是图中的这部分。</p>
 <img data-src="/zh-CN/2017/05/19/cgroup-%E5%AD%90%E7%B3%BB%E7%BB%9F%E4%B9%8B-net-cls-%E5%92%8C-net-prio/qdisc.jpeg" class="">
-<h2 id="补充">补充</h2>
-<h3 id="netfilter">netfilter</h3>
+<h2 id="补充"><a class="markdownIt-Anchor" href="#补充"></a> 补充</h2>
+<h3 id="netfilter"><a class="markdownIt-Anchor" href="#netfilter"></a> netfilter</h3>
 <p>netfilter 在数据包传输中有一些 hook 可以在其中注册回调函数。</p>
-<p><img data-src="https://upload.wikimedia.org/wikipedia/commons/thumb/3/37/Netfilter-packet-flow.svg/1600px-Netfilter-packet-flow.svg.png" alt="netfilter"></p>
-<h3 id="iptables">iptables</h3>
+<p><img data-src="https://upload.wikimedia.org/wikipedia/commons/thumb/3/37/Netfilter-packet-flow.svg/1600px-Netfilter-packet-flow.svg.png" alt="netfilter" /></p>
+<h3 id="iptables"><a class="markdownIt-Anchor" href="#iptables"></a> iptables</h3>
 <p>主要是四表五链，是 netfilter 的用户态工具。</p>
 <p><a target="_blank" rel="noopener" href="https://www.digitalocean.com/community/tutorials/a-deep-dive-into-iptables-and-netfilter-architecture">deep dive</a></p>
-<h2 id="cgroup-子系统-net-cls-Network-classifier-cgroup">cgroup 子系统 net_cls (Network classifier cgroup)</h2>
+<h2 id="cgroup-子系统-net_cls-network-classifier-cgroup"><a class="markdownIt-Anchor" href="#cgroup-子系统-net_cls-network-classifier-cgroup"></a> cgroup 子系统 net_cls (Network classifier cgroup)</h2>
 <p>net_cls 可以给 packet 打上 classid 的标签，用于过滤分类，有了上面的详细解释，这个 classid 的作用也非常明显了，就是用于标记<code>skb</code>所属的 qdisc class 的。</p>
 <p>有了这个标签，流量控制器（tc）可以对不同的 cgroup 的 packet 起作用，Netfilter（iptables）也可以基于这个标签有对应的动作。创建一个 net_cls cgroup 对应的是创建一个 net_cls.classid 文件，这个文件初始化为 0。可以写 16 进制的 0xAAAABBBB 到这个文件里面，AAAA 是 major 号，BBBB 是 minor 号。读这个文件返回的是十进制的数字。</p>
 <p>例子</p>
@@ -361,7 +361,7 @@
 <p>配置 iptables，也可以用于这个 classid。</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">iptables -A OUTPUT -m cgroup ! --cgroup 0x100001 -j DROP</span><br></pre></td></tr></table></figure>
 <p>对应的实现在<code>net/core/netclassid_cgroup.c</code>下面。起作用的方式是<code>css_cls_state</code>的<code>classid</code>并且<code>sock_cgroup_set_classid(&amp;sock-&gt;sk-&gt;sk_cgrp_data,(unsigned long)v)</code>来设置<code>sock</code>的<code>classid</code>。</p>
-<h2 id="cgroup-net-prio-子系统">cgroup net_prio 子系统</h2>
+<h2 id="cgroup-net_prio-子系统"><a class="markdownIt-Anchor" href="#cgroup-net_prio-子系统"></a> cgroup net_prio 子系统</h2>
 <p>网络优先权（net_prio）子系统可以为各个 cgroup 中的应用程序动态配置每个网络接口的流量优先级。</p>
 <p>net_prio.prioidx</p>
 <p>只读文件。它包含一个特有整数值，kernel 使用该整数值作为这个 cgroup 的内部代表。</p>

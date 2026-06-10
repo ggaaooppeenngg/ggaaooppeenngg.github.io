@@ -120,7 +120,7 @@
       <div class="sidebar-panel-container">
         <!--noindex-->
         <div class="post-toc-wrap sidebar-panel">
-            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#OpenAIServingChat-create-chat-completion-%E4%B8%BB%E4%BD%93%E6%B5%81%E7%A8%8B"><span class="nav-number">1.</span> <span class="nav-text">OpenAIServingChat.create_chat_completion 主体流程</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">2.</span> <span class="nav-text">总结</span></a></li></ol></div>
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#openaiservingchatcreate_chat_completion-%E4%B8%BB%E4%BD%93%E6%B5%81%E7%A8%8B"><span class="nav-number">1.</span> <span class="nav-text"> OpenAIServingChat.create_chat_completion 主体流程</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">2.</span> <span class="nav-text"> 总结</span></a></li></ol></div>
         </div>
         <!--/noindex-->
 
@@ -306,7 +306,7 @@
 <p>主要看 <code>@router.post(&quot;/v1/chat/completions&quot;)</code> 注册的 <code>async def create_chat_completion</code> 是最常用的函数调用。</p>
 <p><code>init_app_state</code> 在 <code>app.state</code> 中保存了 <code>openai_serving_chat</code>，以及其他一些接口的状态，这取决于模型配置中是否包含这些功能。例如，文本嵌入等功能（通常都有）。当调用 <code>create_chat_completion</code> 时，会调用 <code>openai_serving_chat</code> 对应的 <code>OpenAIServingChat</code> 类的方法。因此，Serving 的主体可以通过查看这个对象的方法来理解其功能。</p>
 <p>构建 AsyncEngine -&gt; 构建 app 对象。</p>
-<h2 id="OpenAIServingChat-create-chat-completion-主体流程"><code>OpenAIServingChat.create_chat_completion</code> 主体流程</h2>
+<h2 id="openaiservingchatcreate_chat_completion-主体流程"><a class="markdownIt-Anchor" href="#openaiservingchatcreate_chat_completion-主体流程"></a> <code>OpenAIServingChat.create_chat_completion</code> 主体流程</h2>
 <ol>
 <li>
 <p><strong>检查模型</strong>：</p>
@@ -328,7 +328,7 @@
 <ul>
 <li><code>resolve_chat_template_content_format</code>：检查对话模板格式，因为每种大模型的用于生成文本的训练数据的格式有所不同，要确认对应的格式，LLAMA 有 LLAMA 的格式，可以参考下面的例子。</li>
 <li><code>parse_chat_messages_futures</code>：解析输入的聊天消息，生成一个对话消息列表，变成有类型的对话消息。其中 <code>mm_tracker</code> 要处理 <code>image_url</code> 和 <code>audio_url</code> 的消息，会根据构造 <code>placeholder</code>，<code>placeholder</code> 是一个特殊的字符串，用来标记这个位置是一个占位符。<code>llama3.2</code> 用的是 <code>&lt;|image|&gt;</code>。</li>
-<li><code>apply_&#123;hf,mistral&#125;_chat_template</code>：模板会给提示词添加提示词的开头和结束的标志，从而和实际训练的数据标注对齐，比如 <code>llama3</code> 用 <code>&lt;|eot_id|&gt;</code> 标记结束，<code>padding</code> 等。<code>request_prompt</code> 和 <code>engine_prompt</code> 包含 <code>token ids</code> 和多模态数据。<br>
+<li><code>apply_&#123;hf,mistral&#125;_chat_template</code>：模板会给提示词添加提示词的开头和结束的标志，从而和实际训练的数据标注对齐，比如 <code>llama3</code> 用 <code>&lt;|eot_id|&gt;</code> 标记结束，<code>padding</code> 等。<code>request_prompt</code> 和 <code>engine_prompt</code> 包含 <code>token ids</code> 和多模态数据。<br />
 例如：</li>
 </ul>
  <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">chat = [</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="string">&quot;role&quot;</span>: <span class="string">&quot;user&quot;</span>,</span><br><span class="line">        <span class="string">&quot;content&quot;</span>: [</span><br><span class="line">            &#123;<span class="string">&quot;type&quot;</span>: <span class="string">&quot;image&quot;</span>&#125;,</span><br><span class="line">            &#123;<span class="string">&quot;type&quot;</span>: <span class="string">&quot;text&quot;</span>, <span class="string">&quot;text&quot;</span>: <span class="string">&quot;If I had to write a haiku for this one, it would be: &quot;</span>&#125;</span><br><span class="line">        ]</span><br><span class="line">    &#125;</span><br><span class="line">]</span><br></pre></td></tr></table></figure>
@@ -352,7 +352,7 @@
 </ul>
 </li>
 </ol>
-<h2 id="总结">总结</h2>
+<h2 id="总结"><a class="markdownIt-Anchor" href="#总结"></a> 总结</h2>
 <p>vLLM 的主体是 LLMEngine，它是一个单例类，负责管理所有的模型和数据。在基于FastAPI的异步Restful API 中使用的是一个 AsyncEngine。在交给Engine处理之前会对一些请求参数进行预处理，比如对话模板的格式化，对话消息的解析，模板中的函数调用等。</p>
 
     </div>

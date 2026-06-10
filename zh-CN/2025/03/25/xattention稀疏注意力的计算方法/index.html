@@ -21,12 +21,12 @@
 
 <script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
 
-    <meta name="description" content="本文讨论了稀疏注意力的计算方法，其核心思想是通过选择矩阵的分块，将重要的矩阵挑选出来参与计算。这是因为注意力矩阵具有稀疏性，而如何选择这些重点矩阵是各类算法需要解决的主要问题。 稀疏性模式总结 MInference 总结了三种稀疏性模式，这些模式具有动态特性，分别是：  A-shape：注意力集中在初始词元及其相近词元上。 Vertical-Slash：注意力集中在一些重点词元及其相近词元上。 B">
+    <meta name="description" content="本文讨论了稀疏注意力的计算方法，其核心思想是通过选择矩阵的分块，将重要的矩阵挑选出来参与计算。这是因为注意力矩阵具有稀疏性，而如何选择这些重点矩阵是各类算法需要解决的主要问题。  稀疏性模式总结 MInference 总结了三种稀疏性模式，这些模式具有动态特性，分别是：  A-shape：注意力集中在初始词元及其相近词元上。 Vertical-Slash：注意力集中在一些重点词元及其相近词元上。">
 <meta property="og:type" content="article">
 <meta property="og:title" content="xattention稀疏注意力的计算方法">
 <meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2025/03/25/xattention%E7%A8%80%E7%96%8F%E6%B3%A8%E6%84%8F%E5%8A%9B%E7%9A%84%E8%AE%A1%E7%AE%97%E6%96%B9%E6%B3%95/index.html">
 <meta property="og:site_name" content="ggaaooppeenngg">
-<meta property="og:description" content="本文讨论了稀疏注意力的计算方法，其核心思想是通过选择矩阵的分块，将重要的矩阵挑选出来参与计算。这是因为注意力矩阵具有稀疏性，而如何选择这些重点矩阵是各类算法需要解决的主要问题。 稀疏性模式总结 MInference 总结了三种稀疏性模式，这些模式具有动态特性，分别是：  A-shape：注意力集中在初始词元及其相近词元上。 Vertical-Slash：注意力集中在一些重点词元及其相近词元上。 B">
+<meta property="og:description" content="本文讨论了稀疏注意力的计算方法，其核心思想是通过选择矩阵的分块，将重要的矩阵挑选出来参与计算。这是因为注意力矩阵具有稀疏性，而如何选择这些重点矩阵是各类算法需要解决的主要问题。  稀疏性模式总结 MInference 总结了三种稀疏性模式，这些模式具有动态特性，分别是：  A-shape：注意力集中在初始词元及其相近词元上。 Vertical-Slash：注意力集中在一些重点词元及其相近词元上。">
 <meta property="og:locale" content="zh_CN">
 <meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2025/03/25/xattention%E7%A8%80%E7%96%8F%E6%B3%A8%E6%84%8F%E5%8A%9B%E7%9A%84%E8%AE%A1%E7%AE%97%E6%96%B9%E6%B3%95/a1.png">
 <meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2025/03/25/xattention%E7%A8%80%E7%96%8F%E6%B3%A8%E6%84%8F%E5%8A%9B%E7%9A%84%E8%AE%A1%E7%AE%97%E6%96%B9%E6%B3%95/a2.png">
@@ -126,7 +126,7 @@
       <div class="sidebar-panel-container">
         <!--noindex-->
         <div class="post-toc-wrap sidebar-panel">
-            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%A8%80%E7%96%8F%E6%80%A7%E6%A8%A1%E5%BC%8F%E6%80%BB%E7%BB%93"><span class="nav-number">1.</span> <span class="nav-text">稀疏性模式总结</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#MInference-%E7%AE%97%E6%B3%95"><span class="nav-number">1.1.</span> <span class="nav-text">MInference 算法</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#FlexPrefill-%E7%AE%97%E6%B3%95"><span class="nav-number">2.</span> <span class="nav-text">FlexPrefill 算法</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Xattention-%E7%AE%97%E6%B3%95"><span class="nav-number">3.</span> <span class="nav-text">Xattention 算法</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%8F%8D%E6%96%9C%E5%AF%B9%E8%A7%92%E7%BA%BF%E7%9A%84%E6%9E%84%E9%80%A0"><span class="nav-number">3.1.</span> <span class="nav-text">反斜对角线的构造</span></a></li></ol></li></ol></div>
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%A8%80%E7%96%8F%E6%80%A7%E6%A8%A1%E5%BC%8F%E6%80%BB%E7%BB%93"><span class="nav-number">1.</span> <span class="nav-text"> 稀疏性模式总结</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#minference-%E7%AE%97%E6%B3%95"><span class="nav-number">1.1.</span> <span class="nav-text"> MInference 算法</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#flexprefill-%E7%AE%97%E6%B3%95"><span class="nav-number">2.</span> <span class="nav-text"> FlexPrefill 算法</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#xattention-%E7%AE%97%E6%B3%95"><span class="nav-number">3.</span> <span class="nav-text"> Xattention 算法</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%8F%8D%E6%96%9C%E5%AF%B9%E8%A7%92%E7%BA%BF%E7%9A%84%E6%9E%84%E9%80%A0"><span class="nav-number">3.1.</span> <span class="nav-text"> 反斜对角线的构造</span></a></li></ol></li></ol></div>
         </div>
         <!--/noindex-->
 
@@ -245,7 +245,7 @@
     
     
     <div class="post-body" itemprop="articleBody"><p>本文讨论了稀疏注意力的计算方法，其核心思想是通过选择矩阵的分块，将重要的矩阵挑选出来参与计算。这是因为注意力矩阵具有稀疏性，而如何选择这些重点矩阵是各类算法需要解决的主要问题。</p>
-<h2 id="稀疏性模式总结">稀疏性模式总结</h2>
+<h2 id="稀疏性模式总结"><a class="markdownIt-Anchor" href="#稀疏性模式总结"></a> 稀疏性模式总结</h2>
 <p><a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2407.02490">MInference</a> 总结了三种稀疏性模式，这些模式具有动态特性，分别是：</p>
 <ul>
 <li><strong>A-shape</strong>：注意力集中在初始词元及其相近词元上。</li>
@@ -256,13 +256,13 @@
 <img data-src="/zh-CN/2025/03/25/xattention%E7%A8%80%E7%96%8F%E6%B3%A8%E6%84%8F%E5%8A%9B%E7%9A%84%E8%AE%A1%E7%AE%97%E6%96%B9%E6%B3%95/a1.png" class="">
 <p>稀疏性的动态性从左到右逐渐增强：</p>
 <img data-src="/zh-CN/2025/03/25/xattention%E7%A8%80%E7%96%8F%E6%B3%A8%E6%84%8F%E5%8A%9B%E7%9A%84%E8%AE%A1%E7%AE%97%E6%96%B9%E6%B3%95/a2.png" class="">
-<h3 id="MInference-算法">MInference 算法</h3>
+<h3 id="minference-算法"><a class="markdownIt-Anchor" href="#minference-算法"></a> MInference 算法</h3>
 <p>MInference 使用最后 64 个 Q 进行计算，选出 top-k 的垂线和斜线作为重点块的索引。对于 Block-Sparse 模式，使用 mean pool 方法选出 top-k。</p>
-<h2 id="FlexPrefill-算法">FlexPrefill 算法</h2>
+<h2 id="flexprefill-算法"><a class="markdownIt-Anchor" href="#flexprefill-算法"></a> FlexPrefill 算法</h2>
 <p><a target="_blank" rel="noopener" href="https://openreview.net/pdf?id=OfjIlbelrT">FlexPrefill</a> 同样使用最后的 64 个 Q 进行 query-aware index selection，计算 <code>QK^T</code> 的 pool。通过 Jensen-Shannon divergence 计算分布距离，如果距离不满足条件，则回退到匹配垂线和斜线模式。</p>
-<h2 id="Xattention-算法">Xattention 算法</h2>
+<h2 id="xattention-算法"><a class="markdownIt-Anchor" href="#xattention-算法"></a> Xattention 算法</h2>
 <p><a target="_blank" rel="noopener" href="https://arxiv.org/abs/2503.16428">Xattention</a> 采用分块和反斜对角线的形式选择块的索引。与仅使用最后一块 Q 进行选择的方式相比，Xattention 允许所有词元参与计算，不依赖垂线和斜线模式的连续性。</p>
-<h3 id="反斜对角线的构造">反斜对角线的构造</h3>
+<h3 id="反斜对角线的构造"><a class="markdownIt-Anchor" href="#反斜对角线的构造"></a> 反斜对角线的构造</h3>
 <p>首先对矩阵进行分块，并按 stride 构造反斜对角线。与其说是反斜对角线，更像是一种形似反斜对角线的纹理构造方式：</p>
 <img data-src="/zh-CN/2025/03/25/xattention%E7%A8%80%E7%96%8F%E6%B3%A8%E6%84%8F%E5%8A%9B%E7%9A%84%E8%AE%A1%E7%AE%97%E6%96%B9%E6%B3%95/a3.png" class="">
 <p>反斜对角线的优势在于，它可以与垂线和斜线交叉，从而让相关词元参与计算：</p>

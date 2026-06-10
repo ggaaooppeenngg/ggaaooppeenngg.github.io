@@ -244,11 +244,11 @@
     
     
     
-    <div class="post-body" itemprop="articleBody"><p>LoRA一般的设定是认为微调任务应该只需要在一个更小的子空间去训练即可不需要复用基座模型的大空间，从而实现低成本的微调。<br>
+    <div class="post-body" itemprop="articleBody"><p>LoRA一般的设定是认为微调任务应该只需要在一个更小的子空间去训练即可不需要复用基座模型的大空间，从而实现低成本的微调。<br />
 LoRA的前提是问题是不是在子空间能得到最优解。在线性回归 y=W x 中，如果最优 W * 是高秩的，那么对 W 施加低秩假设永远不会导致最优解，无论使用什么优化器。</p>
 <p>Gradient Low-Rank Projection (GaLore) 允许全参数学习，但比 LoRA 等常见的低秩自适应方法更具内存效率。</p>
 <p>使用单个批处理大小从头开始预训练 LLaMA7B 模型至少需要 58 GB 内存（14GB 用于可训练参数，42GB 用于 Adam 优化器状态和权重梯度，2GB 用于激活函数）。这使得训练在消费级 GPU 上不可行，例如具有 24GB 内存的 NVIDIA RTX 4090。</p>
-<p>他证明梯度可能具有低秩结构，如果我们能够在优化器状态中保留梯度的一个小 “核心” 的梯度统计信息，而不是完整的梯度本身，那么内存消耗就可以大幅降低。这就引出了 GaLore 策略。<br>
+<p>他证明梯度可能具有低秩结构，如果我们能够在优化器状态中保留梯度的一个小 “核心” 的梯度统计信息，而不是完整的梯度本身，那么内存消耗就可以大幅降低。这就引出了 GaLore 策略。<br />
 他的关键思想是利用权重矩阵 W 的梯度 G 上做LoRA，而不是试图将权重矩阵本身近似为低秩。他的核心逻辑用Torch写出来如下：</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">for</span> weight <span class="keyword">in</span> model.parameters():</span><br><span class="line">    grad = weight.grad</span><br><span class="line">    <span class="comment"># original space -&gt; compact space</span></span><br><span class="line">    lor_grad = project(grad)</span><br><span class="line">    <span class="comment"># update by Adam, Adafactor, etc.</span></span><br><span class="line">    lor_update = update(lor_grad)</span><br><span class="line">    <span class="comment"># compact space -&gt; original space </span></span><br><span class="line">    update = project_back(lor_update) </span><br><span class="line">    weight.data += update</span><br></pre></td></tr></table></figure>
 

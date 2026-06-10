@@ -272,23 +272,23 @@
 <p>首先是 <code>filesystem_type</code> 和 <code>super_block</code>，这两者的关系有点类似于软件中的 <code>class</code> 和 <code>object</code> 的关系。在内核当中有一个全局的<code>file_systems</code>链表串接了所有的文件系统类型的代表<code>filesystem_type</code>，对于文件系统的注册和删除就是在链表当中增加和删除对应的节点。而<code>super_block</code>就是一个文件系统的实例。本身也是通过全局链表串连起来的。<code>filesystem_type</code>本身非常简单，定义了获取和删除<code>super_block</code>的接口，和一些共同的相关信息。</p>
 <p>对于<code>super_block</code>来说超级块定义了文件系统的具体信息和对应文件系统的接口，比如<code>write_super</code>,<code>alloc_inode</code>,<code>sync_fs</code>等，这些都是有具体的文件系统实现的。所有的<code>inode</code>都链接到了<code>super_block</code>。</p>
 <p>对于文件系统来说挂载点是个很有意思的点，在内核当中挂载点用<code>vfsmount</code>表示，挂载点是文件系统之间的衔接部分，如果要添加一个新的文件系统势必要将文件系统挂载在某个目录下面使得文件系统生效，<code>vfsmount</code>就是这样一个接口。当文件系统挂载以后原目录将不可见。<code>vfsmount</code>的主要内容是<code>vfsmount</code>的拓扑关系以及指向的目录和<code>super_block</code>。所以从宏观的角度来说，整个文件系统的组织是如图这样的。</p>
-<p><img data-src="fs.png" alt="fs.png"></p>
+<p><img data-src="fs.png" alt="fs.png" /></p>
 <p>这是文件系统本身这个结构在操作系统里的组织结构，接下来分析文件系统满足 VFS 要包含哪些内容。</p>
-<p>第一个要说的就是 dentry，dentry 表现的是文件在文件系统中的树状关系，dentry 也要实现相应的接口，包括 <code>d_delete</code>，<code>d_release</code>，<code>d_compare</code>等接口。<br>
+<p>第一个要说的就是 dentry，dentry 表现的是文件在文件系统中的树状关系，dentry 也要实现相应的接口，包括 <code>d_delete</code>，<code>d_release</code>，<code>d_compare</code>等接口。<br />
 dentry 代表的是目录结构中的一个文件，而文件其实就是没有子目录的文件。dentry 链接到了超级快和父 dentry 和子 dentry 以及对应的 inode。</p>
 <p>接下来是 inode, inode 本身代表的一个文件，保存的信息很多，包括文件的大小，创建时间，文件的块大小等参数，以及文件的读写缓存等信息，还要定义对应的针对文件的函数接口，包括增删改查等等。没有文件名，因为它代表的是文件的原信息，具体的路径的表示依赖<code>dentry</code>。</p>
 <p>dentry 和 inode 的关系是多对一的，即多个 dentry 可以指向同一个文件，这和 linux 当中的文件链接有关。</p>
 <p>接下来就是 file，file 虽然叫 file 但是对应的却不像 inode 一样，它对应的是一个进程所打开的文件。例如两个不同的进程打开了磁盘上的同一个文件，那么他们对应的 inode 是相同的，这也是 inode 意义。但是不同进程之间的 file 不是同一个引用，file 本身的结构还是和文件操作有关的。</p>
 <p>整个关系如图所示。</p>
-<p><img data-src="file.png" alt="file.png"></p>
+<p><img data-src="file.png" alt="file.png" /></p>
 <p>对应的文件目录如下</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">.</span><br><span class="line">├── a</span><br><span class="line">│   └── ab</span><br><span class="line">└── b</span><br><span class="line">    ├── bc -&gt; ../a/ab</span><br><span class="line">    └── bd</span><br></pre></td></tr></table></figure>
-<p>图中展示了一个硬链接代表着 bc 和 ab 的 dentry 指向了同一个<code>inode</code>，硬链接是不同 dentry 指向同一个<code>inode</code>，这也是为什么硬链接不能夸文件系统，因为<code>inode</code>是属于特定文件系统的。<br>
+<p>图中展示了一个硬链接代表着 bc 和 ab 的 dentry 指向了同一个<code>inode</code>，硬链接是不同 dentry 指向同一个<code>inode</code>，这也是为什么硬链接不能夸文件系统，因为<code>inode</code>是属于特定文件系统的。<br />
 图中其实<code>inode</code>是串联在<code>super_block</code>上的，<code>super_block</code>维护了文件系统中`inodes，因为画上去太乱了所以省略了。</p>
 <p>VFS 的整体结构就是这样，接下来简要地说几个具体内容：</p>
 <p>所谓的打开文件描述符其实就是进程的 files 数组这个文件描述符表的下标，通过对应的 fd 就能找到 file 结构。例如 dentry，vfsmount 这样的结构都有一个 hashtable 来缓存搜索的内容，这样就能加开目录的遍历搜索。</p>
 <p>inode 其实也有一个全局的 hashtable 用于快速查找，inode 本身能代表的东西很多，一切皆文件就体现在他身上，他既可以表示一个 socket，也可以表示一个管道，还可以表示块设备、字符设备，然后就是普通文件了。</p>
-<p>以上讲的就是整个内核当中 VFS 层的抽象，并没有牵涉到具体的文件系统，在下一篇博客我将会实现一个简单的文件系统，不就具体的代码分析，来熟悉这里提到的这些概念。<br>
+<p>以上讲的就是整个内核当中 VFS 层的抽象，并没有牵涉到具体的文件系统，在下一篇博客我将会实现一个简单的文件系统，不就具体的代码分析，来熟悉这里提到的这些概念。<br />
 其实了解了概念以后，就会给人一种不过如此的感觉，真正值得玩味的是下层的实现，这也是我后面的博客将会介绍的内容。比如基于磁盘的文件系统更多的是要关注 I\O 层的东西。</p>
 <p>其实内核的 I\O 路径是这样的：user space -&gt; VFS -&gt; FS -&gt; I\O layer -&gt; I\O scheduler(optional) -&gt; block_driver -&gt; block_device, 一个 I\O 经过了这些才真正到达了对应的存储上。</p>
 <p>一个用户态的系统调用先通过 VFS 找到对应的文件系统再向下传递 I\O，这是 I\O 的一般路径。所以说对于用户来说，一切都是操作文件了。</p>
