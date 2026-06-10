@@ -21,12 +21,12 @@
 
 <script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
 
-    <meta name="description" content="背景 DeepSeek-V4 系列模型（V4 &#x2F; V4-Pro）在 MoE（Mixture of Experts）层大量使用 MXFP4 量化权重，配合 FP8&#x2F;BF16 激活 实现高效推理。在 SGLang &#x2F; vLLM 中，flashinfer_mxfp4 是一个专为这种量化格式设计的 MoE Runner Backend。 本文将基于 H20 (SM90 Hopper) 实测数据和源码分析">
+    <meta name="description" content="背景DeepSeek-V4 系列模型（V4 &#x2F; V4-Pro）在 MoE（Mixture of Experts）层大量使用 MXFP4 量化权重，配合 FP8&#x2F;BF16 激活 实现高效推理。在 SGLang &#x2F; vLLM 中，flashinfer_mxfp4 是一个专为这种量化格式设计的 MoE Runner Backend。 本文将基于 H20 (SM90 Hopp">
 <meta property="og:type" content="article">
 <meta property="og:title" content="FlashInfer MXFP4 MoE 后端深度分析">
 <meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2026/06/01/FlashInfer-MXFP4-MoE-%E6%B7%B1%E5%BA%A6%E5%88%86%E6%9E%90/index.html">
 <meta property="og:site_name" content="ggaaooppeenngg">
-<meta property="og:description" content="背景 DeepSeek-V4 系列模型（V4 &#x2F; V4-Pro）在 MoE（Mixture of Experts）层大量使用 MXFP4 量化权重，配合 FP8&#x2F;BF16 激活 实现高效推理。在 SGLang &#x2F; vLLM 中，flashinfer_mxfp4 是一个专为这种量化格式设计的 MoE Runner Backend。 本文将基于 H20 (SM90 Hopper) 实测数据和源码分析">
+<meta property="og:description" content="背景DeepSeek-V4 系列模型（V4 &#x2F; V4-Pro）在 MoE（Mixture of Experts）层大量使用 MXFP4 量化权重，配合 FP8&#x2F;BF16 激活 实现高效推理。在 SGLang &#x2F; vLLM 中，flashinfer_mxfp4 是一个专为这种量化格式设计的 MoE Runner Backend。 本文将基于 H20 (SM90 Hopp">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2026-06-01T08:00:00.000Z">
 <meta property="article:modified_time" content="2026-06-01T08:26:40.690Z">
@@ -125,7 +125,7 @@
       <div class="sidebar-panel-container">
         <!--noindex-->
         <div class="post-toc-wrap sidebar-panel">
-            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%83%8C%E6%99%AF"><span class="nav-number">1.</span> <span class="nav-text"> 背景</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#mxfp4-%E9%87%8F%E5%8C%96%E6%A0%BC%E5%BC%8F"><span class="nav-number">2.</span> <span class="nav-text"> MXFP4 量化格式</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%A0%BC%E5%BC%8F%E5%AE%9A%E4%B9%89"><span class="nav-number">2.1.</span> <span class="nav-text"> 格式定义</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%8E-int4-%E7%9A%84%E5%AF%B9%E6%AF%94"><span class="nav-number">2.2.</span> <span class="nav-text"> 与 INT4 的对比</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#flashinfer-mxfp4-%E6%9E%B6%E6%9E%84"><span class="nav-number">3.</span> <span class="nav-text"> FlashInfer MXFP4 架构</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%B0%83%E7%94%A8%E9%93%BEh20-sm90"><span class="nav-number">3.1.</span> <span class="nav-text"> 调用链（H20 &#x2F; SM90）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%A0%B8%E5%BF%83%E7%89%B9%E6%80%A7"><span class="nav-number">3.2.</span> <span class="nav-text"> 核心特性</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AE%8C%E6%95%B4-pipelinedeepseek-v4-%E4%B8%BA%E4%BE%8B"><span class="nav-number">4.</span> <span class="nav-text"> 完整 Pipeline（DeepSeek-V4 为例）</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%A8%A1%E5%9E%8B%E9%85%8D%E7%BD%AE"><span class="nav-number">4.1.</span> <span class="nav-text"> 模型配置</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%AC%AC%E4%B8%80%E9%98%B6%E6%AE%B5routing%E8%B7%AF%E7%94%B1%E9%80%89%E6%8B%A9"><span class="nav-number">4.2.</span> <span class="nav-text"> 第一阶段：Routing（路由选择）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%AC%AC%E4%BA%8C%E9%98%B6%E6%AE%B5gathertoken-%E9%87%8D%E6%8E%92"><span class="nav-number">4.3.</span> <span class="nav-text"> 第二阶段：Gather（Token 重排）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%AC%AC%E4%B8%89%E9%98%B6%E6%AE%B5computefused-gemm"><span class="nav-number">4.4.</span> <span class="nav-text"> 第三阶段：Compute（Fused GEMM）</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#step-3a-gemm1-gate-up-projection"><span class="nav-number">4.4.1.</span> <span class="nav-text"> Step 3a: GEMM1 (Gate + Up Projection)</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#step-3b-swiglu-activation"><span class="nav-number">4.4.2.</span> <span class="nav-text"> Step 3b: SwiGLU Activation</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#step-3c-gemm2-down-projection"><span class="nav-number">4.4.3.</span> <span class="nav-text"> Step 3c: GEMM2 (Down Projection)</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#cutlass-grouped-gemm-%E8%B0%83%E5%BA%A6"><span class="nav-number">4.4.4.</span> <span class="nav-text"> CUTLASS Grouped GEMM 调度</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%AC%AC%E5%9B%9B%E9%98%B6%E6%AE%B5scatter%E7%BB%93%E6%9E%9C%E5%86%99%E5%9B%9E"><span class="nav-number">4.5.</span> <span class="nav-text"> 第四阶段：Scatter（结果写回）</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%A7%E8%83%BD%E5%AE%9E%E6%B5%8Bh20-deepseek-v4-flash-tp4"><span class="nav-number">5.</span> <span class="nav-text"> 性能实测（H20, DeepSeek-V4-Flash, TP&#x3D;4）</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#benchmark-%E7%BB%93%E6%9E%9C"><span class="nav-number">5.1.</span> <span class="nav-text"> Benchmark 结果</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%98%B6%E6%AE%B5%E8%80%97%E6%97%B6%E5%88%86%E8%A7%A3%E4%BC%B0"><span class="nav-number">5.2.</span> <span class="nav-text"> 阶段耗时分解（估）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88-conc2-%E5%B7%AE%E8%B7%9D%E6%9C%80%E5%A4%A7"><span class="nav-number">5.3.</span> <span class="nav-text"> 为什么 conc&#x3D;2 差距最大？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88-conc4-%E5%B7%AE%E8%B7%9D%E6%B6%88%E5%A4%B1"><span class="nav-number">5.4.</span> <span class="nav-text"> 为什么 conc&#x3D;4 差距消失？</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%8E-marlin-moe-%E7%9A%84%E6%9E%B6%E6%9E%84%E5%AF%B9%E6%AF%94"><span class="nav-number">6.</span> <span class="nav-text"> 与 Marlin MoE 的架构对比</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%A0%B8%E5%BF%83%E5%B7%AE%E5%BC%82"><span class="nav-number">6.1.</span> <span class="nav-text"> 核心差异</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#expert-first-vs-token-first"><span class="nav-number">6.2.</span> <span class="nav-text"> Expert-First vs Token-First</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#tma-wgmma-%E7%9A%84%E7%A1%AC%E4%BB%B6%E4%BC%98%E5%8A%BF"><span class="nav-number">7.</span> <span class="nav-text"> TMA + WGMMA 的硬件优势</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#tma-tensor-memory-accelerator"><span class="nav-number">7.1.</span> <span class="nav-text"> TMA (Tensor Memory Accelerator)</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#wgmma-warpgroup-mma"><span class="nav-number">7.2.</span> <span class="nav-text"> WGMMA (Warpgroup MMA)</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">8.</span> <span class="nav-text"> 总结</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#flashinfer-mxfp4-%E7%9A%84%E6%A0%B8%E5%BF%83%E4%BC%98%E5%8A%BF"><span class="nav-number">8.1.</span> <span class="nav-text"> FlashInfer MXFP4 的核心优势</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%80%82%E7%94%A8%E5%9C%BA%E6%99%AF"><span class="nav-number">8.2.</span> <span class="nav-text"> 适用场景</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%80%E5%8F%A5%E8%AF%9D"><span class="nav-number">8.3.</span> <span class="nav-text"> 一句话</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8F%82%E8%80%83%E8%B5%84%E6%96%99"><span class="nav-number">9.</span> <span class="nav-text"> 参考资料</span></a></li></ol></div>
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%83%8C%E6%99%AF"><span class="nav-number">1.</span> <span class="nav-text">背景</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#MXFP4-%E9%87%8F%E5%8C%96%E6%A0%BC%E5%BC%8F"><span class="nav-number">2.</span> <span class="nav-text">MXFP4 量化格式</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%A0%BC%E5%BC%8F%E5%AE%9A%E4%B9%89"><span class="nav-number">2.1.</span> <span class="nav-text">格式定义</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%8E-INT4-%E7%9A%84%E5%AF%B9%E6%AF%94"><span class="nav-number">2.2.</span> <span class="nav-text">与 INT4 的对比</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#FlashInfer-MXFP4-%E6%9E%B6%E6%9E%84"><span class="nav-number">3.</span> <span class="nav-text">FlashInfer MXFP4 架构</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%B0%83%E7%94%A8%E9%93%BE%EF%BC%88H20-SM90%EF%BC%89"><span class="nav-number">3.1.</span> <span class="nav-text">调用链（H20 &#x2F; SM90）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%A0%B8%E5%BF%83%E7%89%B9%E6%80%A7"><span class="nav-number">3.2.</span> <span class="nav-text">核心特性</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AE%8C%E6%95%B4-Pipeline%EF%BC%88DeepSeek-V4-%E4%B8%BA%E4%BE%8B%EF%BC%89"><span class="nav-number">4.</span> <span class="nav-text">完整 Pipeline（DeepSeek-V4 为例）</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%A8%A1%E5%9E%8B%E9%85%8D%E7%BD%AE"><span class="nav-number">4.1.</span> <span class="nav-text">模型配置</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%AC%AC%E4%B8%80%E9%98%B6%E6%AE%B5%EF%BC%9ARouting%EF%BC%88%E8%B7%AF%E7%94%B1%E9%80%89%E6%8B%A9%EF%BC%89"><span class="nav-number">4.2.</span> <span class="nav-text">第一阶段：Routing（路由选择）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%AC%AC%E4%BA%8C%E9%98%B6%E6%AE%B5%EF%BC%9AGather%EF%BC%88Token-%E9%87%8D%E6%8E%92%EF%BC%89"><span class="nav-number">4.3.</span> <span class="nav-text">第二阶段：Gather（Token 重排）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%AC%AC%E4%B8%89%E9%98%B6%E6%AE%B5%EF%BC%9ACompute%EF%BC%88Fused-GEMM%EF%BC%89"><span class="nav-number">4.4.</span> <span class="nav-text">第三阶段：Compute（Fused GEMM）</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#Step-3a-GEMM1-Gate-Up-Projection"><span class="nav-number">4.4.1.</span> <span class="nav-text">Step 3a: GEMM1 (Gate + Up Projection)</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Step-3b-SwiGLU-Activation"><span class="nav-number">4.4.2.</span> <span class="nav-text">Step 3b: SwiGLU Activation</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Step-3c-GEMM2-Down-Projection"><span class="nav-number">4.4.3.</span> <span class="nav-text">Step 3c: GEMM2 (Down Projection)</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#CUTLASS-Grouped-GEMM-%E8%B0%83%E5%BA%A6"><span class="nav-number">4.4.4.</span> <span class="nav-text">CUTLASS Grouped GEMM 调度</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%AC%AC%E5%9B%9B%E9%98%B6%E6%AE%B5%EF%BC%9AScatter%EF%BC%88%E7%BB%93%E6%9E%9C%E5%86%99%E5%9B%9E%EF%BC%89"><span class="nav-number">4.5.</span> <span class="nav-text">第四阶段：Scatter（结果写回）</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%A7%E8%83%BD%E5%AE%9E%E6%B5%8B%EF%BC%88H20-DeepSeek-V4-Flash-TP-4%EF%BC%89"><span class="nav-number">5.</span> <span class="nav-text">性能实测（H20, DeepSeek-V4-Flash, TP&#x3D;4）</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Benchmark-%E7%BB%93%E6%9E%9C"><span class="nav-number">5.1.</span> <span class="nav-text">Benchmark 结果</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%98%B6%E6%AE%B5%E8%80%97%E6%97%B6%E5%88%86%E8%A7%A3%EF%BC%88%E4%BC%B0%EF%BC%89"><span class="nav-number">5.2.</span> <span class="nav-text">阶段耗时分解（估）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88-conc-2-%E5%B7%AE%E8%B7%9D%E6%9C%80%E5%A4%A7%EF%BC%9F"><span class="nav-number">5.3.</span> <span class="nav-text">为什么 conc&#x3D;2 差距最大？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88-conc-4-%E5%B7%AE%E8%B7%9D%E6%B6%88%E5%A4%B1%EF%BC%9F"><span class="nav-number">5.4.</span> <span class="nav-text">为什么 conc&#x3D;4 差距消失？</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%8E-Marlin-MoE-%E7%9A%84%E6%9E%B6%E6%9E%84%E5%AF%B9%E6%AF%94"><span class="nav-number">6.</span> <span class="nav-text">与 Marlin MoE 的架构对比</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%A0%B8%E5%BF%83%E5%B7%AE%E5%BC%82"><span class="nav-number">6.1.</span> <span class="nav-text">核心差异</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Expert-First-vs-Token-First"><span class="nav-number">6.2.</span> <span class="nav-text">Expert-First vs Token-First</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#TMA-WGMMA-%E7%9A%84%E7%A1%AC%E4%BB%B6%E4%BC%98%E5%8A%BF"><span class="nav-number">7.</span> <span class="nav-text">TMA + WGMMA 的硬件优势</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#TMA-Tensor-Memory-Accelerator"><span class="nav-number">7.1.</span> <span class="nav-text">TMA (Tensor Memory Accelerator)</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#WGMMA-Warpgroup-MMA"><span class="nav-number">7.2.</span> <span class="nav-text">WGMMA (Warpgroup MMA)</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">8.</span> <span class="nav-text">总结</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#FlashInfer-MXFP4-%E7%9A%84%E6%A0%B8%E5%BF%83%E4%BC%98%E5%8A%BF"><span class="nav-number">8.1.</span> <span class="nav-text">FlashInfer MXFP4 的核心优势</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%80%82%E7%94%A8%E5%9C%BA%E6%99%AF"><span class="nav-number">8.2.</span> <span class="nav-text">适用场景</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%80%E5%8F%A5%E8%AF%9D"><span class="nav-number">8.3.</span> <span class="nav-text">一句话</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8F%82%E8%80%83%E8%B5%84%E6%96%99"><span class="nav-number">9.</span> <span class="nav-text">参考资料</span></a></li></ol></div>
         </div>
         <!--/noindex-->
 
@@ -253,16 +253,13 @@
     
     
     
-    <div class="post-body" itemprop="articleBody"><h2 id="背景"><a class="markdownIt-Anchor" href="#背景"></a> 背景</h2>
-<p>DeepSeek-V4 系列模型（V4 / V4-Pro）在 MoE（Mixture of Experts）层大量使用 <strong>MXFP4 量化权重</strong>，配合 <strong>FP8/BF16 激活</strong> 实现高效推理。在 SGLang / vLLM 中，<code>flashinfer_mxfp4</code> 是一个专为这种量化格式设计的 MoE Runner Backend。</p>
+    <div class="post-body" itemprop="articleBody"><h2 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h2><p>DeepSeek-V4 系列模型（V4 &#x2F; V4-Pro）在 MoE（Mixture of Experts）层大量使用 <strong>MXFP4 量化权重</strong>，配合 <strong>FP8&#x2F;BF16 激活</strong> 实现高效推理。在 SGLang &#x2F; vLLM 中，<code>flashinfer_mxfp4</code> 是一个专为这种量化格式设计的 MoE Runner Backend。</p>
 <p>本文将基于 <strong>H20 (SM90 Hopper)</strong> 实测数据和源码分析，完整解析 FlashInfer MXFP4 的实现原理，以及与 Marlin MoE 的架构差异。</p>
-<hr />
-<h2 id="mxfp4-量化格式"><a class="markdownIt-Anchor" href="#mxfp4-量化格式"></a> MXFP4 量化格式</h2>
-<h3 id="格式定义"><a class="markdownIt-Anchor" href="#格式定义"></a> 格式定义</h3>
-<p>MXFP4 是 OCP（Open Compute Project）标准的 4-bit 浮点格式：</p>
+<hr>
+<h2 id="MXFP4-量化格式"><a href="#MXFP4-量化格式" class="headerlink" title="MXFP4 量化格式"></a>MXFP4 量化格式</h2><h3 id="格式定义"><a href="#格式定义" class="headerlink" title="格式定义"></a>格式定义</h3><p>MXFP4 是 OCP（Open Compute Project）标准的 4-bit 浮点格式：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">每个权重元素: [1 sign | 2 exponent | 1 mantissa] → 4-bit 浮点数</span><br><span class="line">每 32 个元素: 共享一个 8-bit 指数缩放因子 (E8M0 block scale)</span><br></pre></td></tr></table></figure>
-<h3 id="与-int4-的对比"><a class="markdownIt-Anchor" href="#与-int4-的对比"></a> 与 INT4 的对比</h3>
-<table>
+
+<h3 id="与-INT4-的对比"><a href="#与-INT4-的对比" class="headerlink" title="与 INT4 的对比"></a>与 INT4 的对比</h3><table>
 <thead>
 <tr>
 <th>维度</th>
@@ -270,8 +267,7 @@
 <th>INT4 (Marlin)</th>
 </tr>
 </thead>
-<tbody>
-<tr>
+<tbody><tr>
 <td><strong>表示方式</strong></td>
 <td>浮点 (E2M1)</td>
 <td>定点整数</td>
@@ -291,71 +287,70 @@
 <td><code>value = fp4 × 2^(scale - 127)</code></td>
 <td><code>value = int4 × scale[channel]</code></td>
 </tr>
-</tbody>
-</table>
+</tbody></table>
 <p><strong>优势</strong>：浮点表示让 MXFP4 在训练和推理中都有更好的数值稳定性。</p>
-<hr />
-<h2 id="flashinfer-mxfp4-架构"><a class="markdownIt-Anchor" href="#flashinfer-mxfp4-架构"></a> FlashInfer MXFP4 架构</h2>
-<h3 id="调用链h20-sm90"><a class="markdownIt-Anchor" href="#调用链h20-sm90"></a> 调用链（H20 / SM90）</h3>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">SGLang --moe-runner-backend flashinfer_mxfp4</span><br><span class="line">    ↓</span><br><span class="line">Python: trtllm_fp4_block_scale_moe()</span><br><span class="line">    ↓</span><br><span class="line">C++: get_cutlass_fused_moe_module()  → 加载预编译 .so</span><br><span class="line">    ↓</span><br><span class="line">CUTLASS 3.x: cute::gemm::kernel::DefaultGemmUniversal</span><br><span class="line">    ↓</span><br><span class="line">    ├─ TMA (Tensor Memory Accelerator) → 异步搬权重 tile 到 SMEM</span><br><span class="line">    ├─ WGMMA (Warpgroup MMA) → SM90 用 FP16 TC 模拟 FP4</span><br><span class="line">    └─ Warp Specialization → Producer warpgroup 专搬数据，Consumer warpgroup 专计算</span><br></pre></td></tr></table></figure>
-<h3 id="核心特性"><a class="markdownIt-Anchor" href="#核心特性"></a> 核心特性</h3>
-<ol>
+<hr>
+<h2 id="FlashInfer-MXFP4-架构"><a href="#FlashInfer-MXFP4-架构" class="headerlink" title="FlashInfer MXFP4 架构"></a>FlashInfer MXFP4 架构</h2><h3 id="调用链（H20-SM90）"><a href="#调用链（H20-SM90）" class="headerlink" title="调用链（H20 &#x2F; SM90）"></a>调用链（H20 &#x2F; SM90）</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">SGLang --moe-runner-backend flashinfer_mxfp4</span><br><span class="line">    ↓</span><br><span class="line">Python: trtllm_fp4_block_scale_moe()</span><br><span class="line">    ↓</span><br><span class="line">C++: get_cutlass_fused_moe_module()  → 加载预编译 .so</span><br><span class="line">    ↓</span><br><span class="line">CUTLASS 3.x: cute::gemm::kernel::DefaultGemmUniversal</span><br><span class="line">    ↓</span><br><span class="line">    ├─ TMA (Tensor Memory Accelerator) → 异步搬权重 tile 到 SMEM</span><br><span class="line">    ├─ WGMMA (Warpgroup MMA) → SM90 用 FP16 TC 模拟 FP4</span><br><span class="line">    └─ Warp Specialization → Producer warpgroup 专搬数据，Consumer warpgroup 专计算</span><br></pre></td></tr></table></figure>
+
+<h3 id="核心特性"><a href="#核心特性" class="headerlink" title="核心特性"></a>核心特性</h3><ol>
 <li><strong>Expert-First 遍历</strong>：按 expert 分组 token，而非按 token 遍历 expert</li>
 <li><strong>全 Fuse</strong>：W1 + W3 + SwiGLU + W2 四个步骤 fuse 成一个 kernel</li>
 <li><strong>TMA + Warp Specialization</strong>：数据搬运和计算 overlap</li>
 <li><strong>Grouped GEMM</strong>：一次 launch 处理所有 256 个 expert</li>
 </ol>
-<hr />
-<h2 id="完整-pipelinedeepseek-v4-为例"><a class="markdownIt-Anchor" href="#完整-pipelinedeepseek-v4-为例"></a> 完整 Pipeline（DeepSeek-V4 为例）</h2>
-<h3 id="模型配置"><a class="markdownIt-Anchor" href="#模型配置"></a> 模型配置</h3>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">DeepSeek-V4-Flash:</span><br><span class="line">- 256 experts, topk=6</span><br><span class="line">- hidden_dim=4096, moe_intermediate=2048</span><br><span class="line">- 权重: MXFP4 (4-bit), 激活: BF16</span><br><span class="line">- Router: Sigmoid + Group TopK (非 Softmax)</span><br></pre></td></tr></table></figure>
-<h3 id="第一阶段routing路由选择"><a class="markdownIt-Anchor" href="#第一阶段routing路由选择"></a> 第一阶段：Routing（路由选择）</h3>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 文件: trtllm_fused_moe_routing_deepseek.cu</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 输入: router_logits [num_tokens, 256]</span></span><br><span class="line">scores = torch.sigmoid(router_logits + bias)  <span class="comment"># DeepSeek-V4 用 Sigmoid, 非 Softmax</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># Group TopK: 256 experts → 8 组 × 32</span></span><br><span class="line">group_scores = scores.view(num_tokens, <span class="number">8</span>, <span class="number">32</span>).<span class="built_in">max</span>(dim=-<span class="number">1</span>)  <span class="comment"># 每组最高分</span></span><br><span class="line">top_groups = group_scores.topk(<span class="number">4</span>).indices  <span class="comment"># 选 4 组 (128 experts)</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 从 128 个 expert 中选 top-6</span></span><br><span class="line">topk_indices = ...  <span class="comment"># [num_tokens, 6]</span></span><br><span class="line">topk_weights = ...  <span class="comment"># 归一化后的权重</span></span><br></pre></td></tr></table></figure>
+<hr>
+<h2 id="完整-Pipeline（DeepSeek-V4-为例）"><a href="#完整-Pipeline（DeepSeek-V4-为例）" class="headerlink" title="完整 Pipeline（DeepSeek-V4 为例）"></a>完整 Pipeline（DeepSeek-V4 为例）</h2><h3 id="模型配置"><a href="#模型配置" class="headerlink" title="模型配置"></a>模型配置</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">DeepSeek-V4-Flash:</span><br><span class="line">- 256 experts, topk=6</span><br><span class="line">- hidden_dim=4096, moe_intermediate=2048</span><br><span class="line">- 权重: MXFP4 (4-bit), 激活: BF16</span><br><span class="line">- Router: Sigmoid + Group TopK (非 Softmax)</span><br></pre></td></tr></table></figure>
+
+<h3 id="第一阶段：Routing（路由选择）"><a href="#第一阶段：Routing（路由选择）" class="headerlink" title="第一阶段：Routing（路由选择）"></a>第一阶段：Routing（路由选择）</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 文件: trtllm_fused_moe_routing_deepseek.cu</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 输入: router_logits [num_tokens, 256]</span></span><br><span class="line">scores = torch.sigmoid(router_logits + bias)  <span class="comment"># DeepSeek-V4 用 Sigmoid, 非 Softmax</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># Group TopK: 256 experts → 8 组 × 32</span></span><br><span class="line">group_scores = scores.view(num_tokens, <span class="number">8</span>, <span class="number">32</span>).<span class="built_in">max</span>(dim=-<span class="number">1</span>)  <span class="comment"># 每组最高分</span></span><br><span class="line">top_groups = group_scores.topk(<span class="number">4</span>).indices  <span class="comment"># 选 4 组 (128 experts)</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 从 128 个 expert 中选 top-6</span></span><br><span class="line">topk_indices = ...  <span class="comment"># [num_tokens, 6]</span></span><br><span class="line">topk_weights = ...  <span class="comment"># 归一化后的权重</span></span><br></pre></td></tr></table></figure>
+
 <p><strong>为什么用 Sigmoid？</strong></p>
 <ul>
 <li>独立评分（非 Softmax 的零和游戏）</li>
 <li>多 expert 可同时激活</li>
 <li>训练更稳定</li>
 </ul>
-<hr />
-<h3 id="第二阶段gathertoken-重排"><a class="markdownIt-Anchor" href="#第二阶段gathertoken-重排"></a> 第二阶段：Gather（Token 重排）</h3>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 文件: cutlass_fused_moe_kernels.cuh → expandInputRowsKernel</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 输入: hidden_states [num_tokens, 4096] (按 token 顺序)</span></span><br><span class="line"><span class="comment"># 输出: expanded_input [num_tokens × 6, 4096] (按 expert 连续排列)</span></span><br></pre></td></tr></table></figure>
+<hr>
+<h3 id="第二阶段：Gather（Token-重排）"><a href="#第二阶段：Gather（Token-重排）" class="headerlink" title="第二阶段：Gather（Token 重排）"></a>第二阶段：Gather（Token 重排）</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 文件: cutlass_fused_moe_kernels.cuh → expandInputRowsKernel</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 输入: hidden_states [num_tokens, 4096] (按 token 顺序)</span></span><br><span class="line"><span class="comment"># 输出: expanded_input [num_tokens × 6, 4096] (按 expert 连续排列)</span></span><br></pre></td></tr></table></figure>
+
 <p><strong>目的</strong>：把路由到同一个 expert 的 token 收集到一起，形成连续内存，供后续 GEMM 使用。</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">原始 (token 顺序):</span><br><span class="line">[t0 | t1 | t2 | t3]</span><br><span class="line"></span><br><span class="line">路由结果:</span><br><span class="line">expert_3: [t0, t1, t3]</span><br><span class="line">expert_7: [t0, t2]</span><br><span class="line"></span><br><span class="line">Gather 后 (expert 顺序):</span><br><span class="line">[e3: t0, t1, t3 | e7: t0, t2 | ...]</span><br><span class="line"> ↑ 连续          ↑ 连续</span><br></pre></td></tr></table></figure>
+
 <p><strong>TMA 优势</strong>：连续输入让 TMA 一次加载整个 tile，达到满带宽。</p>
-<hr />
-<h3 id="第三阶段computefused-gemm"><a class="markdownIt-Anchor" href="#第三阶段computefused-gemm"></a> 第三阶段：Compute（Fused GEMM）</h3>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 文件: cutlass_fused_moe_kernels.cuh → CUTLASS Grouped GEMM</span></span><br></pre></td></tr></table></figure>
+<hr>
+<h3 id="第三阶段：Compute（Fused-GEMM）"><a href="#第三阶段：Compute（Fused-GEMM）" class="headerlink" title="第三阶段：Compute（Fused GEMM）"></a>第三阶段：Compute（Fused GEMM）</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 文件: cutlass_fused_moe_kernels.cuh → CUTLASS Grouped GEMM</span></span><br></pre></td></tr></table></figure>
+
 <p>这是最核心的部分，<strong>W1 + W3 + SwiGLU + W2 全部 fuse</strong>。</p>
-<h4 id="step-3a-gemm1-gate-up-projection"><a class="markdownIt-Anchor" href="#step-3a-gemm1-gate-up-projection"></a> Step 3a: GEMM1 (Gate + Up Projection)</h4>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">对每个 expert_i:</span><br><span class="line">  M = expert_i 分到的 token 数 (例如 3)</span><br><span class="line">  input_i = expanded_input[offset : offset+M]  # [M, 4096]</span><br><span class="line">  </span><br><span class="line">  # W13 = [W1; W3] 拼接，一次 GEMM 算出</span><br><span class="line">  gate_up = input_i @ W13_expert_i  # [M, 4096] → split → [M, 2048] + [M, 2048]</span><br></pre></td></tr></table></figure>
+<h4 id="Step-3a-GEMM1-Gate-Up-Projection"><a href="#Step-3a-GEMM1-Gate-Up-Projection" class="headerlink" title="Step 3a: GEMM1 (Gate + Up Projection)"></a>Step 3a: GEMM1 (Gate + Up Projection)</h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">对每个 expert_i:</span><br><span class="line">  M = expert_i 分到的 token 数 (例如 3)</span><br><span class="line">  input_i = expanded_input[offset : offset+M]  # [M, 4096]</span><br><span class="line">  </span><br><span class="line">  # W13 = [W1; W3] 拼接，一次 GEMM 算出</span><br><span class="line">  gate_up = input_i @ W13_expert_i  # [M, 4096] → split → [M, 2048] + [M, 2048]</span><br></pre></td></tr></table></figure>
+
 <p><strong>MXFP4 权重存储</strong>：</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// W1_expert_i: stored as [2048, 2048] int8</span></span><br><span class="line"><span class="comment">// 实际逻辑形状: [2048, 4096] FP4 (每 byte 存 2 个 FP4 元素)</span></span><br><span class="line"><span class="comment">// Scale: [2048, 64] float8_e8m0 (每 32 个元素一个 scale)</span></span><br></pre></td></tr></table></figure>
-<h4 id="step-3b-swiglu-activation"><a class="markdownIt-Anchor" href="#step-3b-swiglu-activation"></a> Step 3b: SwiGLU Activation</h4>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 在 GEMM1 输出还在 SMEM/寄存器时立即执行（fuse 关键）</span></span><br><span class="line">intermediate = SiLU(gate) * up  <span class="comment"># [M, 2048]</span></span><br><span class="line"><span class="comment"># DeepSeek-V4 还有 swiglu_limit=10.0 的 clamp</span></span><br></pre></td></tr></table></figure>
-<h4 id="step-3c-gemm2-down-projection"><a class="markdownIt-Anchor" href="#step-3c-gemm2-down-projection"></a> Step 3c: GEMM2 (Down Projection)</h4>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">output_i = intermediate @ W2_expert_i  # [M, 4096]</span><br><span class="line"># W2_expert_i: stored as [4096, 1024] int8 → 逻辑 [4096, 2048] FP4</span><br></pre></td></tr></table></figure>
-<h4 id="cutlass-grouped-gemm-调度"><a class="markdownIt-Anchor" href="#cutlass-grouped-gemm-调度"></a> CUTLASS Grouped GEMM 调度</h4>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 一次 kernel launch 处理所有 256 个 expert</span></span><br><span class="line">cutlass::gemm::kernel::GroupedGemmKernel&lt;...&gt;::run();</span><br><span class="line"></span><br><span class="line"><span class="comment">// 内部调度:</span></span><br><span class="line"><span class="comment">// SM 空闲 → 从 problem list 取下一个 expert</span></span><br><span class="line"><span class="comment">// expert_i 的 M=0 (没 token) → 跳过</span></span><br><span class="line"><span class="comment">// expert_j 的 M=12 → 分配 SM 算 GEMM</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// TMA + Warp Specialization:</span></span><br><span class="line"><span class="comment">// Warpgroup 0 (Producer): TMA_LOAD(weight_tile, desc)</span></span><br><span class="line"><span class="comment">// Warpgroup 1 (Consumer): WGMMA(tile_C, tile_A, tile_B)</span></span><br><span class="line"><span class="comment">// Producer 搬下一个 expert 的权重时，Consumer 正在算当前 expert</span></span><br></pre></td></tr></table></figure>
+
+<h4 id="Step-3b-SwiGLU-Activation"><a href="#Step-3b-SwiGLU-Activation" class="headerlink" title="Step 3b: SwiGLU Activation"></a>Step 3b: SwiGLU Activation</h4><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 在 GEMM1 输出还在 SMEM/寄存器时立即执行（fuse 关键）</span></span><br><span class="line">intermediate = SiLU(gate) * up  <span class="comment"># [M, 2048]</span></span><br><span class="line"><span class="comment"># DeepSeek-V4 还有 swiglu_limit=10.0 的 clamp</span></span><br></pre></td></tr></table></figure>
+
+<h4 id="Step-3c-GEMM2-Down-Projection"><a href="#Step-3c-GEMM2-Down-Projection" class="headerlink" title="Step 3c: GEMM2 (Down Projection)"></a>Step 3c: GEMM2 (Down Projection)</h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">output_i = intermediate @ W2_expert_i  # [M, 4096]</span><br><span class="line"># W2_expert_i: stored as [4096, 1024] int8 → 逻辑 [4096, 2048] FP4</span><br></pre></td></tr></table></figure>
+
+<h4 id="CUTLASS-Grouped-GEMM-调度"><a href="#CUTLASS-Grouped-GEMM-调度" class="headerlink" title="CUTLASS Grouped GEMM 调度"></a>CUTLASS Grouped GEMM 调度</h4><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 一次 kernel launch 处理所有 256 个 expert</span></span><br><span class="line">cutlass::gemm::kernel::GroupedGemmKernel&lt;...&gt;::run();</span><br><span class="line"></span><br><span class="line"><span class="comment">// 内部调度:</span></span><br><span class="line"><span class="comment">// SM 空闲 → 从 problem list 取下一个 expert</span></span><br><span class="line"><span class="comment">// expert_i 的 M=0 (没 token) → 跳过</span></span><br><span class="line"><span class="comment">// expert_j 的 M=12 → 分配 SM 算 GEMM</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// TMA + Warp Specialization:</span></span><br><span class="line"><span class="comment">// Warpgroup 0 (Producer): TMA_LOAD(weight_tile, desc)</span></span><br><span class="line"><span class="comment">// Warpgroup 1 (Consumer): WGMMA(tile_C, tile_A, tile_B)</span></span><br><span class="line"><span class="comment">// Producer 搬下一个 expert 的权重时，Consumer 正在算当前 expert</span></span><br></pre></td></tr></table></figure>
+
 <p><strong>Pipeline 示意（H20）</strong>：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">Cycle 0-100:  Producer 搬 expert_3 权重，Consumer 算 expert_1 (上一轮)</span><br><span class="line">Cycle 100-200: Consumer 算 expert_3 (权重已到)，Producer 搬 expert_7</span><br><span class="line">Cycle 200+:    Consumer 算 expert_7，Producer 搬 expert_5</span><br><span class="line">→ 数据搬运和计算完全 overlap！</span><br></pre></td></tr></table></figure>
-<hr />
-<h3 id="第四阶段scatter结果写回"><a class="markdownIt-Anchor" href="#第四阶段scatter结果写回"></a> 第四阶段：Scatter（结果写回）</h3>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 文件: cutlass_fused_moe_kernels.cuh → finalizeMoeRoutingKernel</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 输入: expert_outputs [num_tokens × 6, 4096] (按 expert 排列)</span></span><br><span class="line"><span class="comment"># 输出: final_output [num_tokens, 4096] (恢复 token 原始顺序)</span></span><br></pre></td></tr></table></figure>
+
+<hr>
+<h3 id="第四阶段：Scatter（结果写回）"><a href="#第四阶段：Scatter（结果写回）" class="headerlink" title="第四阶段：Scatter（结果写回）"></a>第四阶段：Scatter（结果写回）</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 文件: cutlass_fused_moe_kernels.cuh → finalizeMoeRoutingKernel</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 输入: expert_outputs [num_tokens × 6, 4096] (按 expert 排列)</span></span><br><span class="line"><span class="comment"># 输出: final_output [num_tokens, 4096] (恢复 token 原始顺序)</span></span><br></pre></td></tr></table></figure>
+
 <p><strong>加权求和</strong>：</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">for</span> token_j:</span><br><span class="line">    output[j] = Σ (weight_k × expert_output[permute_map[j][k]])</span><br><span class="line">                k=<span class="number">1.</span><span class="number">.6</span></span><br></pre></td></tr></table></figure>
+
 <p><strong>示例</strong>：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">token_0 → expert_3 (0.6), expert_7 (0.4)</span><br><span class="line">output[0] = 0.6 × out_0_e3 + 0.4 × out_0_e7</span><br></pre></td></tr></table></figure>
+
 <p><strong>为什么叫 Scatter？</strong></p>
 <ul>
 <li>expert_3 的输出: [out_0_e3, out_1_e3, out_3_e3]</li>
 <li>需要写回: output[0], output[1], output[3]（不连续！）</li>
 <li>这就是 scatter（分散写入），与 gather（聚集读取）相对</li>
 </ul>
-<hr />
-<h2 id="性能实测h20-deepseek-v4-flash-tp4"><a class="markdownIt-Anchor" href="#性能实测h20-deepseek-v4-flash-tp4"></a> 性能实测（H20, DeepSeek-V4-Flash, TP=4）</h2>
-<h3 id="benchmark-结果"><a class="markdownIt-Anchor" href="#benchmark-结果"></a> Benchmark 结果</h3>
-<table>
+<hr>
+<h2 id="性能实测（H20-DeepSeek-V4-Flash-TP-4）"><a href="#性能实测（H20-DeepSeek-V4-Flash-TP-4）" class="headerlink" title="性能实测（H20, DeepSeek-V4-Flash, TP&#x3D;4）"></a>性能实测（H20, DeepSeek-V4-Flash, TP&#x3D;4）</h2><h3 id="Benchmark-结果"><a href="#Benchmark-结果" class="headerlink" title="Benchmark 结果"></a>Benchmark 结果</h3><table>
 <thead>
 <tr>
 <th>Concurrency</th>
@@ -364,29 +359,26 @@
 <th>差距</th>
 </tr>
 </thead>
-<tbody>
-<tr>
-<td><strong>conc=1</strong></td>
-<td>20.2 tok/s/GPU</td>
-<td>20.5 tok/s/GPU</td>
+<tbody><tr>
+<td><strong>conc&#x3D;1</strong></td>
+<td>20.2 tok&#x2F;s&#x2F;GPU</td>
+<td>20.5 tok&#x2F;s&#x2F;GPU</td>
 <td>≈持平</td>
 </tr>
 <tr>
-<td><strong>conc=2</strong></td>
-<td>42.1 tok/s/GPU</td>
-<td>28.1 tok/s/GPU</td>
+<td><strong>conc&#x3D;2</strong></td>
+<td>42.1 tok&#x2F;s&#x2F;GPU</td>
+<td>28.1 tok&#x2F;s&#x2F;GPU</td>
 <td><strong>+50%</strong></td>
 </tr>
 <tr>
-<td><strong>conc=4</strong></td>
-<td>32.5 tok/s/GPU</td>
-<td>31.8 tok/s/GPU</td>
+<td><strong>conc&#x3D;4</strong></td>
+<td>32.5 tok&#x2F;s&#x2F;GPU</td>
+<td>31.8 tok&#x2F;s&#x2F;GPU</td>
 <td>≈持平</td>
 </tr>
-</tbody>
-</table>
-<h3 id="阶段耗时分解估"><a class="markdownIt-Anchor" href="#阶段耗时分解估"></a> 阶段耗时分解（估）</h3>
-<table>
+</tbody></table>
+<h3 id="阶段耗时分解（估）"><a href="#阶段耗时分解（估）" class="headerlink" title="阶段耗时分解（估）"></a>阶段耗时分解（估）</h3><table>
 <thead>
 <tr>
 <th>阶段</th>
@@ -394,8 +386,7 @@
 <th>说明</th>
 </tr>
 </thead>
-<tbody>
-<tr>
+<tbody><tr>
 <td>Routing</td>
 <td>~2%</td>
 <td>纯 element-wise，快</td>
@@ -425,11 +416,9 @@
 <td>~4%</td>
 <td>加权求和 + 写回</td>
 </tr>
-</tbody>
-</table>
+</tbody></table>
 <p><strong>GEMM 占 90%</strong>，所以 TMA + Grouped GEMM 对总体性能影响最大。</p>
-<h3 id="为什么-conc2-差距最大"><a class="markdownIt-Anchor" href="#为什么-conc2-差距最大"></a> 为什么 conc=2 差距最大？</h3>
-<ol>
+<h3 id="为什么-conc-2-差距最大？"><a href="#为什么-conc-2-差距最大？" class="headerlink" title="为什么 conc&#x3D;2 差距最大？"></a>为什么 conc&#x3D;2 差距最大？</h3><ol>
 <li><strong>Expert-First + Grouped GEMM</strong>：一次 launch 处理所有 expert，TMA 预取下一个 tile</li>
 <li><strong>中等 batch</strong>：每个 expert 分到 2-3 个 token → GEMM tile 够大，WGMMA 饱和</li>
 <li><strong>Warp Specialization</strong>：Producer 搬数据，Consumer 计算，完美 overlap</li>
@@ -440,13 +429,11 @@
 <li>无 TMA：用 <code>cp.async</code> 加载，线程要参与地址计算 → SM 利用率 &lt; 50%</li>
 <li>无法全 fuse：中间结果 (gate, up, mid) 要写回 GMEM</li>
 </ul>
-<h3 id="为什么-conc4-差距消失"><a class="markdownIt-Anchor" href="#为什么-conc4-差距消失"></a> 为什么 conc=4 差距消失？</h3>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">conc=4: prefill=50k tokens</span><br><span class="line">→ Prefill 时间: ~1500ms (占 85%+)</span><br><span class="line">→ Decode MoE 时间: ~265ms (占 15%-)</span><br><span class="line"></span><br><span class="line">即使 MoE 快 50%，总体提升也只有: 265ms × 50% / 1765ms ≈ 7.5%</span><br></pre></td></tr></table></figure>
+<h3 id="为什么-conc-4-差距消失？"><a href="#为什么-conc-4-差距消失？" class="headerlink" title="为什么 conc&#x3D;4 差距消失？"></a>为什么 conc&#x3D;4 差距消失？</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">conc=4: prefill=50k tokens</span><br><span class="line">→ Prefill 时间: ~1500ms (占 85%+)</span><br><span class="line">→ Decode MoE 时间: ~265ms (占 15%-)</span><br><span class="line"></span><br><span class="line">即使 MoE 快 50%，总体提升也只有: 265ms × 50% / 1765ms ≈ 7.5%</span><br></pre></td></tr></table></figure>
+
 <p>Prefill 主导后，MoE decode 的优化被稀释。</p>
-<hr />
-<h2 id="与-marlin-moe-的架构对比"><a class="markdownIt-Anchor" href="#与-marlin-moe-的架构对比"></a> 与 Marlin MoE 的架构对比</h2>
-<h3 id="核心差异"><a class="markdownIt-Anchor" href="#核心差异"></a> 核心差异</h3>
-<table>
+<hr>
+<h2 id="与-Marlin-MoE-的架构对比"><a href="#与-Marlin-MoE-的架构对比" class="headerlink" title="与 Marlin MoE 的架构对比"></a>与 Marlin MoE 的架构对比</h2><h3 id="核心差异"><a href="#核心差异" class="headerlink" title="核心差异"></a>核心差异</h3><table>
 <thead>
 <tr>
 <th>维度</th>
@@ -454,11 +441,10 @@
 <th>Marlin (SGLang)</th>
 </tr>
 </thead>
-<tbody>
-<tr>
+<tbody><tr>
 <td><strong>量化格式</strong></td>
 <td>MXFP4 (浮点4位)</td>
-<td>INT4 / MXFP4</td>
+<td>INT4 &#x2F; MXFP4</td>
 </tr>
 <tr>
 <td><strong>遍历顺序</strong></td>
@@ -473,11 +459,11 @@
 <tr>
 <td><strong>数据加载</strong></td>
 <td>TMA (硬件 DMA)</td>
-<td>cp.async / LDG (线程参与)</td>
+<td>cp.async &#x2F; LDG (线程参与)</td>
 </tr>
 <tr>
 <td><strong>调度方式</strong></td>
-<td>Warp Specialization (Producer/Consumer)</td>
+<td>Warp Specialization (Producer&#x2F;Consumer)</td>
 <td>单 warp 既搬又算</td>
 </tr>
 <tr>
@@ -495,23 +481,21 @@
 <td>Grouped GEMM 一次 launch</td>
 <td>逐 expert 串行或小并行</td>
 </tr>
-</tbody>
-</table>
-<h3 id="expert-first-vs-token-first"><a class="markdownIt-Anchor" href="#expert-first-vs-token-first"></a> Expert-First vs Token-First</h3>
-<p><strong>Token-First (Marlin)</strong>：</p>
+</tbody></table>
+<h3 id="Expert-First-vs-Token-First"><a href="#Expert-First-vs-Token-First" class="headerlink" title="Expert-First vs Token-First"></a>Expert-First vs Token-First</h3><p><strong>Token-First (Marlin)</strong>：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">for token_0:</span><br><span class="line">    expert_3: W1 → W3 → SwiGLU → W2  ← 写回 GMEM</span><br><span class="line">    expert_7: W1 → W3 → SwiGLU → W2  ← 换权重</span><br><span class="line">for token_1:</span><br><span class="line">    ...  # 重复上述，权重反复换入换出</span><br></pre></td></tr></table></figure>
+
 <p><strong>Expert-First (FlashInfer)</strong>：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">for expert_3:</span><br><span class="line">    # 固定权重 W1/W3/W2，常驻 SMEM</span><br><span class="line">    gate_up = input_e3 @ W13_e3  # 连续 token 一起算</span><br><span class="line">    mid = SiLU(gate) * up        # 在寄存器/SMEM 直接算</span><br><span class="line">    output = mid @ W2_e3         # 中间结果不落地</span><br><span class="line">for expert_7:</span><br><span class="line">    ...  # 换一次权重，算所有路由到它的 token</span><br></pre></td></tr></table></figure>
+
 <p><strong>为什么 Expert-First 能全 fuse？</strong></p>
 <ul>
-<li>固定权重 → W1/W3/W2 常驻 SMEM，不换出</li>
+<li>固定权重 → W1&#x2F;W3&#x2F;W2 常驻 SMEM，不换出</li>
 <li>变 batch → 同一 expert 的多个 token 连续处理</li>
-<li>中间结果 (gate, up, mid) 全在寄存器/SMEM，不写 GMEM</li>
+<li>中间结果 (gate, up, mid) 全在寄存器&#x2F;SMEM，不写 GMEM</li>
 </ul>
-<hr />
-<h2 id="tma-wgmma-的硬件优势"><a class="markdownIt-Anchor" href="#tma-wgmma-的硬件优势"></a> TMA + WGMMA 的硬件优势</h2>
-<h3 id="tma-tensor-memory-accelerator"><a class="markdownIt-Anchor" href="#tma-tensor-memory-accelerator"></a> TMA (Tensor Memory Accelerator)</h3>
-<p><strong>SM90 (Hopper) 引入的硬件 DMA 引擎</strong>：</p>
+<hr>
+<h2 id="TMA-WGMMA-的硬件优势"><a href="#TMA-WGMMA-的硬件优势" class="headerlink" title="TMA + WGMMA 的硬件优势"></a>TMA + WGMMA 的硬件优势</h2><h3 id="TMA-Tensor-Memory-Accelerator"><a href="#TMA-Tensor-Memory-Accelerator" class="headerlink" title="TMA (Tensor Memory Accelerator)"></a>TMA (Tensor Memory Accelerator)</h3><p><strong>SM90 (Hopper) 引入的硬件 DMA 引擎</strong>：</p>
 <ul>
 <li>异步搬数据从 HBM 到 SMEM，不占用 CUDA core</li>
 <li>一条 <code>tcgen05.1d</code> 指令触发，后台独立运行</li>
@@ -519,40 +503,37 @@
 </ul>
 <p><strong>vs 传统 LDG</strong>：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">LDG (传统):</span><br><span class="line">  线程发 load → 等 HBM (~400 cycles) → 数据到 SMEM → 继续算</span><br><span class="line">  → 线程 stall，SM 有空闲</span><br><span class="line"></span><br><span class="line">TMA:</span><br><span class="line">  线程发 TMA_LOAD → 立即返回 → 可以去 setup 下一个 tile</span><br><span class="line">  → TMA 后台搬，线程继续算上一轮结果</span><br><span class="line">  → SM 利用率 80%+</span><br></pre></td></tr></table></figure>
-<h3 id="wgmma-warpgroup-mma"><a class="markdownIt-Anchor" href="#wgmma-warpgroup-mma"></a> WGMMA (Warpgroup MMA)</h3>
-<p><strong>SM90 引入的 warpgroup 级矩阵乘指令</strong>：</p>
+
+<h3 id="WGMMA-Warpgroup-MMA"><a href="#WGMMA-Warpgroup-MMA" class="headerlink" title="WGMMA (Warpgroup MMA)"></a>WGMMA (Warpgroup MMA)</h3><p><strong>SM90 引入的 warpgroup 级矩阵乘指令</strong>：</p>
 <ul>
-<li>一个 warpgroup = 4 个 warp = 128 线程</li>
+<li>一个 warpgroup &#x3D; 4 个 warp &#x3D; 128 线程</li>
 <li>直接读写 <strong>TMEM</strong>（Tensor Memory，SM90 新增寄存器文件）</li>
 <li>比传统 <code>mma.sync</code> 高一个抽象层级</li>
 </ul>
 <p><strong>SM100 (Blackwell) 的进化</strong>：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">SM90: TMA → SMEM → WGMMA → TMEM</span><br><span class="line">SM100: TMA_GATHER4 → TMEM (跳过 SMEM) → UTCMMA (原生 FP4 TC)</span><br></pre></td></tr></table></figure>
+
 <p>Blackwell 的 <strong>TMA_GATHER4</strong> 还能一次加载 4 个不连续 token（专为 MoE 的 sparse routing 优化）。</p>
-<hr />
-<h2 id="总结"><a class="markdownIt-Anchor" href="#总结"></a> 总结</h2>
-<h3 id="flashinfer-mxfp4-的核心优势"><a class="markdownIt-Anchor" href="#flashinfer-mxfp4-的核心优势"></a> FlashInfer MXFP4 的核心优势</h3>
-<ol>
+<hr>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><h3 id="FlashInfer-MXFP4-的核心优势"><a href="#FlashInfer-MXFP4-的核心优势" class="headerlink" title="FlashInfer MXFP4 的核心优势"></a>FlashInfer MXFP4 的核心优势</h3><ol>
 <li><strong>Expert-First + 全 Fuse</strong>：中间结果不落地 GMEM，省 ~2× hidden_dim × batch 带宽</li>
 <li><strong>TMA + Warp Specialization</strong>：搬运和计算 overlap，SM 利用率最大化</li>
 <li><strong>Grouped GEMM</strong>：一次 launch 处理 256 experts，launch overhead 最小化</li>
 <li><strong>Blackwell 未来兼容</strong>：cute_dsl_fused_moe_nvfp4 已支持 SM100 原生 FP4 TC</li>
 </ol>
-<h3 id="适用场景"><a class="markdownIt-Anchor" href="#适用场景"></a> 适用场景</h3>
-<table>
+<h3 id="适用场景"><a href="#适用场景" class="headerlink" title="适用场景"></a>适用场景</h3><table>
 <thead>
 <tr>
 <th>场景</th>
 <th>推荐后端</th>
 </tr>
 </thead>
-<tbody>
-<tr>
-<td><strong>H20/H100, conc=2~8</strong></td>
+<tbody><tr>
+<td><strong>H20&#x2F;H100, conc&#x3D;2~8</strong></td>
 <td>✅ FlashInfer MXFP4</td>
 </tr>
 <tr>
-<td><strong>A100, 或 conc=1 调试</strong></td>
+<td><strong>A100, 或 conc&#x3D;1 调试</strong></td>
 <td>Marlin</td>
 </tr>
 <tr>
@@ -563,22 +544,19 @@
 <td><strong>追求最大吞吐</strong></td>
 <td>FlashInfer MXFP4</td>
 </tr>
-</tbody>
-</table>
-<h3 id="一句话"><a class="markdownIt-Anchor" href="#一句话"></a> 一句话</h3>
-<blockquote>
+</tbody></table>
+<h3 id="一句话"><a href="#一句话" class="headerlink" title="一句话"></a>一句话</h3><blockquote>
 <p>FlashInfer MXFP4 在 Hopper 上通过 <strong>Expert-First + TMA + Warp Specialization + 全 Fuse</strong>，把 MoE 推理的瓶颈从内存带宽转移到了计算，实现了中等并发下 <strong>50% 的吞吐提升</strong>。</p>
 </blockquote>
-<hr />
-<h2 id="参考资料"><a class="markdownIt-Anchor" href="#参考资料"></a> 参考资料</h2>
-<ul>
+<hr>
+<h2 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a>参考资料</h2><ul>
 <li><a target="_blank" rel="noopener" href="https://github.com/flashinfer-ai/flashinfer">FlashInfer GitHub</a></li>
 <li><a target="_blank" rel="noopener" href="https://github.com/NVIDIA/cutlass">CUTLASS 3.x Documentation</a></li>
-<li><a target="_blank" rel="noopener" href="https://developers.redhat.com">Introducing Machete - Red Hat Developer</a></li>
+<li><a target="_blank" rel="noopener" href="https://developers.redhat.com/">Introducing Machete - Red Hat Developer</a></li>
 <li>DeepSeek-V4 源码分析（本文基于 DeepSeek-V4-Flash 实测）</li>
 <li>NVIDIA Hopper Architecture White Paper</li>
 </ul>
-<hr />
+<hr>
 <p><em>如果你对 MoE 推理优化感兴趣，可以看看我之前写的 <a href="/2026/05/18/Marlin-MoE-Kernel-%E6%B7%B1%E5%BA%A6%E5%88%86%E6%9E%90/">Marlin MoE Kernel 深度分析</a>，对比两种实现的差异。</em></p>
 
     </div>

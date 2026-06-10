@@ -21,12 +21,12 @@
 
 <script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
 
-    <meta name="description" content="词法分析一般是编译器的第一部分,而且词法分析很简单,就是一个有限状态机. 开始词法分析的过程就是把源文件转换成一组预先定义好的token的过程. 这一组被统一表现的token之后会被送入语法分析器进行语法解析,这里我们主要关注如何进行词法分析. 做词法分析就几种方法:  直接使用工具比如lex. 使用更低一层的正则表达式. 使用状态动作,构造一个状态机.  而真正实现一个语言的话,使用工具没有什么">
+    <meta name="description" content="词法分析一般是编译器的第一部分,而且词法分析很简单,就是一个有限状态机.开始词法分析的过程就是把源文件转换成一组预先定义好的token的过程.这一组被统一表现的token之后会被送入语法分析器进行语法解析,这里我们主要关注如何进行词法分析. 做词法分析就几种方法:  直接使用工具比如lex. 使用更低一层的正则表达式. 使用状态动作,构造一个状态机.  而真正实现一个语言的话,使用工具没有什么错,">
 <meta property="og:type" content="article">
 <meta property="og:title" content="go-lexer-词法分析">
 <meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2016/04/01/go-lexer-%E8%AF%8D%E6%B3%95%E5%88%86%E6%9E%90/index.html">
 <meta property="og:site_name" content="ggaaooppeenngg">
-<meta property="og:description" content="词法分析一般是编译器的第一部分,而且词法分析很简单,就是一个有限状态机. 开始词法分析的过程就是把源文件转换成一组预先定义好的token的过程. 这一组被统一表现的token之后会被送入语法分析器进行语法解析,这里我们主要关注如何进行词法分析. 做词法分析就几种方法:  直接使用工具比如lex. 使用更低一层的正则表达式. 使用状态动作,构造一个状态机.  而真正实现一个语言的话,使用工具没有什么">
+<meta property="og:description" content="词法分析一般是编译器的第一部分,而且词法分析很简单,就是一个有限状态机.开始词法分析的过程就是把源文件转换成一组预先定义好的token的过程.这一组被统一表现的token之后会被送入语法分析器进行语法解析,这里我们主要关注如何进行词法分析. 做词法分析就几种方法:  直接使用工具比如lex. 使用更低一层的正则表达式. 使用状态动作,构造一个状态机.  而真正实现一个语言的话,使用工具没有什么错,">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2016-04-01T06:40:36.000Z">
 <meta property="article:modified_time" content="2025-03-14T05:50:06.514Z">
@@ -248,37 +248,31 @@
     
     
     
-    <div class="post-body" itemprop="articleBody"><p>词法分析一般是编译器的第一部分,而且词法分析很简单,就是一个有限状态机.<br />
-开始词法分析的过程就是把源文件转换成一组预先定义好的token的过程.<br />
-这一组被统一表现的token之后会被送入语法分析器进行语法解析,这里我们主要关注如何进行词法分析.</p>
+    <div class="post-body" itemprop="articleBody"><p>词法分析一般是编译器的第一部分,而且词法分析很简单,就是一个有限状态机.<br>开始词法分析的过程就是把源文件转换成一组预先定义好的token的过程.<br>这一组被统一表现的token之后会被送入语法分析器进行语法解析,这里我们主要关注如何进行词法分析.</p>
 <p>做词法分析就几种方法:</p>
 <ol>
 <li>直接使用工具比如lex.</li>
 <li>使用更低一层的正则表达式.</li>
 <li>使用状态动作,构造一个状态机.</li>
 </ol>
-<p>而真正实现一个语言的话,使用工具没有什么错,但是问题是,很难获得正确的错误提示.<br />
-工具生成的错误处理很弱.而且需要学习另一门规则或特定的语法.生成的代码可能性能不好,难以优化,但是用工具可以非常简单实现词法分析.<br />
-早期编译器的设计阶段都会使用lex来做词法分析器,比如gcc和Go都是这么做的,但是到了后期一个真正生产化的语言可能不能依赖生成的代码,而需要做自己特定的修改和优化,所以自己实现一个词法分析器就显得比较重要了.</p>
+<p>而真正实现一个语言的话,使用工具没有什么错,但是问题是,很难获得正确的错误提示.<br>工具生成的错误处理很弱.而且需要学习另一门规则或特定的语法.生成的代码可能性能不好,难以优化,但是用工具可以非常简单实现词法分析.<br>早期编译器的设计阶段都会使用lex来做词法分析器,比如gcc和Go都是这么做的,但是到了后期一个真正生产化的语言可能不能依赖生成的代码,而需要做自己特定的修改和优化,所以自己实现一个词法分析器就显得比较重要了.</p>
 <p>正则表达被人诟病的一个话题就是效率问题,比如perl拥有功能最强大的正则表达式,但是整个正则表达式引擎的效率却很低,Go在这方面牺牲了一些正则表达式的特性来保证正则表达式的效率不至于过低,但是正则表达式对于大量文本处理体现的弱势却是很明显的.因为可能我们要处理的状态其实不需要一个繁重的正则表达来解决.</p>
 <p>其实实现一个词法分析器很简单,而且这种技能是基本不会变的,如果写过一次,以后都是同样的实现方式.</p>
 <p>先看一下Go的实现,在Go的源码下面<code>go/token/token.go</code>目录里面是这么定义token的.</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">// Token is the set of lexical tokens of the Go programming language.</span><br><span class="line">type Token int</span><br></pre></td></tr></table></figure>
-<p>其实就是个枚举类型,对于每种类型的字面值都有对应的token.<br />
-实际上这个只能算是一个token的类型.</p>
+<p>其实就是个枚举类型,对于每种类型的字面值都有对应的token.<br>实际上这个只能算是一个token的类型.</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">// The list of tokens.</span><br><span class="line">const (</span><br><span class="line">        // Special tokens</span><br><span class="line">        ILLEGAL Token = iota</span><br><span class="line">        EOF</span><br><span class="line">        COMMENT</span><br><span class="line"></span><br><span class="line">        literal_beg</span><br><span class="line">        // Identifiers and basic type literals</span><br><span class="line">        // (these tokens stand for classes of literals)</span><br><span class="line">        IDENT  // main</span><br><span class="line">        INT    // 12345</span><br><span class="line">        FLOAT  // 123.45</span><br><span class="line">        IMAG   // 123.45i</span><br><span class="line">        CHAR   // &#x27;a&#x27;</span><br><span class="line">        STRING // &quot;abc&quot;</span><br><span class="line">	// 省略</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
 <p>枚举所有可以碰到的token类型.</p>
 <p><code>go/token/position.go</code> 当中是关于token位置相关的定义.</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">// -----------------------------------------------------------------------------</span><br><span class="line">// Positions</span><br><span class="line"></span><br><span class="line">// Position describes an arbitrary source position</span><br><span class="line">// including the file, line, and column location.</span><br><span class="line">// A Position is valid if the line number is &gt; 0.</span><br><span class="line">//</span><br><span class="line">type Position struct &#123;</span><br><span class="line">        Filename string // filename, if any</span><br><span class="line">        Offset   int    // offset, starting at 0 </span><br><span class="line">        Line     int    // line number, starting at 1   </span><br><span class="line">        Column   int    // column number, starting at 1 (byte count)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
 <p>这个很简单就是标示在文件中的位置,比较有意思的是<code>Pos</code>的定义<code>type Pos int</code>,这是位置标示的紧凑表示.接下来看看Pos和Position之间是如何转换的.</p>
 <p>首先定义了一个<code>FileSet</code>,可以理解为把<code>File</code>的内容字节按顺序存放的一个大数组,而某个文件则属于数组的一个区间[base,base+size]中,base是文件的第一个字节在大数组中的位置,size是这个文件的大小,某个文件中的<code>Pos</code>是在[base,base+size]这个区间里的一个小标.</p>
 <p>所以最后<code>Pos</code>能够压缩成一个整数来表示一个文件当中的位置,当需要使用的使用再从<code>FileSet</code>中转换出完整的<code>Position</code>对象.</p>
 <p><code>go/token/serialize.go</code> 是对<code>FileSet</code>序列化,这里就略过了.</p>
 <p>所以整个<code>go/token</code>包只是对token的一些定义和转化,词法分析的部分在<code>go/scanner</code>当中.</p>
-<p>scan的主流程如下,主体是一个switch case表示的状态机,<br />
-比如碰到字符那么扫描到不为字符为止就作为一个标识符,比如碰到数字那么可能按照扫描数字,然后向后看一次小数字再扫描数字,直到没有数字为止.<br />
-scan每次会返回一个被扫描的token,压缩表示的位置,和字面值的字符串,这样就能够把一个源文件转化成一个token的记号流,也就是tokenize或者lexical analysis的过程.</p>
-<pre class="highlight"><code class="">func (s *Scanner) Scan() (pos token.Pos, tok token.Token, lit string) &#123;
+<p>scan的主流程如下,主体是一个switch case表示的状态机,<br>比如碰到字符那么扫描到不为字符为止就作为一个标识符,比如碰到数字那么可能按照扫描数字,然后向后看一次小数字再扫描数字,直到没有数字为止.<br>scan每次会返回一个被扫描的token,压缩表示的位置,和字面值的字符串,这样就能够把一个源文件转化成一个token的记号流,也就是tokenize或者lexical analysis的过程.</p>
+<pre><code>func (s *Scanner) Scan() (pos token.Pos, tok token.Token, lit string) &#123;
 scanAgain:
         s.skipWhitespace() 
         // current token start
@@ -301,7 +295,7 @@ scanAgain:
                         tok = token.IDENT
                 &#125; 
 	/* 数字开头,扫描数字 */
-        case '0' &lt;= ch &amp;&amp; ch &lt;= '9':
+        case &#39;0&#39; &lt;= ch &amp;&amp; ch &lt;= &#39;9&#39;:
                 insertSemi = true
                 tok, lit = s.scanNumber(false)
         default:
