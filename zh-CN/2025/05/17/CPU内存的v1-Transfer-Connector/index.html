@@ -291,13 +291,10 @@
 </li>
 </ol>
 <p>换成prefiller和decoder的视角来看</p>
-<h3 id="Prefiller-Connector"><a href="#Prefiller-Connector" class="headerlink" title="Prefiller Connector"></a>Prefiller Connector</h3><p>每一层调用<code>save_kv_layer</code>，这个可以是异步的，在model foward之后会调用<code>wait_for_save</code>保证kvcache被传输完，不然其中的kvcache可能会被之后的forward所覆盖。
-<code>clear_connector_metadata</code>可以帮助清理这次forward相关的metadata。</p>
-<h3 id="Decoder-Connector"><a href="#Decoder-Connector" class="headerlink" title="Decoder Connector"></a>Decoder Connector</h3><p><code>bind_connector_metadata</code>帮助设置forward相关的metadata。
-每一层调用<code>start_load_kv</code>，这个可以是异步的，在model forward之前调用，在每一层forward之前<code>wait_for_layer_load</code>，这个是同步的。</p>
+<h3 id="Prefiller-Connector"><a href="#Prefiller-Connector" class="headerlink" title="Prefiller Connector"></a>Prefiller Connector</h3><p>每一层调用<code>save_kv_layer</code>，这个可以是异步的，在model foward之后会调用<code>wait_for_save</code>保证kvcache被传输完，不然其中的kvcache可能会被之后的forward所覆盖。<br><code>clear_connector_metadata</code>可以帮助清理这次forward相关的metadata。</p>
+<h3 id="Decoder-Connector"><a href="#Decoder-Connector" class="headerlink" title="Decoder Connector"></a>Decoder Connector</h3><p><code>bind_connector_metadata</code>帮助设置forward相关的metadata。<br>每一层调用<code>start_load_kv</code>，这个可以是异步的，在model forward之前调用，在每一层forward之前<code>wait_for_layer_load</code>，这个是同步的。</p>
 <h2 id="Scheduler-Side"><a href="#Scheduler-Side" class="headerlink" title="Scheduler Side"></a>Scheduler Side</h2><ol>
-<li><p><code>get_num_new_matched_tokens</code>，基于传入的<code>num_computed_tokens</code>获取可以从外部加载的kvcache，这个是给scheduler用的，表明decoder需要加载的tokens。<code>computed_token</code>代表已经计算过kvcache的token.
-调度器要额外分配一个<code>external_computed_tokens</code>的slots给外部加载用并且把这部分也算在<code>computed_token</code>，然后在根据<code>budget_token - computed_token</code>分配<code>new_token</code>。</p>
+<li><p><code>get_num_new_matched_tokens</code>，基于传入的<code>num_computed_tokens</code>获取可以从外部加载的kvcache，这个是给scheduler用的，表明decoder需要加载的tokens。<code>computed_token</code>代表已经计算过kvcache的token.<br>调度器要额外分配一个<code>external_computed_tokens</code>的slots给外部加载用并且把这部分也算在<code>computed_token</code>，然后在根据<code>budget_token - computed_token</code>分配<code>new_token</code>。</p>
 </li>
 <li><p><code>update_state_after_alloc</code> 在scheduler分配slots以后更新connector内部状态，比如用于告知connector是否要加载kvcache。</p>
 </li>
@@ -307,9 +304,7 @@
 </li>
 </ol>
 <p>上面的接口比如<code>register_kv_caches</code>，<code>bind_connector_metada</code>和<code>clear_connector_metadata</code>不一定要实现，可以把他们理解为一些初始化路径，计算路径上的调用hook，我们希望在相关的hook上处理一些东西就实现这些接口。</p>
-<h2 id="CPUMemorySharedConnector"><a href="#CPUMemorySharedConnector" class="headerlink" title="CPUMemorySharedConnector"></a>CPUMemorySharedConnector</h2><p>我实现了一个基于共享缓存的实现，Prefill只生成缓存，Worker只消费缓存。
-主要是通过用layer和tokens hash做key创建SharedMemory。
-完整的项目在<a target="_blank" rel="noopener" href="https://github.com/ggaaooppeenngg/cpumemconnector">这里</a>。</p>
+<h2 id="CPUMemorySharedConnector"><a href="#CPUMemorySharedConnector" class="headerlink" title="CPUMemorySharedConnector"></a>CPUMemorySharedConnector</h2><p>我实现了一个基于共享缓存的实现，Prefill只生成缓存，Worker只消费缓存。<br>主要是通过用layer和tokens hash做key创建SharedMemory。<br>完整的项目在<a target="_blank" rel="noopener" href="https://github.com/ggaaooppeenngg/cpumemconnector">这里</a>。</p>
 
     </div>
 

@@ -263,17 +263,17 @@
 </ol>
 <p>最终我们保证了随机写很快（因为只在<code>MemTable</code>中），随机读也很快（因为要么在<code>MemTable</code>中要么通过索引可以很快找到)。</p>
 <p>还有一个问题是对于已有数据的删除和修改怎么办？</p>
-<p>因为<code>SSTable</code>不可修改所以只能追加写一个新的数据覆盖老的数据，对于删除则是追加一个&quot;墓碑&quot;值覆盖掉存在的值。把索引指向新值，这样老值就不会被访问了。最后在<code>SSTable</code>合并的时候这些老值会完全消失。所以还要定期合并<code>SSTable</code></p>
+<p>因为<code>SSTable</code>不可修改所以只能追加写一个新的数据覆盖老的数据，对于删除则是追加一个”墓碑”值覆盖掉存在的值。把索引指向新值，这样老值就不会被访问了。最后在<code>SSTable</code>合并的时候这些老值会完全消失。所以还要定期合并<code>SSTable</code></p>
 <p>以上是对leveldb的LSM结构的朴素解释。实际上<code>MemTable</code>和<code>SSTable</code>都没有采用纯粹的树形结构,<code>MemTable</code>使用的是跳表而<code>SSTable</code>使用的是层次的结构。(这也是为什么 leveldb 叫 level db 的原因)</p>
 <p>从这里开始完善朴素解释</p>
-<p>首先对于<code>MemTable</code>来说不是持久化的如果重启导致内存中的数据丢失怎么办？<a target="_blank" rel="noopener" href="https://github.com/facebook/rocksdb/wiki/Write-Ahead-Log-File-Format">WAL</a> 表示的是预写日志，这个日志和<code>MemTable</code>是同步的，这个日志把每次的命令追加到日志中再更改<code>MemTable</code>，这样如果重启的话能够进行&quot;重放&quot;把从已经持久化的状态开始把数据填回到<code>MemTable</code>当中。</p>
+<p>首先对于<code>MemTable</code>来说不是持久化的如果重启导致内存中的数据丢失怎么办？<a target="_blank" rel="noopener" href="https://github.com/facebook/rocksdb/wiki/Write-Ahead-Log-File-Format">WAL</a> 表示的是预写日志，这个日志和<code>MemTable</code>是同步的，这个日志把每次的命令追加到日志中再更改<code>MemTable</code>，这样如果重启的话能够进行”重放”把从已经持久化的状态开始把数据填回到<code>MemTable</code>当中。</p>
 <p>其次是对<code>SSTable</code>的合并，<code>SSTable</code>是分层存储的，第一层也就是Level0(被称作 young level)，是<code>MemTable</code>刷入的一层，允许这一层的<code>SSTable</code>的key有交集。对于每一层都有一个阈值(young level 是 4,其他层是按大小算的，10^L MB)，如果超过阈值自动向下一层合并，从level1开始的每一次key不允许有交集。具体的做法是从 young level 中把有交集的<code>SSTable</code>一起和下一层key有交集的<code>SSTable</code>合并成一个新的<code>SSTable</code>，然后其他层则是从自身层取出一个和下一层有交集的<code>SSTable</code>合并即可。这个属性可以用归纳法证明，从0层向1层合并的时候，1层只有一个的情况下肯定不会相交，然后假设n个的时候也不相交，在n+1的时候有交集，那么n+1合并时有0层的 key 和 n 当中的有交集，但是有交集的部分会被归并掉所以矛盾，所以n+1个的时候也是没有交集的。那1层能保证没有交集的话取出一个向下合并也是类似的不会有交集。所以再重复一遍分层存储的两个属性。</p>
 <p>对于朴素解释的两个扩展使得我们对leveldb的设计更接近了。</p>
 <ol>
 <li>young层SSTable之间可能存在交集</li>
 <li>Li（i&gt;0）层SSTable之间不存在交集</li>
 </ol>
-<p>在这个基础上再增加几个约束条件，一个是，对于合并过程每超过2MB就会产生一个新文件，如果文件和下一层的文件有交集的个数有10个以上的话也会产生一个新文件，这样的目的是保证Ln和Ln+1之间不会重复太多。个人理解是覆盖太多，会成了倒三角的&quot;树&quot;情况，上一层搜索性能不好。</p>
+<p>在这个基础上再增加几个约束条件，一个是，对于合并过程每超过2MB就会产生一个新文件，如果文件和下一层的文件有交集的个数有10个以上的话也会产生一个新文件，这样的目的是保证Ln和Ln+1之间不会重复太多。个人理解是覆盖太多，会成了倒三角的”树”情况，上一层搜索性能不好。</p>
 <p>当然大量的随机读落在磁盘上还是会有性能问题，因为 seek 也可能是不连续的，这个可以想办法优化, 比如leveldb 里面使用了一种LRU缓存优化读性能。</p>
 <p>参考</p>
 <ol>

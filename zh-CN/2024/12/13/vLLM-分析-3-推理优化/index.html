@@ -266,13 +266,10 @@
 <img data-src="/zh-CN/2024/12/13/vLLM-%E5%88%86%E6%9E%90-3-%E6%8E%A8%E7%90%86%E4%BC%98%E5%8C%96/memory_waste.jpeg" class="">
 
 <p>这张图里面表示的是每个token对应的kvcache的slot。对于一个context长度中用不到的slots部分，有预留的slots和不同空隙之间的slots空隙。</p>
-<p>vLLM参考了虚拟内存和内存页分配的逻辑构造了一个block table用于 kv cache block slots 和 token之间的关系。通过block表的管理
-可以像操作系统一下减少内存碎片。
-因为不同的sequence中token是有位置信息的，所有他们对应的kv slot也不一定一样。下图展示了他们的关系。</p>
+<p>vLLM参考了虚拟内存和内存页分配的逻辑构造了一个block table用于 kv cache block slots 和 token之间的关系。通过block表的管理<br>可以像操作系统一下减少内存碎片。<br>因为不同的sequence中token是有位置信息的，所有他们对应的kv slot也不一定一样。下图展示了他们的关系。</p>
 <img data-src="/zh-CN/2024/12/13/vLLM-%E5%88%86%E6%9E%90-3-%E6%8E%A8%E7%90%86%E4%BC%98%E5%8C%96/block_table.png" class="">
 
-<h2 id="Continuous-Batching"><a href="#Continuous-Batching" class="headerlink" title="Continuous Batching"></a>Continuous Batching</h2><p>&quot;连续批量处理&quot;（Continuous Batching），也称为&quot;动态批量处理&quot;（Dynamic Batching）或&quot;迭代级调度批量处理&quot;（Batching with Iteration-Level Scheduling），是一种选择Batch行的技术，用于优化计算和资源利用率。
-它的主要区别在于与静态批处理相比，它会在每次推理迭代过程中动态调整Batch中的序列，例如vLLM会抢占部分序列，将序列的prefill阶段和decode阶段分开，不在同一个batch中处理。</p>
+<h2 id="Continuous-Batching"><a href="#Continuous-Batching" class="headerlink" title="Continuous Batching"></a>Continuous Batching</h2><p>“连续批量处理”（Continuous Batching），也称为”动态批量处理”（Dynamic Batching）或”迭代级调度批量处理”（Batching with Iteration-Level Scheduling），是一种选择Batch行的技术，用于优化计算和资源利用率。<br>它的主要区别在于与静态批处理相比，它会在每次推理迭代过程中动态调整Batch中的序列，例如vLLM会抢占部分序列，将序列的prefill阶段和decode阶段分开，不在同一个batch中处理。</p>
 <p>而HuggingFace的text-generation-inference的router<a target="_blank" rel="noopener" href="https://github.com/huggingface/text-generation-inference/blob/main/router/README.md">文档</a>中提到的：为了提高效率，特别是在文本生成和内存受限的LLM上，可以让客户端发送单个查询，然后路由器将这些查询合并或分离成批次，以最大限度地利用计算资源。这是因为在LLM中，运行模型的计算成本远远高于批处理的成本。当新请求到达时，当前正在<code>forward</code>的前向传播不中断，而是继续等待执行完毕。然后将当前正在处理的请求与新到的请求合并成一个批处理请求，再进行<code>forward</code>前向传播。在批处理请求中，任何一个请求完成（即模型产生了终止符或达到允许的最大长度），则从批处理请求中移除该请求，并释放相关资源。这种方法可以应用于多个请求，并且支持在不同参数下的处理（例如采样、不采样、温度控制等），因为每个请求在批处理中都可以独立进行处理。Anyscale 对这个过程有很好的<a target="_blank" rel="noopener" href="https://www.anyscale.com/blog/continuous-batching-llm-inference">解释</a>。</p>
 <img data-src="/zh-CN/2024/12/13/vLLM-%E5%88%86%E6%9E%90-3-%E6%8E%A8%E7%90%86%E4%BC%98%E5%8C%96/continous_batching.png" class="">
 
@@ -284,8 +281,7 @@
 <p>在Prefill阶段，所有的提示词（prompt）都是已知的，因此可以并行计算多个token，计算并行度较高。而在Decode阶段，只需根据新生成的token计算下一个token（之前的KV缓存已经保存了中间结果），因此计算规模较小。如果将Prefill和Decode放在同一个batch中计算，由于计算规模不对等，容易产生计算空隙（bubble）。</p>
 <p>Prefill像是一个矩阵和矩阵的乘法，而Decode则是一个向量和矩阵的乘法。</p>
 <h2 id="Chunked-Prefill"><a href="#Chunked-Prefill" class="headerlink" title="Chunked Prefill"></a>Chunked Prefill</h2><p>vLLM的<a target="_blank" rel="noopener" href="https://docs.google.com/document/d/1Z9TvqzzBPnh5WHcRwjvK2UEeFeq5zMZb5mFE8jR0HCs/edit?pli=1&tab=t.0">文档</a>很好的解释了prefill阶段和decode阶段的区别。</p>
-<p>考虑到vLLM进行生成的序列“ABC”。当它到达时，KV缓存基于block size的预设值（这里是2）在内存中分配对应的block（B1，B2，B3，B4），但它是空的。
-我们知道序列的内容（A，B，C），但我们没有token id到块索引的映射。</p>
+<p>考虑到vLLM进行生成的序列“ABC”。当它到达时，KV缓存基于block size的预设值（这里是2）在内存中分配对应的block（B1，B2，B3，B4），但它是空的。<br>我们知道序列的内容（A，B，C），但我们没有token id到块索引的映射。</p>
 <img data-src="/zh-CN/2024/12/13/vLLM-%E5%88%86%E6%9E%90-3-%E6%8E%A8%E7%90%86%E4%BC%98%E5%8C%96/prefill_1.png" class="">
 
 <p>考虑到这种情况，下一步是为序列ABC进行prefill。在调度过程中，我们为序列中每个token块分配块索引（B3，B4），即（[A, B], [C, _]）。</p>
@@ -317,7 +313,7 @@
 <li>将这些token序列传递给大模型进行验证。大模型会生成对应的logits，形状为<code>(batch, sequence, vocab_size)</code>，并进行softmax处理。</li>
 <li>对于单步decode，logits的形状为<code>(batch, 1, vocab_size)</code>，其中的1表示最后一个token，在词汇表(vocab_size)上的概率分布。</li>
 </ul>
-<p>例如，将小模型生成的&quot;abcd&quot; token序列传递给大模型，得到&quot;ABCD&quot;的logits。A对应的是用于预测B的概率分布，在这个序列中就是预测第二个token的概率分布。将b对应的token id在A的<code>vocab_size</code>长度的log prob中的值取出，对应的可能是B token id的概率，也可能不是。</p>
+<p>例如，将小模型生成的”abcd” token序列传递给大模型，得到”ABCD”的logits。A对应的是用于预测B的概率分布，在这个序列中就是预测第二个token的概率分布。将b对应的token id在A的<code>vocab_size</code>长度的log prob中的值取出，对应的可能是B token id的概率，也可能不是。</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">a | b | c | d</span><br><span class="line">    ^   ^   ^</span><br><span class="line">  | A | B | C | D </span><br></pre></td></tr></table></figure>
 
 <p>最后，将b、c、d在大模型中对应的logits prob求和并取平均值。如果这个值大于一个阈值，就认为这个token是合理的，否则就拒绝。</p>
@@ -338,23 +334,14 @@
 <img data-src="/zh-CN/2024/12/13/vLLM-%E5%88%86%E6%9E%90-3-%E6%8E%A8%E7%90%86%E4%BC%98%E5%8C%96/pl_bs_gp_relation.png" class="">
 
 <p>这张图展示了猜测长度和batch size对于Goodput的影响。</p>
-<p>对于小批次，要多猜测（propose），小批次尺寸下每次请求需提议超 4 个 token 以实现最大有效吞吐量（goodput），且随着批次尺寸增大，最优猜测长度会降低；
-对于大批次，则要少猜测，甚至不进行推测反而能获得更高有效吞吐量，因为大批次下推测失败成本显著增加，超过潜在收益。</p>
-<p>除了朴素的猜测模型，里面也提到了Medusa风格的猜测模型。预测3个token就有三个head分别预测每个位置。
-里面的例子head 1猜了三个，对了1个，head 2猜了2个对了一个，head3猜了3个全错了，然后加上LLM的bonus token。</p>
+<p>对于小批次，要多猜测（propose），小批次尺寸下每次请求需提议超 4 个 token 以实现最大有效吞吐量（goodput），且随着批次尺寸增大，最优猜测长度会降低；<br>对于大批次，则要少猜测，甚至不进行推测反而能获得更高有效吞吐量，因为大批次下推测失败成本显著增加，超过潜在收益。</p>
+<p>除了朴素的猜测模型，里面也提到了Medusa风格的猜测模型。预测3个token就有三个head分别预测每个位置。<br>里面的例子head 1猜了三个，对了1个，head 2猜了2个对了一个，head3猜了3个全错了，然后加上LLM的bonus token。</p>
 <img data-src="/zh-CN/2024/12/13/vLLM-%E5%88%86%E6%9E%90-3-%E6%8E%A8%E7%90%86%E4%BC%98%E5%8C%96/medusa.png" class="">
 
-<p>SmartSpec 估算Goodput的方法就是根据成功率计算期望长度再乘上Request对应的时间。
-然后根据不同的batch size计算Goodput，让Goodput最大化，得到最佳Goodput从而让吞吐最大化。</p>
-<h2 id="Automatic-Prefix-Caching"><a href="#Automatic-Prefix-Caching" class="headerlink" title="Automatic Prefix Caching"></a>Automatic Prefix Caching</h2><p>一般的LLM请求的提示词会非常长，据说OpenAI的系统提示词已经有几K了，这个规模很适合做前缀缓存。
-前缀缓存是指将提示词分成多个前缀，然后将这些前缀缓存到KV缓存中，这样在生成token的时候就可以直接使用KV缓存中的值，
-而不需要重新计算。这样可以减少计算量，提高推理速度。
-当然在vLLM中kv cache是分块的，所以prefix 也是分块的。</p>
+<p>SmartSpec 估算Goodput的方法就是根据成功率计算期望长度再乘上Request对应的时间。<br>然后根据不同的batch size计算Goodput，让Goodput最大化，得到最佳Goodput从而让吞吐最大化。</p>
+<h2 id="Automatic-Prefix-Caching"><a href="#Automatic-Prefix-Caching" class="headerlink" title="Automatic Prefix Caching"></a>Automatic Prefix Caching</h2><p>一般的LLM请求的提示词会非常长，据说OpenAI的系统提示词已经有几K了，这个规模很适合做前缀缓存。<br>前缀缓存是指将提示词分成多个前缀，然后将这些前缀缓存到KV缓存中，这样在生成token的时候就可以直接使用KV缓存中的值，<br>而不需要重新计算。这样可以减少计算量，提高推理速度。<br>当然在vLLM中kv cache是分块的，所以prefix 也是分块的。</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">                    Block 1                  Block 2                  Block 3</span><br><span class="line">         [A gentle breeze stirred] [the leaves as children] [laughed in the distance]</span><br><span class="line">Block 1: |&lt;--- block tokens ----&gt;|</span><br><span class="line">Block 2: |&lt;------- prefix ------&gt;| |&lt;--- block tokens ---&gt;|</span><br><span class="line">Block 3: |&lt;------------------ prefix --------------------&gt;| |&lt;--- block tokens ----&gt;|</span><br></pre></td></tr></table></figure>
-<h2 id="Multi-LoRA-Serving"><a href="#Multi-LoRA-Serving" class="headerlink" title="Multi-LoRA Serving"></a>Multi-LoRA Serving</h2><p>VLLM当中的LoRA Adaptor是可以动态加载的，因为他本身和基座模型保持独立。
-这里要注意的一个点是，如果词汇表修改了，会影响最后的llm head，比如英文基座模型用中文词汇表，那么 vocab_size 就不一样了。
-会导致llm head的输出维度不一样，这个时候就需要重新训练llm head。
-所以要注意最后的llm head的输出维度。</p>
+<h2 id="Multi-LoRA-Serving"><a href="#Multi-LoRA-Serving" class="headerlink" title="Multi-LoRA Serving"></a>Multi-LoRA Serving</h2><p>VLLM当中的LoRA Adaptor是可以动态加载的，因为他本身和基座模型保持独立。<br>这里要注意的一个点是，如果词汇表修改了，会影响最后的llm head，比如英文基座模型用中文词汇表，那么 vocab_size 就不一样了。<br>会导致llm head的输出维度不一样，这个时候就需要重新训练llm head。<br>所以要注意最后的llm head的输出维度。</p>
 <h2 id="Tensor-Parallelism"><a href="#Tensor-Parallelism" class="headerlink" title="Tensor Parallelism"></a>Tensor Parallelism</h2><p>张量并行（Tensor Parallelism）是一种将大型模型的计算任务分解到多个GPU上并行执行的技术。它通过将模型的权重矩阵切分成多个子矩阵，并将这些子矩阵分配到不同的GPU上进行计算，从而实现并行计算。</p>
 <p>在Transformer模型中，QKV（Query, Key, Value）矩阵乘法是计算量最大的部分之一。通过将QKV矩阵切分成更小的子矩阵，并将这些子矩阵分配到不同的GPU上，可以显著提高计算效率。</p>
 <p>例如，对于一个具有<code>d_model</code>维度的QKV矩阵，可以将其切分成<code>n</code>个子矩阵，每个子矩阵的维度为<code>d_model / n</code>。然后，将这些子矩阵分配到<code>n</code>个GPU上进行并行计算。这样，每个GPU只需要计算一个较小的子矩阵，从而减少了计算时间。</p>

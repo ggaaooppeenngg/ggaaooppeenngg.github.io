@@ -21,12 +21,12 @@
 
 <script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
 
-    <meta name="description" content="Agent Skill 自提升机制：以结果为导向的进化设计 不是所有目标都需要 LLM 评估。客观指标对数字负责，主观标准对评估器负责。目标定义本身在每次循环中进化。   一、引言：为什么 Agent Skill 需要进化？现状问题大多数 Agent Skill 是静态的——SKILL.md 写完就固定了。遇到边界情况不会&quot;长记性&quot;，每次错误都是孤立的，无法沉淀成经验。 更严重">
+    <meta name="description" content="Agent Skill 自提升机制：以结果为导向的进化设计 不是所有目标都需要 LLM 评估。客观指标对数字负责，主观标准对评估器负责。目标定义本身在每次循环中进化。   一、引言：为什么 Agent Skill 需要进化？现状问题大多数 Agent Skill 是静态的——SKILL.md 写完就固定了。遇到边界情况不会”长记性”，每次错误都是孤立的，无法沉淀成经验。 更严重的是，当 Skill">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Agent Skill 自提升机制：以结果为导向的进化设计">
 <meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2026/03/16/agent-skill-self-improvement/index.html">
 <meta property="og:site_name" content="ggaaooppeenngg">
-<meta property="og:description" content="Agent Skill 自提升机制：以结果为导向的进化设计 不是所有目标都需要 LLM 评估。客观指标对数字负责，主观标准对评估器负责。目标定义本身在每次循环中进化。   一、引言：为什么 Agent Skill 需要进化？现状问题大多数 Agent Skill 是静态的——SKILL.md 写完就固定了。遇到边界情况不会&quot;长记性&quot;，每次错误都是孤立的，无法沉淀成经验。 更严重">
+<meta property="og:description" content="Agent Skill 自提升机制：以结果为导向的进化设计 不是所有目标都需要 LLM 评估。客观指标对数字负责，主观标准对评估器负责。目标定义本身在每次循环中进化。   一、引言：为什么 Agent Skill 需要进化？现状问题大多数 Agent Skill 是静态的——SKILL.md 写完就固定了。遇到边界情况不会”长记性”，每次错误都是孤立的，无法沉淀成经验。 更严重的是，当 Skill">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2026-03-16T12:15:00.000Z">
 <meta property="article:modified_time" content="2026-03-16T12:13:22.469Z">
@@ -254,17 +254,17 @@
 <p>不是所有目标都需要 LLM 评估。客观指标对数字负责，主观标准对评估器负责。目标定义本身在每次循环中进化。</p>
 </blockquote>
 <hr>
-<h2 id="一、引言：为什么-Agent-Skill-需要进化？"><a href="#一、引言：为什么-Agent-Skill-需要进化？" class="headerlink" title="一、引言：为什么 Agent Skill 需要进化？"></a>一、引言：为什么 Agent Skill 需要进化？</h2><h3 id="现状问题"><a href="#现状问题" class="headerlink" title="现状问题"></a>现状问题</h3><p>大多数 Agent Skill 是<strong>静态的</strong>——SKILL.md 写完就固定了。遇到边界情况不会&quot;长记性&quot;，每次错误都是孤立的，无法沉淀成经验。</p>
+<h2 id="一、引言：为什么-Agent-Skill-需要进化？"><a href="#一、引言：为什么-Agent-Skill-需要进化？" class="headerlink" title="一、引言：为什么 Agent Skill 需要进化？"></a>一、引言：为什么 Agent Skill 需要进化？</h2><h3 id="现状问题"><a href="#现状问题" class="headerlink" title="现状问题"></a>现状问题</h3><p>大多数 Agent Skill 是<strong>静态的</strong>——SKILL.md 写完就固定了。遇到边界情况不会”长记性”，每次错误都是孤立的，无法沉淀成经验。</p>
 <p>更严重的是，当 Skill 开始自我迭代时，如果没有良好的约束机制，AI 会陷入盲目试错的循环：</p>
 <blockquote>
 <p>某次下午，我让 AI 迭代优化一个 Skill 的 prompt。没有设置 token 上限，AI 开始疯狂循环：生成 → 评估 → 改进 → 再生成 → 再评估 → 再改进。每次迭代消耗约 5,000 tokens，一下午跑了 400+ 次迭代，<strong>总消耗 200 万 + tokens，额度全部用完</strong>。最终分数从 72% → 74%，改进微乎其微。</p>
 </blockquote>
 <p>这是血泪教训。</p>
-<h3 id="核心挑战"><a href="#核心挑战" class="headerlink" title="核心挑战"></a>核心挑战</h3><p>如何定义&quot;进步&quot;？</p>
+<h3 id="核心挑战"><a href="#核心挑战" class="headerlink" title="核心挑战"></a>核心挑战</h3><p>如何定义”进步”？</p>
 <ul>
-<li>&quot;写得更好&quot; → 太模糊</li>
-<li>&quot;通过测试&quot; → 但什么测试？</li>
-<li>&quot;用户满意&quot; → 怎么衡量？</li>
+<li>“写得更好” → 太模糊</li>
+<li>“通过测试” → 但什么测试？</li>
+<li>“用户满意” → 怎么衡量？</li>
 </ul>
 <p>本文提出一套<strong>以结果为导向的进化设计</strong>，核心洞察是：<strong>结果类型决定评估策略</strong>。</p>
 <hr>
@@ -278,7 +278,7 @@
 </ul>
 <p><strong>局限：</strong></p>
 <ul>
-<li>❌ 难以处理模糊目标（如&quot;改善用户体验&quot;）</li>
+<li>❌ 难以处理模糊目标（如”改善用户体验”）</li>
 <li>❌ 需要预先知道正确的执行路径</li>
 </ul>
 <hr>
@@ -331,9 +331,9 @@
 
 <p><strong>设计要点：</strong></p>
 <ol>
-<li><strong>执行器和评估器分离</strong> —— 避免&quot;自己评自己&quot;</li>
+<li><strong>执行器和评估器分离</strong> —— 避免”自己评自己”</li>
 <li><strong>评估器可选</strong> —— 客观指标不需要</li>
-<li><strong>目标定义可进化</strong> —— 这是&quot;会学习&quot;的关键</li>
+<li><strong>目标定义可进化</strong> —— 这是”会学习”的关键</li>
 </ol>
 <hr>
 <h2 id="五、自提升循环（四阶段）"><a href="#五、自提升循环（四阶段）" class="headerlink" title="五、自提升循环（四阶段）"></a>五、自提升循环（四阶段）</h2><h3 id="Phase-1-目标解析"><a href="#Phase-1-目标解析" class="headerlink" title="Phase 1: 目标解析"></a>Phase 1: 目标解析</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">输入：模糊需求 → 输出：可执行目标</span><br><span class="line"></span><br><span class="line">&quot;优化性能&quot; → &quot;查询响应 &lt; 100ms, 慢查询 &lt; 5/天&quot;</span><br><span class="line">&quot;改善设计&quot; → &quot;由独立 LLM 评估，视觉层次&gt;7/10&quot;</span><br></pre></td></tr></table></figure>
@@ -361,7 +361,7 @@
 <h4 id="循环-4：重构执行"><a href="#循环-4：重构执行" class="headerlink" title="循环 4：重构执行"></a>循环 4：重构执行</h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">目标：重构核心模块，覆盖率不下降</span><br><span class="line">执行：重构 + 自动运行 E2E 测试</span><br><span class="line">评估：覆盖率 84% ✅, 全部通过 ✅</span><br><span class="line">沉淀：记录&quot;重构安全模式&quot;</span><br><span class="line">改进：更新重构检查清单</span><br></pre></td></tr></table></figure>
 
 <hr>
-<h3 id="关键洞察"><a href="#关键洞察" class="headerlink" title="关键洞察"></a>关键洞察</h3><p><strong>E2E 覆盖率作为&quot;安全网&quot;的价值：</strong></p>
+<h3 id="关键洞察"><a href="#关键洞察" class="headerlink" title="关键洞察"></a>关键洞察</h3><p><strong>E2E 覆盖率作为”安全网”的价值：</strong></p>
 <ol>
 <li>✅ 重构前有基线，可对比</li>
 <li>✅ 重构中有保障，回归立即发现</li>
@@ -372,15 +372,15 @@
 <li>测试用例数量从 15 → 65</li>
 <li>覆盖率从 35% → 85%</li>
 <li>测试生成从手动 → 模板 → 自动化脚本</li>
-<li><strong>目标本身也在进化</strong>：从&quot;写测试&quot;到&quot;覆盖率&gt;80%&quot;到&quot;回归零失败&quot;</li>
+<li><strong>目标本身也在进化</strong>：从”写测试”到”覆盖率&gt;80%”到”回归零失败”</li>
 </ul>
 <hr>
-<h2 id="七、实战案例-2：面向用户体验的-Web-开发"><a href="#七、实战案例-2：面向用户体验的-Web-开发" class="headerlink" title="七、实战案例 2：面向用户体验的 Web 开发"></a>七、实战案例 2：面向用户体验的 Web 开发</h2><h3 id="场景描述-1"><a href="#场景描述-1" class="headerlink" title="场景描述"></a>场景描述</h3><p>一个技能分发平台的 Web 项目，需要持续改进视觉设计和交互体验。这类任务的特点是：<strong>&quot;好&quot;的定义模糊</strong>，需要更清晰的语言描述什么是好的用户体验和视觉方案。</p>
+<h2 id="七、实战案例-2：面向用户体验的-Web-开发"><a href="#七、实战案例-2：面向用户体验的-Web-开发" class="headerlink" title="七、实战案例 2：面向用户体验的 Web 开发"></a>七、实战案例 2：面向用户体验的 Web 开发</h2><h3 id="场景描述-1"><a href="#场景描述-1" class="headerlink" title="场景描述"></a>场景描述</h3><p>一个技能分发平台的 Web 项目，需要持续改进视觉设计和交互体验。这类任务的特点是：<strong>“好”的定义模糊</strong>，需要更清晰的语言描述什么是好的用户体验和视觉方案。</p>
 <h3 id="初始目标（模糊）"><a href="#初始目标（模糊）" class="headerlink" title="初始目标（模糊）"></a>初始目标（模糊）</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">目标：更新风格 + 运行测试</span><br></pre></td></tr></table></figure>
 
 <p><strong>问题：</strong></p>
 <ul>
-<li>&quot;更新风格&quot;无法验证</li>
+<li>“更新风格”无法验证</li>
 <li>测试通过率多少算合格？</li>
 <li>每次执行结果不一致</li>
 </ul>
@@ -395,11 +395,11 @@
 <h3 id="执行流程"><a href="#执行流程" class="headerlink" title="执行流程"></a>执行流程</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">1. 执行器：更新 UI 组件 → 提交代码</span><br><span class="line">2. 客观校验：测试通过率 85% ✅, 加载时间 2.1s ✅</span><br><span class="line">3. 主观评估：独立 LLM 打分 → 视觉层次 6/10 ❌</span><br><span class="line">4. 知识沉淀：记录&quot;Hero 区域对比度不足&quot;</span><br><span class="line">5. 目标进化：下次增加&quot;对比度&gt;4.5:1&quot;的具体要求</span><br></pre></td></tr></table></figure>
 
 <hr>
-<h3 id="为什么这类场景需要独立-LLM-评估器？"><a href="#为什么这类场景需要独立-LLM-评估器？" class="headerlink" title="为什么这类场景需要独立 LLM 评估器？"></a>为什么这类场景需要独立 LLM 评估器？</h3><p>因为&quot;设计风格&quot;、&quot;用户体验&quot;这些概念无法用单一数值衡量。但我们可以：</p>
+<h3 id="为什么这类场景需要独立-LLM-评估器？"><a href="#为什么这类场景需要独立-LLM-评估器？" class="headerlink" title="为什么这类场景需要独立 LLM 评估器？"></a>为什么这类场景需要独立 LLM 评估器？</h3><p>因为”设计风格”、”用户体验”这些概念无法用单一数值衡量。但我们可以：</p>
 <ol>
 <li><strong>拆解维度</strong> —— 把模糊概念拆成可评分的子项</li>
 <li><strong>独立评估</strong> —— 用不与执行器共享上下文的 LLM 打分</li>
-<li><strong>沉淀标准</strong> —— 每次评估后更新&quot;什么是好设计&quot;的知识库</li>
+<li><strong>沉淀标准</strong> —— 每次评估后更新”什么是好设计”的知识库</li>
 </ol>
 <p>久而久之，评估器会越来越准，因为它的知识库在进化。</p>
 <hr>
@@ -418,7 +418,7 @@
 
 <p><strong>为什么需要独立 LLM？</strong></p>
 <ul>
-<li>避免执行器&quot;自己评自己&quot;</li>
+<li>避免执行器”自己评自己”</li>
 <li>评估器上下文不与执行器污染</li>
 <li>评估标准可独立进化</li>
 </ul>
@@ -554,7 +554,7 @@
 <ol>
 <li>不是所有目标都需要 LLM 评估 —— 客观指标对数字负责</li>
 <li>主观标准需要独立评估器 —— 避免自己评自己</li>
-<li>目标定义本身在每次循环中进化 —— 这是&quot;会学习&quot;的关键</li>
+<li>目标定义本身在每次循环中进化 —— 这是”会学习”的关键</li>
 <li>必须设置预算和终止条件 —— 否则 Token 会失控</li>
 <li>元指令告诉 AI 如何思考 —— 不只是做什么，而是怎么做</li>
 </ol>

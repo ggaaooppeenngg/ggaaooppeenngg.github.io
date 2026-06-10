@@ -21,12 +21,12 @@
 
 <script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
 
-    <meta name="description" content="最大子数组之和问题是一道经典的面试题. 这里对这个问题的迭代解法做一个证明. 先给出C的伪代码 1234567891011121314151617int max_sub_array(int* arr, int len&#123;	int temp &#x3D; 0, max &#x3D; arr[0];	int i;	for(i &#x3D; 0; i &lt; len; i++) &#123;		temp +&#x3D; a[i];">
+    <meta name="description" content="最大子数组之和问题是一道经典的面试题.这里对这个问题的迭代解法做一个证明. 先给出C的伪代码 1234567891011121314151617int max_sub_array(int* arr, int len&#123;	int temp &#x3D; 0, max &#x3D; arr[0];	int i;	for(i &#x3D; 0; i &lt; len; i++) &#123;		temp +&#x3D; a[i];">
 <meta property="og:type" content="article">
 <meta property="og:title" content="最大子数组证明">
 <meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2015/10/16/%E6%9C%80%E5%A4%A7%E5%AD%90%E6%95%B0%E7%BB%84%E8%AF%81%E6%98%8E/index.html">
 <meta property="og:site_name" content="ggaaooppeenngg">
-<meta property="og:description" content="最大子数组之和问题是一道经典的面试题. 这里对这个问题的迭代解法做一个证明. 先给出C的伪代码 1234567891011121314151617int max_sub_array(int* arr, int len&#123;	int temp &#x3D; 0, max &#x3D; arr[0];	int i;	for(i &#x3D; 0; i &lt; len; i++) &#123;		temp +&#x3D; a[i];">
+<meta property="og:description" content="最大子数组之和问题是一道经典的面试题.这里对这个问题的迭代解法做一个证明. 先给出C的伪代码 1234567891011121314151617int max_sub_array(int* arr, int len&#123;	int temp &#x3D; 0, max &#x3D; arr[0];	int i;	for(i &#x3D; 0; i &lt; len; i++) &#123;		temp +&#x3D; a[i];">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2015-10-16T03:51:41.000Z">
 <meta property="article:modified_time" content="2025-03-14T05:50:06.570Z">
@@ -252,31 +252,24 @@
     
     
     
-    <div class="post-body" itemprop="articleBody"><p>最大子数组之和问题是一道经典的面试题.
-这里对这个问题的迭代解法做一个证明.</p>
+    <div class="post-body" itemprop="articleBody"><p>最大子数组之和问题是一道经典的面试题.<br>这里对这个问题的迭代解法做一个证明.</p>
 <p>先给出C的伪代码</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">int max_sub_array(int* arr, int len</span><br><span class="line">&#123;</span><br><span class="line">	int temp = 0, max = arr[0];</span><br><span class="line">	int i;</span><br><span class="line">	for(i = 0; i &lt; len; i++) &#123;</span><br><span class="line">		temp += a[i];</span><br><span class="line">		if(temp &lt; 0) &#123;</span><br><span class="line">			temp = 0;</span><br><span class="line">		&#125;</span><br><span class="line">		if(temp &gt; max) &#123;</span><br><span class="line">			max = temp;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">	return int</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
 <p>算法的思路是这样的:</p>
 <p>所以用\(temp\)存储\(A[p..r]\),只要\(A[p..r]\)求和是负数的话,那么下一个\(A[r+1]\)开始,\(temp\)重新清零开始求和,只要\(temp\)比和大,就更新这个和.</p>
 <p>这个算法的思路证明如下:</p>
-<p>对于\(A[p..r]\),如果\(A[p..r]\)求和为负数的话,那么数组\(A[p..r+1]\)的最大子数组肯定不会是\(A[p..r+1]\)
-因为\(A[p..r] + A[r+1] &lt; A[r+1]\)的.</p>
-<p>对数组的所有元素进行一个划分,对于\(A[i]\),如果能够使得 \(temp&gt;0 and temp+A[i]&lt;0\),那么这个元素就是一个划分的边界.
-这样就会形成很多个区间.</p>
+<p>对于\(A[p..r]\),如果\(A[p..r]\)求和为负数的话,那么数组\(A[p..r+1]\)的最大子数组肯定不会是\(A[p..r+1]\)<br>因为\(A[p..r] + A[r+1] &lt; A[r+1]\)的.</p>
+<p>对数组的所有元素进行一个划分,对于\(A[i]\),如果能够使得 \(temp&gt;0 and temp+A[i]&lt;0\),那么这个元素就是一个划分的边界.<br>这样就会形成很多个区间.</p>
 <p>接下来要证明</p>
 <ol>
 <li>最大子数组一定在划分块内</li>
 <li>一定存在首元素是划分块的首元素的最大子数组</li>
 </ol>
 <p>对于第一个点,假设有一个元素\(A[i]\)在划分区间\(A[p..r]\)内,那么\(A[p..i-1] &gt; 0 and A[i..r] &lt; 0\)一定成立,这个可以用反证法.</p>
-<p>如果一个最大子数组横跨了这些区域假设这个最大子数组为\(A[i..j]\),并且\(A[r]\)最大子数组中最后一个处于分界的元素.
-那么\(A[i..r] &lt; 0\)一定成立,所以最大子数组不可能有这段部分,因此最大子数组只会处于划分内.</p>
-<p>对于第二点,假设\(A[i..j]\)处于划分\(A[p..q]\)当中,那么\(A[p..i-1]+A[i..j] &gt;&#x3D; a[i..j]\)一定成立,所以最大子数组
-的开始元素也是划分的开始元素.</p>
+<p>如果一个最大子数组横跨了这些区域假设这个最大子数组为\(A[i..j]\),并且\(A[r]\)最大子数组中最后一个处于分界的元素.<br>那么\(A[i..r] &lt; 0\)一定成立,所以最大子数组不可能有这段部分,因此最大子数组只会处于划分内.</p>
+<p>对于第二点,假设\(A[i..j]\)处于划分\(A[p..q]\)当中,那么\(A[p..i-1]+A[i..j] &gt;&#x3D; a[i..j]\)一定成立,所以最大子数组<br>的开始元素也是划分的开始元素.</p>
 <p>综合起来就能证明这个算法的正确性.</p>
-<p>实际上抽象地理解就是把数组划分成了恰好多加一个元素和就变负数的N个划分,而最大子数组不可能超过这个划分,
-因此在计算划分当中的最大值就能得到最大子数组.产生一个新的划分的时候如果碰到负数肯定是独自成立了一个划分,如果碰到正数
-就会作为新的划分的开始,所以这个划分的第一个元素会成为最大子数组的第一个元素,然后遍历每次包含一个元素以后的和就能确定最大值,最终获得最大子数组.</p>
+<p>实际上抽象地理解就是把数组划分成了恰好多加一个元素和就变负数的N个划分,而最大子数组不可能超过这个划分,<br>因此在计算划分当中的最大值就能得到最大子数组.产生一个新的划分的时候如果碰到负数肯定是独自成立了一个划分,如果碰到正数<br>就会作为新的划分的开始,所以这个划分的第一个元素会成为最大子数组的第一个元素,然后遍历每次包含一个元素以后的和就能确定最大值,最终获得最大子数组.</p>
 
     </div>
 

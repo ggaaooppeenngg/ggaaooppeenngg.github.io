@@ -275,12 +275,10 @@
 <p>浅层的语法信息、中层的语义信息、深层的推理信息，互相覆盖、互相干扰。这是残差连接的天花板。</p>
 <p><strong>HC（Hyper-Connections）</strong> 提出了一个很自然的想法：</p>
 <blockquote>
-<p>为什么不把 1 条流扩成 n 条并行流，让不同深度的信息走不同的&quot;车道&quot;？</p>
+<p>为什么不把 1 条流扩成 n 条并行流，让不同深度的信息走不同的”车道”？</p>
 </blockquote>
 <p>HC 的公式长这样：</p>
-<p>[
-X_{l+1} &#x3D; B_l X_l + C_l F(A_l X_l)
-]</p>
+<p>[<br>X_{l+1} &#x3D; B_l X_l + C_l F(A_l X_l)<br>]</p>
 <ul>
 <li><code>A_l</code>：把 n 条流压缩成 1 条，送给 Attention&#x2F;MoE</li>
 <li><code>F</code>：正常的层计算</li>
@@ -300,7 +298,7 @@ $x_L = (\prod B_i) x_l + \sum (\prod B_j) C_i^T F(...)$
 
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">$Π B_i$ 是多层 $B$ 矩阵的复合。因为 $B$ 无约束，这个复合矩阵的谱范数可以远大于 1，也可以接近 0。</span><br><span class="line"></span><br><span class="line">**实测结果（DeepSeek 27B 实验）：**  </span><br><span class="line">HC 的复合映射增益（Amax Gain Magnitude）达到 **~3000**，意味着信号在前向传播中可以被放大 3000 倍。训练到第 12k 步，loss 直接 spike，梯度范数爆炸。</span><br><span class="line"></span><br><span class="line">HC 的作者（ByteDance Seed 团队）在 ICLR 2025 发表了这个想法，但没有解决稳定性问题。</span><br><span class="line"></span><br><span class="line">---</span><br><span class="line"></span><br><span class="line">## mHC：给 HC 加上&quot;安全阀&quot;</span><br><span class="line"></span><br><span class="line">DeepSeek 团队在 2025 年提出的 **mHC（Manifold-Constrained Hyper-Connections）**，只做了一件事：</span><br><span class="line"></span><br><span class="line">&gt; 把 HC 中的残差混合矩阵 `B_l` 约束在**双随机矩阵流形**上。</span><br><span class="line"></span><br><span class="line">### 什么是双随机矩阵？</span><br><span class="line"></span><br><span class="line">一个 n×n 矩阵，满足：</span><br><span class="line">- 所有元素非负</span><br><span class="line">- 每行之和等于 1</span><br><span class="line">- 每列之和等于 1</span><br><span class="line"></span><br><span class="line">这样的矩阵，谱范数 **永远 ≤ 1**。也就是说，它永远不会放大信号。</span><br><span class="line"></span><br><span class="line">而且，双随机矩阵在乘法下是**封闭**的：两个双随机矩阵相乘，结果还是双随机矩阵。这意味着叠 100 层，复合映射仍然稳定。</span><br><span class="line"></span><br><span class="line">**一句话：mHC = HC + 双随机约束，恢复了残差连接的恒等映射性质，同时保留了多流的表达能力。**</span><br><span class="line"></span><br><span class="line">---</span><br><span class="line"></span><br><span class="line">## 怎么把矩阵变成双随机？Sinkhorn-Knopp 算法</span><br><span class="line"></span><br><span class="line">mHC 的核心算法是 Sinkhorn-Knopp 迭代，操作很简单：</span><br><span class="line"></span><br><span class="line">```python</span><br><span class="line"># 输入: B_raw (4×4, 可能是负数)</span><br><span class="line">M = exp(B_raw)  # 先保证非负</span><br><span class="line"></span><br><span class="line"># 交替行列归一化 20 次</span><br><span class="line">for _ in range(20):</span><br><span class="line">    M = M / M.sum(dim=1, keepdim=True)  # 行归一化</span><br><span class="line">    M = M / M.sum(dim=0, keepdim=True)  # 列归一化</span><br><span class="line"></span><br><span class="line"># 输出: B (4×4 双随机矩阵)</span><br></pre></td></tr></table></figure>
 
-<p>为什么第一步用 <code>exp()</code>？因为 <code>B_raw</code> 是神经网络输出的 logit，可能有负数。直接归一化会产生负权重，违反&quot;非负&quot;约束。<code>exp()</code> 把任意实数映射到正数，完美解决。</p>
+<p>为什么第一步用 <code>exp()</code>？因为 <code>B_raw</code> 是神经网络输出的 logit，可能有负数。直接归一化会产生负权重，违反”非负”约束。<code>exp()</code> 把任意实数映射到正数，完美解决。</p>
 <p>20 次迭代是实验得出的经验值，足够收敛，又不会太慢。</p>
 <hr>
 <h2 id="4-条流到底解决了什么问题？"><a href="#4-条流到底解决了什么问题？" class="headerlink" title="4 条流到底解决了什么问题？"></a>4 条流到底解决了什么问题？</h2><p>很多人问：为什么是 4 条流？不是 2 条或 8 条？</p>
@@ -311,7 +309,7 @@ $x_L = (\prod B_i) x_l + \sum (\prod B_j) C_i^T F(...)$
 <p>Layer 5 学到的特征，通过 <code>B</code> 矩阵的合理混合，可以在 Layer 30 仍然清晰可用。而在 1 条流里，这个特征早就被 25 次加法淹没了。</p>
 <h3 id="3-动态容量分配"><a href="#3-动态容量分配" class="headerlink" title="3. 动态容量分配"></a>3. 动态容量分配</h3><p><code>B</code> 矩阵是<strong>输入依赖</strong>的（由当前层的 hidden state 动态生成）：</p>
 <ul>
-<li>简单 token（&quot;the&quot;, &quot;a&quot;）：<code>B</code> ≈ 单位矩阵，4 条流基本不混合，省计算</li>
+<li>简单 token（”the”, “a”）：<code>B</code> ≈ 单位矩阵，4 条流基本不混合，省计算</li>
 <li>复杂 token（需要深度推理）：<code>B</code> 大幅混合，让更多层的信息参与</li>
 </ul>
 <p>这是 1 条流做不到的——普通残差对所有 token 都是 <code>x + F(x)</code>。</p>
@@ -366,7 +364,7 @@ $x_L = (\prod B_i) x_l + \sum (\prod B_j) C_i^T F(...)$
 <h2 id="一句话总结"><a href="#一句话总结" class="headerlink" title="一句话总结"></a>一句话总结</h2><blockquote>
 <p><strong>mHC &#x3D; HC + 双随机矩阵约束，是残差连接的最终进化形态，让万亿参数 MoE 能稳定训练。</strong></p>
 </blockquote>
-<p>如果你正在设计超大模型，mHC 是目前最值得考虑的残差连接方式。它不改 FLOPs，不改层计算，只改残差流的拓扑结构——但就是这一点，让深层训练从&quot;可能崩&quot;变成了&quot;一定稳&quot;。</p>
+<p>如果你正在设计超大模型，mHC 是目前最值得考虑的残差连接方式。它不改 FLOPs，不改层计算，只改残差流的拓扑结构——但就是这一点，让深层训练从”可能崩”变成了”一定稳”。</p>
 <hr>
 <p><strong>参考资料：</strong></p>
 <ul>

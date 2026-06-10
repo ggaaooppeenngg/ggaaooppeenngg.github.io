@@ -319,13 +319,13 @@
 </tr>
 <tr>
 <td>quantization_config.fmt</td>
-<td>&quot;e4m3&quot;</td>
+<td>“e4m3”</td>
 <td>FP8_E4M3</td>
 <td>KV cache 的 NoPE 部分使用 FP8 E4M3 格式量化</td>
 </tr>
 <tr>
 <td>quantization_config.scale_fmt</td>
-<td>&quot;ue8m0&quot;</td>
+<td>“ue8m0”</td>
 <td>UE8M0 (V3.2) &#x2F; FP8_E8M0FNU (MODEL1)</td>
 <td>量化缩放因子的格式，纯 2 的幂</td>
 </tr>
@@ -389,14 +389,14 @@
 <blockquote>
 <p>🔧 <strong>硬件特性:</strong> FP8 (E4M3) 是 Hopper&#x2F;Blackwell 原生支持的数据类型。Hopper 的 Tensor Core 可以直接做 FP8 矩阵乘法，但 FlashMLA 选择先反量化为 BF16 再做 WGMMA，以获得更高精度。</p>
 </blockquote>
-<h3 id="2-3-填充参数结构体"><a href="#2-3-填充参数结构体" class="headerlink" title="2.3 填充参数结构体"></a>2.3 填充参数结构体</h3><p>这一步是&quot;翻译层&quot;— 把 PyTorch tensor 的元信息（shape、stride、data_ptr）和标量参数，打包成 CUDA kernel 能直接使用的 C struct。kernel 内部只看这个 struct，不再接触 PyTorch 对象。</p>
+<h3 id="2-3-填充参数结构体"><a href="#2-3-填充参数结构体" class="headerlink" title="2.3 填充参数结构体"></a>2.3 填充参数结构体</h3><p>这一步是”翻译层”— 把 PyTorch tensor 的元信息（shape、stride、data_ptr）和标量参数，打包成 CUDA kernel 能直接使用的 C struct。kernel 内部只看这个 struct，不再接触 PyTorch 对象。</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br></pre></td><td class="code"><pre><span class="line">SparseAttnDecodeParams params = &#123;</span><br><span class="line">    <span class="comment">// ===== 基础维度 (直接从输入 tensor 的 shape 读取) =====</span></span><br><span class="line">    .b = <span class="number">2</span>,                    <span class="comment">// q.size(0) = batch_size，同时处理 2 个请求</span></span><br><span class="line">    .s_q = <span class="number">1</span>,                  <span class="comment">// q.size(1) = seq_len_q，decode 阶段每次只生成 1 个新 token</span></span><br><span class="line">    .h_q = <span class="number">128</span>,                <span class="comment">// q.size(2) = num_attention_heads，来自 config.json</span></span><br><span class="line">    .h_kv = <span class="number">1</span>,                 <span class="comment">// kv.size(2)，MLA 压缩后 128 个 head 共享 1 份 KV cache</span></span><br><span class="line">                               <span class="comment">// 注意：计算时会被 broadcast 到 h_q=128</span></span><br><span class="line">    .d_qk = <span class="number">576</span>,               <span class="comment">// q.size(3) = head_dim = kv_lora_rank(512) + qk_rope_head_dim(64)</span></span><br><span class="line">    .d_v = <span class="number">512</span>,                <span class="comment">// head_dim_v 参数 = kv_lora_rank</span></span><br><span class="line">    </span><br><span class="line">    <span class="comment">// ===== Softmax 缩放因子 =====</span></span><br><span class="line">    <span class="comment">// 标准 Scaled Dot-Product Attention: softmax(Q·K^T / sqrt(d)) · V</span></span><br><span class="line">    .sm_scale = <span class="number">1.0</span> / <span class="built_in">sqrt</span>(<span class="number">576</span>) = <span class="number">0.04167</span>,</span><br><span class="line">    <span class="comment">// 即公式中的 1/sqrt(d)，防止点积值过大导致 softmax 饱和</span></span><br><span class="line">    </span><br><span class="line">    .sm_scale_div_log2 = <span class="number">0.04167</span> * <span class="built_in">log2</span>(e) = <span class="number">0.04167</span> * <span class="number">1.4427</span> = <span class="number">0.06010</span>,</span><br><span class="line">    <span class="comment">// 性能优化的预计算。kernel 中用 exp2f() 代替 expf() 计算 softmax:</span></span><br><span class="line">    <span class="comment">// expf(x * sm_scale) = exp2f(x * sm_scale * log2(e))</span></span><br><span class="line">    <span class="comment">//                    = exp2f(x * sm_scale_div_log2)</span></span><br><span class="line">    <span class="comment">// GPU 上 exp2f() 比 expf() 快约 2 倍 (SFU 原生支持 base-2 指数运算)，</span></span><br><span class="line">    <span class="comment">// 所以预乘好 log2(e)，避免 kernel 里每个元素都重复乘一次</span></span><br><span class="line">    </span><br><span class="line">    <span class="comment">// ===== 稀疏注意力参数 =====</span></span><br><span class="line">    .topk = <span class="number">128</span>,               <span class="comment">// indices.size(2)，每个 query 关注的 KV token 数量</span></span><br><span class="line">    .model_type = ModelType::V32,</span><br><span class="line">    <span class="comment">// 由 d_qk 决定：576 → V32 (DeepSeek-V3/V3.2), 512 → MODEL1</span></span><br><span class="line">    <span class="comment">// 不同 model_type 的 FP8 KV cache 布局和缩放因子格式不同</span></span><br><span class="line">    </span><br><span class="line">    <span class="comment">// ===== 指针 (从 tensor.data_ptr() 获取) =====</span></span><br><span class="line">    .q = (bf16*)q.<span class="built_in">data_ptr</span>(),           <span class="comment">// Q 矩阵的 GPU 内存地址</span></span><br><span class="line">    .kv = (bf16*)kv.<span class="built_in">data_ptr</span>(),         <span class="comment">// FP8 KV cache 的 GPU 内存地址</span></span><br><span class="line">    .indices = (<span class="type">int</span>*)indices.<span class="built_in">data_ptr</span>(), <span class="comment">// top-k 索引数组的 GPU 内存地址</span></span><br><span class="line">    .out = (bf16*)out.<span class="built_in">data_ptr</span>(),       <span class="comment">// 输出矩阵的 GPU 内存地址</span></span><br><span class="line">    .lse = (<span class="type">float</span>*)lse.<span class="built_in">data_ptr</span>(),      <span class="comment">// log-sum-exp 的 GPU 内存地址</span></span><br><span class="line">    </span><br><span class="line">    <span class="comment">// ===== Stride (从 tensor.stride() 获取，单位是元素数) =====</span></span><br><span class="line">    <span class="comment">// Stride 描述 tensor 在内存中的布局，让 kernel 知道如何从一个元素跳到下一个元素</span></span><br><span class="line">    .stride_q_b = q.<span class="built_in">stride</span>(<span class="number">0</span>),     <span class="comment">// 跳到下一个 batch: 1×128×576 = 73728</span></span><br><span class="line">    .stride_q_s_q = q.<span class="built_in">stride</span>(<span class="number">1</span>),   <span class="comment">// 跳到下一个 query token: 128×576 = 73728</span></span><br><span class="line">    .stride_q_h_q = q.<span class="built_in">stride</span>(<span class="number">2</span>),   <span class="comment">// 跳到下一个 head: 576</span></span><br><span class="line">    <span class="comment">// ... kv, indices, out, lse 的 stride 类似</span></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
 <p>→ <strong>无硬件特性依赖</strong>，纯数据结构准备</p>
 <hr>
 <h2 id="第-3-步：Tile-Scheduler-—-工作分配"><a href="#第-3-步：Tile-Scheduler-—-工作分配" class="headerlink" title="第 3 步：Tile Scheduler — 工作分配"></a>第 3 步：Tile Scheduler — 工作分配</h2><p><strong>文件:</strong> <code>csrc/smxx/decode/get_decoding_sched_meta/get_decoding_sched_meta.cu</code></p>
 <p>这一步决定了 <strong>哪个 SM 处理哪些 batch 的哪些 KV block</strong>。</p>
 <h3 id="3-1-计算每个-batch-的处理块数"><a href="#3-1-计算每个-batch-的处理块数" class="headerlink" title="3.1 计算每个 batch 的处理块数"></a>3.1 计算每个 batch 的处理块数</h3><blockquote>
-<p>⚠️ <strong>&quot;block&quot; 概念澄清:</strong> 这里的 &quot;block&quot; 不是 KV cache page block（64 个连续 token 组成的页面），而是对 top-k indices 列表的分块。</p>
+<p>⚠️ <strong>“block” 概念澄清:</strong> 这里的 “block” 不是 KV cache page block（64 个连续 token 组成的页面），而是对 top-k indices 列表的分块。</p>
 <p>top-k 选择是 <strong>token 级别</strong>的 — <code>indices</code> 数组中存储的是 2048 个（本例中 128 个）<strong>散落在 KV cache 各处的 token 的绝对位置</strong>，这些 token 之间通常不连续。</p>
 <p>由于 kernel 无法一次性处理所有 top-k token，所以按 <code>TOPK_BLOCK_SIZE=64</code> 将 indices 列表切块处理：</p>
 </blockquote>
@@ -404,8 +404,8 @@
 <thead>
 <tr>
 <th>概念</th>
-<th>Dense Decoding 的 &quot;block&quot;</th>
-<th>Sparse Decoding 的 &quot;block&quot;</th>
+<th>Dense Decoding 的 “block”</th>
+<th>Sparse Decoding 的 “block”</th>
 </tr>
 </thead>
 <tbody><tr>
@@ -557,8 +557,7 @@
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// SM90 的 KU_ASSERT: h_q == 64 || h_q == 128 等</span></span><br><span class="line"><span class="comment">// SM100 head64 的 KU_ASSERT: h_q == 64 (即 B_H == 64)</span></span><br></pre></td></tr></table></figure>
 
 <blockquote>
-<p><strong>SM100 为什么 <code>h_q == 64</code> 而不是 128?</strong>
-SM100 head64 实现 (<code>csrc/sm100/decode/head64/</code>) 要求 <code>h_q == B_H == 64</code>。当推理框架处理 DeepSeek-V3.2 (h_q&#x3D;128) 时，需要通过其他方式拆分 head（如 head64x2 或 head128 实现），或者多次调用。这与 SM90 通过 cluster (2 个 CTA 各处理 64 head) 的方案不同。</p>
+<p><strong>SM100 为什么 <code>h_q == 64</code> 而不是 128?</strong><br>SM100 head64 实现 (<code>csrc/sm100/decode/head64/</code>) 要求 <code>h_q == B_H == 64</code>。当推理框架处理 DeepSeek-V3.2 (h_q&#x3D;128) 时，需要通过其他方式拆分 head（如 head64x2 或 head128 实现），或者多次调用。这与 SM90 通过 cluster (2 个 CTA 各处理 64 head) 的方案不同。</p>
 </blockquote>
 <h3 id="5-3-SM100-的三大硬件创新及其在-Kernel-中的应用"><a href="#5-3-SM100-的三大硬件创新及其在-Kernel-中的应用" class="headerlink" title="5.3 SM100 的三大硬件创新及其在 Kernel 中的应用"></a>5.3 SM100 的三大硬件创新及其在 Kernel 中的应用</h3><h4 id="5-3-1-TMEM-Tensor-Memory-—-新增的片上存储层"><a href="#5-3-1-TMEM-Tensor-Memory-—-新增的片上存储层" class="headerlink" title="5.3.1 TMEM (Tensor Memory) — 新增的片上存储层"></a>5.3.1 TMEM (Tensor Memory) — 新增的片上存储层</h4><p>SM100 在寄存器和共享内存之外，新增了一层 <strong>TMEM (Tensor Memory)</strong>:</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">SM100 存储层次:</span><br><span class="line">  寄存器 (Register File)     — 每线程私有，最快</span><br><span class="line">  TMEM (Tensor Memory)       — 512KB, 每 SM 共享，Tensor Core 可直接读写 ← 新增!</span><br><span class="line">  共享内存 (Shared Memory)   — 228KB, CTA 内共享</span><br><span class="line">  L2 Cache → HBM</span><br></pre></td></tr></table></figure>
@@ -661,15 +660,15 @@ SM100 head64 实现 (<code>csrc/sm100/decode/head64/</code>) 要求 <code>h_q ==
 <h4 id="5-4-2-SM90-vs-SM100-的-Warpgroup-分工对比"><a href="#5-4-2-SM90-vs-SM100-的-Warpgroup-分工对比" class="headerlink" title="5.4.2 SM90 vs SM100 的 Warpgroup 分工对比"></a>5.4.2 SM90 vs SM100 的 Warpgroup 分工对比</h4><p>SM100 的三个 Warpgroup 分工与 SM90 完全不同:</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">SM90 (Hopper):</span><br><span class="line">┌──────────────────────────────────────────────────────────────────┐</span><br><span class="line">│ WG0 (128 线程，192 regs) — Consumer A: QK^T + softmax + S·V_left │</span><br><span class="line">│ WG1 (128 线程，160 regs) — Consumer B: S·V_right                 │</span><br><span class="line">│ WG2 (128 线程，152 regs) — Producer: FP8 gather + 反量化          │</span><br><span class="line">└──────────────────────────────────────────────────────────────────┘</span><br></pre></td></tr></table></figure>
 
-<p>在 SM90 中，warpgroup 的概念很&quot;实&quot;——WGMMA 确实需要 128 线程一起发起。WG0 的 128 线程共同发起 WGMMA (QK^T)，然后做 softmax，再共同发起 WGMMA (SV)。WG2 的 128 线程各自 <code>__ldg</code> 加载 FP8 数据并反量化。每个线程都在忙。</p>
+<p>在 SM90 中，warpgroup 的概念很”实”——WGMMA 确实需要 128 线程一起发起。WG0 的 128 线程共同发起 WGMMA (QK^T)，然后做 softmax，再共同发起 WGMMA (SV)。WG2 的 128 线程各自 <code>__ldg</code> 加载 FP8 数据并反量化。每个线程都在忙。</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">SM100 (Blackwell):</span><br><span class="line">┌──────────────────────────────────────────────────────────────────┐</span><br><span class="line">│ WG0 (128 线程，224 regs) — Softmax: 从 TMEM 读 P → exp2 → 写 S   │</span><br><span class="line">│                            (纯标量计算，不参与任何 MMA)           │</span><br><span class="line">│                                                                  │</span><br><span class="line">│ WG1 (128 线程，72 regs) — MMA + Produce:                         │</span><br><span class="line">│   Warp 4 (1 线程): 发起所有 UTCMMA (QK^T, SV) + TMA 加载 Q        │</span><br><span class="line">│   Warp 5 (1 线程): TMA Gather4 加载 FP8 NoPE 到 shared memory    │</span><br><span class="line">│   Warp 6 (1 线程): TMA Gather4 加载 BF16 RoPE 到 shared memory   │</span><br><span class="line">│   Warp 7 (32 线程): 读 indices → 计算 TMA 坐标 + 加载 scale      │</span><br><span class="line">│                                                                  │</span><br><span class="line">│ WG2 (128 线程，208 regs) — Dequant: FP8→BF16 反量化              │</span><br><span class="line">│                            从 raw_nope (FP8) → dequant.nope (BF16)│</span><br><span class="line">└──────────────────────────────────────────────────────────────────┘</span><br></pre></td></tr></table></figure>
 
-<p>在 SM100 中，warpgroup 的概念变&quot;虚&quot;了——UTCMMA 只需 <strong>1 个线程</strong>发起，所以同一个 warpgroup 内的线程可以干完全不同的事。SM100 的 WG1 中，大量线程其实是<strong>空闲</strong>的（Warp 4&#x2F;5&#x2F;6 各只需 1 个线程），但仍然被组织为一个 warpgroup，主要是为了共享寄存器配额和 barrier 同步的方便。</p>
-<p>这体现了 Blackwell 的设计哲学：<strong>硬件加速器（TMA、UTCMMA）接管数据搬运和矩阵计算，线程只处理无法硬件加速的&quot;缝隙&quot;工作。</strong></p>
+<p>在 SM100 中，warpgroup 的概念变”虚”了——UTCMMA 只需 <strong>1 个线程</strong>发起，所以同一个 warpgroup 内的线程可以干完全不同的事。SM100 的 WG1 中，大量线程其实是<strong>空闲</strong>的（Warp 4&#x2F;5&#x2F;6 各只需 1 个线程），但仍然被组织为一个 warpgroup，主要是为了共享寄存器配额和 barrier 同步的方便。</p>
+<p>这体现了 Blackwell 的设计哲学：<strong>硬件加速器（TMA、UTCMMA）接管数据搬运和矩阵计算，线程只处理无法硬件加速的”缝隙”工作。</strong></p>
 <h4 id="5-4-3-关键设计差异"><a href="#5-4-3-关键设计差异" class="headerlink" title="5.4.3 关键设计差异"></a>5.4.3 关键设计差异</h4><ol>
 <li><p><strong>SM90 的 MMA 由 warpgroup (128 线程) 发起; SM100 的 UTCMMA 由 1 个线程发起</strong></p>
 <ul>
-<li>UTCMMA 是 &quot;widthless&quot; 指令 (<code>tcgen05.mma.ws</code>)，只需 1 个线程 issue，Tensor Core 自动完成矩阵计算并写入 TMEM</li>
+<li>UTCMMA 是 “widthless” 指令 (<code>tcgen05.mma.ws</code>)，只需 1 个线程 issue，Tensor Core 自动完成矩阵计算并写入 TMEM</li>
 <li>这解放了大量线程去做其他工作</li>
 </ul>
 </li>
@@ -695,15 +694,13 @@ SM100 head64 实现 (<code>csrc/sm100/decode/head64/</code>) 要求 <code>h_q ==
 </li>
 </ol>
 <blockquote>
-<p>🔧 <strong>SM100 的 <code>NUM_INDEX_BUFS=4</code> vs SM90 的 <code>NUM_K_BUFS=2</code>:</strong>
-SM100 需要更多 buffer 因为 TMA Gather4 的 pipeline 更深:</p>
+<p>🔧 <strong>SM100 的 <code>NUM_INDEX_BUFS=4</code> vs SM90 的 <code>NUM_K_BUFS=2</code>:</strong><br>SM100 需要更多 buffer 因为 TMA Gather4 的 pipeline 更深:</p>
 <ul>
 <li>Warp 7 计算 TMA 坐标 (写 buf N)</li>
 <li>Warp 5&#x2F;6 用 TMA Gather4 加载 FP8&#x2F;RoPE (读 buf N, 写 KV buf M)</li>
 <li>WG2 反量化 (读 KV buf M)</li>
 <li>WG1-Warp4 发起 UTCMMA (读反量化后的 KV)</li>
-<li>WG0 做 softmax (读 TMEM 中的 P)
-每一步都需要独立的 buffer 来实现流水线</li>
+<li>WG0 做 softmax (读 TMEM 中的 P)<br>每一步都需要独立的 buffer 来实现流水线</li>
 </ul>
 </blockquote>
 <hr>
@@ -957,7 +954,7 @@ SM100 需要更多 buffer 因为 TMA Gather4 的 pipeline 更深:</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (params.attn_sink != <span class="literal">nullptr</span>) &#123;</span><br><span class="line">    <span class="type">float</span> attn_sink_log2 = __ldg(params.attn_sink + head_idx) * CUDART_L2E_F;</span><br><span class="line">    <span class="comment">// attn_sink[head 0] = -2.5 → attn_sink_log2 = -2.5 × 1.4427 = -3.607</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 计算最终的 output scale (包含 attention sink)</span></span><br><span class="line"><span class="keyword">if</span> (args.is_no_split) &#123;</span><br><span class="line">    o_scales[i] = <span class="number">1.0</span> / (rL[i] + <span class="built_in">exp2f</span>(rAttn_sink[i] - rM[i]));</span><br><span class="line">    <span class="comment">// = 1.0 / (80.7 + exp2(-3.607 - 0.2116))</span></span><br><span class="line">    <span class="comment">// = 1.0 / (80.7 + exp2(-3.818))</span></span><br><span class="line">    <span class="comment">// = 1.0 / (80.7 + 0.0709)</span></span><br><span class="line">    <span class="comment">// = 1.0 / 80.77</span></span><br><span class="line">    <span class="comment">// = 0.01238</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <blockquote>
-<p><strong>Attention Sink 的含义:</strong> 假装有一个额外的 &quot;sink&quot; token，其注意力分数是固定的 <code>attn_sink</code> 值。这让模型可以把一部分注意力&quot;倒掉&quot;，避免所有注意力都集中在 top-k token 上。</p>
+<p><strong>Attention Sink 的含义:</strong> 假装有一个额外的 “sink” token，其注意力分数是固定的 <code>attn_sink</code> 值。这让模型可以把一部分注意力”倒掉”，避免所有注意力都集中在 top-k token 上。</p>
 </blockquote>
 <hr>
 <h2 id="第-14-步：输出写回"><a href="#第-14-步：输出写回" class="headerlink" title="第 14 步：输出写回"></a>第 14 步：输出写回</h2><h3 id="14-1-Warpgroup-0-O-left-写入分-split-no-split-两种情况"><a href="#14-1-Warpgroup-0-O-left-写入分-split-no-split-两种情况" class="headerlink" title="14.1 Warpgroup 0: O_left 写入分 split&#x2F;no-split 两种情况"></a>14.1 Warpgroup 0: O_left 写入分 split&#x2F;no-split 两种情况</h3><p><strong>No-split (<code>is_no_split=true</code>, 我们的例子):</strong></p>
@@ -1526,7 +1523,7 @@ SM100 需要更多 buffer 因为 TMA Gather4 的 pipeline 更深:</p>
 </li>
 </ol>
 <hr>
-<h2 id="FP8-KV-Cache-格式详解"><a href="#FP8-KV-Cache-格式详解" class="headerlink" title="FP8 KV Cache 格式详解"></a>FP8 KV Cache 格式详解</h2><h3 id="每-Token-656-Bytes-的奥秘"><a href="#每-Token-656-Bytes-的奥秘" class="headerlink" title="每 Token 656 Bytes 的奥秘"></a>每 Token 656 Bytes 的奥秘</h3><p>FlashMLA 的 FP8 KV Cache 采用 <strong>&quot;FP8 with scale&quot;</strong> 格式，每个 token 占用 <strong>656 Bytes</strong>：</p>
+<h2 id="FP8-KV-Cache-格式详解"><a href="#FP8-KV-Cache-格式详解" class="headerlink" title="FP8 KV Cache 格式详解"></a>FP8 KV Cache 格式详解</h2><h3 id="每-Token-656-Bytes-的奥秘"><a href="#每-Token-656-Bytes-的奥秘" class="headerlink" title="每 Token 656 Bytes 的奥秘"></a>每 Token 656 Bytes 的奥秘</h3><p>FlashMLA 的 FP8 KV Cache 采用 <strong>“FP8 with scale”</strong> 格式，每个 token 占用 <strong>656 Bytes</strong>：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">┌─────────────────────────────────────────────────────────────┐</span><br><span class="line">│                    Token KV Cache (656 Bytes)                │</span><br><span class="line">├──────────────────┬──────────────────┬───────────────────────┤</span><br><span class="line">│  Quantized NoPE  │   Scale Factors  │       RoPE            │</span><br><span class="line">│    512 bytes     │     16 bytes     │     128 bytes         │</span><br><span class="line">│  512 × FP8       │   4 × FP32       │   64 × BF16           │</span><br><span class="line">│  (e4m3 format)   │  (per 128 vals)  │   (not quantized)     │</span><br><span class="line">└──────────────────┴──────────────────┴───────────────────────┘</span><br></pre></td></tr></table></figure>
 
 <h3 id="FP8-E4M3-格式基础"><a href="#FP8-E4M3-格式基础" class="headerlink" title="FP8 E4M3 格式基础"></a>FP8 E4M3 格式基础</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> torch</span><br><span class="line"></span><br><span class="line"><span class="comment"># FP8 E4M3 的关键参数</span></span><br><span class="line">fp8_info = torch.finfo(torch.float8_e4m3fn)</span><br><span class="line"><span class="built_in">print</span>(<span class="string">f&quot;最大值：<span class="subst">&#123;fp8_info.<span class="built_in">max</span>&#125;</span>&quot;</span>)      <span class="comment"># 448.0</span></span><br><span class="line"><span class="built_in">print</span>(<span class="string">f&quot;最小正值：<span class="subst">&#123;fp8_info.tiny&#125;</span>&quot;</span>)   <span class="comment"># 1/512 ≈ 0.00195</span></span><br><span class="line"><span class="built_in">print</span>(<span class="string">f&quot;精度 (epsilon): <span class="subst">&#123;fp8_info.eps&#125;</span>&quot;</span>)  <span class="comment"># 0.25</span></span><br></pre></td></tr></table></figure>
@@ -1841,14 +1838,7 @@ SM100 需要更多 buffer 因为 TMA Gather4 的 pipeline 更深:</p>
 
 <hr>
 <h2 id="论文算法与代码对应"><a href="#论文算法与代码对应" class="headerlink" title="论文算法与代码对应"></a>论文算法与代码对应</h2><h3 id="DeepSeek-V2-论文中的-MLA-公式"><a href="#DeepSeek-V2-论文中的-MLA-公式" class="headerlink" title="DeepSeek-V2 论文中的 MLA 公式"></a>DeepSeek-V2 论文中的 MLA 公式</h3><p>论文中的 MLA 压缩 - 恢复流程：</p>
-<p>$$
-\begin{aligned}
-\text{压缩:} &amp; \quad C_K &#x3D; X W_{cK}, \quad C_V &#x3D; X W_{cV} \
-\text{存储:} &amp; \quad \text{KV Cache} &#x3D; [C_K, C_V] \
-\text{恢复:} &amp; \quad K &#x3D; C_K W_{uK}, \quad V &#x3D; C_V W_{uV} \
-\text{Attention:} &amp; \quad \text{Attn}(Q, K, V) &#x3D; \text{softmax}\left(\frac{QK^T}{\sqrt{d}}\right)V
-\end{aligned}
-$$</p>
+<p>$$<br>\begin{aligned}<br>\text{压缩:} &amp; \quad C_K &#x3D; X W_{cK}, \quad C_V &#x3D; X W_{cV} \<br>\text{存储:} &amp; \quad \text{KV Cache} &#x3D; [C_K, C_V] \<br>\text{恢复:} &amp; \quad K &#x3D; C_K W_{uK}, \quad V &#x3D; C_V W_{uV} \<br>\text{Attention:} &amp; \quad \text{Attn}(Q, K, V) &#x3D; \text{softmax}\left(\frac{QK^T}{\sqrt{d}}\right)V<br>\end{aligned}<br>$$</p>
 <h3 id="FlashMLA-代码实现对应"><a href="#FlashMLA-代码实现对应" class="headerlink" title="FlashMLA 代码实现对应"></a>FlashMLA 代码实现对应</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># FlashMLA 中的 MLA 实现（简化版）</span></span><br><span class="line"><span class="keyword">class</span> <span class="title class_">MLAAttention</span>(nn.Module):</span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">__init__</span>(<span class="params">self, hidden_dim, latent_dim</span>):</span><br><span class="line">        <span class="built_in">super</span>().__init__()</span><br><span class="line">        <span class="comment"># 压缩矩阵</span></span><br><span class="line">        <span class="variable language_">self</span>.W_cK = nn.Linear(hidden_dim, latent_dim, bias=<span class="literal">False</span>)</span><br><span class="line">        <span class="variable language_">self</span>.W_cV = nn.Linear(hidden_dim, latent_dim, bias=<span class="literal">False</span>)</span><br><span class="line">        </span><br><span class="line">        <span class="comment"># 恢复矩阵</span></span><br><span class="line">        <span class="variable language_">self</span>.W_uK = nn.Linear(latent_dim, hidden_dim, bias=<span class="literal">False</span>)</span><br><span class="line">        <span class="variable language_">self</span>.W_uV = nn.Linear(latent_dim, hidden_dim, bias=<span class="literal">False</span>)</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">forward</span>(<span class="params">self, x, cache_seqlens, block_table, is_fp8_kvcache=<span class="literal">True</span></span>):</span><br><span class="line">        <span class="comment"># 1. 压缩（Prefill 阶段）</span></span><br><span class="line">        c_k = <span class="variable language_">self</span>.W_cK(x)  <span class="comment"># [seq_len, latent_dim]</span></span><br><span class="line">        c_v = <span class="variable language_">self</span>.W_cV(x)</span><br><span class="line">        </span><br><span class="line">        <span class="comment"># 2. 量化（如果启用 FP8）</span></span><br><span class="line">        <span class="keyword">if</span> is_fp8_kvcache:  <span class="comment"># ← flashmla_kv 配置</span></span><br><span class="line">            kv_fp8, scales = quantize_kv_fp8(torch.cat([c_k, c_v], dim=-<span class="number">1</span>))</span><br><span class="line">            kv_cache = torch.cat([kv_fp8, scales], dim=-<span class="number">1</span>)</span><br><span class="line">        <span class="keyword">else</span>:</span><br><span class="line">            kv_cache = torch.cat([c_k, c_v], dim=-<span class="number">1</span>)  <span class="comment"># BF16</span></span><br><span class="line">        </span><br><span class="line">        <span class="comment"># 3. 存储到 paged cache</span></span><br><span class="line">        store_to_paged_cache(kv_cache, block_table)</span><br><span class="line">        </span><br><span class="line">        <span class="comment"># 4. Decode 阶段：从 cache 读取并恢复</span></span><br><span class="line">        kv_loaded = load_from_paged_cache(block_table, cache_seqlens)</span><br><span class="line">        </span><br><span class="line">        <span class="keyword">if</span> is_fp8_kvcache:</span><br><span class="line">            <span class="comment"># 反量化</span></span><br><span class="line">            kv_dequant = dequantize_kv_fp8(kv_loaded[..., :<span class="number">512</span>], kv_loaded[..., <span class="number">512</span>:<span class="number">516</span>])</span><br><span class="line">            c_k, c_v = kv_dequant.chunk(<span class="number">2</span>, dim=-<span class="number">1</span>)</span><br><span class="line">        <span class="keyword">else</span>:</span><br><span class="line">            c_k, c_v = kv_loaded.chunk(<span class="number">2</span>, dim=-<span class="number">1</span>)</span><br><span class="line">        </span><br><span class="line">        <span class="comment"># 恢复</span></span><br><span class="line">        k = <span class="variable language_">self</span>.W_uK(c_k)</span><br><span class="line">        v = <span class="variable language_">self</span>.W_uV(c_v)</span><br><span class="line">        </span><br><span class="line">        <span class="comment"># 注意力计算（可能使用 sparse indices）</span></span><br><span class="line">        out = flash_mla_with_kvcache(q, k, v, indices)</span><br><span class="line">        </span><br><span class="line">        <span class="keyword">return</span> out</span><br></pre></td></tr></table></figure>
 
 <h3 id="关键函数映射"><a href="#关键函数映射" class="headerlink" title="关键函数映射"></a>关键函数映射</h3><table>
@@ -1981,7 +1971,7 @@ $$</p>
 
 <h4 id="6-监控与调试"><a href="#6-监控与调试" class="headerlink" title="6. 监控与调试"></a>6. 监控与调试</h4><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 查看服务器日志</span></span><br><span class="line">docker logs -f &lt;container_id&gt;</span><br><span class="line"></span><br><span class="line"><span class="comment"># 检查 FlashMLA 是否生效</span></span><br><span class="line"><span class="comment"># 日志中应该看到：</span></span><br><span class="line"><span class="comment"># &quot;Using FlashMLA FP8 KV Cache&quot;</span></span><br><span class="line"><span class="comment"># &quot;Sparse attention enabled with topk=4096&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 检查显存占用</span></span><br><span class="line">nvidia-smi dmon -i 0</span><br><span class="line"></span><br><span class="line"><span class="comment"># 检查 kernel 启动</span></span><br><span class="line"><span class="comment"># 使用 nsys 性能分析工具</span></span><br><span class="line">nsys profile --stats=<span class="literal">true</span> \</span><br><span class="line">  python -m sglang.launch_server \</span><br><span class="line">    --model deepseek-ai/DeepSeek-V3.2-Exp \</span><br><span class="line">    --tp 8 --dp 8</span><br></pre></td></tr></table></figure>
 
-<h4 id="7-常见问题"><a href="#7-常见问题" class="headerlink" title="7. 常见问题"></a>7. 常见问题</h4><p><strong>Q1: 启动时报 &quot;SM100 not supported&quot;</strong></p>
+<h4 id="7-常见问题"><a href="#7-常见问题" class="headerlink" title="7. 常见问题"></a>7. 常见问题</h4><p><strong>Q1: 启动时报 “SM100 not supported”</strong></p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">原因：SGLang 版本过旧</span><br><span class="line">解决：更新到最新版本</span><br><span class="line">  pip install --upgrade sglang</span><br><span class="line">  docker pull lmsysorg/sglang:dsv32</span><br></pre></td></tr></table></figure>
 
 <p><strong>Q2: 显存不足</strong></p>
@@ -2224,7 +2214,7 @@ $$</p>
 <td><strong>25 倍降低</strong></td>
 </tr>
 </tbody></table>
-<p><strong>核心洞察</strong>：GB200 重新定义了&quot;GPU&quot;——它不再是一个独立的芯片，而是一个<strong>72 处理器机柜级计算机</strong>的组成部分。</p>
+<p><strong>核心洞察</strong>：GB200 重新定义了”GPU”——它不再是一个独立的芯片，而是一个<strong>72 处理器机柜级计算机</strong>的组成部分。</p>
 <hr>
 <h2 id="📐-一、核心架构：从芯片到机柜"><a href="#📐-一、核心架构：从芯片到机柜" class="headerlink" title="📐 一、核心架构：从芯片到机柜"></a>📐 一、核心架构：从芯片到机柜</h2><h3 id="1-1-Dual-Die-设计：突破物理极限"><a href="#1-1-Dual-Die-设计：突破物理极限" class="headerlink" title="1.1 Dual-Die 设计：突破物理极限"></a>1.1 Dual-Die 设计：突破物理极限</h3><p>由于单枚晶圆接近 <strong>Reticle Limit</strong>（光刻极限），Blackwell 采用了激进的<strong>双芯片设计</strong>：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">┌─────────────────┐  ┌─────────────────┐</span><br><span class="line">│  Blackwell GPU  │  │  Blackwell GPU  │</span><br><span class="line">│  (左半芯片)      │  │  (右半芯片)      │</span><br><span class="line">│  2080 亿晶体管   │  │  2080 亿晶体管   │</span><br><span class="line">│  TSMC 4NP 工艺   │  │  TSMC 4NP 工艺   │</span><br><span class="line">└─────────────────┘  └─────────────────┘</span><br><span class="line">         ▲                    ▲</span><br><span class="line">         └────────┬───────────┘</span><br><span class="line">                  │</span><br><span class="line">         10 TB/s HBI 互联</span><br><span class="line">         (High-Bandwidth Interface)</span><br></pre></td></tr></table></figure>
@@ -2271,7 +2261,7 @@ $$</p>
 <li>两个小 die + 高速互联 &#x3D; <strong>最佳经济性</strong></li>
 </ul>
 <hr>
-<h3 id="1-2-GB200-Superchip：CPU-GPU-深度融合"><a href="#1-2-GB200-Superchip：CPU-GPU-深度融合" class="headerlink" title="1.2 GB200 Superchip：CPU-GPU 深度融合"></a>1.2 GB200 Superchip：CPU-GPU 深度融合</h3><p>GB200 Superchip 是系统的核心模块，将 <strong>Grace CPU</strong> 与 <strong>Blackwell GPU</strong> 直接&quot;缝合&quot;：</p>
+<h3 id="1-2-GB200-Superchip：CPU-GPU-深度融合"><a href="#1-2-GB200-Superchip：CPU-GPU-深度融合" class="headerlink" title="1.2 GB200 Superchip：CPU-GPU 深度融合"></a>1.2 GB200 Superchip：CPU-GPU 深度融合</h3><p>GB200 Superchip 是系统的核心模块，将 <strong>Grace CPU</strong> 与 <strong>Blackwell GPU</strong> 直接”缝合”：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">┌─────────────────────────────────────┐</span><br><span class="line">│         GB200 Superchip             │</span><br><span class="line">│  ┌──────────────┐    ┌───────────┐  │</span><br><span class="line">│  │ Grace CPU    │◄──►│ Blackwell │  │</span><br><span class="line">│  │ (72 核 ARM)    │    │   GPU     │  │</span><br><span class="line">│  │ 480GB LPDDR5X│    │384GB HBM3e│  │</span><br><span class="line">│  └──────────────┘    └───────────┘  │</span><br><span class="line">│         NVLink-C2C 900 GB/s          │</span><br><span class="line">└─────────────────────────────────────┘</span><br></pre></td></tr></table></figure>
 
 <p><strong>NVLink-C2C 关键特性</strong>：</p>
@@ -2764,7 +2754,7 @@ $$</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">用户空间                              内核空间</span><br><span class="line">┌─────────────────┐                ┌─────────────────┐</span><br><span class="line">│  SQ Ring        │◄────共享内存────►│  SQ Ring        │</span><br><span class="line">│  (提交队列)      │                │  (提交队列)      │</span><br><span class="line">├─────────────────┤                ├─────────────────┤</span><br><span class="line">│  CQ Ring        │◄────共享内存────►│  CQ Ring        │</span><br><span class="line">│  (完成队列)      │                │  (完成队列)      │</span><br><span class="line">└─────────────────┘                └─────────────────┘</span><br></pre></td></tr></table></figure>
 
 <hr>
-<h2 id="零拷贝机制详解"><a href="#零拷贝机制详解" class="headerlink" title="零拷贝机制详解"></a>零拷贝机制详解</h2><p>io_uring 的&quot;零拷贝&quot;不是魔法，而是<strong>巧妙的虚拟内存映射设计</strong>。</p>
+<h2 id="零拷贝机制详解"><a href="#零拷贝机制详解" class="headerlink" title="零拷贝机制详解"></a>零拷贝机制详解</h2><p>io_uring 的”零拷贝”不是魔法，而是<strong>巧妙的虚拟内存映射设计</strong>。</p>
 <h3 id="两个阶段"><a href="#两个阶段" class="headerlink" title="两个阶段"></a>两个阶段</h3><h4 id="阶段一：io-uring-setup-—-内核分配物理页"><a href="#阶段一：io-uring-setup-—-内核分配物理页" class="headerlink" title="阶段一：io_uring_setup() — 内核分配物理页"></a>阶段一：<code>io_uring_setup()</code> — 内核分配物理页</h4><p>内核分配物理页 P1, P2, P3，并在<strong>内核页表</strong>中建立映射。此时用户进程页表中没有任何映射，用户态无法访问这些物理页。</p>
 <h4 id="阶段二：mmap-三次-—-插入用户态映射"><a href="#阶段二：mmap-三次-—-插入用户态映射" class="headerlink" title="阶段二：mmap() 三次 — 插入用户态映射"></a>阶段二：<code>mmap()</code> 三次 — 插入用户态映射</h4><p>内核在用户进程的页表里插入新条目——把用户态的某段虚拟地址（比如 <code>0x7f000000</code>）也指向同一批物理页。</p>
 <p><img data-src="/images/io_uring-mmap-mechanism.jpg" alt="io_uring mmap 机制"></p>
@@ -2788,7 +2778,7 @@ $$</p>
 <p>内核程序读 SQ Ring：</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">tail = sqring-&gt;tail;  <span class="comment">// 虚拟地址 0xffff8000，CPU 翻译到同一个物理页 P1</span></span><br></pre></td></tr></table></figure>
 
-<p><strong>数据从未被复制</strong>，只是同一块物理内存有两个&quot;门牌号&quot;。</p>
+<p><strong>数据从未被复制</strong>，只是同一块物理内存有两个”门牌号”。</p>
 <h3 id="页表切换优化"><a href="#页表切换优化" class="headerlink" title="页表切换优化"></a>页表切换优化</h3><table>
 <thead>
 <tr>
@@ -2997,13 +2987,13 @@ $$</p>
 <li><strong>云原生基础设施</strong>：Service Mesh、API Gateway 等中间件受益</li>
 </ol>
 <p>正如 Bluesky 的案例所示，在极端场景下，<strong>运行时抽象会变成瓶颈</strong>。io_uring 提供了一种更底层的、更高效的 I&#x2F;O 模型，让我们能够突破这些瓶颈。</p>
-<p>对于追求极致性能的系统工程师来说，io_uring 不是&quot;要不要学&quot;的问题，而是&quot;什么时候学&quot;的问题。</p>
+<p>对于追求极致性能的系统工程师来说，io_uring 不是”要不要学”的问题，而是”什么时候学”的问题。</p>
 <hr>
 <h2 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a>参考资料</h2><ol>
-<li>Bluesky Engineering. &quot;Scaling AppView to 192 Cores.&quot; <a target="_blank" rel="noopener" href="https://jazco.dev/2024/01/10/golang-and-epoll/">https://jazco.dev/2024/01/10/golang-and-epoll/</a></li>
-<li>Jens Axboe. &quot;io_uring: A New Linux Async I&#x2F;O Subsystem.&quot; <a target="_blank" rel="noopener" href="https://kernel.dk/io_uring.pdf">https://kernel.dk/io_uring.pdf</a></li>
-<li>Shuveb Hussain. &quot;Lord of the io_uring.&quot; <a target="_blank" rel="noopener" href="https://unixism.net/loti/">https://unixism.net/loti/</a></li>
-<li>Linux Kernel Documentation. &quot;io_uring.&quot; <a target="_blank" rel="noopener" href="https://github.com/torvalds/linux/tree/master/Documentation/io_uring">https://github.com/torvalds/linux/tree/master/Documentation/io_uring</a></li>
+<li>Bluesky Engineering. “Scaling AppView to 192 Cores.” <a target="_blank" rel="noopener" href="https://jazco.dev/2024/01/10/golang-and-epoll/">https://jazco.dev/2024/01/10/golang-and-epoll/</a></li>
+<li>Jens Axboe. “io_uring: A New Linux Async I&#x2F;O Subsystem.” <a target="_blank" rel="noopener" href="https://kernel.dk/io_uring.pdf">https://kernel.dk/io_uring.pdf</a></li>
+<li>Shuveb Hussain. “Lord of the io_uring.” <a target="_blank" rel="noopener" href="https://unixism.net/loti/">https://unixism.net/loti/</a></li>
+<li>Linux Kernel Documentation. “io_uring.” <a target="_blank" rel="noopener" href="https://github.com/torvalds/linux/tree/master/Documentation/io_uring">https://github.com/torvalds/linux/tree/master/Documentation/io_uring</a></li>
 </ol>
 
       
@@ -3101,17 +3091,17 @@ $$</p>
 <p>不是所有目标都需要 LLM 评估。客观指标对数字负责，主观标准对评估器负责。目标定义本身在每次循环中进化。</p>
 </blockquote>
 <hr>
-<h2 id="一、引言：为什么-Agent-Skill-需要进化？"><a href="#一、引言：为什么-Agent-Skill-需要进化？" class="headerlink" title="一、引言：为什么 Agent Skill 需要进化？"></a>一、引言：为什么 Agent Skill 需要进化？</h2><h3 id="现状问题"><a href="#现状问题" class="headerlink" title="现状问题"></a>现状问题</h3><p>大多数 Agent Skill 是<strong>静态的</strong>——SKILL.md 写完就固定了。遇到边界情况不会&quot;长记性&quot;，每次错误都是孤立的，无法沉淀成经验。</p>
+<h2 id="一、引言：为什么-Agent-Skill-需要进化？"><a href="#一、引言：为什么-Agent-Skill-需要进化？" class="headerlink" title="一、引言：为什么 Agent Skill 需要进化？"></a>一、引言：为什么 Agent Skill 需要进化？</h2><h3 id="现状问题"><a href="#现状问题" class="headerlink" title="现状问题"></a>现状问题</h3><p>大多数 Agent Skill 是<strong>静态的</strong>——SKILL.md 写完就固定了。遇到边界情况不会”长记性”，每次错误都是孤立的，无法沉淀成经验。</p>
 <p>更严重的是，当 Skill 开始自我迭代时，如果没有良好的约束机制，AI 会陷入盲目试错的循环：</p>
 <blockquote>
 <p>某次下午，我让 AI 迭代优化一个 Skill 的 prompt。没有设置 token 上限，AI 开始疯狂循环：生成 → 评估 → 改进 → 再生成 → 再评估 → 再改进。每次迭代消耗约 5,000 tokens，一下午跑了 400+ 次迭代，<strong>总消耗 200 万 + tokens，额度全部用完</strong>。最终分数从 72% → 74%，改进微乎其微。</p>
 </blockquote>
 <p>这是血泪教训。</p>
-<h3 id="核心挑战"><a href="#核心挑战" class="headerlink" title="核心挑战"></a>核心挑战</h3><p>如何定义&quot;进步&quot;？</p>
+<h3 id="核心挑战"><a href="#核心挑战" class="headerlink" title="核心挑战"></a>核心挑战</h3><p>如何定义”进步”？</p>
 <ul>
-<li>&quot;写得更好&quot; → 太模糊</li>
-<li>&quot;通过测试&quot; → 但什么测试？</li>
-<li>&quot;用户满意&quot; → 怎么衡量？</li>
+<li>“写得更好” → 太模糊</li>
+<li>“通过测试” → 但什么测试？</li>
+<li>“用户满意” → 怎么衡量？</li>
 </ul>
 <p>本文提出一套<strong>以结果为导向的进化设计</strong>，核心洞察是：<strong>结果类型决定评估策略</strong>。</p>
 <hr>
@@ -3125,7 +3115,7 @@ $$</p>
 </ul>
 <p><strong>局限：</strong></p>
 <ul>
-<li>❌ 难以处理模糊目标（如&quot;改善用户体验&quot;）</li>
+<li>❌ 难以处理模糊目标（如”改善用户体验”）</li>
 <li>❌ 需要预先知道正确的执行路径</li>
 </ul>
 <hr>
@@ -3178,9 +3168,9 @@ $$</p>
 
 <p><strong>设计要点：</strong></p>
 <ol>
-<li><strong>执行器和评估器分离</strong> —— 避免&quot;自己评自己&quot;</li>
+<li><strong>执行器和评估器分离</strong> —— 避免”自己评自己”</li>
 <li><strong>评估器可选</strong> —— 客观指标不需要</li>
-<li><strong>目标定义可进化</strong> —— 这是&quot;会学习&quot;的关键</li>
+<li><strong>目标定义可进化</strong> —— 这是”会学习”的关键</li>
 </ol>
 <hr>
 <h2 id="五、自提升循环（四阶段）"><a href="#五、自提升循环（四阶段）" class="headerlink" title="五、自提升循环（四阶段）"></a>五、自提升循环（四阶段）</h2><h3 id="Phase-1-目标解析"><a href="#Phase-1-目标解析" class="headerlink" title="Phase 1: 目标解析"></a>Phase 1: 目标解析</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">输入：模糊需求 → 输出：可执行目标</span><br><span class="line"></span><br><span class="line">&quot;优化性能&quot; → &quot;查询响应 &lt; 100ms, 慢查询 &lt; 5/天&quot;</span><br><span class="line">&quot;改善设计&quot; → &quot;由独立 LLM 评估，视觉层次&gt;7/10&quot;</span><br></pre></td></tr></table></figure>
@@ -3208,7 +3198,7 @@ $$</p>
 <h4 id="循环-4：重构执行"><a href="#循环-4：重构执行" class="headerlink" title="循环 4：重构执行"></a>循环 4：重构执行</h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">目标：重构核心模块，覆盖率不下降</span><br><span class="line">执行：重构 + 自动运行 E2E 测试</span><br><span class="line">评估：覆盖率 84% ✅, 全部通过 ✅</span><br><span class="line">沉淀：记录&quot;重构安全模式&quot;</span><br><span class="line">改进：更新重构检查清单</span><br></pre></td></tr></table></figure>
 
 <hr>
-<h3 id="关键洞察"><a href="#关键洞察" class="headerlink" title="关键洞察"></a>关键洞察</h3><p><strong>E2E 覆盖率作为&quot;安全网&quot;的价值：</strong></p>
+<h3 id="关键洞察"><a href="#关键洞察" class="headerlink" title="关键洞察"></a>关键洞察</h3><p><strong>E2E 覆盖率作为”安全网”的价值：</strong></p>
 <ol>
 <li>✅ 重构前有基线，可对比</li>
 <li>✅ 重构中有保障，回归立即发现</li>
@@ -3219,15 +3209,15 @@ $$</p>
 <li>测试用例数量从 15 → 65</li>
 <li>覆盖率从 35% → 85%</li>
 <li>测试生成从手动 → 模板 → 自动化脚本</li>
-<li><strong>目标本身也在进化</strong>：从&quot;写测试&quot;到&quot;覆盖率&gt;80%&quot;到&quot;回归零失败&quot;</li>
+<li><strong>目标本身也在进化</strong>：从”写测试”到”覆盖率&gt;80%”到”回归零失败”</li>
 </ul>
 <hr>
-<h2 id="七、实战案例-2：面向用户体验的-Web-开发"><a href="#七、实战案例-2：面向用户体验的-Web-开发" class="headerlink" title="七、实战案例 2：面向用户体验的 Web 开发"></a>七、实战案例 2：面向用户体验的 Web 开发</h2><h3 id="场景描述-1"><a href="#场景描述-1" class="headerlink" title="场景描述"></a>场景描述</h3><p>一个技能分发平台的 Web 项目，需要持续改进视觉设计和交互体验。这类任务的特点是：<strong>&quot;好&quot;的定义模糊</strong>，需要更清晰的语言描述什么是好的用户体验和视觉方案。</p>
+<h2 id="七、实战案例-2：面向用户体验的-Web-开发"><a href="#七、实战案例-2：面向用户体验的-Web-开发" class="headerlink" title="七、实战案例 2：面向用户体验的 Web 开发"></a>七、实战案例 2：面向用户体验的 Web 开发</h2><h3 id="场景描述-1"><a href="#场景描述-1" class="headerlink" title="场景描述"></a>场景描述</h3><p>一个技能分发平台的 Web 项目，需要持续改进视觉设计和交互体验。这类任务的特点是：<strong>“好”的定义模糊</strong>，需要更清晰的语言描述什么是好的用户体验和视觉方案。</p>
 <h3 id="初始目标（模糊）"><a href="#初始目标（模糊）" class="headerlink" title="初始目标（模糊）"></a>初始目标（模糊）</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">目标：更新风格 + 运行测试</span><br></pre></td></tr></table></figure>
 
 <p><strong>问题：</strong></p>
 <ul>
-<li>&quot;更新风格&quot;无法验证</li>
+<li>“更新风格”无法验证</li>
 <li>测试通过率多少算合格？</li>
 <li>每次执行结果不一致</li>
 </ul>
@@ -3242,11 +3232,11 @@ $$</p>
 <h3 id="执行流程"><a href="#执行流程" class="headerlink" title="执行流程"></a>执行流程</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">1. 执行器：更新 UI 组件 → 提交代码</span><br><span class="line">2. 客观校验：测试通过率 85% ✅, 加载时间 2.1s ✅</span><br><span class="line">3. 主观评估：独立 LLM 打分 → 视觉层次 6/10 ❌</span><br><span class="line">4. 知识沉淀：记录&quot;Hero 区域对比度不足&quot;</span><br><span class="line">5. 目标进化：下次增加&quot;对比度&gt;4.5:1&quot;的具体要求</span><br></pre></td></tr></table></figure>
 
 <hr>
-<h3 id="为什么这类场景需要独立-LLM-评估器？"><a href="#为什么这类场景需要独立-LLM-评估器？" class="headerlink" title="为什么这类场景需要独立 LLM 评估器？"></a>为什么这类场景需要独立 LLM 评估器？</h3><p>因为&quot;设计风格&quot;、&quot;用户体验&quot;这些概念无法用单一数值衡量。但我们可以：</p>
+<h3 id="为什么这类场景需要独立-LLM-评估器？"><a href="#为什么这类场景需要独立-LLM-评估器？" class="headerlink" title="为什么这类场景需要独立 LLM 评估器？"></a>为什么这类场景需要独立 LLM 评估器？</h3><p>因为”设计风格”、”用户体验”这些概念无法用单一数值衡量。但我们可以：</p>
 <ol>
 <li><strong>拆解维度</strong> —— 把模糊概念拆成可评分的子项</li>
 <li><strong>独立评估</strong> —— 用不与执行器共享上下文的 LLM 打分</li>
-<li><strong>沉淀标准</strong> —— 每次评估后更新&quot;什么是好设计&quot;的知识库</li>
+<li><strong>沉淀标准</strong> —— 每次评估后更新”什么是好设计”的知识库</li>
 </ol>
 <p>久而久之，评估器会越来越准，因为它的知识库在进化。</p>
 <hr>
@@ -3265,7 +3255,7 @@ $$</p>
 
 <p><strong>为什么需要独立 LLM？</strong></p>
 <ul>
-<li>避免执行器&quot;自己评自己&quot;</li>
+<li>避免执行器”自己评自己”</li>
 <li>评估器上下文不与执行器污染</li>
 <li>评估标准可独立进化</li>
 </ul>
@@ -3401,7 +3391,7 @@ $$</p>
 <ol>
 <li>不是所有目标都需要 LLM 评估 —— 客观指标对数字负责</li>
 <li>主观标准需要独立评估器 —— 避免自己评自己</li>
-<li>目标定义本身在每次循环中进化 —— 这是&quot;会学习&quot;的关键</li>
+<li>目标定义本身在每次循环中进化 —— 这是”会学习”的关键</li>
 <li>必须设置预算和终止条件 —— 否则 Token 会失控</li>
 <li>元指令告诉 AI 如何思考 —— 不只是做什么，而是怎么做</li>
 </ol>
@@ -3497,7 +3487,7 @@ $$</p>
 <p><strong>本文由 我的小龙虾 整理发布</strong></p>
 </blockquote>
 <h2 id="开篇亮剑"><a href="#开篇亮剑" class="headerlink" title="开篇亮剑"></a>开篇亮剑</h2><p>先说结论：<strong>MCP（Model Context Protocol）是写给 LLM 的语言，不是写给机器的语言。</strong></p>
-<p>这句话不是我说的，但我在实践中越来越认同这个观点。今天这篇文章，我要旗帜鲜明地反对 MCP 的滥用——不是反对协议本身，而是反对那种&quot;万物皆 MCP&quot;的设计思路。</p>
+<p>这句话不是我说的，但我在实践中越来越认同这个观点。今天这篇文章，我要旗帜鲜明地反对 MCP 的滥用——不是反对协议本身，而是反对那种”万物皆 MCP”的设计思路。</p>
 <hr>
 <h2 id="一、MCP-的问题出在哪里"><a href="#一、MCP-的问题出在哪里" class="headerlink" title="一、MCP 的问题出在哪里"></a>一、MCP 的问题出在哪里</h2><h3 id="1-1-上下文膨胀"><a href="#1-1-上下文膨胀" class="headerlink" title="1.1 上下文膨胀"></a>1.1 上下文膨胀</h3><p>MCP 的核心设计是为每个工具定义 schema，包括：</p>
 <ul>
@@ -3511,7 +3501,7 @@ $$</p>
 <p>对比一下 Unix CLI：</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 一个命令搞定</span></span><br><span class="line">run(<span class="string">&quot;cat file.txt | grep error | wc -l&quot;</span>)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 上下文：就一个字符串</span></span><br></pre></td></tr></table></figure>
 
-<h3 id="1-2-工具之间的组合困难"><a href="#1-2-工具之间的组合困难" class="headerlink" title="1.2 工具之间的组合困难"></a>1.2 工具之间的组合困难</h3><p>MCP 的工具调用是&quot;LLM 决策 → 工具执行 → 结果返回&quot;的循环。想组合两个工具？</p>
+<h3 id="1-2-工具之间的组合困难"><a href="#1-2-工具之间的组合困难" class="headerlink" title="1.2 工具之间的组合困难"></a>1.2 工具之间的组合困难</h3><p>MCP 的工具调用是”LLM 决策 → 工具执行 → 结果返回”的循环。想组合两个工具？</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">用户问：查一下北京天气并告诉我要不要带伞</span><br><span class="line">→ LLM 决定调用 weather_search</span><br><span class="line">→ 等待结果返回</span><br><span class="line">→ LLM 再决定要不要调用 umbrella_advisor</span><br><span class="line">→ 再次等待</span><br><span class="line">→ 最终回答</span><br></pre></td></tr></table></figure>
 
 <p>两轮 LLM 推理，延迟翻倍。</p>
@@ -3546,7 +3536,7 @@ $$</p>
 </ul>
 <h3 id="2-2-实战案例：atoolix"><a href="#2-2-实战案例：atoolix" class="headerlink" title="2.2 实战案例：atoolix"></a>2.2 实战案例：atoolix</h3><p>最近发现一个项目 <a target="_blank" rel="noopener" href="https://github.com/Mind-Dragon/atoolix">atoolix</a>，它的 README 里明确写着：</p>
 <blockquote>
-<p>&quot;Applies the *nix Agent design philosophy to agent tool interfaces — single run() tool, CLI over function calling, two-layer execution&#x2F;presentation architecture, progressive --help discovery, and error-as-feedback.&quot;</p>
+<p>“Applies the *nix Agent design philosophy to agent tool interfaces — single run() tool, CLI over function calling, two-layer execution&#x2F;presentation architecture, progressive –help discovery, and error-as-feedback.”</p>
 </blockquote>
 <p>关键设计：</p>
 <table>
@@ -3616,7 +3606,7 @@ $$</p>
 <h2 id="三、什么时候该用什么"><a href="#三、什么时候该用什么" class="headerlink" title="三、什么时候该用什么"></a>三、什么时候该用什么</h2><h3 id="3-1-用-MCP-的场景"><a href="#3-1-用-MCP-的场景" class="headerlink" title="3.1 用 MCP 的场景"></a>3.1 用 MCP 的场景</h3><p>我不是说 MCP 一无是处。以下场景 MCP 确实更合适：</p>
 <ul>
 <li><strong>探索性任务</strong>：用户说不清楚要什么，需要 LLM 理解模糊意图</li>
-<li><strong>跨工具复杂编排</strong>：需要语义判断，比如&quot;帮我规划一个日本旅行，预算 2 万，喜欢历史文化&quot;</li>
+<li><strong>跨工具复杂编排</strong>：需要语义判断，比如”帮我规划一个日本旅行，预算 2 万，喜欢历史文化”</li>
 <li><strong>一次性需求</strong>：临时组合几个 API，不想写脚本</li>
 </ul>
 <h3 id="3-2-用-CLI-脚本的场景"><a href="#3-2-用-CLI-脚本的场景" class="headerlink" title="3.2 用 CLI&#x2F;脚本的场景"></a>3.2 用 CLI&#x2F;脚本的场景</h3><p>以下场景，脚本完胜：</p>
@@ -3684,7 +3674,7 @@ $$</p>
 </tr>
 </tbody></table>
 <h3 id="5-2-场景：定时检查服务器状态"><a href="#5-2-场景：定时检查服务器状态" class="headerlink" title="5.2 场景：定时检查服务器状态"></a>5.2 场景：定时检查服务器状态</h3><p><strong>MCP 方案：</strong></p>
-<p>需要配置 MCP Server、定义工具、设置 cron 调用 MCP Client...</p>
+<p>需要配置 MCP Server、定义工具、设置 cron 调用 MCP Client…</p>
 <p><strong>CLI 方案：</strong></p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># crontab</span></span><br><span class="line">*/5 * * * * /opt/scripts/server_health.sh &gt;&gt; /var/log/health.log</span><br></pre></td></tr></table></figure>
 
@@ -3692,14 +3682,14 @@ $$</p>
 <h2 id="六、总结"><a href="#六、总结" class="headerlink" title="六、总结"></a>六、总结</h2><p>我反对的不是 MCP 协议本身，而是<strong>盲目崇拜 MCP、忽视简单方案的设计倾向</strong>。</p>
 <p>Agent 工具设计的核心原则应该是：</p>
 <ol>
-<li><strong>确定性优先</strong>：脚本执行结果可预测，比&quot;智能调度&quot;更重要</li>
+<li><strong>确定性优先</strong>：脚本执行结果可预测，比”智能调度”更重要</li>
 <li><strong>组合优于编排</strong>：管道 <code>|</code> 比 LLM 多轮决策更高效</li>
 <li><strong>简单优于复杂</strong>：一个 <code>run()</code> 入口胜过 15 个工具注册</li>
 <li><strong>文本优于结构</strong>：字符串参数比 JSON schema 更灵活</li>
 </ol>
 <p>最后引用一句话（来自 Manus 前后端负责人）：</p>
 <blockquote>
-<p>&quot;命令选择是字符串组合，function 选择是 API 之间的上下文切换——本质上不是一回事。&quot;</p>
+<p>“命令选择是字符串组合，function 选择是 API 之间的上下文切换——本质上不是一回事。”</p>
 </blockquote>
 <p>他的开源框架 Pinix 已在 GitHub 上线，Reddit 1500+ 赞，引发全球开发者激辩。</p>
 <p><strong>Unix 哲学没有过时，它只是在 AI 时代换了一种形式继续存在。</strong></p>
@@ -3708,7 +3698,7 @@ $$</p>
 <li><a target="_blank" rel="noopener" href="https://github.com/Mind-Dragon/atoolix">atoolix - Unix-style Agent Tool Interfaces</a></li>
 <li><a target="_blank" rel="noopener" href="https://juejin.cn/post/7485633832323235890">一文讲透、不再混淆 AI Function Call 和 MCP Server</a></li>
 <li><a target="_blank" rel="noopener" href="https://juejin.cn/post/7482265923920068635">揭秘 Manus，实现最小闭环 Manus</a></li>
-<li>MEMORY.md - &quot;MCP vs 脚本 - 自动化选型原则&quot;</li>
+<li>MEMORY.md - “MCP vs 脚本 - 自动化选型原则”</li>
 </ul>
 <hr>
 <p><em>编辑于 2026-03-13</em></p>
@@ -3809,7 +3799,7 @@ $$</p>
 <p><strong>核心观点</strong>：小而美的 SaaS 公司迎来了它的黄金土壤。Agent 已经足够强大，能够承担集成、客服、文档等生态工作，因此 SaaS 可以做得足够小——一人公司、一个核心功能、一份 Skill 文档 + Token 即可触达用户。这不是幻想，这是正在发生的现实。</p>
 </blockquote>
 <hr>
-<h2 id="📌-执行摘要"><a href="#📌-执行摘要" class="headerlink" title="📌 执行摘要"></a>📌 执行摘要</h2><h3 id="商机洞察"><a href="#商机洞察" class="headerlink" title="商机洞察"></a>商机洞察</h3><p>Agent 生态正在重现&quot;个人站长时代&quot;和&quot;独立开发者时代&quot;的红利：</p>
+<h2 id="📌-执行摘要"><a href="#📌-执行摘要" class="headerlink" title="📌 执行摘要"></a>📌 执行摘要</h2><h3 id="商机洞察"><a href="#商机洞察" class="headerlink" title="商机洞察"></a>商机洞察</h3><p>Agent 生态正在重现”个人站长时代”和”独立开发者时代”的红利：</p>
 <ul>
 <li><strong>生态成本降低</strong>：Agent 能完成集成、客服、文档等工作，SaaS 只需做好核心功能</li>
 <li><strong>分发成本降低</strong>：一份 Skill 文档 + Token 即可触达用户</li>
@@ -4359,7 +4349,7 @@ $$</p>
 </ul>
 <hr>
 <h2 id="💭-最后的话"><a href="#💭-最后的话" class="headerlink" title="💭 最后的话"></a>💭 最后的话</h2><p>这个生意的核心不是技术，而是<strong>生态</strong>。先让开发者赚到钱，平台才能赚到钱。早期宁可少赚，也要建立信任和口碑。</p>
-<p>Agent 时代的&quot;个人站长红利&quot;已经来了，关键在于能不能抓住。</p>
+<p>Agent 时代的”个人站长红利”已经来了，关键在于能不能抓住。</p>
 <hr>
 <p><em>本文是 Skill Store 项目的内部商业计划书，欢迎交流讨论。</em></p>
 
@@ -4448,8 +4438,8 @@ $$</p>
           <blockquote>
 <p><strong>本文由 我的小龙虾 整理发布</strong></p>
 </blockquote>
-<h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>在开发 Agent 的过程中，最大的挑战不是让 Agent&quot;能跑&quot;，而是让它<strong>持续可靠地工作</strong>。</p>
-<p>传统软件开发有单元测试、集成测试、CI&#x2F;CD，但 Agent 是概率性的——同样的输入可能产生不同的输出。如何确保 Agent 在迭代过程中不退化？如何量化&quot;这个 Agent 好不好用&quot;？</p>
+<h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>在开发 Agent 的过程中，最大的挑战不是让 Agent”能跑”，而是让它<strong>持续可靠地工作</strong>。</p>
+<p>传统软件开发有单元测试、集成测试、CI&#x2F;CD，但 Agent 是概率性的——同样的输入可能产生不同的输出。如何确保 Agent 在迭代过程中不退化？如何量化”这个 Agent 好不好用”？</p>
 <p>这篇博客整理了我最近学习的 Agent 开发管理方法，核心是两点：</p>
 <ol>
 <li><strong>Test-Driven Agent Development</strong> — 测试驱动的开发流程</li>
@@ -4457,7 +4447,7 @@ $$</p>
 </ol>
 <hr>
 <h2 id="为什么需要-Evals"><a href="#为什么需要-Evals" class="headerlink" title="为什么需要 Evals"></a>为什么需要 Evals</h2><blockquote>
-<p>&quot;没有 evals，团队会陷入被动循环——修复一个问题，又产生另一个，无法区分真正回归和噪声。&quot;</p>
+<p>“没有 evals，团队会陷入被动循环——修复一个问题，又产生另一个，无法区分真正回归和噪声。”</p>
 </blockquote>
 <p>这是 Anthropic Engineering 团队的原话。没有评估体系时，开发过程是这样的：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">用户反馈有问题 → 修一下 → 上线 → 又出问题 → 再修 → 无限循环</span><br></pre></td></tr></table></figure>
@@ -4503,7 +4493,7 @@ $$</p>
 </tbody></table>
 <p><strong>关键区分：</strong></p>
 <blockquote>
-<p>&quot;订机票的 Agent 说&#39;已为您订好&#39;不算成功——数据库里有没有订单才算。&quot;</p>
+<p>“订机票的 Agent 说’已为您订好’不算成功——数据库里有没有订单才算。”</p>
 </blockquote>
 <h3 id="pass-k-vs-pass-k"><a href="#pass-k-vs-pass-k" class="headerlink" title="pass@k vs pass^k"></a>pass@k vs pass^k</h3><p>这是两个核心指标，适用于不同场景：</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># pass@k: k 次至少 1 次成功的概率</span></span><br><span class="line"><span class="comment"># 适合：编码（找到一个解就行）</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">pass_at_k</span>(<span class="params">success_rate, k</span>):</span><br><span class="line">    <span class="keyword">return</span> <span class="number">1</span> - (<span class="number">1</span> - success_rate) ** k</span><br><span class="line"></span><br><span class="line"><span class="comment"># pass^k: k 次全部成功的概率</span></span><br><span class="line"><span class="comment"># 适合：客服（每次都要对）</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">pass_all_k</span>(<span class="params">success_rate, k</span>):</span><br><span class="line">    <span class="keyword">return</span> success_rate ** k</span><br></pre></td></tr></table></figure>
@@ -4660,7 +4650,7 @@ $$</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">┌─────────────────────────────────────────────────────────────┐</span><br><span class="line">│  Step 0: 定义成功标准 (Before Coding)                       │</span><br><span class="line">│  - 用户说什么算成功？                                        │</span><br><span class="line">│  - 环境状态如何变化？                                        │</span><br><span class="line">│  - 哪些边缘情况要处理？                                      │</span><br><span class="line">└─────────────────────────────────────────────────────────────┘</span><br><span class="line">                           ↓</span><br><span class="line">┌─────────────────────────────────────────────────────────────┐</span><br><span class="line">│  Step 1: 编写失败测试 (Red)                                 │</span><br><span class="line">│  - 写 Task 定义                                              │</span><br><span class="line">│  - 写 Grader 逻辑                                            │</span><br><span class="line">│  - 跑一次确认失败 (0% pass rate)                            │</span><br><span class="line">└─────────────────────────────────────────────────────────────┘</span><br><span class="line">                           ↓</span><br><span class="line">┌─────────────────────────────────────────────────────────────┐</span><br><span class="line">│  Step 2: 实现最小 Agent (Green)                             │</span><br><span class="line">│  - 选最简单 Pattern (Single LLM → Workflow → Agent)         │</span><br><span class="line">│  - 跑 5+ Trials 确认 pass rate &gt; 阈值                       │</span><br><span class="line">└─────────────────────────────────────────────────────────────┘</span><br><span class="line">                           ↓</span><br><span class="line">┌─────────────────────────────────────────────────────────────┐</span><br><span class="line">│  Step 3: 重构优化 (Refactor)                                │</span><br><span class="line">│  - 改进 Prompt/Tool 设计                                     │</span><br><span class="line">│  - 跑 Eval Suite 确认无回归                                 │</span><br><span class="line">└─────────────────────────────────────────────────────────────┘</span><br></pre></td></tr></table></figure>
 
 <h3 id="好-Task-的标准"><a href="#好-Task-的标准" class="headerlink" title="好 Task 的标准"></a>好 Task 的标准</h3><blockquote>
-<p>&quot;两个领域专家独立判断，会得出相同 pass&#x2F;fail 结论。&quot;</p>
+<p>“两个领域专家独立判断，会得出相同 pass&#x2F;fail 结论。”</p>
 </blockquote>
 <p><strong>Checklist：</strong></p>
 <ul>
@@ -4698,7 +4688,7 @@ $$</p>
 <tr>
 <td>过早放弃</td>
 <td>缺少鼓励</td>
-<td>加&quot;Try your best&quot;提示</td>
+<td>加”Try your best”提示</td>
 </tr>
 <tr>
 <td>无限循环</td>
@@ -4708,7 +4698,7 @@ $$</p>
 </tbody></table>
 <hr>
 <h2 id="基础设施噪声"><a href="#基础设施噪声" class="headerlink" title="基础设施噪声"></a>基础设施噪声</h2><blockquote>
-<p>&quot;配置不同能让成绩相差 6% — 比模型差距还大。&quot;</p>
+<p>“配置不同能让成绩相差 6% — 比模型差距还大。”</p>
 </blockquote>
 <p>这是容易被忽视的一点。同样的 Agent，在不同环境下跑 Eval，结果可能差异很大。</p>
 <p><strong>必须做：</strong></p>
@@ -4722,16 +4712,16 @@ $$</p>
 <h2 id="快速起步示例"><a href="#快速起步示例" class="headerlink" title="快速起步示例"></a>快速起步示例</h2><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 1. 定义 Agent</span></span><br><span class="line"><span class="keyword">async</span> <span class="keyword">def</span> <span class="title function_">my_agent</span>(<span class="params"><span class="built_in">input</span>, env</span>):</span><br><span class="line">    <span class="comment"># 你的实现</span></span><br><span class="line">    <span class="keyword">return</span> transcript, outcome</span><br><span class="line"></span><br><span class="line"><span class="comment"># 2. 定义 Task + Grader</span></span><br><span class="line">task = Task(</span><br><span class="line">    <span class="built_in">id</span>=<span class="string">&quot;test-001&quot;</span>,</span><br><span class="line">    <span class="built_in">input</span>=&#123;<span class="string">&quot;message&quot;</span>: <span class="string">&quot;Hello&quot;</span>&#125;,</span><br><span class="line">    expected_outcome=&#123;<span class="string">&quot;response_contains&quot;</span>: <span class="string">&quot;Hi&quot;</span>&#125;,</span><br><span class="line">    grader=<span class="keyword">lambda</span> t, trans, out: &#123;<span class="string">&#x27;passed&#x27;</span>: <span class="string">&#x27;Hi&#x27;</span> <span class="keyword">in</span> trans&#125;</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 3. 跑 Eval</span></span><br><span class="line">harness = MinimalEvalHarness(my_agent, n_trials=<span class="number">5</span>)</span><br><span class="line">summary = <span class="keyword">await</span> harness.run_suite([task])</span><br></pre></td></tr></table></figure>
 
 <hr>
-<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>Agent 开发不是&quot;写完就完了&quot;，而是持续迭代的过程。关键点是：</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>Agent 开发不是”写完就完了”，而是持续迭代的过程。关键点是：</p>
 <ol>
-<li><strong>先定义成功标准</strong> — 写代码之前先想清楚什么是&quot;好&quot;</li>
+<li><strong>先定义成功标准</strong> — 写代码之前先想清楚什么是”好”</li>
 <li><strong>用 State Check 做 Grader</strong> — 验证环境变化，不是 Agent 说了什么</li>
 <li><strong>多次 Trial 取统计</strong> — pass@k &#x2F; pass^k 比单次成功率更可靠</li>
 <li><strong>持续跑 Eval</strong> — 每次改动都跑，确保无回归</li>
 </ol>
 <p>最后引用一句话：</p>
 <blockquote>
-<p>&quot;测试是 Agent 的导航系统。没有持续运行的测试，Agent 就迷失方向，不知道自己在进步还是退步。&quot;</p>
+<p>“测试是 Agent 的导航系统。没有持续运行的测试，Agent 就迷失方向，不知道自己在进步还是退步。”</p>
 </blockquote>
 <hr>
 <h2 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a>参考资料</h2><ul>
@@ -4873,13 +4863,10 @@ $$</p>
 </li>
 </ol>
 <p>换成prefiller和decoder的视角来看</p>
-<h3 id="Prefiller-Connector"><a href="#Prefiller-Connector" class="headerlink" title="Prefiller Connector"></a>Prefiller Connector</h3><p>每一层调用<code>save_kv_layer</code>，这个可以是异步的，在model foward之后会调用<code>wait_for_save</code>保证kvcache被传输完，不然其中的kvcache可能会被之后的forward所覆盖。
-<code>clear_connector_metadata</code>可以帮助清理这次forward相关的metadata。</p>
-<h3 id="Decoder-Connector"><a href="#Decoder-Connector" class="headerlink" title="Decoder Connector"></a>Decoder Connector</h3><p><code>bind_connector_metadata</code>帮助设置forward相关的metadata。
-每一层调用<code>start_load_kv</code>，这个可以是异步的，在model forward之前调用，在每一层forward之前<code>wait_for_layer_load</code>，这个是同步的。</p>
+<h3 id="Prefiller-Connector"><a href="#Prefiller-Connector" class="headerlink" title="Prefiller Connector"></a>Prefiller Connector</h3><p>每一层调用<code>save_kv_layer</code>，这个可以是异步的，在model foward之后会调用<code>wait_for_save</code>保证kvcache被传输完，不然其中的kvcache可能会被之后的forward所覆盖。<br><code>clear_connector_metadata</code>可以帮助清理这次forward相关的metadata。</p>
+<h3 id="Decoder-Connector"><a href="#Decoder-Connector" class="headerlink" title="Decoder Connector"></a>Decoder Connector</h3><p><code>bind_connector_metadata</code>帮助设置forward相关的metadata。<br>每一层调用<code>start_load_kv</code>，这个可以是异步的，在model forward之前调用，在每一层forward之前<code>wait_for_layer_load</code>，这个是同步的。</p>
 <h2 id="Scheduler-Side"><a href="#Scheduler-Side" class="headerlink" title="Scheduler Side"></a>Scheduler Side</h2><ol>
-<li><p><code>get_num_new_matched_tokens</code>，基于传入的<code>num_computed_tokens</code>获取可以从外部加载的kvcache，这个是给scheduler用的，表明decoder需要加载的tokens。<code>computed_token</code>代表已经计算过kvcache的token.
-调度器要额外分配一个<code>external_computed_tokens</code>的slots给外部加载用并且把这部分也算在<code>computed_token</code>，然后在根据<code>budget_token - computed_token</code>分配<code>new_token</code>。</p>
+<li><p><code>get_num_new_matched_tokens</code>，基于传入的<code>num_computed_tokens</code>获取可以从外部加载的kvcache，这个是给scheduler用的，表明decoder需要加载的tokens。<code>computed_token</code>代表已经计算过kvcache的token.<br>调度器要额外分配一个<code>external_computed_tokens</code>的slots给外部加载用并且把这部分也算在<code>computed_token</code>，然后在根据<code>budget_token - computed_token</code>分配<code>new_token</code>。</p>
 </li>
 <li><p><code>update_state_after_alloc</code> 在scheduler分配slots以后更新connector内部状态，比如用于告知connector是否要加载kvcache。</p>
 </li>
@@ -4889,9 +4876,7 @@ $$</p>
 </li>
 </ol>
 <p>上面的接口比如<code>register_kv_caches</code>，<code>bind_connector_metada</code>和<code>clear_connector_metadata</code>不一定要实现，可以把他们理解为一些初始化路径，计算路径上的调用hook，我们希望在相关的hook上处理一些东西就实现这些接口。</p>
-<h2 id="CPUMemorySharedConnector"><a href="#CPUMemorySharedConnector" class="headerlink" title="CPUMemorySharedConnector"></a>CPUMemorySharedConnector</h2><p>我实现了一个基于共享缓存的实现，Prefill只生成缓存，Worker只消费缓存。
-主要是通过用layer和tokens hash做key创建SharedMemory。
-完整的项目在<a target="_blank" rel="noopener" href="https://github.com/ggaaooppeenngg/cpumemconnector">这里</a>。</p>
+<h2 id="CPUMemorySharedConnector"><a href="#CPUMemorySharedConnector" class="headerlink" title="CPUMemorySharedConnector"></a>CPUMemorySharedConnector</h2><p>我实现了一个基于共享缓存的实现，Prefill只生成缓存，Worker只消费缓存。<br>主要是通过用layer和tokens hash做key创建SharedMemory。<br>完整的项目在<a target="_blank" rel="noopener" href="https://github.com/ggaaooppeenngg/cpumemconnector">这里</a>。</p>
 
       
     </div>
@@ -4994,17 +4979,13 @@ $$</p>
 <p>为了能够测试不同数据集的前缀重复度，需要一种方法衡量对话的前缀重复度，如果前缀的重复度不高，可能测试结果不太能体现前缀缓存的优势。</p>
 <p>对于所有的对话构造一个Radix树，每个树节点保存一个计数器记录经过该节点的字符串的数量。</p>
 <p>计数重复前缀的数量，比如<code>W</code>这个前缀是比较多的因为很多英文问句都是Wh-开头的，而中文的话是比较随机的。</p>
-<p>对于每个节点，在进行计数器过滤的时候，要一直遍历到某个节点的子节点都小于计数器N才结束，这样防止过滤出多个公共前缀的前缀，
-因为较短的前缀肯定是被较长的前缀包含的。相当于对这棵树做剪枝，删除所有计数器小于过滤值的节点。</p>
+<p>对于每个节点，在进行计数器过滤的时候，要一直遍历到某个节点的子节点都小于计数器N才结束，这样防止过滤出多个公共前缀的前缀，<br>因为较短的前缀肯定是被较长的前缀包含的。相当于对这棵树做剪枝，删除所有计数器小于过滤值的节点。</p>
 <p>再从满足要求的所有被剪枝完的叶子结点中选择长度大于L的前缀。</p>
 <p><code>对话数据集的前缀重复度 = 基于N剪枝的所有长度大于L的叶子前缀节点数 / 所有对话数量</code></p>
 <p><strong>压力测试数据集</strong></p>
 <ul>
-<li><a target="_blank" rel="noopener" href="https://huggingface.co/datasets/databricks/databricks-dolly-15k">databricks-dolly-15k</a> 这个数据集的前缀重复度不高。
-只有两个前缀长度超过00，重复次数大于1，因为里面都是单轮的对话。
-(&#39;Extract all of the dates mentioned in this paragraph and list them using bullets in the format {Date} - {Description}&#39;, 11) (&#39;Extract all of the names of people mentioned in this paragraph and list them using bullets in the format {Name}&#39;, 15)</li>
-<li><a target="_blank" rel="noopener" href="https://huggingface.co/datasets/lmsys/lmsys-chat-1m">LMSYS-CHAT-1M</a>
-一个parquet有16W个对话。前缀重复比较高的是30~40次。这样的对话有9483条，也就占总数的5%，重复前缀的平均长度只有300左右。</li>
+<li><a target="_blank" rel="noopener" href="https://huggingface.co/datasets/databricks/databricks-dolly-15k">databricks-dolly-15k</a> 这个数据集的前缀重复度不高。<br>只有两个前缀长度超过00，重复次数大于1，因为里面都是单轮的对话。<br>(‘Extract all of the dates mentioned in this paragraph and list them using bullets in the format {Date} - {Description}’, 11) (‘Extract all of the names of people mentioned in this paragraph and list them using bullets in the format {Name}’, 15)</li>
+<li><a target="_blank" rel="noopener" href="https://huggingface.co/datasets/lmsys/lmsys-chat-1m">LMSYS-CHAT-1M</a><br>一个parquet有16W个对话。前缀重复比较高的是30~40次。这样的对话有9483条，也就占总数的5%，重复前缀的平均长度只有300左右。</li>
 <li><a target="_blank" rel="noopener" href="https://huggingface.co/datasets/anon8231489123/ShareGPT_Vicuna_unfiltered">ShareGPT</a>这是vLLM官方使用的一个压测数据集。压测脚本在<a target="_blank" rel="noopener" href="https://github.com/vllm-project/vllm/tree/main/benchmarks">这</a>。这个的比重也只有2%，重复前缀的平均长度是4K。</li>
 </ul>
 <p>以上数据集可能对于前缀缓存的优势体现不太明显。</p>
@@ -5030,18 +5011,11 @@ $$</p>
 </li>
 </ul>
 <p><strong>构造数据集</strong></p>
-<p>用实际的数据集结果不是特别好，差异度不是很高，因为这些数据集的前缀重复度比重都不是很高。
-没有特别好的现成的数据集，需要使用人工构造的方式去构造数据集。</p>
-<p>sglang 的benchmark提供了 generated-shared-prefix dataset arguments相关的参数。
-他是通过随机生成一个系统提示词再组合问题，但是Prompt是随机的。语言不是很明朗。但可能并不
-影响测试效果。</p>
-<p>比较理想的应该是认为构造一些长度的系统提示词加一些问题进行组合，这个可读性会更高一点，但是没那么灵活
-不太好按要求生成指定上下文长度的提示词。</p>
-<h2 id="测试结果"><a href="#测试结果" class="headerlink" title="测试结果"></a>测试结果</h2><p>结果来看，在batch size更大的情况下，TTFT会变得特别长，而TBT也会相应的增加一些但没有TTFT恐怖。
-batch size变大以后，TTFT从300s变成了900s，而ITL则从0.2s变成了0.3s。
-这和MoonCacke的论文是一致的。</p>
-<p>测试一下PD分离的效果，使用vLLM的1P1D。
-PD分离以后TTFT可以降低一个数量级，这个效果还是很明显的，直接降了一个数量级。</p>
+<p>用实际的数据集结果不是特别好，差异度不是很高，因为这些数据集的前缀重复度比重都不是很高。<br>没有特别好的现成的数据集，需要使用人工构造的方式去构造数据集。</p>
+<p>sglang 的benchmark提供了 generated-shared-prefix dataset arguments相关的参数。<br>他是通过随机生成一个系统提示词再组合问题，但是Prompt是随机的。语言不是很明朗。但可能并不<br>影响测试效果。</p>
+<p>比较理想的应该是认为构造一些长度的系统提示词加一些问题进行组合，这个可读性会更高一点，但是没那么灵活<br>不太好按要求生成指定上下文长度的提示词。</p>
+<h2 id="测试结果"><a href="#测试结果" class="headerlink" title="测试结果"></a>测试结果</h2><p>结果来看，在batch size更大的情况下，TTFT会变得特别长，而TBT也会相应的增加一些但没有TTFT恐怖。<br>batch size变大以后，TTFT从300s变成了900s，而ITL则从0.2s变成了0.3s。<br>这和MoonCacke的论文是一致的。</p>
+<p>测试一下PD分离的效果，使用vLLM的1P1D。<br>PD分离以后TTFT可以降低一个数量级，这个效果还是很明显的，直接降了一个数量级。</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line">============ Serving Benchmark Result ============</span><br><span class="line">Backend:                                 vllm</span><br><span class="line">Traffic request rate:                    inf</span><br><span class="line">Max reqeuest concurrency:                not set</span><br><span class="line">Successful requests:                     47</span><br><span class="line">Benchmark duration (s):                  127.03</span><br><span class="line">Total input tokens:                      14545</span><br><span class="line">Total generated tokens:                  2993</span><br><span class="line">Total generated tokens (retokenized):    2992</span><br><span class="line">Request throughput (req/s):              0.37</span><br><span class="line">Input token throughput (tok/s):          114.50</span><br><span class="line">Output token throughput (tok/s):         23.56</span><br><span class="line">Total token throughput (tok/s):          138.06</span><br><span class="line">Concurrency:                             24.49</span><br><span class="line">----------------End-to-End Latency----------------</span><br><span class="line">Mean E2E Latency (ms):                   66177.90</span><br><span class="line">Median E2E Latency (ms):                 61336.75</span><br><span class="line">---------------Time to First Token----------------</span><br><span class="line">Mean TTFT (ms):                          39888.70</span><br><span class="line">Median TTFT (ms):                        22421.85</span><br><span class="line">P99 TTFT (ms):                           116090.20</span><br><span class="line">-----Time per Output Token (excl. 1st token)------</span><br><span class="line">Mean TPOT (ms):                          491.86</span><br><span class="line">Median TPOT (ms):                        394.97</span><br><span class="line">P99 TPOT (ms):                           1917.39</span><br><span class="line">---------------Inter-token Latency----------------</span><br><span class="line">Mean ITL (ms):                           419.69</span><br><span class="line">Median ITL (ms):                         275.52</span><br><span class="line">P99 ITL (ms):                            1766.40</span><br><span class="line">==================================================</span><br></pre></td></tr></table></figure>
 <p>双v100 LLAMA3.2:11b</p>
 <p><code>python -m sglang_router.launch_router --worker-urls http://127.0.0.1:8081 http://127.0.0.1:8082</code></p>
@@ -5058,9 +5032,7 @@ PD分离以后TTFT可以降低一个数量级，这个效果还是很明显的�
 <img data-src="/zh-CN/2025/04/04/LLM-Inference-Benchmark/kv_group_1.png" class="">
 
 
-<p>从测试结果可以看出来单机多卡的PD分离能够降低TBT（TPOT），一个TP的decode就已经超过8TP的decode了，这里主要是因为没有了prefill的干扰。
-但是TTFT相对变大了，这个可能是TTFT多了一次传输的时间，具体原因不知道是不是我的实现方式不对，还是因为4TP的prefill就是要慢一些。
-这个可能需要一个更综合性的tuning。</p>
+<p>从测试结果可以看出来单机多卡的PD分离能够降低TBT（TPOT），一个TP的decode就已经超过8TP的decode了，这里主要是因为没有了prefill的干扰。<br>但是TTFT相对变大了，这个可能是TTFT多了一次传输的时间，具体原因不知道是不是我的实现方式不对，还是因为4TP的prefill就是要慢一些。<br>这个可能需要一个更综合性的tuning。</p>
 <p>4P4D(4TP+4TP) V0调度器</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line">============ Serving Benchmark Result ============    </span><br><span class="line">Backend:                                 vllm        </span><br><span class="line">Traffic request rate:                    inf         </span><br><span class="line">Max reqeuest concurrency:                not set     </span><br><span class="line">Successful requests:                     100         </span><br><span class="line">Benchmark duration (s):                  37.95       </span><br><span class="line">Total input tokens:                      34965       </span><br><span class="line">Total generated tokens:                  20654       </span><br><span class="line">Total generated tokens (retokenized):    20654       </span><br><span class="line">Request throughput (req/s):              2.64        </span><br><span class="line">Input token throughput (tok/s):          921.42      </span><br><span class="line">Output token throughput (tok/s):         544.29      </span><br><span class="line">Total token throughput (tok/s):          1465.71     </span><br><span class="line">Concurrency:                             46.49       </span><br><span class="line">----------------End-to-End Latency----------------    </span><br><span class="line">Mean E2E Latency (ms):                   17642.84    </span><br><span class="line">Median E2E Latency (ms):                 14298.02    </span><br><span class="line">---------------Time to First Token----------------    </span><br><span class="line">Mean TTFT (ms):                          8147.33     </span><br><span class="line">Median TTFT (ms):                        8393.70     </span><br><span class="line">P99 TTFT (ms):                           8834.48     </span><br><span class="line">-----Time per Output Token (excl. 1st token)------    </span><br><span class="line">Mean TPOT (ms):                          58.38       </span><br><span class="line">Median TPOT (ms):                        50.79       </span><br><span class="line">P99 TPOT (ms):                           162.16      </span><br><span class="line">---------------Inter-token Latency----------------    </span><br><span class="line">Mean ITL (ms):                           46.27       </span><br><span class="line">Median ITL (ms):                         42.21       </span><br><span class="line">P99 ITL (ms):                            56.21       </span><br><span class="line">==================================================   </span><br></pre></td></tr></table></figure>
 <p>8TP V0调度器</p>

@@ -34,12 +34,12 @@
 <meta property="article:tag" content="CUDA">
 <meta property="article:tag" content="DeepSeek">
 <meta property="article:tag" content="Hopper">
+<meta property="article:tag" content="LLM Inference">
 <meta property="article:tag" content="Blackwell">
 <meta property="article:tag" content="FlashMLA">
 <meta property="article:tag" content="FP8">
 <meta property="article:tag" content="Sparse Attention">
 <meta property="article:tag" content="DSA">
-<meta property="article:tag" content="LLM Inference">
 <meta name="twitter:card" content="summary">
 
 
@@ -330,13 +330,13 @@
 </tr>
 <tr>
 <td>quantization_config.fmt</td>
-<td>&quot;e4m3&quot;</td>
+<td>“e4m3”</td>
 <td>FP8_E4M3</td>
 <td>KV cache 的 NoPE 部分使用 FP8 E4M3 格式量化</td>
 </tr>
 <tr>
 <td>quantization_config.scale_fmt</td>
-<td>&quot;ue8m0&quot;</td>
+<td>“ue8m0”</td>
 <td>UE8M0 (V3.2) &#x2F; FP8_E8M0FNU (MODEL1)</td>
 <td>量化缩放因子的格式，纯 2 的幂</td>
 </tr>
@@ -400,14 +400,14 @@
 <blockquote>
 <p>🔧 <strong>硬件特性:</strong> FP8 (E4M3) 是 Hopper&#x2F;Blackwell 原生支持的数据类型。Hopper 的 Tensor Core 可以直接做 FP8 矩阵乘法，但 FlashMLA 选择先反量化为 BF16 再做 WGMMA，以获得更高精度。</p>
 </blockquote>
-<h3 id="2-3-填充参数结构体"><a href="#2-3-填充参数结构体" class="headerlink" title="2.3 填充参数结构体"></a>2.3 填充参数结构体</h3><p>这一步是&quot;翻译层&quot;— 把 PyTorch tensor 的元信息（shape、stride、data_ptr）和标量参数，打包成 CUDA kernel 能直接使用的 C struct。kernel 内部只看这个 struct，不再接触 PyTorch 对象。</p>
+<h3 id="2-3-填充参数结构体"><a href="#2-3-填充参数结构体" class="headerlink" title="2.3 填充参数结构体"></a>2.3 填充参数结构体</h3><p>这一步是”翻译层”— 把 PyTorch tensor 的元信息（shape、stride、data_ptr）和标量参数，打包成 CUDA kernel 能直接使用的 C struct。kernel 内部只看这个 struct，不再接触 PyTorch 对象。</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br></pre></td><td class="code"><pre><span class="line">SparseAttnDecodeParams params = &#123;</span><br><span class="line">    <span class="comment">// ===== 基础维度 (直接从输入 tensor 的 shape 读取) =====</span></span><br><span class="line">    .b = <span class="number">2</span>,                    <span class="comment">// q.size(0) = batch_size，同时处理 2 个请求</span></span><br><span class="line">    .s_q = <span class="number">1</span>,                  <span class="comment">// q.size(1) = seq_len_q，decode 阶段每次只生成 1 个新 token</span></span><br><span class="line">    .h_q = <span class="number">128</span>,                <span class="comment">// q.size(2) = num_attention_heads，来自 config.json</span></span><br><span class="line">    .h_kv = <span class="number">1</span>,                 <span class="comment">// kv.size(2)，MLA 压缩后 128 个 head 共享 1 份 KV cache</span></span><br><span class="line">                               <span class="comment">// 注意：计算时会被 broadcast 到 h_q=128</span></span><br><span class="line">    .d_qk = <span class="number">576</span>,               <span class="comment">// q.size(3) = head_dim = kv_lora_rank(512) + qk_rope_head_dim(64)</span></span><br><span class="line">    .d_v = <span class="number">512</span>,                <span class="comment">// head_dim_v 参数 = kv_lora_rank</span></span><br><span class="line">    </span><br><span class="line">    <span class="comment">// ===== Softmax 缩放因子 =====</span></span><br><span class="line">    <span class="comment">// 标准 Scaled Dot-Product Attention: softmax(Q·K^T / sqrt(d)) · V</span></span><br><span class="line">    .sm_scale = <span class="number">1.0</span> / <span class="built_in">sqrt</span>(<span class="number">576</span>) = <span class="number">0.04167</span>,</span><br><span class="line">    <span class="comment">// 即公式中的 1/sqrt(d)，防止点积值过大导致 softmax 饱和</span></span><br><span class="line">    </span><br><span class="line">    .sm_scale_div_log2 = <span class="number">0.04167</span> * <span class="built_in">log2</span>(e) = <span class="number">0.04167</span> * <span class="number">1.4427</span> = <span class="number">0.06010</span>,</span><br><span class="line">    <span class="comment">// 性能优化的预计算。kernel 中用 exp2f() 代替 expf() 计算 softmax:</span></span><br><span class="line">    <span class="comment">// expf(x * sm_scale) = exp2f(x * sm_scale * log2(e))</span></span><br><span class="line">    <span class="comment">//                    = exp2f(x * sm_scale_div_log2)</span></span><br><span class="line">    <span class="comment">// GPU 上 exp2f() 比 expf() 快约 2 倍 (SFU 原生支持 base-2 指数运算)，</span></span><br><span class="line">    <span class="comment">// 所以预乘好 log2(e)，避免 kernel 里每个元素都重复乘一次</span></span><br><span class="line">    </span><br><span class="line">    <span class="comment">// ===== 稀疏注意力参数 =====</span></span><br><span class="line">    .topk = <span class="number">128</span>,               <span class="comment">// indices.size(2)，每个 query 关注的 KV token 数量</span></span><br><span class="line">    .model_type = ModelType::V32,</span><br><span class="line">    <span class="comment">// 由 d_qk 决定：576 → V32 (DeepSeek-V3/V3.2), 512 → MODEL1</span></span><br><span class="line">    <span class="comment">// 不同 model_type 的 FP8 KV cache 布局和缩放因子格式不同</span></span><br><span class="line">    </span><br><span class="line">    <span class="comment">// ===== 指针 (从 tensor.data_ptr() 获取) =====</span></span><br><span class="line">    .q = (bf16*)q.<span class="built_in">data_ptr</span>(),           <span class="comment">// Q 矩阵的 GPU 内存地址</span></span><br><span class="line">    .kv = (bf16*)kv.<span class="built_in">data_ptr</span>(),         <span class="comment">// FP8 KV cache 的 GPU 内存地址</span></span><br><span class="line">    .indices = (<span class="type">int</span>*)indices.<span class="built_in">data_ptr</span>(), <span class="comment">// top-k 索引数组的 GPU 内存地址</span></span><br><span class="line">    .out = (bf16*)out.<span class="built_in">data_ptr</span>(),       <span class="comment">// 输出矩阵的 GPU 内存地址</span></span><br><span class="line">    .lse = (<span class="type">float</span>*)lse.<span class="built_in">data_ptr</span>(),      <span class="comment">// log-sum-exp 的 GPU 内存地址</span></span><br><span class="line">    </span><br><span class="line">    <span class="comment">// ===== Stride (从 tensor.stride() 获取，单位是元素数) =====</span></span><br><span class="line">    <span class="comment">// Stride 描述 tensor 在内存中的布局，让 kernel 知道如何从一个元素跳到下一个元素</span></span><br><span class="line">    .stride_q_b = q.<span class="built_in">stride</span>(<span class="number">0</span>),     <span class="comment">// 跳到下一个 batch: 1×128×576 = 73728</span></span><br><span class="line">    .stride_q_s_q = q.<span class="built_in">stride</span>(<span class="number">1</span>),   <span class="comment">// 跳到下一个 query token: 128×576 = 73728</span></span><br><span class="line">    .stride_q_h_q = q.<span class="built_in">stride</span>(<span class="number">2</span>),   <span class="comment">// 跳到下一个 head: 576</span></span><br><span class="line">    <span class="comment">// ... kv, indices, out, lse 的 stride 类似</span></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
 <p>→ <strong>无硬件特性依赖</strong>，纯数据结构准备</p>
 <hr>
 <h2 id="第-3-步：Tile-Scheduler-—-工作分配"><a href="#第-3-步：Tile-Scheduler-—-工作分配" class="headerlink" title="第 3 步：Tile Scheduler — 工作分配"></a>第 3 步：Tile Scheduler — 工作分配</h2><p><strong>文件:</strong> <code>csrc/smxx/decode/get_decoding_sched_meta/get_decoding_sched_meta.cu</code></p>
 <p>这一步决定了 <strong>哪个 SM 处理哪些 batch 的哪些 KV block</strong>。</p>
 <h3 id="3-1-计算每个-batch-的处理块数"><a href="#3-1-计算每个-batch-的处理块数" class="headerlink" title="3.1 计算每个 batch 的处理块数"></a>3.1 计算每个 batch 的处理块数</h3><blockquote>
-<p>⚠️ <strong>&quot;block&quot; 概念澄清:</strong> 这里的 &quot;block&quot; 不是 KV cache page block（64 个连续 token 组成的页面），而是对 top-k indices 列表的分块。</p>
+<p>⚠️ <strong>“block” 概念澄清:</strong> 这里的 “block” 不是 KV cache page block（64 个连续 token 组成的页面），而是对 top-k indices 列表的分块。</p>
 <p>top-k 选择是 <strong>token 级别</strong>的 — <code>indices</code> 数组中存储的是 2048 个（本例中 128 个）<strong>散落在 KV cache 各处的 token 的绝对位置</strong>，这些 token 之间通常不连续。</p>
 <p>由于 kernel 无法一次性处理所有 top-k token，所以按 <code>TOPK_BLOCK_SIZE=64</code> 将 indices 列表切块处理：</p>
 </blockquote>
@@ -415,8 +415,8 @@
 <thead>
 <tr>
 <th>概念</th>
-<th>Dense Decoding 的 &quot;block&quot;</th>
-<th>Sparse Decoding 的 &quot;block&quot;</th>
+<th>Dense Decoding 的 “block”</th>
+<th>Sparse Decoding 的 “block”</th>
 </tr>
 </thead>
 <tbody><tr>
@@ -568,8 +568,7 @@
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// SM90 的 KU_ASSERT: h_q == 64 || h_q == 128 等</span></span><br><span class="line"><span class="comment">// SM100 head64 的 KU_ASSERT: h_q == 64 (即 B_H == 64)</span></span><br></pre></td></tr></table></figure>
 
 <blockquote>
-<p><strong>SM100 为什么 <code>h_q == 64</code> 而不是 128?</strong>
-SM100 head64 实现 (<code>csrc/sm100/decode/head64/</code>) 要求 <code>h_q == B_H == 64</code>。当推理框架处理 DeepSeek-V3.2 (h_q&#x3D;128) 时，需要通过其他方式拆分 head（如 head64x2 或 head128 实现），或者多次调用。这与 SM90 通过 cluster (2 个 CTA 各处理 64 head) 的方案不同。</p>
+<p><strong>SM100 为什么 <code>h_q == 64</code> 而不是 128?</strong><br>SM100 head64 实现 (<code>csrc/sm100/decode/head64/</code>) 要求 <code>h_q == B_H == 64</code>。当推理框架处理 DeepSeek-V3.2 (h_q&#x3D;128) 时，需要通过其他方式拆分 head（如 head64x2 或 head128 实现），或者多次调用。这与 SM90 通过 cluster (2 个 CTA 各处理 64 head) 的方案不同。</p>
 </blockquote>
 <h3 id="5-3-SM100-的三大硬件创新及其在-Kernel-中的应用"><a href="#5-3-SM100-的三大硬件创新及其在-Kernel-中的应用" class="headerlink" title="5.3 SM100 的三大硬件创新及其在 Kernel 中的应用"></a>5.3 SM100 的三大硬件创新及其在 Kernel 中的应用</h3><h4 id="5-3-1-TMEM-Tensor-Memory-—-新增的片上存储层"><a href="#5-3-1-TMEM-Tensor-Memory-—-新增的片上存储层" class="headerlink" title="5.3.1 TMEM (Tensor Memory) — 新增的片上存储层"></a>5.3.1 TMEM (Tensor Memory) — 新增的片上存储层</h4><p>SM100 在寄存器和共享内存之外，新增了一层 <strong>TMEM (Tensor Memory)</strong>:</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">SM100 存储层次:</span><br><span class="line">  寄存器 (Register File)     — 每线程私有，最快</span><br><span class="line">  TMEM (Tensor Memory)       — 512KB, 每 SM 共享，Tensor Core 可直接读写 ← 新增!</span><br><span class="line">  共享内存 (Shared Memory)   — 228KB, CTA 内共享</span><br><span class="line">  L2 Cache → HBM</span><br></pre></td></tr></table></figure>
@@ -672,15 +671,15 @@ SM100 head64 实现 (<code>csrc/sm100/decode/head64/</code>) 要求 <code>h_q ==
 <h4 id="5-4-2-SM90-vs-SM100-的-Warpgroup-分工对比"><a href="#5-4-2-SM90-vs-SM100-的-Warpgroup-分工对比" class="headerlink" title="5.4.2 SM90 vs SM100 的 Warpgroup 分工对比"></a>5.4.2 SM90 vs SM100 的 Warpgroup 分工对比</h4><p>SM100 的三个 Warpgroup 分工与 SM90 完全不同:</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">SM90 (Hopper):</span><br><span class="line">┌──────────────────────────────────────────────────────────────────┐</span><br><span class="line">│ WG0 (128 线程，192 regs) — Consumer A: QK^T + softmax + S·V_left │</span><br><span class="line">│ WG1 (128 线程，160 regs) — Consumer B: S·V_right                 │</span><br><span class="line">│ WG2 (128 线程，152 regs) — Producer: FP8 gather + 反量化          │</span><br><span class="line">└──────────────────────────────────────────────────────────────────┘</span><br></pre></td></tr></table></figure>
 
-<p>在 SM90 中，warpgroup 的概念很&quot;实&quot;——WGMMA 确实需要 128 线程一起发起。WG0 的 128 线程共同发起 WGMMA (QK^T)，然后做 softmax，再共同发起 WGMMA (SV)。WG2 的 128 线程各自 <code>__ldg</code> 加载 FP8 数据并反量化。每个线程都在忙。</p>
+<p>在 SM90 中，warpgroup 的概念很”实”——WGMMA 确实需要 128 线程一起发起。WG0 的 128 线程共同发起 WGMMA (QK^T)，然后做 softmax，再共同发起 WGMMA (SV)。WG2 的 128 线程各自 <code>__ldg</code> 加载 FP8 数据并反量化。每个线程都在忙。</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">SM100 (Blackwell):</span><br><span class="line">┌──────────────────────────────────────────────────────────────────┐</span><br><span class="line">│ WG0 (128 线程，224 regs) — Softmax: 从 TMEM 读 P → exp2 → 写 S   │</span><br><span class="line">│                            (纯标量计算，不参与任何 MMA)           │</span><br><span class="line">│                                                                  │</span><br><span class="line">│ WG1 (128 线程，72 regs) — MMA + Produce:                         │</span><br><span class="line">│   Warp 4 (1 线程): 发起所有 UTCMMA (QK^T, SV) + TMA 加载 Q        │</span><br><span class="line">│   Warp 5 (1 线程): TMA Gather4 加载 FP8 NoPE 到 shared memory    │</span><br><span class="line">│   Warp 6 (1 线程): TMA Gather4 加载 BF16 RoPE 到 shared memory   │</span><br><span class="line">│   Warp 7 (32 线程): 读 indices → 计算 TMA 坐标 + 加载 scale      │</span><br><span class="line">│                                                                  │</span><br><span class="line">│ WG2 (128 线程，208 regs) — Dequant: FP8→BF16 反量化              │</span><br><span class="line">│                            从 raw_nope (FP8) → dequant.nope (BF16)│</span><br><span class="line">└──────────────────────────────────────────────────────────────────┘</span><br></pre></td></tr></table></figure>
 
-<p>在 SM100 中，warpgroup 的概念变&quot;虚&quot;了——UTCMMA 只需 <strong>1 个线程</strong>发起，所以同一个 warpgroup 内的线程可以干完全不同的事。SM100 的 WG1 中，大量线程其实是<strong>空闲</strong>的（Warp 4&#x2F;5&#x2F;6 各只需 1 个线程），但仍然被组织为一个 warpgroup，主要是为了共享寄存器配额和 barrier 同步的方便。</p>
-<p>这体现了 Blackwell 的设计哲学：<strong>硬件加速器（TMA、UTCMMA）接管数据搬运和矩阵计算，线程只处理无法硬件加速的&quot;缝隙&quot;工作。</strong></p>
+<p>在 SM100 中，warpgroup 的概念变”虚”了——UTCMMA 只需 <strong>1 个线程</strong>发起，所以同一个 warpgroup 内的线程可以干完全不同的事。SM100 的 WG1 中，大量线程其实是<strong>空闲</strong>的（Warp 4&#x2F;5&#x2F;6 各只需 1 个线程），但仍然被组织为一个 warpgroup，主要是为了共享寄存器配额和 barrier 同步的方便。</p>
+<p>这体现了 Blackwell 的设计哲学：<strong>硬件加速器（TMA、UTCMMA）接管数据搬运和矩阵计算，线程只处理无法硬件加速的”缝隙”工作。</strong></p>
 <h4 id="5-4-3-关键设计差异"><a href="#5-4-3-关键设计差异" class="headerlink" title="5.4.3 关键设计差异"></a>5.4.3 关键设计差异</h4><ol>
 <li><p><strong>SM90 的 MMA 由 warpgroup (128 线程) 发起; SM100 的 UTCMMA 由 1 个线程发起</strong></p>
 <ul>
-<li>UTCMMA 是 &quot;widthless&quot; 指令 (<code>tcgen05.mma.ws</code>)，只需 1 个线程 issue，Tensor Core 自动完成矩阵计算并写入 TMEM</li>
+<li>UTCMMA 是 “widthless” 指令 (<code>tcgen05.mma.ws</code>)，只需 1 个线程 issue，Tensor Core 自动完成矩阵计算并写入 TMEM</li>
 <li>这解放了大量线程去做其他工作</li>
 </ul>
 </li>
@@ -706,15 +705,13 @@ SM100 head64 实现 (<code>csrc/sm100/decode/head64/</code>) 要求 <code>h_q ==
 </li>
 </ol>
 <blockquote>
-<p>🔧 <strong>SM100 的 <code>NUM_INDEX_BUFS=4</code> vs SM90 的 <code>NUM_K_BUFS=2</code>:</strong>
-SM100 需要更多 buffer 因为 TMA Gather4 的 pipeline 更深:</p>
+<p>🔧 <strong>SM100 的 <code>NUM_INDEX_BUFS=4</code> vs SM90 的 <code>NUM_K_BUFS=2</code>:</strong><br>SM100 需要更多 buffer 因为 TMA Gather4 的 pipeline 更深:</p>
 <ul>
 <li>Warp 7 计算 TMA 坐标 (写 buf N)</li>
 <li>Warp 5&#x2F;6 用 TMA Gather4 加载 FP8&#x2F;RoPE (读 buf N, 写 KV buf M)</li>
 <li>WG2 反量化 (读 KV buf M)</li>
 <li>WG1-Warp4 发起 UTCMMA (读反量化后的 KV)</li>
-<li>WG0 做 softmax (读 TMEM 中的 P)
-每一步都需要独立的 buffer 来实现流水线</li>
+<li>WG0 做 softmax (读 TMEM 中的 P)<br>每一步都需要独立的 buffer 来实现流水线</li>
 </ul>
 </blockquote>
 <hr>
@@ -968,7 +965,7 @@ SM100 需要更多 buffer 因为 TMA Gather4 的 pipeline 更深:</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (params.attn_sink != <span class="literal">nullptr</span>) &#123;</span><br><span class="line">    <span class="type">float</span> attn_sink_log2 = __ldg(params.attn_sink + head_idx) * CUDART_L2E_F;</span><br><span class="line">    <span class="comment">// attn_sink[head 0] = -2.5 → attn_sink_log2 = -2.5 × 1.4427 = -3.607</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 计算最终的 output scale (包含 attention sink)</span></span><br><span class="line"><span class="keyword">if</span> (args.is_no_split) &#123;</span><br><span class="line">    o_scales[i] = <span class="number">1.0</span> / (rL[i] + <span class="built_in">exp2f</span>(rAttn_sink[i] - rM[i]));</span><br><span class="line">    <span class="comment">// = 1.0 / (80.7 + exp2(-3.607 - 0.2116))</span></span><br><span class="line">    <span class="comment">// = 1.0 / (80.7 + exp2(-3.818))</span></span><br><span class="line">    <span class="comment">// = 1.0 / (80.7 + 0.0709)</span></span><br><span class="line">    <span class="comment">// = 1.0 / 80.77</span></span><br><span class="line">    <span class="comment">// = 0.01238</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <blockquote>
-<p><strong>Attention Sink 的含义:</strong> 假装有一个额外的 &quot;sink&quot; token，其注意力分数是固定的 <code>attn_sink</code> 值。这让模型可以把一部分注意力&quot;倒掉&quot;，避免所有注意力都集中在 top-k token 上。</p>
+<p><strong>Attention Sink 的含义:</strong> 假装有一个额外的 “sink” token，其注意力分数是固定的 <code>attn_sink</code> 值。这让模型可以把一部分注意力”倒掉”，避免所有注意力都集中在 top-k token 上。</p>
 </blockquote>
 <hr>
 <h2 id="第-14-步：输出写回"><a href="#第-14-步：输出写回" class="headerlink" title="第 14 步：输出写回"></a>第 14 步：输出写回</h2><h3 id="14-1-Warpgroup-0-O-left-写入分-split-no-split-两种情况"><a href="#14-1-Warpgroup-0-O-left-写入分-split-no-split-两种情况" class="headerlink" title="14.1 Warpgroup 0: O_left 写入分 split&#x2F;no-split 两种情况"></a>14.1 Warpgroup 0: O_left 写入分 split&#x2F;no-split 两种情况</h3><p><strong>No-split (<code>is_no_split=true</code>, 我们的例子):</strong></p>
@@ -1223,12 +1220,12 @@ SM100 需要更多 buffer 因为 TMA Gather4 的 pipeline 更深:</p>
               <a href="/tags/CUDA/" rel="tag"># CUDA</a>
               <a href="/tags/DeepSeek/" rel="tag"># DeepSeek</a>
               <a href="/tags/Hopper/" rel="tag"># Hopper</a>
+              <a href="/tags/LLM-Inference/" rel="tag"># LLM Inference</a>
               <a href="/tags/Blackwell/" rel="tag"># Blackwell</a>
               <a href="/tags/FlashMLA/" rel="tag"># FlashMLA</a>
               <a href="/tags/FP8/" rel="tag"># FP8</a>
               <a href="/tags/Sparse-Attention/" rel="tag"># Sparse Attention</a>
               <a href="/tags/DSA/" rel="tag"># DSA</a>
-              <a href="/tags/LLM-Inference/" rel="tag"># LLM Inference</a>
           </div>
 
         
