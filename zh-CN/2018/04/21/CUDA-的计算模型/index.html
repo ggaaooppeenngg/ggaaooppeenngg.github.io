@@ -21,12 +21,12 @@
 
 <script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
 
-    <meta name="description" content="我的一点观点 我个人觉得 nvidia 的 CUDA 太封闭了，不是很能明白这样封闭的产品怎么能够长久生存，仅仅是因为家大业大么，如果有家公司推出了八成性能的 GPU，但是整套开发的生态非常友好，是不是会像 Android 取代诺基亚一样，还是 nvidia 就是苹果，就算封闭环境也能保证强劲体验，这我也不好说了。 安装 CUDA+cudnn 装起来挺麻烦的，反正如果有错误的话，可以检查 CUD">
+    <meta name="description" content="我的一点观点我个人觉得 nvidia 的 CUDA 太封闭了，不是很能明白这样封闭的产品怎么能够长久生存，仅仅是因为家大业大么，如果有家公司推出了八成性能的 GPU，但是整套开发的生态非常友好，是不是会像 Android 取代诺基亚一样，还是 nvidia 就是苹果，就算封闭环境也能保证强劲体验，这我也不好说了。 安装CUDA+cudnn 装起来挺麻烦的，反正如果有错误的话，可以检查 CUDA">
 <meta property="og:type" content="article">
 <meta property="og:title" content="CUDA 的计算模型">
 <meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2018/04/21/CUDA-%E7%9A%84%E8%AE%A1%E7%AE%97%E6%A8%A1%E5%9E%8B/index.html">
 <meta property="og:site_name" content="ggaaooppeenngg">
-<meta property="og:description" content="我的一点观点 我个人觉得 nvidia 的 CUDA 太封闭了，不是很能明白这样封闭的产品怎么能够长久生存，仅仅是因为家大业大么，如果有家公司推出了八成性能的 GPU，但是整套开发的生态非常友好，是不是会像 Android 取代诺基亚一样，还是 nvidia 就是苹果，就算封闭环境也能保证强劲体验，这我也不好说了。 安装 CUDA+cudnn 装起来挺麻烦的，反正如果有错误的话，可以检查 CUD">
+<meta property="og:description" content="我的一点观点我个人觉得 nvidia 的 CUDA 太封闭了，不是很能明白这样封闭的产品怎么能够长久生存，仅仅是因为家大业大么，如果有家公司推出了八成性能的 GPU，但是整套开发的生态非常友好，是不是会像 Android 取代诺基亚一样，还是 nvidia 就是苹果，就算封闭环境也能保证强劲体验，这我也不好说了。 安装CUDA+cudnn 装起来挺麻烦的，反正如果有错误的话，可以检查 CUDA">
 <meta property="og:locale" content="zh_CN">
 <meta property="og:image" content="https://www.researchgate.net/profile/Marco_Nobile/publication/261069154/figure/fig1/AS:296718735298563@1447754667270/Schematization-of-CUDA-architecture-Schematic-representation-of-CUDA-threads-and-memory.png">
 <meta property="og:image" content="http://15418.courses.cs.cmu.edu/spring2013content/lectures/02_basicarch/images/slide_030.png">
@@ -248,43 +248,36 @@
     
     
     
-    <div class="post-body" itemprop="articleBody"><h2 id="我的一点观点">我的一点观点</h2>
-<p>我个人觉得 nvidia 的 CUDA 太封闭了，不是很能明白这样封闭的产品怎么能够长久生存，仅仅是因为家大业大么，如果有家公司推出了八成性能的 GPU，但是整套开发的生态非常友好，是不是会像 Android 取代诺基亚一样，还是 nvidia 就是苹果，就算封闭环境也能保证强劲体验，这我也不好说了。</p>
-<h2 id="安装">安装</h2>
-<p>CUDA+cudnn 装起来挺麻烦的，反正如果有错误的话，可以检查 CUDA samples 里面的 deviceQuery 是否成功，如果不成功可以用 strace 看一下少了什么东西，再想办法安装上去。检查 cudnn samples 是否成功也是一样的，里面有一个 mnistDNN 的例子。</p>
-<h2 id="Hello-World">Hello World!</h2>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">#include &lt;stdio.h&gt;</span><br><span class="line"></span><br><span class="line">__global__ void helloFromGPU (void)</span><br><span class="line">&#123;</span><br><span class="line">	printf(&quot;Hello world!\n&quot;);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">int main(void)</span><br><span class="line">&#123;</span><br><span class="line">	printf(&quot;Hello World! from CPU\n&quot;);</span><br><span class="line"></span><br><span class="line">	helloFromGPU &lt;&lt;&lt;1, 10&gt;&gt;&gt;();</span><br><span class="line">	cudaDeviceReset();</span><br><span class="line">	return 0;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+    <div class="post-body" itemprop="articleBody"><h2 id="我的一点观点"><a href="#我的一点观点" class="headerlink" title="我的一点观点"></a>我的一点观点</h2><p>我个人觉得 nvidia 的 CUDA 太封闭了，不是很能明白这样封闭的产品怎么能够长久生存，仅仅是因为家大业大么，如果有家公司推出了八成性能的 GPU，但是整套开发的生态非常友好，是不是会像 Android 取代诺基亚一样，还是 nvidia 就是苹果，就算封闭环境也能保证强劲体验，这我也不好说了。</p>
+<h2 id="安装"><a href="#安装" class="headerlink" title="安装"></a>安装</h2><p>CUDA+cudnn 装起来挺麻烦的，反正如果有错误的话，可以检查 CUDA samples 里面的 deviceQuery 是否成功，如果不成功可以用 strace 看一下少了什么东西，再想办法安装上去。检查 cudnn samples 是否成功也是一样的，里面有一个 mnistDNN 的例子。</p>
+<h2 id="Hello-World"><a href="#Hello-World" class="headerlink" title="Hello World!"></a>Hello World!</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">#include &lt;stdio.h&gt;</span><br><span class="line"></span><br><span class="line">__global__ void helloFromGPU (void)</span><br><span class="line">&#123;</span><br><span class="line">	printf(&quot;Hello world!\n&quot;);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">int main(void)</span><br><span class="line">&#123;</span><br><span class="line">	printf(&quot;Hello World! from CPU\n&quot;);</span><br><span class="line"></span><br><span class="line">	helloFromGPU &lt;&lt;&lt;1, 10&gt;&gt;&gt;();</span><br><span class="line">	cudaDeviceReset();</span><br><span class="line">	return 0;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
 <p>以上就是一段 GPU 的 Hello world，执行下面的代码可以看到我们在 GPU 上并行执行了十个 “Hello world!” 的打印。</p>
 <figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_">$ </span><span class="language-bash">nvcc -<span class="built_in">arch</span> sm_20 hello.cu -o hello</span></span><br><span class="line"><span class="meta prompt_">$ </span><span class="language-bash">./hello</span></span><br><span class="line">Hello World! from CPU</span><br><span class="line">Hello world!</span><br><span class="line">Hello world!</span><br><span class="line">Hello world!</span><br><span class="line">Hello world!</span><br><span class="line">Hello world!</span><br><span class="line">Hello world!</span><br><span class="line">Hello world!</span><br><span class="line">Hello world!</span><br><span class="line">Hello world!</span><br><span class="line">Hello world!</span><br></pre></td></tr></table></figure>
-<h2 id="CUDA">CUDA</h2>
-<p>CUDA 全称 Compute Unified Device Architecure，用于定义 GPU 的架构标准。GPU 的工作方式主要依赖于多核心的并行计算，CUDA 提供了方便的模型进行这种模式的编程，下面就会简单介绍一下 CUDA 的架构以及基于 GPU 的编程。</p>
+<h2 id="CUDA"><a href="#CUDA" class="headerlink" title="CUDA"></a>CUDA</h2><p>CUDA 全称 Compute Unified Device Architecure，用于定义 GPU 的架构标准。GPU 的工作方式主要依赖于多核心的并行计算，CUDA 提供了方便的模型进行这种模式的编程，下面就会简单介绍一下 CUDA 的架构以及基于 GPU 的编程。</p>
 <p>CUDA 一次启动的线程称为网格(grid)，网格中包含块，每个块包含新程，是一个二维的模式，这张图片就说明得很清晰，首先是由 Grid 组成，然后每个 Block 有 shared memory，同 block 的线程可以访问 shared memory，不同的 Block 的线程只能访问全局的内存，这种结构也方便设计和实现并行算法。</p>
 <p><img data-src="https://www.researchgate.net/profile/Marco_Nobile/publication/261069154/figure/fig1/AS:296718735298563@1447754667270/Schematization-of-CUDA-architecture-Schematic-representation-of-CUDA-threads-and-memory.png" alt="cuda-arch"></p>
 <p>CUDA 的编译器 nvcc 是 gcc 的一个扩展，支持编写运行在 GPU 上的函数，其中的，<code>&lt;&lt;x, y&gt;&gt;</code> 扩展就是用来指定 block 和 thread 的数量的。</p>
 <p>比如典型的俩个向量相加的例子：</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span> <span class="title function_">sumArrayOnHost</span><span class="params">(<span class="type">float</span> *A, <span class="type">float</span> *B, <span class="type">float</span> *C, <span class="type">const</span> <span class="type">int</span> N)</span> &#123;</span><br><span class="line">    <span class="keyword">for</span> (<span class="type">int</span> i = <span class="number">0</span>; i &lt; N; i++)</span><br><span class="line">        C[i] = A[i] + B[i]</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
 <p>但是 GPU 的核函数怎么写呢，是这样的。</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">__global__ <span class="type">void</span> <span class="title function_">sumArrayOnGPU</span><span class="params">(<span class="type">float</span> *A, <span class="type">float</span> *N, <span class="type">float</span> C)</span> &#123;</span><br><span class="line">    <span class="type">int</span> i = threadIdx.x</span><br><span class="line">    C[i] = A[i] + B[i]</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
 <p>然后，如果 N 是 32 的话，可以如下调用，<code>__global__</code> 表示这个函数可以在 host 调用也可以在 GPU 上调用，用个 32 个线程的 block 算这个向量和，N 隐性包含在了定义中。</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sumArrayOnGPU&lt;&lt;<span class="number">1</span>, <span class="number">32</span>&gt;&gt;(<span class="type">float</span> *A, <span class="type">float</span> *B, <span class="type">float</span> *C)</span><br></pre></td></tr></table></figure>
-<h2 id="线程组织">线程组织</h2>
-<p>基于 CPU 和 GPU 的异构计算平台可以优势互补，CPU 负责处理逻辑复杂的串行程序，而 GPU 重点处理数据密集型的并行计算程序，从而发挥最大功效。</p>
+
+<h2 id="线程组织"><a href="#线程组织" class="headerlink" title="线程组织"></a>线程组织</h2><p>基于 CPU 和 GPU 的异构计算平台可以优势互补，CPU 负责处理逻辑复杂的串行程序，而 GPU 重点处理数据密集型的并行计算程序，从而发挥最大功效。</p>
 <p>线程组织主要依据网格（现在网络这个词其实比较容易混淆，可以是神经网络可以是计算机网络，这里指的是线程的组织形式）模型。主要分 grid, block, thread，组织的方式就靠索引来决定，可以通过 block 索引和 thread 索引进行线程的定位。CUDA 提供了块内线程同步的方法，但是没有提供块间同步的原语。</p>
-<h3 id="线程束分化">线程束分化</h3>
-<p>线程束 = warp</p>
+<h3 id="线程束分化"><a href="#线程束分化" class="headerlink" title="线程束分化"></a>线程束分化</h3><p>线程束 &#x3D; warp</p>
 <p>CPU 有很强的分支预测的能力，会预加载指令，如果预测正确，执行代价就很小，但是 GPU 在这方面是很弱的，因为线程束当中如果执行分支出现不同，那出现分支的线程就会被禁止执行，这也是用 GPU 做并行编程的时候需要参考的一个很重要的因素，保证并行的线程出现线程束分化的情况尽量少。</p>
 <p>下面就是线程束分化的例子。</p>
-<p><img data-src="http://15418.courses.cs.cmu.edu/spring2013content/lectures/02_basicarch/images/slide_030.png" alt=""></p>
-<h3 id="并行归约问题">并行归约问题</h3>
-<p>并行归约是指如何对并行问题进行归约，比如说相邻配对和交错配对。</p>
-<h2 id="设备管理">设备管理</h2>
-<p>管理 GPU 主要是通过 CUDA API 或者 <code>nvidia-smi</code> 命令来获取。</p>
-<h2 id="SM（流式多处理器）">SM（流式多处理器）</h2>
-<p>上面讲的是抽象上的分层，但是实际的物理层面承载 GPU 的是 SM。最早的 GPU 架构叫 Fermi，然后是 Kepler，然后才是 Tesla。一般说的 <code>cm_20</code>, <code>sm_20</code> 就指这种计算能力和架构，新款的 GPU 计算能力要更强一点。</p>
-<h2 id="内存模型">内存模型</h2>
-<p>CUDA 的内存模型和 CPU 是类似的也是多级的结构。线程有局部内存，块之间有全局内存。GPU 和 CPU 都是主要采用 DRAM 来做主存，CPU 的一级缓存会用 SRAM 做。CPU 的多级缓存对用户来说不是很需要考虑，尽量屏蔽了其中的细节，但是 GPU 相对来说会把这种分级结构暴露给用户，这对编程来说也是一种新的挑战。</p>
-<h2 id="后面">后面</h2>
-<p>用 GPU 计算一些计算密集型的程序，速度是真快，比 CPU 块很多，所以这也是为什么大量深度学习的应用都要通过 GPU 加速的原因。</p>
+<p><img data-src="http://15418.courses.cs.cmu.edu/spring2013content/lectures/02_basicarch/images/slide_030.png"></p>
+<h3 id="并行归约问题"><a href="#并行归约问题" class="headerlink" title="并行归约问题"></a>并行归约问题</h3><p>并行归约是指如何对并行问题进行归约，比如说相邻配对和交错配对。</p>
+<h2 id="设备管理"><a href="#设备管理" class="headerlink" title="设备管理"></a>设备管理</h2><p>管理 GPU 主要是通过 CUDA API 或者 <code>nvidia-smi</code> 命令来获取。</p>
+<h2 id="SM（流式多处理器）"><a href="#SM（流式多处理器）" class="headerlink" title="SM（流式多处理器）"></a>SM（流式多处理器）</h2><p>上面讲的是抽象上的分层，但是实际的物理层面承载 GPU 的是 SM。最早的 GPU 架构叫 Fermi，然后是 Kepler，然后才是 Tesla。一般说的 <code>cm_20</code>, <code>sm_20</code> 就指这种计算能力和架构，新款的 GPU 计算能力要更强一点。</p>
+<h2 id="内存模型"><a href="#内存模型" class="headerlink" title="内存模型"></a>内存模型</h2><p>CUDA 的内存模型和 CPU 是类似的也是多级的结构。线程有局部内存，块之间有全局内存。GPU 和 CPU 都是主要采用 DRAM 来做主存，CPU 的一级缓存会用 SRAM 做。CPU 的多级缓存对用户来说不是很需要考虑，尽量屏蔽了其中的细节，但是 GPU 相对来说会把这种分级结构暴露给用户，这对编程来说也是一种新的挑战。</p>
+<h2 id="后面"><a href="#后面" class="headerlink" title="后面"></a>后面</h2><p>用 GPU 计算一些计算密集型的程序，速度是真快，比 CPU 块很多，所以这也是为什么大量深度学习的应用都要通过 GPU 加速的原因。</p>
 
     </div>
 

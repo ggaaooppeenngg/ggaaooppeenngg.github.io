@@ -260,12 +260,14 @@
 <p><code>struct hh_cache</code> 缓存 L2 的头部，不是所有的设备都支持头部缓存。</p>
 <p><code>struct rttable</code> 和 <code>struct dst_enry</code>， IPv4 的路由缓存信息是通过 <code>struct rttable</code> 缓存的。</p>
 <img data-src="/zh-CN/2017/08/07/neighboring-subsystem-%E6%B5%85%E6%9E%90/p1.jpg" class="">
+
 <p>这是 <code>dst_entry</code>, <code>hh_cache</code> 和 <code>neighbour</code> 之间的关系。</p>
 <p>neighbor 结构是用 hash 存储的，key 是 L3 地址加设备（对应的 device 结构体）加一个随机值。hash 表通过 <code>neigh_hash_alloc</code> 和 <code>neigh_hash_free</code> 来分配和释放。<code>neigh_lookup</code> 就是通过 key 从 hash table 中找到对应的 neighbour 结构体，实现都不复杂，这里理解就可以了。</p>
 <img data-src="/zh-CN/2017/08/07/neighboring-subsystem-%E6%B5%85%E6%9E%90/p2.jpg" class="">
+
+
 <p>一般邻居子系统的缓存流程是这样的，如果 L3 的请求到达，地址解析缓存没有命中，把 L3 packet 入队，开始neighbor solicitation 等收到 neighbor advertisement 之后再出队并且发送。</p>
-<h2 id="邻居状态信息-NUD-Netowork-Unreachablility-状态">邻居状态信息 NUD(Netowork Unreachablility) 状态</h2>
-<p>NUD state 本来是 IPv6 协议里的邻居关系的定义，但是在内核中沿用到了 IPv4 里面。</p>
+<h2 id="邻居状态信息-NUD-Netowork-Unreachablility-状态"><a href="#邻居状态信息-NUD-Netowork-Unreachablility-状态" class="headerlink" title="邻居状态信息 NUD(Netowork Unreachablility) 状态"></a>邻居状态信息 NUD(Netowork Unreachablility) 状态</h2><p>NUD state 本来是 IPv6 协议里的邻居关系的定义，但是在内核中沿用到了 IPv4 里面。</p>
 <ul>
 <li>NUD_NONE 这个 neighbour 刚开始建立，没有相关状态</li>
 <li>NUD_INCOMPLETE 发送了获取 L2 地址的请求（通过 ARP 或者其他协议），但是没收到回复，并且之前不存在老缓存</li>
@@ -277,39 +279,36 @@
 </ul>
 <p>这些是基本状态，根据这些基本状态组合了几个相对有语义的状态。</p>
 <ul>
-<li>
-<p>NUD_VALID 表示该地址会是一个有效的地址</p>
+<li><p>NUD_VALID 表示该地址会是一个有效的地址</p>
 <p>NUD_PERMANENT NUD_NOARP NUD_REACHABLE NUD_PROBE NUD_STALE NUD_DELAY</p>
 </li>
-<li>
-<p>NUD_CONNECTED 是 NUD_VALID 的子集，去除了待决的中间状态</p>
-<p>NUD_PERMANENT NUD_NOARP NUD_REACHABLE</p>
+<li><p>NUD_CONNECTED 是 NUD_VALID 的子集，去除了待决的中间状态</p>
+<p> NUD_PERMANENT NUD_NOARP NUD_REACHABLE</p>
 </li>
-<li>
-<p>NUD_IN_TIMER 表示在这个状态下正在执行一个定时任务，一般是状态不明了的时候</p>
-<p>NUD_INCOMPLETE NUD_DELAY NUD_PROBE</p>
+<li><p>NUD_IN_TIMER 表示在这个状态下正在执行一个定时任务，一般是状态不明了的时候</p>
+<p> NUD_INCOMPLETE NUD_DELAY NUD_PROBE</p>
 </li>
 </ul>
 <p>邻居的可达性可以通过两点来确认，收到了一个地址解析协议的单播回复，或者通过外部信息确认（比如收到了这个邻居的 TCP 报文，当然这个 IP 可能不是自己的邻居，但是可以可以确定对应网关『作为邻居』的可达性）。</p>
-<h2 id="确认邻居信息">确认邻居信息</h2>
-<p>IP 层会调用<code>ipv4_confirm_neigh</code> 来确认映射地址，如果有 gateway 用 gateway，没有 gateway 开始查缓存。在 <code>net/ipv4/ip_output.c</code> 中的对应代码，就是查缓存的 neighbour 结构体，如果这个结构体不存在的话就要开始<code>confirm</code> 了。</p>
+<h2 id="确认邻居信息"><a href="#确认邻居信息" class="headerlink" title="确认邻居信息"></a>确认邻居信息</h2><p>IP 层会调用<code>ipv4_confirm_neigh</code> 来确认映射地址，如果有 gateway 用 gateway，没有 gateway 开始查缓存。在 <code>net/ipv4/ip_output.c</code> 中的对应代码，就是查缓存的 neighbour 结构体，如果这个结构体不存在的话就要开始<code>confirm</code> 了。</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">neigh = __ipv4_neigh_lookup_noref(dev, nexthop);</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> (unlikely(!neigh))</span><br><span class="line">	neigh = __neigh_create(&amp;arp_tbl, &amp;nexthop, dev, <span class="literal">false</span>);</span><br><span class="line"><span class="keyword">if</span> (!IS_ERR(neigh)) &#123;</span><br><span class="line">	<span class="type">int</span> res;</span><br><span class="line"></span><br><span class="line">	sock_confirm_neigh(skb, neigh);</span><br><span class="line">	res = neigh_output(neigh, skb);</span><br><span class="line"></span><br><span class="line">	rcu_read_unlock_bh();</span><br><span class="line">	<span class="keyword">return</span> res;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<p>当 TCP 收到报文（比如对端的 SYN/ACK 时），这种外部信息说明其实这个节点是可达的（不是来自 gateway），也可以更新缓存。</p>
+<p>当 TCP 收到报文（比如对端的 SYN&#x2F;ACK 时），这种外部信息说明其实这个节点是可达的（不是来自 gateway），也可以更新缓存。</p>
 <p>另外，<code>neigh_connect</code> 和 <code>neigh_suspect</code> 是两个状态转换时会调用的函数。</p>
 <p>当 neigh 进入 <code>NUD_REACHABLE</code> ， <code>neigh_connect</code> 把 <code>neigh-&gt;output</code> 的函数指向 <code>connected_output</code> 这个函数，它会在调用 <code>dev_queue_xmit</code> 之前填充 L2 头部，把包直接发出去。</p>
 <p>当从 <code>NUD_REACHBLE</code> 转换成 <code>NUD_STALE</code> 或者 <code>NUD_DELAY</code>，<code>neigh_suspect</code> 会强制进行可达性的确认，通过把 <code>neighbor-&gt;output</code> 指向 <code>neigh_ops-&gt;output</code>， 也就是 <code>neigh_resolve_output</code>，它会在调用 <code>dev_queue_xmit</code> 之前先把地址解析出来，等把地址解析完成以后再把缓存的包发送出去。</p>
-<h2 id="更新邻居信息">更新邻居信息</h2>
-<p>邻居信息更新的入口函数就是 <code>neigh_update</code>，这个函数定义如下。</p>
+<h2 id="更新邻居信息"><a href="#更新邻居信息" class="headerlink" title="更新邻居信息"></a>更新邻居信息</h2><p>邻居信息更新的入口函数就是 <code>neigh_update</code>，这个函数定义如下。</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> <span class="title function_">neigh_update</span><span class="params">(<span class="keyword">struct</span> neighbour *neigh, <span class="type">const</span> u8 *lladdr, u8 new,</span></span><br><span class="line"><span class="params">		 u32 flags, u32 nlmsg_pid)</span></span><br></pre></td></tr></table></figure>
+
 <p>首先做一些预先检查，如果是管理员配置，原来的配置就不能是 PERMANENT 或者 NOARP 的。</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (!(flags &amp; NEIGH_UPDATE_F_ADMIN) &amp;&amp;</span><br><span class="line">    (old &amp; (NUD_NOARP | NUD_PERMANENT)))</span><br><span class="line">	<span class="keyword">goto</span> out;</span><br></pre></td></tr></table></figure>
+
 <p>标记为 dead，然后 goto out</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (neigh-&gt;dead)</span><br><span class="line">	<span class="keyword">goto</span> out;</span><br></pre></td></tr></table></figure>
-<p>如果更新为无效的标记的话，删除 timer，并且 supect 一下，如果是 NUD_CONNECTED 状态。<br>
-如果是需要标记为失败的 neigh(之前是 INCOMPLETE|NUD_PROBE)，则调用 <code>neigh_invalidate</code>，让这个 neigh 无效。</p>
+<p>如果更新为无效的标记的话，删除 timer，并且 supect 一下，如果是 NUD_CONNECTED 状态。<br>如果是需要标记为失败的 neigh(之前是 INCOMPLETE|NUD_PROBE)，则调用 <code>neigh_invalidate</code>，让这个 neigh 无效。</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (!(new &amp; NUD_VALID)) &#123;</span><br><span class="line">	neigh_del_timer(neigh);</span><br><span class="line">	<span class="keyword">if</span> (old &amp; NUD_CONNECTED)</span><br><span class="line">		neigh_suspect(neigh);</span><br><span class="line">	neigh-&gt;nud_state = new;</span><br><span class="line">	err = <span class="number">0</span>;</span><br><span class="line">	notify = old &amp; NUD_VALID;</span><br><span class="line">	<span class="keyword">if</span> ((old &amp; (NUD_INCOMPLETE | NUD_PROBE)) &amp;&amp;</span><br><span class="line">	    (new &amp; NUD_FAILED)) &#123;</span><br><span class="line">		neigh_invalidate(neigh);</span><br><span class="line">		notify = <span class="number">1</span>;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">goto</span> out;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 <p>接下来是三个条件，一个是 device 没有硬件地址，用 neigh-&gt;ha，如果 lladdr 提供了并且老的是有效的，使用老的地址，如果 lladdr 没有提供，直接使用老的地址。</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/* Compare new lladdr with cached one */</span></span><br><span class="line"><span class="keyword">if</span> (!dev-&gt;addr_len) &#123;</span><br><span class="line">	<span class="comment">/* First case: device needs no address. */</span></span><br><span class="line">	lladdr = neigh-&gt;ha;</span><br><span class="line">&#125; <span class="keyword">else</span> <span class="keyword">if</span> (lladdr) &#123;</span><br><span class="line">	<span class="comment">/* The second case: if something is already cached</span></span><br><span class="line"><span class="comment">	   and a new address is proposed:</span></span><br><span class="line"><span class="comment">	   - compare new &amp; old</span></span><br><span class="line"><span class="comment">	   - if they are different, check override flag</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="keyword">if</span> ((old &amp; NUD_VALID) &amp;&amp;</span><br><span class="line">	    !<span class="built_in">memcmp</span>(lladdr, neigh-&gt;ha, dev-&gt;addr_len))</span><br><span class="line">		lladdr = neigh-&gt;ha;</span><br><span class="line">&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">	<span class="comment">/* No address is supplied; if we know something,</span></span><br><span class="line"><span class="comment">	   use it, otherwise discard the request.</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	err = -EINVAL;</span><br><span class="line">	<span class="keyword">if</span> (!(old &amp; NUD_VALID))</span><br><span class="line">		<span class="keyword">goto</span> out;</span><br><span class="line">	lladdr = neigh-&gt;ha;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
 <p>如果<code>NUD_CONNECTED</code> 更新 confirm 的时间，更新『更新』的时间。</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (new &amp; NUD_CONNECTED)</span><br><span class="line">	neigh-&gt;confirmed = jiffies;</span><br><span class="line">neigh-&gt;updated = jiffies;</span><br></pre></td></tr></table></figure>
 <p><code>NEIGH_UPDATE_F_OVERRIDE_ISROUTER</code> 标记的是当前 neigh 是一个 router。</p>
@@ -326,16 +325,14 @@
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">out:</span><br><span class="line"><span class="keyword">if</span> (update_isrouter) &#123;</span><br><span class="line">	neigh-&gt;flags = (flags &amp; NEIGH_UPDATE_F_ISROUTER) ?</span><br><span class="line">		(neigh-&gt;flags | NTF_ROUTER) :</span><br><span class="line">		(neigh-&gt;flags &amp; ~NTF_ROUTER);</span><br><span class="line">&#125;</span><br><span class="line">write_unlock_bh(&amp;neigh-&gt;lock);</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> (notify)</span><br><span class="line">	neigh_update_notify(neigh, nlmsg_pid);</span><br></pre></td></tr></table></figure>
 <p>这就是邻居信息的更新流程。</p>
 <p>当然还有一个缓存项是 L2 header 的缓存这里就简单略过了。</p>
-<h2 id="ARP">ARP</h2>
-<p>接下来说一下 ARP 相关的内容，ARP 本身的格式其实很简单。</p>
+<h2 id="ARP"><a href="#ARP" class="headerlink" title="ARP"></a>ARP</h2><p>接下来说一下 ARP 相关的内容，ARP 本身的格式其实很简单。</p>
 <p>邻居子系统有一个比较关键的协议就是 ARP，这里简单介绍一下 ARP 协议，我们来看一下 ARP 的格式。</p>
 <img data-src="/zh-CN/2017/08/07/neighboring-subsystem-%E6%B5%85%E6%9E%90/p3.jpg" class="">
+
 <p>先是两个字节的 L2 类型，然后是两个字节的 L3 类型。一般 L2 是 1 (以太网)，L3 是 0x0800 (IPV4)，接着跟着的是 L2 类型的长度和 L3 类型的长度，这里 Ethernet 的 MAC 地址是 6 个字节，IPV4 的 IP 地址是 4 个字节，接着是两个字节的操作，1 表示请求，2 表示回复，然后是发送端 L2 的地址，L3 的地址，接着是接收端 L2 和 L3 的地址。整个翻译过来就是『我（MAC 是 0a:00:27:00:00:00 IP 是 192.168.56.1）广而告之（MAC 广播地址），问一下谁知道 192.168.56.102 的地址』。</p>
-<h3 id="gARP-gratuitous-ARP">gARP (gratuitous ARP)</h3>
-<p>听起来像是一个无理由的 ARP 请求，实际上是一种主动通知的 ARP 请求。gARP 本身不是一个查询请求，而是一个通知请求，主要运用于主动通知 L2 地址改变，重复地址发现（请求解析自己的地址，如果收到回复说明有地址重复）。</p>
+<h3 id="gARP-gratuitous-ARP"><a href="#gARP-gratuitous-ARP" class="headerlink" title="gARP (gratuitous ARP)"></a>gARP (gratuitous ARP)</h3><p>听起来像是一个无理由的 ARP 请求，实际上是一种主动通知的 ARP 请求。gARP 本身不是一个查询请求，而是一个通知请求，主要运用于主动通知 L2 地址改变，重复地址发现（请求解析自己的地址，如果收到回复说明有地址重复）。</p>
 <p>还有就是 VIP，一般的作用是在本地网路中有两台机器，一台作为备机，一台作为主机，当主机 failover 的时候，备机可以继续『冒充』主机的 IP 地址，具体的做法就是主动发送请求，解析的 MAC 和 IP 都和 source 一样，老的 server 肯定不会回答这个 ARP，交换机上已经没有这个端口的缓存，会进行广播，让所有的接收者都会更新自己的缓存。也就是发送了一个一去不复返的请求，让所有的邻居更新了自己的 ARP 缓存，从而替代了老 server 的 IP，这就是 VIP 通过 ARP 实现的 failover。</p>
-<h2 id="总结">总结</h2>
-<p>邻居子系统很大一部分的作用就是解析和缓存地址映射，主要是通过 ARP 来完成，而且 ARP 本身也有很多使用的姿势，也就上面说到的 gARP，邻居子系统是沟通路由子系统，以及 L2 和 L3 的桥梁。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>邻居子系统很大一部分的作用就是解析和缓存地址映射，主要是通过 ARP 来完成，而且 ARP 本身也有很多使用的姿势，也就上面说到的 gARP，邻居子系统是沟通路由子系统，以及 L2 和 L3 的桥梁。</p>
 <p>参考：</p>
 <ol>
 <li><em>Understanding Linux Network Internals</em></li>

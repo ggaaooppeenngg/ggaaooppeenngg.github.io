@@ -255,17 +255,15 @@
 <li>每批次最大化token数量，从而改善Model FLOPs Utilization (MFU)。</li>
 </ol>
 <p>如果从远程内存获取KVCache，会增加数据传输时间，从而延长TTFT（Time To First Token）。因此，当本地KVCache的增量计算时间少于传输时间时，可以复用本地的KVCache，即使它不是最匹配的。而增大batch意味着系统处理的大批量数据，导致TBT（Token Between Token）延长，可以将负载均衡到低负载的Decode Instance。</p>
-<h3 id="架构">架构</h3>
-<img data-src="/zh-CN/2024/12/25/Mooncacke%E5%88%86%E6%9E%90/arch.png" class="">
+<h3 id="架构"><a href="#架构" class="headerlink" title="架构"></a>架构</h3><img data-src="/zh-CN/2024/12/25/Mooncacke%E5%88%86%E6%9E%90/arch.png" class="">
+
 <p>Mooncake的架构图主要分为三个部分：Prefill Instance，Decode Instance，Conductor。</p>
 <ol>
 <li>Cache-aware Prefill Scheduler：负责调度Request到Prefill Instance，主要考虑load和KVCache的复用率。</li>
 <li>KVCache Balance Scheduler：负责从匹配最多前缀的P2P传输KVCache到Instance（Decode和Prefill）。</li>
 <li>Load-balance Decoding Scheduler：负责负载均衡调度Request到Decode Instance。</li>
 </ol>
-<p>Prefill Instance要满足TTFT SLO，最小化MFU，保证KVCache &lt; DRAM。<br>
-Decode Instance要满足TBT SLO，保证KVCache &lt; VRAM。<br>
-Inter-Node Transfer基于RDMA的P2P，这也是一个较大的开销。</p>
+<p>Prefill Instance要满足TTFT SLO，最小化MFU，保证KVCache &lt; DRAM。<br>Decode Instance要满足TBT SLO，保证KVCache &lt; VRAM。<br>Inter-Node Transfer基于RDMA的P2P，这也是一个较大的开销。</p>
 <p>Mooncake的方法总结如下：</p>
 <ol>
 <li>转移可重用的KVCache，将尽可能多的可重用KVCache转移至Prefill Instance，减少增量计算的时间。</li>
@@ -274,10 +272,10 @@ Inter-Node Transfer基于RDMA的P2P，这也是一个较大的开销。</p>
 </ol>
 <p>Mooncake的主要特点是将prefill和decode拆开，并调度KVCache块。</p>
 <p>Reject Policy：如果一个请求不能在服务水平内完成其完整的执行，那么就应该尽早拒绝这个请求，基于这个理念需要设计一些拒绝策略，被称作Overloaded-Scheduling。</p>
-<h3 id="KVCache的复制">KVCache的复制</h3>
-<p>KVCache的调度主要是利用KV Cache（VRAM，DRAM），利用RDMA带宽。</p>
+<h3 id="KVCache的复制"><a href="#KVCache的复制" class="headerlink" title="KVCache的复制"></a>KVCache的复制</h3><p>KVCache的调度主要是利用KV Cache（VRAM，DRAM），利用RDMA带宽。</p>
 <p>下图是一个Prefill和Decode分离的计算过程。</p>
 <img data-src="/zh-CN/2024/12/25/Mooncacke%E5%88%86%E6%9E%90/kv_transfer.png" class="">
+
 <p>如果了解vLLM中的prefill和decode以及管理block的方法，这个图其实很简单。</p>
 <p>首先通过Hash判断block是否相同，例如很多系统提示词都是一样的，这部分的复用率很高。</p>
 <p>Prefill Instance已经有了ABCDE（这里是一个P2P的过程，但我看开源的版本有个KVCache Store的WIP，不知道后面会不会有一个中心化的KVCache Store的组件）。然后计算了FGHI，存入了KV Cache（在CPU mem上），论文里面提到这个prefill在超过<code>prefill_chunk</code> tokens数量会做chunked prefill。</p>
@@ -291,15 +289,13 @@ Inter-Node Transfer基于RDMA的P2P，这也是一个较大的开销。</p>
 </ol>
 <p>Mooncake的一个争论点是，是否需要在存在chunked prefill的情况下采用这种分离架构。毕竟，chunked prefill可以填补许多pipeline中的气泡，并且能让prefill和decode节点相对统一，只需要关心一种instance，对于scheduler比较友好。</p>
 <ol>
-<li>
-<p>不分离的优点：</p>
+<li><p>不分离的优点：</p>
 <ul>
 <li>所有节点被视为平等，使调度更简单；</li>
 <li>将chunked prefill内联到解码批处理中可以提高解码批次的计算强度，从而提高MFU。</li>
 </ul>
 </li>
-<li>
-<p>分离的优点：</p>
+<li><p>分离的优点：</p>
 <ul>
 <li>长文本的跨节点并行和VRAM的节省。长文本输入是输出的10倍甚至100倍，对于相同的模型来说，prefill需要多节点配置才能满足显存需求。prefill阶段可以进行layer-wise prefill，每次保存大量KVCache，而decode阶段每次只需保存一个KVCache。因此，prefill阶段可以通过layer-wise prefill来减少VRAM占用。</li>
 </ul>
@@ -310,14 +306,11 @@ Inter-Node Transfer基于RDMA的P2P，这也是一个较大的开销。</p>
 </blockquote>
 <p>然而，经过仔细考虑，论文决定保持Mooncake的分离架构。只有在请求的prefill可以不进行chunking且不影响TBT SLO的情况下，才会将其内联到解码批次中。我们这样决定的主要原因有两个：</p>
 <ol>
-<li>
-<p>Prefill节点需要不同的跨节点并行设置来处理长上下文 (§5.1)。</p>
+<li><p>Prefill节点需要不同的跨节点并行设置来处理长上下文 (§5.1)。</p>
 </li>
-<li>
-<p>这为节省VRAM提供了独特的机会 (§5.2)。</p>
+<li><p>这为节省VRAM提供了独特的机会 (§5.2)。</p>
 </li>
-<li>
-<p>大模型需要部署在多机上，进行TP后，每一层都需要进行一次基于RDMA的reduce，这个过程开销巨大。虽然有一些Sequence Parallelism的方法，但效果并不理想，且无法避免跨节点通信。而Mooncake采用的是CPP（Chunked Parallelism Pipeline），将序列按<code>prefill_chunk</code>大小切分，交给prefill pool的不同节点，这些节点被切分成更小的节点池（pipelined prefill node group）。</p>
+<li><p>大模型需要部署在多机上，进行TP后，每一层都需要进行一次基于RDMA的reduce，这个过程开销巨大。虽然有一些Sequence Parallelism的方法，但效果并不理想，且无法避免跨节点通信。而Mooncake采用的是CPP（Chunked Parallelism Pipeline），将序列按<code>prefill_chunk</code>大小切分，交给prefill pool的不同节点，这些节点被切分成更小的节点池（pipelined prefill node group）。</p>
 </li>
 </ol>
 <blockquote>
@@ -326,43 +319,36 @@ Inter-Node Transfer基于RDMA的P2P，这也是一个较大的开销。</p>
 <ol start="2">
 <li>Layer-wise prefill，这有点像airllm项目，在计算过程中动态加载KVCache。在每次注意力计算时，KVCache是异步加载的，计算当前层时可以异步加载下一层，并且当前层结束后可以异步保存当前层。论文中认为KVCache的保存时间可以被完全省略（相较于加载计算保存的线性循环）。这样也可以降低VRAM的占用。</li>
 </ol>
-<h3 id="调度算法">调度算法</h3>
-<ol>
-<li>
-<p><strong>选择Prefill实例</strong>：</p>
+<h3 id="调度算法"><a href="#调度算法" class="headerlink" title="调度算法"></a>调度算法</h3><ol>
+<li><p><strong>选择Prefill实例</strong>：</p>
 <ul>
 <li>如果Prefill节点上缓存了足够的前缀（由<code>kvcache_balancing_threshold</code>控制），则选择预估TTFT最小的实例：<code>TTFT = min(T_queue + T_prefill)</code>。</li>
 <li>如果Prefill节点上缓存不足，则选择<code>TTFT = min(T_queue + T_prefill + T_transfer)</code>最小的实例，其中<code>T_transfer</code>指的是有最长匹配的KVCache的实例拷贝到当前实例的预估时间。</li>
 </ul>
 </li>
-<li>
-<p><strong>选择Decode实例</strong>：</p>
+<li><p><strong>选择Decode实例</strong>：</p>
 <ul>
 <li>通过负载均衡的方式预估TBT。</li>
 <li>如果TBT和TTFT不满足SLO，则拒绝请求，并触发KVCache的传输。</li>
 </ul>
 </li>
-<li>
-<p><strong>预测模型</strong>：</p>
+<li><p><strong>预测模型</strong>：</p>
 <ul>
 <li>预估模型用于预测传输时间和决策传输。</li>
 <li>数据传输时间难以预测，因为它不仅取决于数据大小，还依赖于当前网络状态，特别是当发送节点处于拥塞状态时。</li>
 </ul>
 </li>
-<li>
-<p><strong>KVCache复制</strong>：</p>
+<li><p><strong>KVCache复制</strong>：</p>
 <ul>
 <li>热门的KVCache块需要被复制以确保高可用性。</li>
 </ul>
 </li>
-<li>
-<p><strong>调度器目标</strong>：</p>
+<li><p><strong>调度器目标</strong>：</p>
 <ul>
 <li>保证低Cache负载和高Cache命中率。</li>
 </ul>
 </li>
-<li>
-<p><strong>高负载情况下的策略</strong>：</p>
+<li><p><strong>高负载情况下的策略</strong>：</p>
 <ul>
 <li>请求可能不会被直接发送给缓存最长前缀的实例，而是转发给备选实例。备选实例会主动从缓存持有者处检索KV缓存并存储本地。</li>
 <li>当最佳的远程前缀匹配长度不超过当前本地可重用前缀的阈值时，系统优先使用本地缓存，而不是从远程实例获取令牌。</li>
@@ -370,8 +356,7 @@ Inter-Node Transfer基于RDMA的P2P，这也是一个较大的开销。</p>
 </li>
 </ol>
 <p>这些策略不仅减少了请求的Prefill时间，还自动复制热点缓存，使其在多台机器上更广泛地分布。</p>
-<h3 id="拒绝策略">拒绝策略</h3>
-<p>论文提到了一种基于预测的拒绝策略。Prefill和Decode的负载节奏是相反的，可能在Decode负载高时，Prefill负载较低。此时如果拒绝请求，会导致Decode负载下降，而Prefill完成后Decode负载又会升高，进而再次拒绝请求。引入预测拒绝策略后，可以使Prefill过程更加平滑，减少频繁拒绝请求的情况，从而减小负载节奏的波动。</p>
+<h3 id="拒绝策略"><a href="#拒绝策略" class="headerlink" title="拒绝策略"></a>拒绝策略</h3><p>论文提到了一种基于预测的拒绝策略。Prefill和Decode的负载节奏是相反的，可能在Decode负载高时，Prefill负载较低。此时如果拒绝请求，会导致Decode负载下降，而Prefill完成后Decode负载又会升高，进而再次拒绝请求。引入预测拒绝策略后，可以使Prefill过程更加平滑，减少频繁拒绝请求的情况，从而减小负载节奏的波动。</p>
 <img data-src="/zh-CN/2024/12/25/Mooncacke%E5%88%86%E6%9E%90/reject_policy.png" class="">
 
     </div>

@@ -21,12 +21,12 @@
 
 <script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
 
-    <meta name="description" content="一句话概括 MegaMoE &#x3D; 把 EP（Expert Parallelism）中的 All-to-All 通信和 MoE 计算融合到一个 kernel 里，让 NVLink 传输和 Tensor Core 计算时间上完全重叠。 传统 EP 里通信和计算串行，GPU 利用率只有 50-60%；MegaMoE 通过 Symmetric Memory + 细粒度 Scheduler + 单 Kerne">
+    <meta name="description" content="一句话概括MegaMoE &#x3D; 把 EP（Expert Parallelism）中的 All-to-All 通信和 MoE 计算融合到一个 kernel 里，让 NVLink 传输和 Tensor Core 计算时间上完全重叠。 传统 EP 里通信和计算串行，GPU 利用率只有 50-60%；MegaMoE 通过 Symmetric Memory + 细粒度 Scheduler + 单 K">
 <meta property="og:type" content="article">
 <meta property="og:title" content="MegaMoE：把通信和计算融合到一个 Mega Kernel">
 <meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2026/06/01/MegaMoE-%E9%80%9A%E4%BF%A1%E8%AE%A1%E7%AE%97%E8%9E%8D%E5%90%88Mega-Kernel%E6%B7%B1%E5%BA%A6%E5%88%86%E6%9E%90/index.html">
 <meta property="og:site_name" content="ggaaooppeenngg">
-<meta property="og:description" content="一句话概括 MegaMoE &#x3D; 把 EP（Expert Parallelism）中的 All-to-All 通信和 MoE 计算融合到一个 kernel 里，让 NVLink 传输和 Tensor Core 计算时间上完全重叠。 传统 EP 里通信和计算串行，GPU 利用率只有 50-60%；MegaMoE 通过 Symmetric Memory + 细粒度 Scheduler + 单 Kerne">
+<meta property="og:description" content="一句话概括MegaMoE &#x3D; 把 EP（Expert Parallelism）中的 All-to-All 通信和 MoE 计算融合到一个 kernel 里，让 NVLink 传输和 Tensor Core 计算时间上完全重叠。 传统 EP 里通信和计算串行，GPU 利用率只有 50-60%；MegaMoE 通过 Symmetric Memory + 细粒度 Scheduler + 单 K">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2026-06-01T13:00:00.000Z">
 <meta property="article:modified_time" content="2026-06-01T12:49:18.331Z">
@@ -256,43 +256,42 @@
     
     
     
-    <div class="post-body" itemprop="articleBody"><h2 id="一句话概括">一句话概括</h2>
-<p><strong>MegaMoE = 把 EP（Expert Parallelism）中的 All-to-All 通信和 MoE 计算融合到一个 kernel 里，让 NVLink 传输和 Tensor Core 计算时间上完全重叠。</strong></p>
+    <div class="post-body" itemprop="articleBody"><h2 id="一句话概括"><a href="#一句话概括" class="headerlink" title="一句话概括"></a>一句话概括</h2><p><strong>MegaMoE &#x3D; 把 EP（Expert Parallelism）中的 All-to-All 通信和 MoE 计算融合到一个 kernel 里，让 NVLink 传输和 Tensor Core 计算时间上完全重叠。</strong></p>
 <p>传统 EP 里通信和计算串行，GPU 利用率只有 50-60%；MegaMoE 通过 Symmetric Memory + 细粒度 Scheduler + 单 Kernel 状态机，把利用率推到接近 100%。</p>
 <hr>
-<h2 id="传统-EP-MoE-vs-MegaMoE">传统 EP MoE vs MegaMoE</h2>
-<h3 id="传统-EP（如-DeepEP）">传统 EP（如 DeepEP）</h3>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">时间 →</span><br><span class="line"></span><br><span class="line">[dispatch all-to-all] → 等完 → [GEMM1] → [SwiGLU] → [GEMM2] → 等完 → [combine all-to-all]</span><br><span class="line">   NVLink 通信         空闲      计算      计算      计算        空闲      NVLink 通信</span><br></pre></td></tr></table></figure>
+<h2 id="传统-EP-MoE-vs-MegaMoE"><a href="#传统-EP-MoE-vs-MegaMoE" class="headerlink" title="传统 EP MoE vs MegaMoE"></a>传统 EP MoE vs MegaMoE</h2><h3 id="传统-EP（如-DeepEP）"><a href="#传统-EP（如-DeepEP）" class="headerlink" title="传统 EP（如 DeepEP）"></a>传统 EP（如 DeepEP）</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">时间 →</span><br><span class="line"></span><br><span class="line">[dispatch all-to-all] → 等完 → [GEMM1] → [SwiGLU] → [GEMM2] → 等完 → [combine all-to-all]</span><br><span class="line">   NVLink 通信         空闲      计算      计算      计算        空闲      NVLink 通信</span><br></pre></td></tr></table></figure>
+
 <p>问题：通信和计算串行，GPU 要么在算要么在传，利用率约 50-60%。</p>
-<h3 id="MegaMoE">MegaMoE</h3>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">时间 →</span><br><span class="line"></span><br><span class="line">┌───────────────────── 一个 Mega Kernel ─────────────────────┐</span><br><span class="line">│  NVLink dispatch ←→ GEMM1 ←→ SwiGLU ←→ GEMM2 ←→ NVLink combine  │</span><br><span class="line">│    (通信和计算同时进行，流水线式重叠)                          │</span><br><span class="line">└──────────────────────────────────────────────────────────────┘</span><br></pre></td></tr></table></figure>
+<h3 id="MegaMoE"><a href="#MegaMoE" class="headerlink" title="MegaMoE"></a>MegaMoE</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">时间 →</span><br><span class="line"></span><br><span class="line">┌───────────────────── 一个 Mega Kernel ─────────────────────┐</span><br><span class="line">│  NVLink dispatch ←→ GEMM1 ←→ SwiGLU ←→ GEMM2 ←→ NVLink combine  │</span><br><span class="line">│    (通信和计算同时进行，流水线式重叠)                          │</span><br><span class="line">└──────────────────────────────────────────────────────────────┘</span><br></pre></td></tr></table></figure>
+
 <p>通信隐藏在计算背后，GPU 利用率接近 100%。</p>
 <hr>
-<h2 id="核心实现机制">核心实现机制</h2>
-<h3 id="1-Symmetric-Memory（对称内存）">1. Symmetric Memory（对称内存）</h3>
-<p>传统 all-to-all：</p>
+<h2 id="核心实现机制"><a href="#核心实现机制" class="headerlink" title="核心实现机制"></a>核心实现机制</h2><h3 id="1-Symmetric-Memory（对称内存）"><a href="#1-Symmetric-Memory（对称内存）" class="headerlink" title="1. Symmetric Memory（对称内存）"></a>1. Symmetric Memory（对称内存）</h3><p>传统 all-to-all：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">GPU_0 → cudaMemcpyAsync → GPU_1（需要显式同步，退出 kernel）</span><br></pre></td></tr></table></figure>
+
 <p>Symmetric Memory：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">所有 GPU 共享一片 symmetric buffer</span><br><span class="line">GPU_0 直接写入 GPU_1 的 symmetric buffer（RDMA over NVLink）</span><br><span class="line">GPU_1 看到数据就开始算，不需要全局 barrier</span><br></pre></td></tr></table></figure>
+
 <p>关键：不需要等所有 token 传完再开始算。传一批就算一批（streaming）。</p>
 <p><strong>实现层级</strong>：</p>
 <ul>
 <li><strong>硬件层</strong>：NVSwitch 全连接，任何 GPU pair 都有直达链路，memory controller 识别远端地址自动走 NVLink</li>
-<li><strong>驱动/Runtime 层</strong>：CUDA VMM 把远端 GPU 物理内存映射到本地虚拟地址（<code>cuMemMap</code> / <code>nvshmem_ptr</code>）</li>
-<li><strong>应用层</strong>：MegaMoE 直接用普通指针读写远端 buffer，一条 PTX load/store 指令完成</li>
+<li><strong>驱动&#x2F;Runtime 层</strong>：CUDA VMM 把远端 GPU 物理内存映射到本地虚拟地址（<code>cuMemMap</code> &#x2F; <code>nvshmem_ptr</code>）</li>
+<li><strong>应用层</strong>：MegaMoE 直接用普通指针读写远端 buffer，一条 PTX load&#x2F;store 指令完成</li>
 </ul>
 <blockquote>
 <p>注意：只有 symmetric allocation 的那块 buffer 地址一致，不是整个 GPU 显存对称。</p>
 </blockquote>
-<h3 id="2-单-Kernel-状态机">2. 单 Kernel 状态机</h3>
-<p>传统方式多个 kernel 之间有全局同步点，无法实现 fine-grained overlap：</p>
+<h3 id="2-单-Kernel-状态机"><a href="#2-单-Kernel-状态机" class="headerlink" title="2. 单 Kernel 状态机"></a>2. 单 Kernel 状态机</h3><p>传统方式多个 kernel 之间有全局同步点，无法实现 fine-grained overlap：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kernel_1 (dispatch) → kernel 边界（全局 barrier）→ kernel_2 (GEMM1) → ...</span><br></pre></td></tr></table></figure>
+
 <p>MegaMoE 的 <code>scheduler/mega_moe.cuh</code> 用一个状态机让所有 SM 在同一个 kernel 内自主领任务：</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">enum class</span> <span class="title class_">BlockPhase</span> &#123; None, Linear1, Linear2 &#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">while</span> (<span class="literal">true</span>) &#123;</span><br><span class="line">    <span class="keyword">auto</span> block = scheduler.<span class="built_in">get_next_block</span>();</span><br><span class="line">    <span class="keyword">switch</span> (block.phase) &#123;</span><br><span class="line">        <span class="keyword">case</span> Linear1: <span class="comment">/* 做 W1/W3 GEMM */</span> <span class="keyword">break</span>;</span><br><span class="line">        <span class="keyword">case</span> Linear2: <span class="comment">/* 做 W2 GEMM */</span> <span class="keyword">break</span>;</span><br><span class="line">        <span class="keyword">case</span> None: <span class="keyword">return</span>;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
 <p>没有 kernel 边界，没有全局 barrier，通信和计算可以交错到 warp 级别。</p>
-<h3 id="3-Wave-Based-Expert-Processing">3. Wave-Based Expert Processing</h3>
-<p>256 个 expert 太多，无法同时处理（Token Pool 显存有限），分 wave 分批：</p>
+<h3 id="3-Wave-Based-Expert-Processing"><a href="#3-Wave-Based-Expert-Processing" class="headerlink" title="3. Wave-Based Expert Processing"></a>3. Wave-Based Expert Processing</h3><p>256 个 expert 太多，无法同时处理（Token Pool 显存有限），分 wave 分批：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">Wave 0: expert [0..31]   → 处理完 → 释放 pool</span><br><span class="line">Wave 1: expert [32..63]  → 处理完 → 释放 pool</span><br><span class="line">...</span><br><span class="line">Wave 7: expert [224..255]</span><br></pre></td></tr></table></figure>
+
 <p>每个 wave 内：</p>
 <ul>
 <li>所有 SM 抢 L1 block（gate + up projection）</li>
@@ -300,15 +299,15 @@
 <li>所有 SM 抢 L2 block（down projection）</li>
 </ul>
 <p><code>kNumExpertsPerWave</code> 由 SMEM 容量、<code>BLOCK_M</code>、pool_capacity 共同决定，让 wave 内 expert 数刚好喂饱所有 SM 又不撑爆 Token Pool。</p>
-<h3 id="4-Arrival-Count-轮询（细粒度-Overlap-的关键）">4. Arrival Count 轮询（细粒度 Overlap 的关键）</h3>
-<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 轮询等待：不是等所有 token 到齐，而是等够一个 BLOCK_M 就开始算</span></span><br><span class="line"><span class="keyword">while</span> (volatile_count &lt; kNumSMs * kNumRanks) &#123;</span><br><span class="line">    <span class="comment">// spin-wait 直到其他 SM/rank 报告完成</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="4-Arrival-Count-轮询（细粒度-Overlap-的关键）"><a href="#4-Arrival-Count-轮询（细粒度-Overlap-的关键）" class="headerlink" title="4. Arrival Count 轮询（细粒度 Overlap 的关键）"></a>4. Arrival Count 轮询（细粒度 Overlap 的关键）</h3><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 轮询等待：不是等所有 token 到齐，而是等够一个 BLOCK_M 就开始算</span></span><br><span class="line"><span class="keyword">while</span> (volatile_count &lt; kNumSMs * kNumRanks) &#123;</span><br><span class="line">    <span class="comment">// spin-wait 直到其他 SM/rank 报告完成</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
 <ul>
 <li>不需要全局 barrier（不需要所有 token 都收完才开始）</li>
 <li>收到一个 block 的 token 就立刻开始算</li>
 <li>这就是 streaming overlap 的本质</li>
 </ul>
-<h3 id="5-L1-L2-交错">5. L1/L2 交错</h3>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">Expert_0: [L1 block 0][L1 block 1][L1 block 2] → SwiGLU → [L2 block 0][L2 block 1]</span><br><span class="line">Expert_1: [L1 block 0][L1 block 1]             → SwiGLU → [L2 block 0]</span><br></pre></td></tr></table></figure>
+<h3 id="5-L1-L2-交错"><a href="#5-L1-L2-交错" class="headerlink" title="5. L1&#x2F;L2 交错"></a>5. L1&#x2F;L2 交错</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">Expert_0: [L1 block 0][L1 block 1][L1 block 2] → SwiGLU → [L2 block 0][L2 block 1]</span><br><span class="line">Expert_1: [L1 block 0][L1 block 1]             → SwiGLU → [L2 block 0]</span><br></pre></td></tr></table></figure>
+
 <p>L1 结果留在 Token Pool 中，L2 直接从 pool 读（在 L2 cache 中热），一个 wave 结束后才释放 pool 空间。</p>
 <p>对应关系：</p>
 <table>
@@ -320,8 +319,7 @@
 <th>含义</th>
 </tr>
 </thead>
-<tbody>
-<tr>
+<tbody><tr>
 <td>L1 (Linear 1)</td>
 <td>W1 + W3（拼在一起）</td>
 <td>gate + up projection</td>
@@ -339,32 +337,30 @@
 <td>down projection</td>
 <td>intermediate → hidden</td>
 </tr>
-</tbody>
-</table>
+</tbody></table>
 <blockquote>
 <p>W1 和 W3 拼在一起做一次 GEMM，可以复用 TMA 加载的 activation tile，减少 GMEM → SMEM 搬运。</p>
 </blockquote>
 <hr>
-<h2 id="SM-Warp-级别并行">SM/Warp 级别并行</h2>
-<p>GPU 硬件层次：</p>
+<h2 id="SM-Warp-级别并行"><a href="#SM-Warp-级别并行" class="headerlink" title="SM&#x2F;Warp 级别并行"></a>SM&#x2F;Warp 级别并行</h2><p>GPU 硬件层次：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">GPU (整块芯片)</span><br><span class="line">└── SM (Streaming Multiprocessor) × 132 (H20) / 192 (B200)</span><br><span class="line">    └── Warp × 最多 64 resident / SM</span><br><span class="line">        └── Thread × 32 / Warp（SIMT 锁步执行）</span><br></pre></td></tr></table></figure>
+
 <p>在 MegaMoE 中，一个 Mega Kernel launch 占满所有 SM，每个 SM 内部：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">Warp Group A（若干 warp）：负责通信（polling + NVLink store/load）</span><br><span class="line">Warp Group B（若干 warp）：负责计算（Tensor Core MMA）</span><br></pre></td></tr></table></figure>
-<p>Warp Group A 和 B 在 SM 内部并行执行——这就是&quot;通信和计算在 warp 级别交错&quot;的含义。</p>
+
+<p>Warp Group A 和 B 在 SM 内部并行执行——这就是”通信和计算在 warp 级别交错”的含义。</p>
 <hr>
-<h2 id="为什么必须-GB200-GB300">为什么必须 GB200/GB300</h2>
-<p>MegaMoE 依赖三个 GB200/GB300 独有（或大幅增强）的硬件能力：</p>
+<h2 id="为什么必须-GB200-GB300"><a href="#为什么必须-GB200-GB300" class="headerlink" title="为什么必须 GB200&#x2F;GB300"></a>为什么必须 GB200&#x2F;GB300</h2><p>MegaMoE 依赖三个 GB200&#x2F;GB300 独有（或大幅增强）的硬件能力：</p>
 <table>
 <thead>
 <tr>
 <th>硬件特性</th>
-<th>GB200/GB300</th>
+<th>GB200&#x2F;GB300</th>
 <th>H20</th>
 <th>影响</th>
 </tr>
 </thead>
-<tbody>
-<tr>
+<tbody><tr>
 <td>GPU 间拓扑</td>
 <td>72 GPU NVSwitch 全连接</td>
 <td>8 GPU NVLink mesh</td>
@@ -372,7 +368,7 @@
 </tr>
 <tr>
 <td>Symmetric Memory</td>
-<td>✅ kernel 内 load/store 远端</td>
+<td>✅ kernel 内 load&#x2F;store 远端</td>
 <td>❌ 需要 NCCL API</td>
 <td>无法做 in-kernel 通信</td>
 </tr>
@@ -389,19 +385,16 @@
 <td>计算慢 → 通信占比低 → overlap 收益有限</td>
 </tr>
 <tr>
-<td>NVLink 带宽/GPU</td>
-<td>900 GB/s（18 ports）</td>
-<td>450 GB/s（NV18 mesh）</td>
+<td>NVLink 带宽&#x2F;GPU</td>
+<td>900 GB&#x2F;s（18 ports）</td>
+<td>450 GB&#x2F;s（NV18 mesh）</td>
 <td>H20 通信带宽是瓶颈</td>
 </tr>
-</tbody>
-</table>
-<h3 id="为什么计算足够快才值得-overlap">为什么计算足够快才值得 overlap</h3>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">假设: 通信时间 = T_comm, 计算时间 = T_compute</span><br><span class="line"></span><br><span class="line">情况 A — 计算快 (FP4 Tensor Core):</span><br><span class="line">T_compute = 2ms, T_comm = 5ms</span><br><span class="line">不 overlap: 7ms</span><br><span class="line">overlap: max(2, 5) = 5ms ← 省 28%</span><br><span class="line"></span><br><span class="line">情况 B — 计算慢 (BF16 软件模拟):</span><br><span class="line">T_compute = 20ms, T_comm = 5ms</span><br><span class="line">不 overlap: 25ms</span><br><span class="line">overlap: max(20, 5) = 20ms ← 只省 20%</span><br><span class="line"></span><br><span class="line">而且 overlap 不是免费的：</span><br><span class="line">- 需要 SM 专门做通信 warp（减少计算并行度）</span><br><span class="line">- Symmetric Memory 的 load/store 比本地慢 10-20x</span><br><span class="line">- Scheduler 状态机有开销</span><br><span class="line"></span><br><span class="line">只有当计算非常快、通信成为瓶颈时，overlap 的净收益才大于开销。</span><br></pre></td></tr></table></figure>
+</tbody></table>
+<h3 id="为什么计算足够快才值得-overlap"><a href="#为什么计算足够快才值得-overlap" class="headerlink" title="为什么计算足够快才值得 overlap"></a>为什么计算足够快才值得 overlap</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">假设: 通信时间 = T_comm, 计算时间 = T_compute</span><br><span class="line"></span><br><span class="line">情况 A — 计算快 (FP4 Tensor Core):</span><br><span class="line">T_compute = 2ms, T_comm = 5ms</span><br><span class="line">不 overlap: 7ms</span><br><span class="line">overlap: max(2, 5) = 5ms ← 省 28%</span><br><span class="line"></span><br><span class="line">情况 B — 计算慢 (BF16 软件模拟):</span><br><span class="line">T_compute = 20ms, T_comm = 5ms</span><br><span class="line">不 overlap: 25ms</span><br><span class="line">overlap: max(20, 5) = 20ms ← 只省 20%</span><br><span class="line"></span><br><span class="line">而且 overlap 不是免费的：</span><br><span class="line">- 需要 SM 专门做通信 warp（减少计算并行度）</span><br><span class="line">- Symmetric Memory 的 load/store 比本地慢 10-20x</span><br><span class="line">- Scheduler 状态机有开销</span><br><span class="line"></span><br><span class="line">只有当计算非常快、通信成为瓶颈时，overlap 的净收益才大于开销。</span><br></pre></td></tr></table></figure>
+
 <hr>
-<h2 id="和-DeepEP-flashinfer-mxfp4-的区别">和 DeepEP / flashinfer_mxfp4 的区别</h2>
-<h3 id="MegaMoE-vs-DeepEP">MegaMoE vs DeepEP</h3>
-<table>
+<h2 id="和-DeepEP-flashinfer-mxfp4-的区别"><a href="#和-DeepEP-flashinfer-mxfp4-的区别" class="headerlink" title="和 DeepEP &#x2F; flashinfer_mxfp4 的区别"></a>和 DeepEP &#x2F; flashinfer_mxfp4 的区别</h2><h3 id="MegaMoE-vs-DeepEP"><a href="#MegaMoE-vs-DeepEP" class="headerlink" title="MegaMoE vs DeepEP"></a>MegaMoE vs DeepEP</h3><table>
 <thead>
 <tr>
 <th></th>
@@ -409,8 +402,7 @@
 <th>MegaMoE</th>
 </tr>
 </thead>
-<tbody>
-<tr>
+<tbody><tr>
 <td>通信粒度</td>
 <td>整个 batch dispatch 完再算</td>
 <td>tile 级别通信和计算交错</td>
@@ -435,10 +427,8 @@
 <td>无（取决于显存）</td>
 <td>有（<code>NUM_MAX_TOKENS_PER_RANK</code>）</td>
 </tr>
-</tbody>
-</table>
-<h3 id="MegaMoE-vs-flashinfer-mxfp4">MegaMoE vs flashinfer_mxfp4</h3>
-<table>
+</tbody></table>
+<h3 id="MegaMoE-vs-flashinfer-mxfp4"><a href="#MegaMoE-vs-flashinfer-mxfp4" class="headerlink" title="MegaMoE vs flashinfer_mxfp4"></a>MegaMoE vs flashinfer_mxfp4</h3><table>
 <thead>
 <tr>
 <th></th>
@@ -446,8 +436,7 @@
 <th>MegaMoE</th>
 </tr>
 </thead>
-<tbody>
-<tr>
+<tbody><tr>
 <td>解决的问题</td>
 <td>单卡 MoE 计算效率</td>
 <td>多卡 EP 通信+计算 overlap</td>
@@ -469,7 +458,7 @@
 </tr>
 <tr>
 <td>硬件要求</td>
-<td>任何 Hopper/Blackwell</td>
+<td>任何 Hopper&#x2F;Blackwell</td>
 <td>需要 NVLink + Symmetric Memory（GB200+）</td>
 </tr>
 <tr>
@@ -477,15 +466,13 @@
 <td>已发布，可用</td>
 <td>开发中（DeepGEMM PR #304）</td>
 </tr>
-</tbody>
-</table>
+</tbody></table>
 <p>两者互补：flashinfer_mxfp4 管单卡 MoE kernel 效率，MegaMoE 管 EP 多卡通信+计算融合。</p>
 <hr>
-<h2 id="Python-API-调用流程">Python API 调用流程</h2>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 1. 多进程初始化 + 分配对称内存</span></span><br><span class="line">buffer = deep_gemm.get_symm_buffer_for_mega_moe(</span><br><span class="line">    group,                  <span class="comment"># 进程组 (torch.distributed)</span></span><br><span class="line">    num_experts=<span class="number">256</span>,</span><br><span class="line">    num_max_tokens_per_rank=<span class="number">8192</span>,</span><br><span class="line">    num_topk=<span class="number">6</span>,</span><br><span class="line">    hidden=<span class="number">4096</span>,</span><br><span class="line">    intermediate_hidden=<span class="number">2048</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 2. 权重预处理（FP4 packing + 布局变换）</span></span><br><span class="line">l1_transformed, l2_transformed = deep_gemm.transform_weights_for_mega_moe(</span><br><span class="line">    l1_weights,  <span class="comment"># W1, W3 (gate + up)</span></span><br><span class="line">    l2_weights   <span class="comment"># W2 (down)</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 3. 加载输入到 symmetric buffer</span></span><br><span class="line">buffer.x[:N].copy_(x_fp8)           <span class="comment"># FP8 激活</span></span><br><span class="line">buffer.x_sf[:N].copy_(x_sf)         <span class="comment"># 激活的 scale factor</span></span><br><span class="line">buffer.topk_idx[:N].copy_(topk_idx) <span class="comment"># 路由结果</span></span><br><span class="line">buffer.topk_weights[:N].copy_(topk_weights)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 4. 一次调用，完成 dispatch + GEMM1 + SwiGLU + GEMM2 + combine</span></span><br><span class="line">y = torch.empty((N, <span class="number">4096</span>), dtype=torch.bfloat16, device=<span class="string">&#x27;cuda&#x27;</span>)</span><br><span class="line">deep_gemm.fp8_fp4_mega_moe(y, l1_transformed, l2_transformed, buffer)</span><br><span class="line"><span class="comment"># y 就是最终结果，全程只有这一个 kernel launch</span></span><br></pre></td></tr></table></figure>
+<h2 id="Python-API-调用流程"><a href="#Python-API-调用流程" class="headerlink" title="Python API 调用流程"></a>Python API 调用流程</h2><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 1. 多进程初始化 + 分配对称内存</span></span><br><span class="line">buffer = deep_gemm.get_symm_buffer_for_mega_moe(</span><br><span class="line">    group,                  <span class="comment"># 进程组 (torch.distributed)</span></span><br><span class="line">    num_experts=<span class="number">256</span>,</span><br><span class="line">    num_max_tokens_per_rank=<span class="number">8192</span>,</span><br><span class="line">    num_topk=<span class="number">6</span>,</span><br><span class="line">    hidden=<span class="number">4096</span>,</span><br><span class="line">    intermediate_hidden=<span class="number">2048</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 2. 权重预处理（FP4 packing + 布局变换）</span></span><br><span class="line">l1_transformed, l2_transformed = deep_gemm.transform_weights_for_mega_moe(</span><br><span class="line">    l1_weights,  <span class="comment"># W1, W3 (gate + up)</span></span><br><span class="line">    l2_weights   <span class="comment"># W2 (down)</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 3. 加载输入到 symmetric buffer</span></span><br><span class="line">buffer.x[:N].copy_(x_fp8)           <span class="comment"># FP8 激活</span></span><br><span class="line">buffer.x_sf[:N].copy_(x_sf)         <span class="comment"># 激活的 scale factor</span></span><br><span class="line">buffer.topk_idx[:N].copy_(topk_idx) <span class="comment"># 路由结果</span></span><br><span class="line">buffer.topk_weights[:N].copy_(topk_weights)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 4. 一次调用，完成 dispatch + GEMM1 + SwiGLU + GEMM2 + combine</span></span><br><span class="line">y = torch.empty((N, <span class="number">4096</span>), dtype=torch.bfloat16, device=<span class="string">&#x27;cuda&#x27;</span>)</span><br><span class="line">deep_gemm.fp8_fp4_mega_moe(y, l1_transformed, l2_transformed, buffer)</span><br><span class="line"><span class="comment"># y 就是最终结果，全程只有这一个 kernel launch</span></span><br></pre></td></tr></table></figure>
+
 <hr>
-<h2 id="总结：MegaMoE-的关键创新">总结：MegaMoE 的关键创新</h2>
-<table>
+<h2 id="总结：MegaMoE-的关键创新"><a href="#总结：MegaMoE-的关键创新" class="headerlink" title="总结：MegaMoE 的关键创新"></a>总结：MegaMoE 的关键创新</h2><table>
 <thead>
 <tr>
 <th>机制</th>
@@ -493,10 +480,9 @@
 <th>依赖硬件</th>
 </tr>
 </thead>
-<tbody>
-<tr>
+<tbody><tr>
 <td>Symmetric Memory</td>
-<td>kernel 内直接 load/store 远端 GPU</td>
+<td>kernel 内直接 load&#x2F;store 远端 GPU</td>
 <td>NVSwitch 全连接</td>
 </tr>
 <tr>
@@ -510,7 +496,7 @@
 <td>SM 数量充足（Blackwell 192 SM）</td>
 </tr>
 <tr>
-<td>L1/L2 交错</td>
+<td>L1&#x2F;L2 交错</td>
 <td>L1 结果留在 pool，L2 直接读</td>
 <td>大 L2 cache（Blackwell 100MB+）</td>
 </tr>
@@ -519,12 +505,10 @@
 <td>计算足够快，才值得 overlap 通信</td>
 <td>原生 FP4 Tensor Core（SM100）</td>
 </tr>
-</tbody>
-</table>
-<p><strong>一句话</strong>：MegaMoE = Symmetric Memory（消除通信 barrier）+ 细粒度 Scheduler（一个 block 到了就算）+ 单 Kernel 状态机（避免 kernel launch 开销），把 EP MoE 的 GPU 利用率从 ~60% 推到接近 100%。</p>
+</tbody></table>
+<p><strong>一句话</strong>：MegaMoE &#x3D; Symmetric Memory（消除通信 barrier）+ 细粒度 Scheduler（一个 block 到了就算）+ 单 Kernel 状态机（避免 kernel launch 开销），把 EP MoE 的 GPU 利用率从 ~60% 推到接近 100%。</p>
 <hr>
-<h2 id="局限性与适用边界">局限性与适用边界</h2>
-<ul>
+<h2 id="局限性与适用边界"><a href="#局限性与适用边界" class="headerlink" title="局限性与适用边界"></a>局限性与适用边界</h2><ul>
 <li><strong>权重格式锁定</strong>：只支持 DeepGEMM 的 FP4 权重布局，需要预转换</li>
 <li><strong>激活函数限制</strong>：依赖 SwiGLU 无状态特性，L1 结果可直接给 L2 用；若 MoE 层有跨 token 依赖（如全局 norm），pipeline 会断</li>
 <li><strong>硬件绑定</strong>：Symmetric Memory + NVSwitch 全连接 + 原生 FP4 三个条件缺一不可，H20 及更早硬件无法使用</li>
@@ -532,8 +516,7 @@
 <li><strong>负载不均影响</strong>：<code>fetch_expert_recv_count()</code> 的 spin-wait 在 expert 负载不均时可能导致 SM 空转</li>
 </ul>
 <hr>
-<h2 id="参考">参考</h2>
-<ul>
+<h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2><ul>
 <li>DeepGEMM PR #304: MegaMoE 实现（基于 NVSHMEM SymmBuffer）</li>
 <li><a href="/2026/05/21/WideEP-%E5%A4%A7%E8%A7%84%E6%A8%A1%E4%B8%93%E5%AE%B6%E5%B9%B6%E8%A1%8C%E9%83%A8%E7%BD%B2%E5%AE%9E%E6%88%98/">WideEP：大规模专家并行部署实战</a></li>
 <li><a href="/2026/06/01/FlashInfer-MXFP4-MoE-%E6%B7%B1%E5%BA%A6%E5%88%86%E6%9E%90/">FlashInfer MXFP4 MoE 后端深度分析</a></li>

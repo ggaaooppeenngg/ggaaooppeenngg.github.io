@@ -21,15 +21,15 @@
 
 <script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
 
-    <meta name="description" content="从残差到 mHC：一条清晰的三代演进路 如果你训练过深层 Transformer，一定对残差连接（Residual Connection）不陌生。它是 ResNet 留下的最重要的遗产之一，也是今天所有大语言模型的标配。 但残差连接有个根本问题：它只有一条信息流。 DeepSeek 在 2025 年连发两篇论文，把这个问题彻底讲透了。故事的三步是：  Residual（2015）：$x_&amp;#123">
+    <meta name="description" content="从残差到 mHC：一条清晰的三代演进路如果你训练过深层 Transformer，一定对残差连接（Residual Connection）不陌生。它是 ResNet 留下的最重要的遗产之一，也是今天所有大语言模型的标配。 但残差连接有个根本问题：它只有一条信息流。 DeepSeek 在 2025 年连发两篇论文，把这个问题彻底讲透了。故事的三步是：  Residual（2015）：x_&#123;l">
 <meta property="og:type" content="article">
 <meta property="og:title" content="mHC：把残差连接推进到下一个时代">
 <meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2026/06/02/mhc-manifold-constrained-hyper-connections/index.html">
 <meta property="og:site_name" content="ggaaooppeenngg">
-<meta property="og:description" content="从残差到 mHC：一条清晰的三代演进路 如果你训练过深层 Transformer，一定对残差连接（Residual Connection）不陌生。它是 ResNet 留下的最重要的遗产之一，也是今天所有大语言模型的标配。 但残差连接有个根本问题：它只有一条信息流。 DeepSeek 在 2025 年连发两篇论文，把这个问题彻底讲透了。故事的三步是：  Residual（2015）：$x_&amp;#123">
+<meta property="og:description" content="从残差到 mHC：一条清晰的三代演进路如果你训练过深层 Transformer，一定对残差连接（Residual Connection）不陌生。它是 ResNet 留下的最重要的遗产之一，也是今天所有大语言模型的标配。 但残差连接有个根本问题：它只有一条信息流。 DeepSeek 在 2025 年连发两篇论文，把这个问题彻底讲透了。故事的三步是：  Residual（2015）：x_&#123;l">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2026-06-01T16:00:00.000Z">
-<meta property="article:modified_time" content="2026-06-10T03:43:47.313Z">
+<meta property="article:modified_time" content="2026-06-10T06:11:38.216Z">
 <meta property="article:author" content="ggaaooppeenngg">
 <meta property="article:tag" content="DeepSeek">
 <meta property="article:tag" content="Transformer">
@@ -124,7 +124,7 @@
       <div class="sidebar-panel-container">
         <!--noindex-->
         <div class="post-toc-wrap sidebar-panel">
-            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BB%8E%E6%AE%8B%E5%B7%AE%E5%88%B0-mHC%EF%BC%9A%E4%B8%80%E6%9D%A1%E6%B8%85%E6%99%B0%E7%9A%84%E4%B8%89%E4%BB%A3%E6%BC%94%E8%BF%9B%E8%B7%AF"><span class="nav-number">1.</span> <span class="nav-text">从残差到 mHC：一条清晰的三代演进路</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%AE%8B%E5%B7%AE%E8%BF%9E%E6%8E%A5%E7%9A%84%E7%93%B6%E9%A2%88%EF%BC%9A%E4%B8%80%E6%9D%A1%E6%B5%81%E4%B8%8D%E5%A4%9F%E7%94%A8"><span class="nav-number">2.</span> <span class="nav-text">残差连接的瓶颈：一条流不够用</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#HC-%E7%9A%84%E8%87%B4%E5%91%BD%E7%BC%BA%E9%99%B7%EF%BC%9A%E8%AE%AD%E7%BB%83%E4%BC%9A%E5%B4%A9"><span class="nav-number">3.</span> <span class="nav-text">HC 的致命缺陷：训练会崩</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#mHC%EF%BC%9A%E7%BB%99-HC-%E5%8A%A0%E4%B8%8A-%E5%AE%89%E5%85%A8%E9%98%80"><span class="nav-number">4.</span> <span class="nav-text">mHC：给 HC 加上&quot;安全阀&quot;</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BB%80%E4%B9%88%E6%98%AF%E5%8F%8C%E9%9A%8F%E6%9C%BA%E7%9F%A9%E9%98%B5%EF%BC%9F"><span class="nav-number">4.1.</span> <span class="nav-text">什么是双随机矩阵？</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%8E%E4%B9%88%E6%8A%8A%E7%9F%A9%E9%98%B5%E5%8F%98%E6%88%90%E5%8F%8C%E9%9A%8F%E6%9C%BA%EF%BC%9FSinkhorn-Knopp-%E7%AE%97%E6%B3%95"><span class="nav-number">5.</span> <span class="nav-text">怎么把矩阵变成双随机？Sinkhorn-Knopp 算法</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#hc-split-sinkhorn-%E8%BE%93%E5%87%BA%E7%9A%84-pre-post-comb-%E8%AF%AD%E4%B9%89%E8%AF%A6%E8%A7%A3"><span class="nav-number">6.</span> <span class="nav-text">hc_split_sinkhorn 输出的 pre &#x2F; post &#x2F; comb 语义详解</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%83%8C%E6%99%AF%EF%BC%9ADSv4-Pro-%E7%9A%84-4-%E8%B7%AF-residual-streams"><span class="nav-number">6.1.</span> <span class="nav-text">背景：DSv4-Pro 的 4 路 residual streams</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#pre-N-hc-4-%E2%80%94-collapse-%E7%B3%BB%E6%95%B0%EF%BC%884-%E8%B7%AF-%E2%86%92-1-%E8%B7%AF%EF%BC%89"><span class="nav-number">6.2.</span> <span class="nav-text">pre [N, hc&#x3D;4] — collapse 系数（4 路 → 1 路）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#post-N-hc-4-%E2%80%94-expand-%E5%A2%9E%E7%9B%8A%EF%BC%881-%E8%B7%AF-%E2%86%92-4-%E8%B7%AF%EF%BC%89"><span class="nav-number">6.3.</span> <span class="nav-text">post [N, hc&#x3D;4] — expand 增益（1 路 → 4 路）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#comb-N-hc-4-hc-4-%E2%80%94-cross-stream-routing-%E7%9F%A9%E9%98%B5%EF%BC%884-%E8%B7%AF-%E2%86%92-4-%E8%B7%AF%EF%BC%89"><span class="nav-number">6.4.</span> <span class="nav-text">comb [N, hc&#x3D;4, hc&#x3D;4] — cross-stream routing 矩阵（4 路 → 4 路）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%89%E8%80%85%E7%BB%84%E5%90%88-%E5%AE%8C%E6%95%B4-mHC-%E4%B8%80%E5%B1%82"><span class="nav-number">6.5.</span> <span class="nav-text">三者组合 &#x3D; 完整 mHC 一层</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E5%8F%AA%E6%9C%89-comb-%E7%94%A8-Sinkhorn%EF%BC%8C%E8%80%8C-pre-post-%E7%94%A8-sigmoid%EF%BC%9F"><span class="nav-number">6.6.</span> <span class="nav-text">为什么只有 comb 用 Sinkhorn，而 pre &#x2F; post 用 sigmoid？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%95%B4%E5%BC%A0%E8%AF%AD%E4%B9%89%E5%9B%BE%EF%BC%9Apre-post-comb-%E7%BB%84%E5%90%88-%E5%AE%8C%E6%95%B4-mHC-%E4%B8%80%E5%B1%82"><span class="nav-number">6.7.</span> <span class="nav-text">整张语义图：pre &#x2F; post &#x2F; comb 组合 &#x3D; 完整 mHC 一层</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#pre-post-comb-%E6%98%AF%E6%BF%80%E6%B4%BB%E5%80%BC%EF%BC%88activations%EF%BC%89%EF%BC%8C%E4%B8%8D%E6%98%AF%E6%9D%83%E9%87%8D%EF%BC%81"><span class="nav-number">6.8.</span> <span class="nav-text">pre &#x2F; post &#x2F; comb 是激活值（activations），不是权重！</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%BB%88%E6%9E%81%E6%80%BB%E7%BB%93%EF%BC%9Apre-post-comb-%E8%AE%BA%E6%96%87-A%E2%82%97-B%E2%82%97-C%E2%82%97-%E7%9A%84-1-1-%E5%AF%B9%E5%BA%94"><span class="nav-number">6.9.</span> <span class="nav-text">终极总结：pre &#x2F; post &#x2F; comb &#x3D; 论文 Aₗ &#x2F; Bₗ &#x2F; Cₗ 的 1:1 对应</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E8%AE%BA%E6%96%87%E5%8E%9F%E6%96%87%EF%BC%88DeepSeek-V4-%E8%AE%BA%E6%96%87-%C2%A72-2%EF%BC%89"><span class="nav-number">6.9.1.</span> <span class="nav-text">论文原文（DeepSeek-V4 论文 §2.2）</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E8%AE%BA%E6%96%87%E5%85%AC%E5%BC%8F-%E2%86%94-%E4%BB%A3%E7%A0%81-1-1-%E5%AF%B9%E5%BA%94"><span class="nav-number">6.9.2.</span> <span class="nav-text">论文公式 ↔ 代码 1:1 对应</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E8%AE%BA%E6%96%87-mHC-%E5%85%AC%E5%BC%8F"><span class="nav-number">6.9.3.</span> <span class="nav-text">论文 mHC 公式</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E4%BB%A3%E7%A0%81%E9%87%8C%E5%B0%B1%E6%98%AF"><span class="nav-number">6.9.4.</span> <span class="nav-text">代码里就是</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E4%B8%80%E5%8F%A5%E8%AF%9D%E8%83%8C%E4%B8%8B%E6%9D%A5"><span class="nav-number">6.9.5.</span> <span class="nav-text">一句话背下来</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88-comb-%E5%94%AF%E4%B8%80%E8%B5%B0-Sinkhorn%EF%BC%9F"><span class="nav-number">6.9.6.</span> <span class="nav-text">为什么 comb 唯一走 Sinkhorn？</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-%E6%9D%A1%E6%B5%81%E5%88%B0%E5%BA%95%E8%A7%A3%E5%86%B3%E4%BA%86%E4%BB%80%E4%B9%88%E9%97%AE%E9%A2%98%EF%BC%9F"><span class="nav-number">7.</span> <span class="nav-text">4 条流到底解决了什么问题？</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-%E6%A2%AF%E5%BA%A6%E9%AB%98%E9%80%9F%E5%85%AC%E8%B7%AF"><span class="nav-number">7.1.</span> <span class="nav-text">1. 梯度高速公路</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-%E4%BF%A1%E6%81%AF%E5%88%86%E7%A6%BB%E5%AD%98%E5%82%A8"><span class="nav-number">7.2.</span> <span class="nav-text">2. 信息分离存储</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-%E5%8A%A8%E6%80%81%E5%AE%B9%E9%87%8F%E5%88%86%E9%85%8D"><span class="nav-number">7.3.</span> <span class="nav-text">3. 动态容量分配</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%B7%A5%E7%A8%8B%E5%AE%9E%E7%8E%B0%EF%BC%9Asglang-%E9%87%8C%E7%9A%84-mHC-%E9%95%BF%E4%BB%80%E4%B9%88%E6%A0%B7%EF%BC%9F"><span class="nav-number">8.</span> <span class="nav-text">工程实现：sglang 里的 mHC 长什么样？</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%95%B4%E4%BD%93%E7%BB%93%E6%9E%84%EF%BC%9Apre-%E5%92%8C-post-%E4%B8%A4%E4%B8%AA-block"><span class="nav-number">8.1.</span> <span class="nav-text">整体结构：pre 和 post 两个 block</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#mhc-pre%EF%BC%9ARMSNorm-%E4%B8%89%E7%BB%84%E5%8F%82%E6%95%B0-Sinkhorn-%E8%9E%8D%E5%90%88"><span class="nav-number">8.2.</span> <span class="nav-text">mhc_pre：RMSNorm + 三组参数 + Sinkhorn 融合</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#mhc-post%EF%BC%9A%E6%B7%B7%E5%90%88-%E6%AE%8B%E5%B7%AE%E5%8A%A0%E5%9B%9E"><span class="nav-number">8.3.</span> <span class="nav-text">mhc_post：混合 + 残差加回</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E8%BF%99%E4%BA%9B-kernel-%E8%A6%81%E8%BF%99%E4%B9%88%E5%86%99%EF%BC%9F"><span class="nav-number">8.4.</span> <span class="nav-text">为什么这些 kernel 要这么写？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AE%8C%E6%95%B4%E6%8E%A8%E7%90%86%E6%97%B6%E7%9A%84%E8%B0%83%E7%94%A8"><span class="nav-number">8.5.</span> <span class="nav-text">完整推理时的调用</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%B7%A5%E7%A8%8B%E4%BC%98%E5%8C%96%EF%BC%9A%E4%B8%BA%E4%BB%80%E4%B9%88%E5%8F%AA%E5%A4%9A-6-7-%E5%BC%80%E9%94%80%EF%BC%9F"><span class="nav-number">9.</span> <span class="nav-text">工程优化：为什么只多 6.7% 开销？</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-Kernel-Fusion%EF%BC%88%E7%AE%97%E5%AD%90%E8%9E%8D%E5%90%88%EF%BC%89"><span class="nav-number">9.1.</span> <span class="nav-text">1. Kernel Fusion（算子融合）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-Selective-Recomputing%EF%BC%88%E9%80%89%E6%8B%A9%E6%80%A7%E9%87%8D%E8%AE%A1%E7%AE%97%EF%BC%89"><span class="nav-number">9.2.</span> <span class="nav-text">2. Selective Recomputing（选择性重计算）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-Overlapping-with-DualPipe"><span class="nav-number">9.3.</span> <span class="nav-text">3. Overlapping with DualPipe</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AE%9E%E9%AA%8C%E6%95%88%E6%9E%9C%EF%BC%9A%E5%8F%88%E5%BC%BA%E5%8F%88%E7%A8%B3"><span class="nav-number">10.</span> <span class="nav-text">实验效果：又强又稳</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93%EF%BC%9A%E4%B8%BA%E4%BB%80%E4%B9%88%E4%BD%A0%E5%BA%94%E8%AF%A5%E5%85%B3%E5%BF%83-mHC"><span class="nav-number">11.</span> <span class="nav-text">总结：为什么你应该关心 mHC</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%80%E5%8F%A5%E8%AF%9D%E6%80%BB%E7%BB%93"><span class="nav-number">12.</span> <span class="nav-text">一句话总结</span></a></li></ol></div>
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BB%8E%E6%AE%8B%E5%B7%AE%E5%88%B0-mHC%EF%BC%9A%E4%B8%80%E6%9D%A1%E6%B8%85%E6%99%B0%E7%9A%84%E4%B8%89%E4%BB%A3%E6%BC%94%E8%BF%9B%E8%B7%AF"><span class="nav-number">1.</span> <span class="nav-text">从残差到 mHC：一条清晰的三代演进路</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%AE%8B%E5%B7%AE%E8%BF%9E%E6%8E%A5%E7%9A%84%E7%93%B6%E9%A2%88%EF%BC%9A%E4%B8%80%E6%9D%A1%E6%B5%81%E4%B8%8D%E5%A4%9F%E7%94%A8"><span class="nav-number">2.</span> <span class="nav-text">残差连接的瓶颈：一条流不够用</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#HC-%E7%9A%84%E8%87%B4%E5%91%BD%E7%BC%BA%E9%99%B7%EF%BC%9A%E8%AE%AD%E7%BB%83%E4%BC%9A%E5%B4%A9"><span class="nav-number">3.</span> <span class="nav-text">HC 的致命缺陷：训练会崩</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-%E6%9D%A1%E6%B5%81%E5%88%B0%E5%BA%95%E8%A7%A3%E5%86%B3%E4%BA%86%E4%BB%80%E4%B9%88%E9%97%AE%E9%A2%98%EF%BC%9F"><span class="nav-number">4.</span> <span class="nav-text">4 条流到底解决了什么问题？</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-%E6%A2%AF%E5%BA%A6%E9%AB%98%E9%80%9F%E5%85%AC%E8%B7%AF"><span class="nav-number">4.1.</span> <span class="nav-text">1. 梯度高速公路</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-%E4%BF%A1%E6%81%AF%E5%88%86%E7%A6%BB%E5%AD%98%E5%82%A8"><span class="nav-number">4.2.</span> <span class="nav-text">2. 信息分离存储</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-%E5%8A%A8%E6%80%81%E5%AE%B9%E9%87%8F%E5%88%86%E9%85%8D"><span class="nav-number">4.3.</span> <span class="nav-text">3. 动态容量分配</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%B7%A5%E7%A8%8B%E4%BC%98%E5%8C%96%EF%BC%9A%E4%B8%BA%E4%BB%80%E4%B9%88%E5%8F%AA%E5%A4%9A-6-7-%E5%BC%80%E9%94%80%EF%BC%9F"><span class="nav-number">5.</span> <span class="nav-text">工程优化：为什么只多 6.7% 开销？</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-Kernel-Fusion%EF%BC%88%E7%AE%97%E5%AD%90%E8%9E%8D%E5%90%88%EF%BC%89"><span class="nav-number">5.1.</span> <span class="nav-text">1. Kernel Fusion（算子融合）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-Selective-Recomputing%EF%BC%88%E9%80%89%E6%8B%A9%E6%80%A7%E9%87%8D%E8%AE%A1%E7%AE%97%EF%BC%89"><span class="nav-number">5.2.</span> <span class="nav-text">2. Selective Recomputing（选择性重计算）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-Overlapping-with-DualPipe"><span class="nav-number">5.3.</span> <span class="nav-text">3. Overlapping with DualPipe</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AE%9E%E9%AA%8C%E6%95%88%E6%9E%9C%EF%BC%9A%E5%8F%88%E5%BC%BA%E5%8F%88%E7%A8%B3"><span class="nav-number">6.</span> <span class="nav-text">实验效果：又强又稳</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%80%E5%8F%A5%E8%AF%9D%E6%80%BB%E7%BB%93"><span class="nav-number">7.</span> <span class="nav-text">一句话总结</span></a></li></ol></div>
         </div>
         <!--/noindex-->
 
@@ -223,7 +223,7 @@
         <i class="far fa-calendar-check"></i>
       </span>
       <span class="post-meta-item-text">更新于</span>
-      <time title="修改时间：2026-06-10 11:43:47" itemprop="dateModified" datetime="2026-06-10T11:43:47+08:00">2026-06-10</time>
+      <time title="修改时间：2026-06-10 14:11:38" itemprop="dateModified" datetime="2026-06-10T14:11:38+08:00">2026-06-10</time>
     </span>
     <span class="post-meta-item">
       <span class="post-meta-item-icon">
@@ -258,522 +258,75 @@
     
     
     
-    <div class="post-body" itemprop="articleBody"><h2 id="从残差到-mHC：一条清晰的三代演进路">从残差到 mHC：一条清晰的三代演进路</h2>
-<p>如果你训练过深层 Transformer，一定对残差连接（Residual Connection）不陌生。它是 ResNet 留下的最重要的遗产之一，也是今天所有大语言模型的标配。</p>
+    <div class="post-body" itemprop="articleBody"><h2 id="从残差到-mHC：一条清晰的三代演进路"><a href="#从残差到-mHC：一条清晰的三代演进路" class="headerlink" title="从残差到 mHC：一条清晰的三代演进路"></a>从残差到 mHC：一条清晰的三代演进路</h2><p>如果你训练过深层 Transformer，一定对残差连接（Residual Connection）不陌生。它是 ResNet 留下的最重要的遗产之一，也是今天所有大语言模型的标配。</p>
 <p>但残差连接有个根本问题：<strong>它只有一条信息流</strong>。</p>
 <p>DeepSeek 在 2025 年连发两篇论文，把这个问题彻底讲透了。故事的三步是：</p>
 <ol>
-<li><strong>Residual（2015）</strong>：<code>$x_&#123;l+1&#125; = x_l + F(x_l)$</code> — 一条流，稳定但表达弱</li>
+<li><strong>Residual（2015）</strong>：<code>x_&#123;l+1&#125; = x_l + F(x_l)</code> — 一条流，稳定但表达弱</li>
 <li><strong>HC（2024）</strong>：把残差流拓宽到 n 条并行流，表达能力暴涨，但训练直接崩</li>
 <li><strong>mHC（2025）</strong>：给 HC 加上数学约束，又强又稳</li>
 </ol>
 <p>这篇文章把这三代讲清楚，重点放在 mHC 上。</p>
 <hr>
-<h2 id="残差连接的瓶颈：一条流不够用">残差连接的瓶颈：一条流不够用</h2>
-<p>标准 Transformer 里，每一层的计算是这样的：</p>
+<h2 id="残差连接的瓶颈：一条流不够用"><a href="#残差连接的瓶颈：一条流不够用" class="headerlink" title="残差连接的瓶颈：一条流不够用"></a>残差连接的瓶颈：一条流不够用</h2><p>标准 Transformer 里，每一层的计算是这样的：</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">x = x + Attention(Norm(x))  <span class="comment"># 残差连接</span></span><br><span class="line">x = x + MoE(Norm(x))        <span class="comment"># 残差连接</span></span><br></pre></td></tr></table></figure>
+
 <p>Layer 0 到 Layer 42 的所有信息，全都挤在<strong>同一个向量</strong>里做加法。</p>
 <p>浅层的语法信息、中层的语义信息、深层的推理信息，互相覆盖、互相干扰。这是残差连接的天花板。</p>
 <p><strong>HC（Hyper-Connections）</strong> 提出了一个很自然的想法：</p>
 <blockquote>
-<p>为什么不把 1 条流扩成 n 条并行流，让不同深度的信息走不同的&quot;车道&quot;？</p>
+<p>为什么不把 1 条流扩成 n 条并行流，让不同深度的信息走不同的”车道”？</p>
 </blockquote>
-<p>HC 的公式如下：</p>
-<p>81693X_{l+1} = B_l X_l + C_l F(A_l X_l)81693</p>
+<p>HC 的公式长这样：</p>
+<div style="text-align:center">
+$X_{l+1} = B_l X_l + C_l \cdot F(A_l X_l)$
+</div>
+
 <ul>
-<li>$A_l$：把 n 条流压缩成 1 条，送给 Attention/MoE</li>
-<li>$F$：正常的层计算</li>
-<li>$C_l$：把 F 的输出扩回 n 条流</li>
-<li>$B_l$：n×n 矩阵，控制 n 条流之间怎么混合（残差项）</li>
+<li><code>A_l</code>：把 n 条流压缩成 1 条，送给 Attention&#x2F;MoE</li>
+<li><code>F</code>：正常的层计算</li>
+<li><code>C_l</code>：把 F 的输出扩回 n 条流</li>
+<li><code>B_l</code>：n×n 矩阵，控制 n 条流之间怎么混合（残差项）</li>
 </ul>
-<p>n=4 的时候，FLOPs 几乎没增加（F 只算 1 次），但信息容量翻了 4 倍。</p>
+<p>n&#x3D;4 的时候，FLOPs 几乎没增加（F 只算 1 次），但信息容量翻了 4 倍。</p>
 <p>听起来完美，对吧？</p>
 <hr>
-<h2 id="HC-的致命缺陷：训练会崩">HC 的致命缺陷：训练会崩</h2>
-<p>问题出在 <code>B_l</code> 上。</p>
+<h2 id="HC-的致命缺陷：训练会崩"><a href="#HC-的致命缺陷：训练会崩" class="headerlink" title="HC 的致命缺陷：训练会崩"></a>HC 的致命缺陷：训练会崩</h2><p>问题出在 <code>B_l</code> 上。</p>
 <p>HC 里的 <code>B_l</code> 是完全可学习的，没有任何约束。当模型叠到 60 层、参数量到万亿级时，这个无约束的矩阵会出问题：</p>
 <p><strong>多层复合后，信号被无限放大或衰减。</strong></p>
 <p>数学上，HC 跨层递归展开后得到：</p>
-<p>81693x_L = \left(\prod B_i\right) x_l + \sum \left(\prod B_j\right) C_i^T F(…)81693<br>
-$\prod B_i$ 是多层 $B$ 矩阵的复合。因为 $B$ 无约束，这个复合矩阵的谱范数可以远大于 1，也可以接近 0。</p>
-<p><strong>实测结果（DeepSeek 27B 实验）：</strong><br>
-HC 的复合映射增益（Amax Gain Magnitude）达到 <strong>~3000</strong>，意味着信号在前向传播中可以被放大 3000 倍。训练到第 12k 步，loss 直接 spike，梯度范数爆炸。</p>
-<p>HC 的作者（ByteDance Seed 团队）在 ICLR 2025 发表了这个想法，但没有解决稳定性问题。</p>
-<hr>
-<h2 id="mHC：给-HC-加上-安全阀">mHC：给 HC 加上&quot;安全阀&quot;</h2>
-<p>DeepSeek 团队在 2025 年提出的 <strong>mHC（Manifold-Constrained Hyper-Connections）</strong>，只做了一件事：</p>
-<blockquote>
-<p>把 HC 中的残差混合矩阵 <code>B_l</code> 约束在<strong>双随机矩阵流形</strong>上。</p>
-</blockquote>
-<h3 id="什么是双随机矩阵？">什么是双随机矩阵？</h3>
-<p>一个 $n \times n$ 矩阵，满足：</p>
-<ul>
-<li>所有元素非负</li>
-<li>每行之和等于 $1$</li>
-<li>每列之和等于 $1$</li>
-</ul>
-<p>这样的矩阵，谱范数 <strong>永远 ≤ 1</strong>。也就是说，它永远不会放大信号。</p>
-<p>而且，双随机矩阵在乘法下是<strong>封闭</strong>的：两个双随机矩阵相乘，结果还是双随机矩阵。这意味着叠 100 层，复合映射仍然稳定。</p>
-<p><strong>一句话：mHC = HC + 双随机约束，恢复了残差连接的恒等映射性质，同时保留了多流的表达能力。</strong></p>
-<hr>
-<h2 id="怎么把矩阵变成双随机？Sinkhorn-Knopp-算法">怎么把矩阵变成双随机？Sinkhorn-Knopp 算法</h2>
-<p>mHC 的核心算法是 Sinkhorn-Knopp 迭代，操作很简单：</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 输入: B_raw (4×4, 可能是负数)</span></span><br><span class="line">M = exp(B_raw)  <span class="comment"># 先保证非负</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 交替行列归一化 20 次</span></span><br><span class="line"><span class="keyword">for</span> _ <span class="keyword">in</span> <span class="built_in">range</span>(<span class="number">20</span>):</span><br><span class="line">    M = M / M.<span class="built_in">sum</span>(dim=<span class="number">1</span>, keepdim=<span class="literal">True</span>)  <span class="comment"># 行归一化</span></span><br><span class="line">    M = M / M.<span class="built_in">sum</span>(dim=<span class="number">0</span>, keepdim=<span class="literal">True</span>)  <span class="comment"># 列归一化</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 输出: B (4×4 双随机矩阵)</span></span><br></pre></td></tr></table></figure>
-<p>为什么第一步用 <code>exp()</code>？因为 <code>B_raw</code> 是神经网络输出的 logit，可能有负数。直接归一化会产生负权重，违反&quot;非负&quot;约束。<code>exp()</code> 把任意实数映射到正数，完美解决。</p>
+<div style="text-align:center">
+$x_L = \left(\prod B_i\right) x_l + \sum \left(\prod B_j\right) C_i^T F(...)$
+</div>
+
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">`Π B_i` 是多层 B 矩阵的复合。因为 B 无约束，这个复合矩阵的谱范数可以远大于 1，也可以接近 0。</span><br><span class="line"></span><br><span class="line">**实测结果（DeepSeek 27B 实验）：**  </span><br><span class="line">HC 的复合映射增益（Amax Gain Magnitude）达到 **~3000**，意味着信号在前向传播中可以被放大 3000 倍。训练到第 12k 步，loss 直接 spike，梯度范数爆炸。</span><br><span class="line"></span><br><span class="line">HC 的作者（ByteDance Seed 团队）在 ICLR 2025 发表了这个想法，但没有解决稳定性问题。</span><br><span class="line"></span><br><span class="line">---</span><br><span class="line"></span><br><span class="line">## mHC：给 HC 加上&quot;安全阀&quot;</span><br><span class="line"></span><br><span class="line">DeepSeek 团队在 2025 年提出的 **mHC（Manifold-Constrained Hyper-Connections）**，只做了一件事：</span><br><span class="line"></span><br><span class="line">&gt; 把 HC 中的残差混合矩阵 `B_l` 约束在**双随机矩阵流形**上。</span><br><span class="line"></span><br><span class="line">### 什么是双随机矩阵？</span><br><span class="line"></span><br><span class="line">一个 n×n 矩阵，满足：</span><br><span class="line">- 所有元素非负</span><br><span class="line">- 每行之和等于 1</span><br><span class="line">- 每列之和等于 1</span><br><span class="line"></span><br><span class="line">这样的矩阵，谱范数 **永远 ≤ 1**。也就是说，它永远不会放大信号。</span><br><span class="line"></span><br><span class="line">而且，双随机矩阵在乘法下是**封闭**的：两个双随机矩阵相乘，结果还是双随机矩阵。这意味着叠 100 层，复合映射仍然稳定。</span><br><span class="line"></span><br><span class="line">**一句话：mHC = HC + 双随机约束，恢复了残差连接的恒等映射性质，同时保留了多流的表达能力。**</span><br><span class="line"></span><br><span class="line">---</span><br><span class="line"></span><br><span class="line">## 怎么把矩阵变成双随机？Sinkhorn-Knopp 算法</span><br><span class="line"></span><br><span class="line">mHC 的核心算法是 Sinkhorn-Knopp 迭代，操作很简单：</span><br><span class="line"></span><br><span class="line">```python</span><br><span class="line"># 输入: B_raw (4×4, 可能是负数)</span><br><span class="line">M = exp(B_raw)  # 先保证非负</span><br><span class="line"></span><br><span class="line"># 交替行列归一化 20 次</span><br><span class="line">for _ in range(20):</span><br><span class="line">    M = M / M.sum(dim=1, keepdim=True)  # 行归一化</span><br><span class="line">    M = M / M.sum(dim=0, keepdim=True)  # 列归一化</span><br><span class="line"></span><br><span class="line"># 输出: B (4×4 双随机矩阵)</span><br></pre></td></tr></table></figure>
+
+<p>为什么第一步用 <code>exp()</code>？因为 <code>B_raw</code> 是神经网络输出的 logit，可能有负数。直接归一化会产生负权重，违反”非负”约束。<code>exp()</code> 把任意实数映射到正数，完美解决。</p>
 <p>20 次迭代是实验得出的经验值，足够收敛，又不会太慢。</p>
 <hr>
-<h2 id="hc-split-sinkhorn-输出的-pre-post-comb-语义详解">hc_split_sinkhorn 输出的 pre / post / comb 语义详解</h2>
-<p>理解这三个输出张量，是读懂 mHC 架构的关键。</p>
-<h3 id="背景：DSv4-Pro-的-4-路-residual-streams">背景：DSv4-Pro 的 4 路 residual streams</h3>
-<p>DSv4-Pro 把每个 token 的 hidden state 从「1 路」拓展成「hc=4 路」：</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">residual streams [b, s, 4, d]  ← 4 路并行残差</span><br></pre></td></tr></table></figure>
-<p>但 Attention/FFN 子层仍然只接受 1 路输入、输出 1 路结果。所以在每个子层的<strong>进/出口</strong>必须做转换：</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">stream_0 ─┐</span><br><span class="line">stream_1 ─┤─ [ hc_pre ] ─→ x_in  ─→ Attn/FFN ─→ x_out ─┬─ [ hc_post ] ─→ stream_0&#x27;</span><br><span class="line">stream_2 ─┤                                    ─┤</span><br><span class="line">stream_3 ─┘                                    └─→ stream_3&#x27;</span><br><span class="line">           ↑ residual (旁路直接送到 hc_post)</span><br></pre></td></tr></table></figure>
-<p><code>pre</code> / <code>post</code> / <code>comb</code> 就是这组「collapse → expand」的所有<strong>动态参数</strong>，在每个 token 上独立预测出来。</p>
-<hr>
-<h3 id="pre-N-hc-4-—-collapse-系数（4-路-→-1-路）">pre [N, hc=4] — collapse 系数（4 路 → 1 路）</h3>
-<p>[x_{\mathrm{in}}[n, :] = \sum_{k=0}^{hc-1} \mathrm{pre}[n, k] \cdot \mathrm{residual}[n, k, :]]</p>
-<p><strong>语义</strong>：把 4 路 residual 按权重揉成 1 路，送给 Attention/FFN。</p>
-<ul>
-<li>范围：<code>(eps, 1+eps)</code>（因为 sigmoid + eps），非负</li>
-<li><strong>不归一化</strong>——pre 之和不强制等于 1，这是「门控加权」而不是「概率分布」</li>
-<li>每个 token <strong>自己决定</strong>：哪一路 stream 在这个 token 处更重要</li>
-</ul>
-<p>对应 <code>model.py</code> 第 838 行：</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">y = torch.<span class="built_in">sum</span>(pre.unsqueeze(-<span class="number">1</span>) * x.view(shape), dim=<span class="number">2</span>)</span><br></pre></td></tr></table></figure>
-<hr>
-<h3 id="post-N-hc-4-—-expand-增益（1-路-→-4-路）">post [N, hc=4] — expand 增益（1 路 → 4 路）</h3>
-<p>[\mathrm{out_stream}[n, k, :] \mathrel{+}= \mathrm{post}[n, k] \cdot x_{\mathrm{out}}[n, :]]</p>
-<p><strong>语义</strong>：Attention/FFN 吐出来的单路结果 <code>x_out</code>，要广播回 4 路 residual，第 k 路用增益 <code>post[n, k]</code> 缩放一份。</p>
-<ul>
-<li>范围：<code>(0, 2)</code>（因为 <code>2 * sigmoid</code>）</li>
-<li>允许放大（&gt;1）也允许衰减（&lt;1）</li>
-<li>每路<strong>独立</strong>——第 0 路可以拿到 1.8× 的 Attn 结果，第 3 路可能只拿 0.3×</li>
-<li>这是 multi-head attention 那种「per-head learnable gain」的<strong>运行时动态版本</strong></li>
-</ul>
-<p>对应 <code>model.py</code> 第 851 行 <code>post_layer_mix.unsqueeze(-1) * x</code> 这一项。</p>
-<hr>
-<h3 id="comb-N-hc-4-hc-4-—-cross-stream-routing-矩阵（4-路-→-4-路）">comb [N, hc=4, hc=4] — cross-stream routing 矩阵（4 路 → 4 路）</h3>
-<p>[\mathrm{out_stream}[n, j, :] \mathrel{+}= \sum_{i=0}^{hc-1} \mathrm{comb}[n, i, j] \cdot \mathrm{residual}[n, i, :]]</p>
-<p><strong>语义</strong>：在 Attn 那条主路径之外，4 路 input residual 还要<strong>直接路由</strong>到 4 路 output residual，路由系数就是 <code>comb[n, :, :]</code> 这个 4×4 矩阵。</p>
-<ul>
-<li><strong>关键约束</strong>：经过 Sinkhorn 20 次迭代 → <strong>双随机矩阵</strong>（行和=1，列和=1）</li>
-<li>双随机意味着「信息守恒」：每路 output 收到的总权重 = 1，每路 input 贡献的总权重也 = 1</li>
-<li>物理意义类似<strong>最优传输（Optimal Transport）</strong>：把 4 路输入的「质量」无损重组成 4 路输出</li>
-<li>每个 token <strong>自己决定</strong>一个 4×4 路由矩阵</li>
-</ul>
-<p>对应 <code>model.py</code> 第 851 行 <code>torch.sum(comb_res_mix.unsqueeze(-1) * residual.unsqueeze(-2), dim=2)</code> 这一项。</p>
-<hr>
-<h3 id="三者组合-完整-mHC-一层">三者组合 = 完整 mHC 一层</h3>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">x_in      = pre[0]*s0 + pre[1]*s1 + pre[2]*s2 + pre[3]*s3     # collapse: 4→1</span><br><span class="line">x_out     = Attn/FFN(x_in)                                      # 主路径</span><br><span class="line">s0&#x27;       = post[0]*x_out + comb[:,0,0]*s0 + comb[:,1,0]*s1 + ...  # expand: 1→4 + routing</span><br><span class="line">s1&#x27;       = post[1]*x_out + comb[:,0,1]*s0 + ...</span><br><span class="line">s2&#x27;       = post[2]*x_out + ...</span><br><span class="line">s3&#x27;       = post[3]*x_out + ...</span><br></pre></td></tr></table></figure>
-<p><strong>一句话总结</strong>：pre 决定「当前 token 更依赖哪路历史」，post 决定「当前层输出对各路的重要程度」，comb 决定「各路历史之间怎么交叉混合」——三者都是<strong>每个 token 动态生成</strong>的。</p>
-<hr>
-<h3 id="为什么只有-comb-用-Sinkhorn，而-pre-post-用-sigmoid？">为什么只有 comb 用 Sinkhorn，而 pre / post 用 sigmoid？</h3>
-<table>
-<thead>
-<tr>
-<th>张量</th>
-<th>形状</th>
-<th>数学约束</th>
-<th>激活函数</th>
-<th>范围</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>pre</code></td>
-<td>[N, 4]</td>
-<td>非负即可（下游 Attention/FFN 有自己的 RMSNorm 兜底）</td>
-<td><code>sigmoid + eps</code></td>
-<td><code>(eps, 1+eps)</code></td>
-</tr>
-<tr>
-<td><code>post</code></td>
-<td>[N, 4]</td>
-<td>允许放大/衰减，无归一化要求</td>
-<td><code>2 * sigmoid</code></td>
-<td><code>(0, 2)</code></td>
-</tr>
-<tr>
-<td><code>comb</code></td>
-<td>[N, 4, 4]</td>
-<td><strong>必须双随机</strong>——否则信息会衰减或爆炸，4 路 residual 无法稳定 cascade</td>
-<td><strong>Sinkhorn 20 次迭代</strong></td>
-<td>行和=列和=1</td>
-</tr>
-</tbody>
-</table>
-<p>comb 是唯一的「多路输入 ↔ 多路输出」路由矩阵。如果不归一化：</p>
-<ul>
-<li>行和 &lt; 1 → 某路 output 信号弱化（残差衰减）</li>
-<li>行和 &gt; 1 → 某路 output 信号爆炸（数值不稳定）</li>
-<li>列和不平衡 → 某路 input 被多个 output 重复使用，变相加权，类似 attention 的 mode collapse</li>
-</ul>
-<p>Sinkhorn 用 20 次迭代把这个 4×4 矩阵推到「行和=列和=1」，等价于<strong>离散最优传输（Optimal Transport）</strong>：把 4 个 input 槽位的信息无损分流到 4 个 output 槽位。</p>
-<hr>
-<h3 id="整张语义图：pre-post-comb-组合-完整-mHC-一层">整张语义图：pre / post / comb 组合 = 完整 mHC 一层</h3>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">输入 4 路 residual ─┬─ s_0 ─┐</span><br><span class="line">                ├─ s_1 ─┤</span><br><span class="line">                ├─ s_2 ─┤  pre 加权求和</span><br><span class="line">                └─ s_3 ─┘   (collapse: 4→1)</span><br><span class="line">                       ↓</span><br><span class="line">                    x_in = Σ_k pre[k] · s_k</span><br><span class="line">                       ↓</span><br><span class="line">                    Attn/FFN(x_in) ─→ x_out</span><br><span class="line">                       ↓</span><br><span class="line">                ┌─ post[0]·x_out ─┐</span><br><span class="line">                ├─ post[1]·x_out ─┤</span><br><span class="line">                ├─ post[2]·x_out ┤  comb 交叉混合</span><br><span class="line">                └─ post[3]·x_out └┘  (expand: 1→4 + routing)</span><br><span class="line">                       ↓</span><br><span class="line">输出 4 路 residual&#x27; ─┬─ s_0&#x27; = post[0]·x_out + Σ_i comb[i,0]·s_i</span><br><span class="line">                  ├─ s_1&#x27; = post[1]·x_out + Σ_i comb[i,1]·s_i</span><br><span class="line">                  ├─ s_2&#x27; = post[2]·x_out + Σ_i comb[i,2]·s_i</span><br><span class="line">                  └─ s_3&#x27; = post[3]·x_out + Σ_i comb[i,3]·s_i</span><br></pre></td></tr></table></figure>
-<p><strong>一句话总结</strong>：</p>
-<table>
-<thead>
-<tr>
-<th>张量</th>
-<th>形状</th>
-<th>一句话</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>pre</code></td>
-<td>[N, 4]</td>
-<td>「这个 token，我要从 4 路 residual 里听谁的更多一点」——collapse 权重</td>
-</tr>
-<tr>
-<td><code>post</code></td>
-<td>[N, 4]</td>
-<td>「Attn 结果要广播给 4 路，每路放大多少」——per-stream 增益</td>
-</tr>
-<tr>
-<td><code>comb</code></td>
-<td>[N, 4, 4]</td>
-<td>「4 路 input 怎么洗牌成 4 路 output」——Sinkhorn 双随机路由矩阵</td>
-</tr>
-</tbody>
-</table>
-<p>整个 mHC 模块靠这 <strong>24 维</strong>（<code>4 + 4 + 16</code>）的 per-token 动态参数，让模型在不增加 Attn/FFN 权重的前提下，把残差通道数从 1 拓展到 4，同时保留稳定性和信息守恒。这也是为什么 mHC 比简单的「4× 重复同一个层」效果好——因为 cascade 是 <strong>input-aware 的、有可学习的 routing</strong>，不是机械复制。</p>
-<hr>
-<h3 id="pre-post-comb-是激活值（activations），不是权重！">pre / post / comb 是激活值（activations），不是权重！</h3>
-<p>每个 forward pass 的每个 token 都要重新算一遍——它们从输入 <code>x</code> 经过 GEMM + 非线性派生出来，<strong>不在 checkpoint 里，也不参与梯度更新作为参数</strong>。</p>
-<p>看 <code>Block.init</code> 里被声明为 <code>nn.Parameter</code> 的才是权重，这层只有 6 个：</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># deepseek_v4.py - Block.__init__()</span></span><br><span class="line"><span class="variable language_">self</span>.hc_attn_fn    = nn.Parameter(torch.empty(mix_hc, hc_dim))  <span class="comment"># [24, 28672] ← 权重</span></span><br><span class="line"><span class="variable language_">self</span>.hc_ffn_fn     = nn.Parameter(torch.empty(mix_hc, hc_dim))  <span class="comment"># [24, 28672] ← 权重</span></span><br><span class="line"><span class="variable language_">self</span>.hc_attn_base  = nn.Parameter(torch.empty(mix_hc))         <span class="comment"># [24]        ← 权重</span></span><br><span class="line"><span class="variable language_">self</span>.hc_ffn_base   = nn.Parameter(torch.empty(mix_hc))         <span class="comment"># [24]        ← 权重</span></span><br><span class="line"><span class="variable language_">self</span>.hc_attn_scale = nn.Parameter(torch.empty(<span class="number">3</span>))                <span class="comment"># [3]         ← 权重</span></span><br><span class="line"><span class="variable language_">self</span>.hc_ffn_scale  = nn.Parameter(torch.empty(<span class="number">3</span>))                <span class="comment"># [3]         ← 权重</span></span><br></pre></td></tr></table></figure>
-<p>而 <code>pre</code> / <code>post</code> / <code>comb</code> 在 <code>hc_pre()</code> 里作为<strong>局部变量</strong>返回：</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># deepseek_v4.py - hc_pre()</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">hc_pre</span>(<span class="params">self, x, hc_fn, hc_scale, hc_base</span>):</span><br><span class="line">    x = x.flatten(<span class="number">2</span>).<span class="built_in">float</span>()                  <span class="comment"># [N, 28672] ← 激活</span></span><br><span class="line">    rsqrt = torch.rsqrt(x.square().mean(-<span class="number">1</span>) + eps)  <span class="comment"># [N, 1]   ← 激活</span></span><br><span class="line">    mixes = F.linear(x, hc_fn) * rsqrt        <span class="comment"># [N, 24]   ← 激活</span></span><br><span class="line">    pre, post, comb = hc_split_sinkhorn(mixes, ...)  <span class="comment"># ← 全部是激活</span></span><br><span class="line">    <span class="comment"># pre/post/comb 是从 mixes（激活）派生的，只是中间结果</span></span><br></pre></td></tr></table></figure>
-<p><strong>结论</strong>：<code>pre</code> / <code>post</code> / <code>comb</code> 是<strong>激活值</strong>，和 Attention 里的 Q/K/V、<code>softmax</code> 输出完全同性质。</p>
-<table>
-<thead>
-<tr>
-<th>名称</th>
-<th>类别</th>
-<th>形状</th>
-<th>是否依赖输入</th>
-<th>是否在 checkpoint</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>hc_fn</code></td>
-<td><strong>权重</strong></td>
-<td>[24, 28672]</td>
-<td>❌</td>
-<td>✅</td>
-</tr>
-<tr>
-<td><code>hc_scale</code></td>
-<td><strong>权重</strong></td>
-<td>[3]</td>
-<td>❌</td>
-<td>✅</td>
-</tr>
-<tr>
-<td><code>hc_base</code></td>
-<td><strong>权重</strong></td>
-<td>[24]</td>
-<td>❌</td>
-<td>✅</td>
-</tr>
-<tr>
-<td><code>x</code> (input residual)</td>
-<td>激活</td>
-<td>[N, 4, 7168]</td>
-<td>✅</td>
-<td>❌</td>
-</tr>
-<tr>
-<td><code>mixes</code></td>
-<td>激活</td>
-<td>[N, 24]</td>
-<td>✅</td>
-<td>❌</td>
-</tr>
-<tr>
-<td><code>pre</code></td>
-<td>激活</td>
-<td>[N, 4]</td>
-<td>✅</td>
-<td>❌</td>
-</tr>
-<tr>
-<td><code>post</code></td>
-<td>激活</td>
-<td>[N, 4]</td>
-<td>✅</td>
-<td>❌</td>
-</tr>
-<tr>
-<td><code>comb</code></td>
-<td>激活</td>
-<td>[N, 4, 4]</td>
-<td>✅</td>
-<td>❌</td>
-</tr>
-<tr>
-<td><code>layer_input</code> (= y)</td>
-<td>激活</td>
-<td>[N, 7168]</td>
-<td>✅</td>
-<td>❌</td>
-</tr>
-</tbody>
-</table>
-<hr>
-<h3 id="终极总结：pre-post-comb-论文-Aₗ-Bₗ-Cₗ-的-1-1-对应">终极总结：pre / post / comb = 论文 Aₗ / Bₗ / Cₗ 的 1:1 对应</h3>
-<h4 id="论文原文（DeepSeek-V4-论文-§2-2）">论文原文（DeepSeek-V4 论文 §2.2）</h4>
-<blockquote>
-<p>“We dynamically construct the three matrices <strong>Aₗ, Bₗ, Cₗ</strong> from the input residual at each layer and each token.”</p>
-</blockquote>
-<p>翻译：<strong>Aₗ、Bₗ、Cₗ 是每一层、每个 token 都从输入残差动态构建的！</strong></p>
-<h4 id="论文公式-↔-代码-1-1-对应">论文公式 ↔ 代码 1:1 对应</h4>
-<table>
-<thead>
-<tr>
-<th>论文符号</th>
-<th>代码变量</th>
-<th>含义</th>
-<th>是否权重</th>
-<th>计算方式</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Aₗ</strong> (输入映射)</td>
-<td><code>pre</code></td>
-<td>collapse 权重</td>
-<td>❌ 激活</td>
-<td><code>sigmoid(Ãₗ * scale[0])</code></td>
-</tr>
-<tr>
-<td><strong>Cₗ</strong> (输出映射)</td>
-<td><code>post</code></td>
-<td>expand 增益</td>
-<td>❌ 激活</td>
-<td><code>2*sigmoid(C̃ₗ * scale[1])</code></td>
-</tr>
-<tr>
-<td><strong>Bₗ</strong> (残差混合)</td>
-<td><code>comb</code></td>
-<td>cross-stream 路由</td>
-<td>❌ 激活</td>
-<td><code>Sinkhorn-Knopp(B̃ₗ * scale[2])</code></td>
-</tr>
-<tr>
-<td>Ãₗ, C̃ₗ, B̃ₗ</td>
-<td><code>mixes</code> 三段</td>
-<td>线性投影结果</td>
-<td>❌ 激活</td>
-<td><code>F.linear(x, hc_fn) * rsqrt</code></td>
-</tr>
-<tr>
-<td>Wₐ, Wₑ, Wᵣ</td>
-<td><code>hc_*_fn</code></td>
-<td>投影权重</td>
-<td>✅ 权重</td>
-<td><code>nn.Parameter</code></td>
-</tr>
-<tr>
-<td>bₐ, bₑ, bᵣ</td>
-<td><code>hc_*_base</code></td>
-<td>偏置</td>
-<td>✅ 权重</td>
-<td><code>nn.Parameter</code></td>
-</tr>
-<tr>
-<td>sₐ, sₑ, sᵣ</td>
-<td><code>hc_*_scale</code></td>
-<td>三路缩放</td>
-<td>✅ 权重</td>
-<td><code>nn.Parameter</code></td>
-</tr>
-</tbody>
-</table>
-<h4 id="论文-mHC-公式">论文 mHC 公式</h4>
-<p>$x_{l+1} = B_l X_l + C_l \cdot F(A_l X_l)$</p>
-<h4 id="代码里就是">代码里就是</h4>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># model.py L832-852 (完整 forward)</span></span><br><span class="line">x_in      = Σ pre[k] * residual[k]              <span class="comment"># Aₗ: collapse (L838)</span></span><br><span class="line">x_out     = Attention/FFN(x_in)                 <span class="comment"># F(Aₗ·X)</span></span><br><span class="line">residual<span class="string">&#x27; = comb @ (post * x_out) + post * residual  # Bₗ + Cₗ (L849-852)</span></span><br></pre></td></tr></table></figure>
-<h4 id="一句话背下来">一句话背下来</h4>
-<ul>
-<li><strong>pre = Aₗ</strong> → 「这个 token，4 路历史里听谁的」——collapse 权重</li>
-<li><strong>post = Cₗ</strong> → 「Attention 结果广播给 4 路，每路放大多少」——expand 增益</li>
-<li><strong>comb = Bₗ</strong> → 「4 路 input 怎么洗牌成 4 路 output」——Sinkhorn 双随机路由矩阵</li>
-<li><strong>Aₗ/Bₗ/Cₗ 都是激活值</strong>，不是权重！每一层、每个 token 动态重新算</li>
-<li><strong>只有 <code>hc_*_fn / base / scale</code> 是权重</strong>，在 <code>Block.__init__()</code> 里声明为 <code>nn.Parameter</code></li>
-</ul>
-<h4 id="为什么-comb-唯一走-Sinkhorn？">为什么 comb 唯一走 Sinkhorn？</h4>
-<table>
-<thead>
-<tr>
-<th>矩阵</th>
-<th>数学约束</th>
-<th>原因</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Aₗ (pre)</td>
-<td>非负即可</td>
-<td>下游 Attention/FFN 有自己的 RMSNorm 兜底</td>
-</tr>
-<tr>
-<td>Cₗ (post)</td>
-<td>允许放大/衰减</td>
-<td>只是 per-stream 增益，不负责信息守恒</td>
-</tr>
-<tr>
-<td><strong>Bₗ (comb)</strong></td>
-<td><strong>必须双随机</strong></td>
-<td>否则 cascade 4 路 residual 信号会衰减或爆炸，无法稳定训练</td>
-</tr>
-</tbody>
-</table>
-<p>Sinkhorn 20 次迭代把 Bₗ 推到「行和=列和=1」，等价于<strong>离散最优传输</strong>：把 4 个 input 槽位的信息无损分流到 4 个 output 槽位。</p>
-<hr>
-<h2 id="4-条流到底解决了什么问题？">4 条流到底解决了什么问题？</h2>
-<p>很多人问：为什么是 4 条流？不是 2 条或 8 条？</p>
+<h2 id="4-条流到底解决了什么问题？"><a href="#4-条流到底解决了什么问题？" class="headerlink" title="4 条流到底解决了什么问题？"></a>4 条流到底解决了什么问题？</h2><p>很多人问：为什么是 4 条流？不是 2 条或 8 条？</p>
 <p><strong>三个核心作用：</strong></p>
-<h3 id="1-梯度高速公路">1. 梯度高速公路</h3>
-<p>普通残差的梯度路径是 43 个乘法项的连乘，容易消失或爆炸。<br>
-4 条流提供了 <strong>4 条并行的梯度路径</strong>，一条堵了还有其他。类似 DenseNet 的思路，但高效得多（F 只算 1 次）。</p>
-<h3 id="2-信息分离存储">2. 信息分离存储</h3>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">stream_0: 可能专注浅层信息（位置、语法）</span><br><span class="line">stream_1: 可能专注中层信息（语义、实体关系）</span><br><span class="line">stream_2: 可能专注深层信息（推理链）</span><br><span class="line">stream_3: 可能做&quot;工作记忆&quot;（当前层临时计算）</span><br></pre></td></tr></table></figure>
+<h3 id="1-梯度高速公路"><a href="#1-梯度高速公路" class="headerlink" title="1. 梯度高速公路"></a>1. 梯度高速公路</h3><p>普通残差的梯度路径是 43 个乘法项的连乘，容易消失或爆炸。<br>4 条流提供了 <strong>4 条并行的梯度路径</strong>，一条堵了还有其他。类似 DenseNet 的思路，但高效得多（F 只算 1 次）。</p>
+<h3 id="2-信息分离存储"><a href="#2-信息分离存储" class="headerlink" title="2. 信息分离存储"></a>2. 信息分离存储</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">stream_0: 可能专注浅层信息（位置、语法）</span><br><span class="line">stream_1: 可能专注中层信息（语义、实体关系）</span><br><span class="line">stream_2: 可能专注深层信息（推理链）</span><br><span class="line">stream_3: 可能做&quot;工作记忆&quot;（当前层临时计算）</span><br></pre></td></tr></table></figure>
+
 <p>Layer 5 学到的特征，通过 <code>B</code> 矩阵的合理混合，可以在 Layer 30 仍然清晰可用。而在 1 条流里，这个特征早就被 25 次加法淹没了。</p>
-<h3 id="3-动态容量分配">3. 动态容量分配</h3>
-<p><code>B</code> 矩阵是<strong>输入依赖</strong>的（由当前层的 hidden state 动态生成）：</p>
+<h3 id="3-动态容量分配"><a href="#3-动态容量分配" class="headerlink" title="3. 动态容量分配"></a>3. 动态容量分配</h3><p><code>B</code> 矩阵是<strong>输入依赖</strong>的（由当前层的 hidden state 动态生成）：</p>
 <ul>
-<li>简单 token（“the”, “a”）：<code>B</code> ≈ 单位矩阵，4 条流基本不混合，省计算</li>
+<li>简单 token（”the”, “a”）：<code>B</code> ≈ 单位矩阵，4 条流基本不混合，省计算</li>
 <li>复杂 token（需要深度推理）：<code>B</code> 大幅混合，让更多层的信息参与</li>
 </ul>
-<p>这是 1 条流做不到的——普通残差对所有 token 都是 $x + F(x)$。</p>
-<p><strong>为什么选 n=4？</strong><br>
-论文实测：n=4 是性价比最优的点。n=2 效果不够，n=8 的 Sinkhorn 开销（8×8 矩阵 × 20 次迭代）显著增加，但收益递减。</p>
+<p>这是 1 条流做不到的——普通残差对所有 token 都是 <code>x + F(x)</code>。</p>
+<p><strong>为什么选 n&#x3D;4？</strong><br>论文实测：n&#x3D;4 是性价比最优的点。n&#x3D;2 效果不够，n&#x3D;8 的 Sinkhorn 开销（8×8 矩阵 × 20 次迭代）显著增加，但收益递减。</p>
 <hr>
-<h2 id="工程实现：sglang-里的-mHC-长什么样？">工程实现：sglang 里的 mHC 长什么样？</h2>
-<p>论文讲清楚了思想，但要把 mHC 跑起来，还得看工程实现。sglang（DeepSeek-V3 的推理框架）里有一套完整的 mHC kernel，用 TileLang 写成，值得拆开看看。</p>
-<h3 id="整体结构：pre-和-post-两个-block">整体结构：pre 和 post 两个 block</h3>
-<p>mHC 不是&quot;一层&quot;，而是插在每层 Attention/FFN <strong>前后</strong>的两个小模块：</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">x_residual [b, s, hc=4, hidden]</span><br><span class="line"></span><br><span class="line">    ─── mhc_pre ───</span><br><span class="line">    输入:  x_residual [b, s, 4, hidden]</span><br><span class="line">    输出:</span><br><span class="line">      - post_mix  [b, s, 4]        → 给 post-block 用</span><br><span class="line">      - comb      [b, s, 4, 4]     → 给 post-block 用</span><br><span class="line">      - layer_input [b, s, hidden]  → 送给 Attention/FFN</span><br><span class="line">    ─────────────────</span><br><span class="line"></span><br><span class="line">    ─── Attention / FFN ───</span><br><span class="line">    输入:  layer_input [b, s, hidden]</span><br><span class="line">           → 复制 4 份 → [b, s, 4, hidden]</span><br><span class="line">    输出:  layer_out [b, s, 4, hidden]</span><br><span class="line">    ──────────────────────</span><br><span class="line"></span><br><span class="line">    ─── mhc_post ───</span><br><span class="line">    输入:  layer_out, post_mix, comb, layer_input (残差)</span><br><span class="line">    输出:  x_new [b, s, 4, hidden]  → 下一层 residual 输入</span><br><span class="line">    ──────────────────</span><br></pre></td></tr></table></figure>
-<h3 id="mhc-pre：RMSNorm-三组参数-Sinkhorn-融合">mhc_pre：RMSNorm + 三组参数 + Sinkhorn 融合</h3>
-<p>pre-block 的核心计算对应 DeepSeek-V4-Pro <code>model.py</code> 第 832-838 行：</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># model.py L832-838 (hc_pre 函数)</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">hc_pre</span>(<span class="params">x, hc_fn, hc_scale, hc_base</span>):</span><br><span class="line">    shape, dtype = x.shape, x.dtype</span><br><span class="line">    x = x.flatten(<span class="number">2</span>).<span class="built_in">float</span>()           <span class="comment"># [N, hc·d] = [N, 28672] fp32</span></span><br><span class="line">    rsqrt = torch.rsqrt(x.square().mean(-<span class="number">1</span>, keepdim=<span class="literal">True</span>) + <span class="variable language_">self</span>.norm_eps)  <span class="comment"># ← BigFuse 做 sqrsum 这一半</span></span><br><span class="line">    mixes = F.linear(x, hc_fn) * rsqrt  <span class="comment"># ← BigFuse 做 GEMM 这一半</span></span><br></pre></td></tr></table></figure>
-<p><strong>关键点</strong>：<code>BigFuse</code> kernel 把 <code>x.square().mean()</code>（sqrsum）和 <code>F.linear(x, hc_fn)</code>（GEMM）<strong>融合成一个 kernel</strong>——因为两个操作都需要扫一遍同一个 <code>x [N, 28672]</code>，合二为一可以省一次全局内存读取。这就是 <code>mhc_pre_big_fuse_tilelang</code> 存在的意义。</p>
-<blockquote>
-<p><strong>对应 sglang 代码</strong>：<code>mhc_pre_big_fuse_tilelang</code> 里的 <code>Step1: RMSNorm（rsqrt 归一化）</code> 和 <code>Step2: 分拆三组参数</code> 都在同一个 kernel 里完成，对应上面 <code>model.py</code> L835-838 的四行代码。</p>
-</blockquote>
-<p><strong>Step2: 分拆三组参数（对应 <a target="_blank" rel="noopener" href="http://model.py">model.py</a> L838-845）</strong></p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># pre_mix:  hc_mult 个</span></span><br><span class="line">pre  = torch.sigmoid(mixes[:, :hc] * hc_scale[<span class="number">0</span>] + hc_base[:hc]) + eps</span><br><span class="line"></span><br><span class="line"><span class="comment"># post_mix: hc_mult 个  </span></span><br><span class="line">post = <span class="number">2.0</span> * torch.sigmoid(mixes[:, hc:<span class="number">2</span>*hc] * hc_scale[<span class="number">1</span>] + hc_base[hc:<span class="number">2</span>*hc])</span><br><span class="line"></span><br><span class="line"><span class="comment"># comb: hc_mult × hc_mult 矩阵</span></span><br><span class="line">cm   = mixes[:, <span class="number">2</span>*hc:] * hc_scale[<span class="number">2</span>] + hc_base[<span class="number">2</span>*hc:]</span><br></pre></td></tr></table></figure>
-<p><code>hc_scale</code> 和 <code>hc_base</code> 是可学习的仿射参数（对应论文里的 <code>W_pre, b_pre, W_post, b_post, W_comb, b_comb</code>）。</p>
-<p><strong>Step3: Sinkhorn 迭代（comb → 双随机，对应 <a target="_blank" rel="noopener" href="http://model.py">model.py</a> L847-852）</strong></p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># hc_split_sinkhorn: 融合 kernel（sglang 实现）</span></span><br><span class="line">post_mix_out, comb_out, _ = mhc_split_sinkhorn(</span><br><span class="line">        mixes, hc_scale, hc_base, </span><br><span class="line">        hc_mult=<span class="variable language_">self</span>.hc_mult, </span><br><span class="line">        sinkhorn_iters=<span class="variable language_">self</span>.hc_sinkhorn_iters, </span><br><span class="line">        eps=<span class="variable language_">self</span>.hc_eps</span><br><span class="line">    )</span><br><span class="line"><span class="comment"># post_mix_out: [b*s, 4]  → 直接给 hc_post 用</span></span><br><span class="line"><span class="comment"># comb_out:     [b*s, 4, 4] → 直接给 hc_post 用</span></span><br></pre></td></tr></table></figure>
-<p><strong>关键</strong>：<code>mhc_split_sinkhorn</code> 是 sglang 的融合 kernel，把 <strong>sigmoid 参数分拆 + Sinkhorn 迭代</strong> 融合成一个 CUDA kernel。<code>model.py</code> 里 inference 时由 sglang runtime 自动 fusion，但数学上完全等价。</p>
-<p><strong>Step4: 计算 layer_input（对应 <a target="_blank" rel="noopener" href="http://model.py">model.py</a> L835 的 reshape 后处理）</strong></p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">layer_input = (pre.unsqueeze(-<span class="number">1</span>) * x.view(-<span class="number">1</span>, hc, hidden)).<span class="built_in">sum</span>(dim=<span class="number">1</span>)</span><br><span class="line"><span class="comment"># [N, hidden] → 送给 Attention/FFN</span></span><br></pre></td></tr></table></figure>
-<h3 id="mhc-post：混合-残差加回">mhc_post：混合 + 残差加回</h3>
-<p>post-block 的公式（对应 DeepSeek-V4-Pro <code>model.py</code> 第 849-852 行）：</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># model.py L849-852 (hc_post 函数)</span></span><br><span class="line"><span class="comment"># comb_res_mix: [b*s, 4, 4] ← 双随机混合矩阵</span></span><br><span class="line"><span class="comment"># post_layer_mix: [b*s, 1, 4] ← post 权重</span></span><br><span class="line"><span class="comment"># x:           [b*s, 4, hidden] ← Attention/FFN 输出</span></span><br><span class="line"><span class="comment"># residual:    [b*s, hidden]    ← pre-block 的 layer_input</span></span><br><span class="line"><span class="comment">#</span></span><br><span class="line"><span class="comment"># 公式（L852 整条等式）：</span></span><br><span class="line"><span class="comment"># y = post_layer_mix.unsqueeze(-1) * x.unsqueeze(-2) </span></span><br><span class="line"><span class="comment">#     + torch.sum(comb_res_mix.unsqueeze(-1) * residual.unsqueeze(-2), dim=2)</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">hc_post</span>(<span class="params">residual, post_layer_mix, comb_res_mix, x</span>):</span><br><span class="line">    <span class="comment"># x: [b*s, 4, hidden] = layer_out (Attention/FFN 输出)</span></span><br><span class="line">    <span class="comment"># residual: [b*s, hidden] = layer_input from pre-block</span></span><br><span class="line">    <span class="comment"># post_layer_mix: [b*s, 1, 4]</span></span><br><span class="line">    <span class="comment"># comb_res_mix: [b*s, 4, 4]</span></span><br><span class="line">    </span><br><span class="line">    <span class="comment"># torch.einsum(&#x27;blk,bkh-&gt;blh&#x27;, comb_res_mix, post_layer_mix * x)</span></span><br><span class="line">    <span class="comment"># = comb @ (post_mix * x)  [b*s, 4, hidden]</span></span><br><span class="line">    output = torch.einsum(<span class="string">&#x27;blk,bkh-&gt;blh&#x27;</span>, comb_res_mix, post_layer_mix * x)</span><br><span class="line">    output += post_layer_mix.squeeze(<span class="number">1</span>).unsqueeze(-<span class="number">1</span>) * residual.unsqueeze(<span class="number">1</span>)</span><br><span class="line">    <span class="keyword">return</span> output.type_as(x)</span><br></pre></td></tr></table></figure>
-<p><strong>L852 整条等式的解读</strong>：</p>
-<ul>
-<li><code>post_layer_mix.unsqueeze(-1) * x.unsqueeze(-2)</code> → <code>[b, 1, 4, 1] * [b, 1, 1, hidden] = [b, 1, 4, hidden]</code> → 残差项 broadcast</li>
-<li><code>torch.sum(comb_res_mix.unsqueeze(-1) * residual.unsqueeze(-2), dim=2)</code> → <code>comb @ residual</code> 混合项</li>
-<li>两和相加 → <code>[b, s, 4, hidden]</code> 输出</li>
-</ul>
-<p>对应 sglang 的 <code>mhc_post_tilelang</code> kernel（融合实现）：</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># b = layer_out  [b*s, 4, hidden] → 当前层输出 (b_local)</span></span><br><span class="line"><span class="comment"># c = post_mix  [b*s, 4]          → post 权重   (c_local)</span></span><br><span class="line"><span class="comment"># a = comb      [b*s, 4, 4]        → 混合矩阵   (a_local)</span></span><br><span class="line"><span class="comment"># d = residual  [b*s, hidden]      → pre 的 layer_input (d_local)</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># Step 1: post_mix[i] * residual → broadcast 到 hidden 维</span></span><br><span class="line">x_local[i_hco, :] = c_local[i_hco] * d_local[:]</span><br><span class="line"></span><br><span class="line"><span class="comment"># Step 2: comb[:, i] @ (post_mix * layer_out)</span></span><br><span class="line"><span class="keyword">for</span> i_hci <span class="keyword">in</span> <span class="built_in">range</span>(hc):</span><br><span class="line">    x_local[i_hco, :] += a_local[i_hci, i_hco] * b_local[i_hci, :]</span><br></pre></td></tr></table></figure>
-<p><strong>和 DeepSeek-V4-Pro <code>model.py</code> 的精确映射：</strong></p>
-<table>
-<thead>
-<tr>
-<th><code>model.py</code> 变量</th>
-<th>sglang kernel</th>
-<th>含义</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>comb_res_mix</code></td>
-<td><code>a</code></td>
-<td><code>[n, hc, hc]</code> 双随机混合矩阵</td>
-</tr>
-<tr>
-<td><code>post_layer_mix</code></td>
-<td><code>c</code></td>
-<td><code>[n, hc]</code> post 权重</td>
-</tr>
-<tr>
-<td><code>x</code> (参数名)</td>
-<td><code>b</code></td>
-<td><code>[n, hc, hidden]</code> 当前层输出</td>
-</tr>
-<tr>
-<td><code>residual</code></td>
-<td><code>d</code> → <code>x_local</code> 残差项</td>
-<td><code>[n, hidden]</code> pre-block 的 layer_input</td>
-</tr>
-<tr>
-<td><code>output</code></td>
-<td><code>x</code> (输出)</td>
-<td><code>[n, hc, hidden]</code> 下一层输入</td>
-</tr>
-</tbody>
-</table>
-<blockquote>
-<p><strong>注意</strong>：<code>model.py</code> 里 <code>hc_post(x=layer_out, residual=layer_input, ...)</code> 的参数顺序和 sglang 的变量命名略有不同，但数学等价。sglang 把 <code>residual</code> 存到 <code>d_local</code>，<code>layer_out</code> 存到 <code>b_local</code>，更符合 pre/post 的物理意义。</p>
-</blockquote>
-<h3 id="为什么这些-kernel-要这么写？">为什么这些 kernel 要这么写？</h3>
-<table>
-<thead>
-<tr>
-<th>设计选择</th>
-<th>原因</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>GEMM + sqrsum 融合</td>
-<td>省一次 HBM 读，RMSNorm 直接用</td>
-</tr>
-<tr>
-<td>split-k for 小 batch</td>
-<td>低 batch 时 GEMM 效率低，拆 hidden 维提升 SM 利用率</td>
-</tr>
-<tr>
-<td>pre/post 分 warp 并行</td>
-<td>Sinkhorn（warp 0）和 pre-reduce（warp 1+）同时跑，隐藏延迟</td>
-</tr>
-<tr>
-<td>Sinkhorn 迭代次数可调</td>
-<td>训练初期多迭代保证双随机，后期可以减少</td>
-</tr>
-<tr>
-<td><code>hc_mult=4</code> 硬编码</td>
-<td>4 是 DeepSeek-V3 的实际配置，写死让编译器做更多优化</td>
-</tr>
-</tbody>
-</table>
-<h3 id="完整推理时的调用">完整推理时的调用</h3>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 每层内部</span></span><br><span class="line">post_mix, comb, layer_input = mhc_pre(residual, fn_pre, ...)</span><br><span class="line"></span><br><span class="line">layer_out = attention(layer_input) + ffn(layer_input)</span><br><span class="line"><span class="comment"># layer_out: [b*s, 4, hidden]</span></span><br><span class="line"></span><br><span class="line">x_new = mhc_post(layer_out, residual, post_mix, comb)</span><br><span class="line"><span class="comment"># x_new 作为下一层的 residual 输入</span></span><br></pre></td></tr></table></figure>
-<p>整个 mHC 的 forward pass，pre 和 post 各只有 <strong>1 次 kernel launch</strong>，中间没有 <code>[b, s, 4, hidden]</code> 规模的 HBM 读写——这就是 +6.7% 开销能做到的原因。</p>
-<hr>
-<h2 id="工程优化：为什么只多-6-7-开销？">工程优化：为什么只多 6.7% 开销？</h2>
-<p>mHC 看起来很重：每行代码都有矩阵运算、Sinkhorn 迭代、4 倍 hidden state……</p>
+<h2 id="工程优化：为什么只多-6-7-开销？"><a href="#工程优化：为什么只多-6-7-开销？" class="headerlink" title="工程优化：为什么只多 6.7% 开销？"></a>工程优化：为什么只多 6.7% 开销？</h2><p>mHC 看起来很重：每行代码都有矩阵运算、Sinkhorn 迭代、4 倍 hidden state……</p>
 <p>但 DeepSeek 做了三件事，把开销压到了 <strong>仅 +6.7%</strong>：</p>
-<h3 id="1-Kernel-Fusion（算子融合）">1. Kernel Fusion（算子融合）</h3>
-<p>用 TileLang 把整个 mHC 计算——RMSNorm + 线性投影 + Sigmoid + Sinkhorn——融合成一个 CUDA kernel，减少内存读写。具体实现见上一节。</p>
-<h3 id="2-Selective-Recomputing（选择性重计算）">2. Selective Recomputing（选择性重计算）</h3>
-<p>前向时只保存每块的第一个层输入，反向时重新计算 mHC 的中间激活。最优块大小由公式给出：</p>
-<p>81693L_r^* \approx \sqrt{\frac{nL}{n+2}}81693</p>
-<h3 id="3-Overlapping-with-DualPipe">3. Overlapping with DualPipe</h3>
-<p>把 mHC 的计算和流水线通信重叠。在 DualPipe 调度中，<code>F_post,res</code> kernel 放到高优先级流，避免阻塞 All-to-All 通信。</p>
+<h3 id="1-Kernel-Fusion（算子融合）"><a href="#1-Kernel-Fusion（算子融合）" class="headerlink" title="1. Kernel Fusion（算子融合）"></a>1. Kernel Fusion（算子融合）</h3><p>用 TileLang 把整个 mHC 计算——RMSNorm + 线性投影 + Sigmoid + Sinkhorn——融合成一个 CUDA kernel，减少内存读写。</p>
+<h3 id="2-Selective-Recomputing（选择性重计算）"><a href="#2-Selective-Recomputing（选择性重计算）" class="headerlink" title="2. Selective Recomputing（选择性重计算）"></a>2. Selective Recomputing（选择性重计算）</h3><p>前向时只保存每块的第一个层输入，反向时重新计算 mHC 的中间激活。最优块大小由公式给出：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">L_r* ≈ √(nL / (n+2))</span><br></pre></td></tr></table></figure>
+
+<h3 id="3-Overlapping-with-DualPipe"><a href="#3-Overlapping-with-DualPipe" class="headerlink" title="3. Overlapping with DualPipe"></a>3. Overlapping with DualPipe</h3><p>把 mHC 的计算和流水线通信重叠。在 DualPipe 调度中，<code>F_post,res</code> kernel 放到高优先级流，避免阻塞 All-to-All 通信。</p>
 <hr>
-<h2 id="实验效果：又强又稳">实验效果：又强又稳</h2>
-<p>DeepSeek 用 27B MoE 模型做了对比实验：</p>
+<h2 id="实验效果：又强又稳"><a href="#实验效果：又强又稳" class="headerlink" title="实验效果：又强又稳"></a>实验效果：又强又稳</h2><p>DeepSeek 用 27B MoE 模型做了对比实验：</p>
 <table>
 <thead>
 <tr>
@@ -783,8 +336,7 @@ HC 的复合映射增益（Amax Gain Magnitude）达到 <strong>~3000</strong>�
 <th>mHC</th>
 </tr>
 </thead>
-<tbody>
-<tr>
+<tbody><tr>
 <td>训练稳定性</td>
 <td>稳定</td>
 <td><strong>loss spike @12k步</strong></td>
@@ -808,27 +360,14 @@ HC 的复合映射增益（Amax Gain Magnitude）达到 <strong>~3000</strong>�
 <td>+?%</td>
 <td><strong>+6.7%</strong></td>
 </tr>
-</tbody>
-</table>
-<p>下游任务（BBH / DROP / GSM8K 等 8 个 benchmark）上，mHC 全面超过 baseline 和 HC。</p>
+</tbody></table>
+<p>下游任务（BBH &#x2F; DROP &#x2F; GSM8K 等 8 个 benchmark）上，mHC 全面超过 baseline 和 HC。</p>
 <p><strong>最重要的结论：</strong> mHC 让 <strong>1.6T 参数、60+ 层、MoE 模型</strong>能够稳定训练——这是普通 HC 做不到的。</p>
 <hr>
-<h2 id="总结：为什么你应该关心-mHC">总结：为什么你应该关心 mHC</h2>
-<p>mHC 不是&quot;又一个花哨的架构技巧&quot;——它解决的是<strong>万亿参数模型训练稳定性的根本问题</strong>。</p>
-<p>Residual Connection 已经服务了我们 10 年，从 ResNet 到 GPT-4 到 DeepSeek-V4，它一直在背后默默工作。但当模型规模迈向 1.6T 参数、60+ 层、MoE 架构时，普通残差的&quot;一条流&quot;设计已经成了瓶颈。</p>
-<p>mHC 给出了一条优雅的出路：</p>
-<ul>
-<li><strong>表达能力</strong>：4 条并行流，信息容量翻 4 倍</li>
-<li><strong>训练稳定性</strong>：双随机矩阵约束，信号永远不爆炸</li>
-<li><strong>工程可行性</strong>：+6.7% 开销，TileLang 深度融合，推理无额外负担</li>
-<li><strong>数学美感</strong>：把残差连接从&quot;经验设计&quot;提升到&quot;流形约束&quot;的理论高度</li>
-</ul>
-<p>如果你正在做<strong>超大模型训练、推理优化、或架构设计</strong>，mHC 是目前最值得放入工具箱的技术之一。</p>
-<h2 id="一句话总结">一句话总结</h2>
-<blockquote>
-<p><strong>mHC = HC + 双随机矩阵约束，是残差连接的最终进化形态，让万亿参数 MoE 能稳定训练。</strong></p>
+<h2 id="一句话总结"><a href="#一句话总结" class="headerlink" title="一句话总结"></a>一句话总结</h2><blockquote>
+<p><strong>mHC &#x3D; HC + 双随机矩阵约束，是残差连接的最终进化形态，让万亿参数 MoE 能稳定训练。</strong></p>
 </blockquote>
-<p>如果你正在设计超大模型，mHC 是目前最值得考虑的残差连接方式。它不改 FLOPs，不改层计算，只改残差流的拓扑结构——但就是这一点，让深层训练从&quot;可能崩&quot;变成了&quot;一定稳&quot;。</p>
+<p>如果你正在设计超大模型，mHC 是目前最值得考虑的残差连接方式。它不改 FLOPs，不改层计算，只改残差流的拓扑结构——但就是这一点，让深层训练从”可能崩”变成了”一定稳”。</p>
 <hr>
 <p><strong>参考资料：</strong></p>
 <ul>
@@ -937,7 +476,7 @@ HC 的复合映射增益（Amax Gain Magnitude）达到 <strong>~3000</strong>�
 
   
 
-  <script class="next-config" data-name="enableMath" type="application/json">true</script><script class="next-config" data-name="mathjax" type="application/json">{"enable":true,"tags":"none","mhchem":false,"config":{"tex":{"inlineMath":[["$","$"]],"displayMath":[["$$","$$"]]}},"js":{"url":"https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-mml-chtml.js","integrity":"sha256-MASABpB4tYktI2Oitl4t+78w/lyA+D7b/s9GEP0JOGI="}}</script>
+  <script class="next-config" data-name="enableMath" type="application/json">false</script><script class="next-config" data-name="mathjax" type="application/json">{"enable":true,"tags":"none","mhchem":false,"config":{"tex":{"inlineMath":[["$","$"]],"displayMath":[["$$","$$"]]}},"js":{"url":"https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-mml-chtml.js","integrity":"sha256-MASABpB4tYktI2Oitl4t+78w/lyA+D7b/s9GEP0JOGI="}}</script>
 <script src="/js/third-party/math/mathjax.js"></script>
 
 

@@ -247,10 +247,7 @@
     <div class="post-body" itemprop="articleBody"><p>经常提到的context都是一些在一个http请求的不同中间件之间传递参数和返回值的上下文. 标准库里的上下文稍微丰富一点, 比如流水线模型都会有一个通知退出的channel, 也一并封装进了Context, 所以既有传值功能也有流程控制的功能.</p>
 <p>一般会把Context作为函数的第一个参数传递下去, 比如Context可以保存一个Request的id, 在打log的时候带上, 这样就可以区分出输出中同一个request的调用情况. 或者子函数select 传入的Context.Done channel用于在流水线中退出的通知等等.</p>
 <p>Context接口有四个方法, 并且线程安全.</p>
-<p><code>Done</code> 是一个channel用于通知退出事件, 当从这个channel里读出的时候说明Context结束.<br>
-<code>Err</code> 返回退出的原因.<br>
-<code>Deadline</code> 返回一个截止时间(如果设置了的话).<br>
-<code>Value</code> 可以取得Context里面存得值.</p>
+<p><code>Done</code> 是一个channel用于通知退出事件, 当从这个channel里读出的时候说明Context结束.<br><code>Err</code> 返回退出的原因.<br><code>Deadline</code> 返回一个截止时间(如果设置了的话).<br><code>Value</code> 可以取得Context里面存得值.</p>
 <p>Context的实现有4种, cancelCtx, emptyCtx, timerCtx, valueCtx.</p>
 <p>valueCtx只是最简单的Ctx用来存k-v, 这类似于中间件之间传递各种值的功能, 没有Done, Err, Deadline这些方法, 是组合父Context得到的.</p>
 <p>cancelCtx是一个带取消功能的Ctx, 返回一个cancel函数, 可以通过调用它主动取消这个Ctx, 比如错误退出的时候, 可以调用cancel函数, 他会同时调用子Ctx的cancel函数, 以此来让Context的Done起作用, cancelCtx是树形的, 有Done, Err, 但是没有Deadline, 组合了父结构获得的.</p>
@@ -258,8 +255,7 @@
 <p>Context.WithCancel就是绑定一个parent, 返回一个cancelCtx的Context, 用返回的CancelFunc可以用来主动关闭Context, 比如程序错误的时候可以调用CancelFunc来让select Done的goroutine知道.</p>
 <p>Context.WithTimer是对Context.WithDeadline的封装, Context.WithDeadline返回的是timerCtx.</p>
 <p>Context.WithValue则仅仅是用来存值的Context.</p>
-<p>WithXXX的函数都是要接受一个parent的, 最初的parent就用Context.Background().<br>
-它是一种emptyCtx, Err, Done(nil channel永远阻塞), Deadline, Value全都返回空值, 没有实际作用只是作为树形结构的root.</p>
+<p>WithXXX的函数都是要接受一个parent的, 最初的parent就用Context.Background().<br>它是一种emptyCtx, Err, Done(nil channel永远阻塞), Deadline, Value全都返回空值, 没有实际作用只是作为树形结构的root.</p>
 <p>另一种emptyCtx是context.TODO(), 用于没有明确作用的不知道父Context会是什么的时候可以使用.</p>
 
     </div>
