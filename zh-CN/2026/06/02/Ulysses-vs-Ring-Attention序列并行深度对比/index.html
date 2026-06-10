@@ -261,23 +261,29 @@
 <hr>
 <h2 id="一、核心思想对比"><a href="#一、核心思想对比" class="headerlink" title="一、核心思想对比"></a>一、核心思想对比</h2><h3 id="Ulysses-Attention"><a href="#Ulysses-Attention" class="headerlink" title="Ulysses Attention"></a>Ulysses Attention</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">Step1: [N/P, h, d] ──All-to-All──→ [N, h/P, d]</span><br><span class="line">Step2: 本地做标准 Attention（每张卡拿到全序列、部分 head）</span><br><span class="line">Step3: 输出 ──All-to-All──→ 回到 [N/P, h, d]</span><br></pre></td></tr></table></figure>
 
-<p>关键：两次 All-to-All 把”序列切”转成”head 切”，每张卡对全序列做部分 head 的 attention。</p>
+<p>关键：两次 All-to-All 把&quot;序列切&quot;转成&quot;head 切&quot;，每张卡对全序列做部分 head 的 attention。</p>
 <h3 id="Ring-Attention"><a href="#Ring-Attention" class="headerlink" title="Ring Attention"></a>Ring Attention</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">Round 0: attn(Q_i, K_i, V_i)           ← 本地 attention</span><br><span class="line">Round 1: 收到 K_&#123;i-1&#125;, V_&#123;i-1&#125; → attn(Q_i, K_&#123;i-1&#125;, V_&#123;i-1&#125;)</span><br><span class="line">...</span><br><span class="line">Round P-1: 收到所有 KV → online softmax 合并结果</span><br></pre></td></tr></table></figure>
 
 <p>关键：KV 沿环形传递，每张卡只存自己的 KV chunk，计算和通信完全重叠。</p>
 <hr>
 <h2 id="二、通信量数学推导"><a href="#二、通信量数学推导" class="headerlink" title="二、通信量数学推导"></a>二、通信量数学推导</h2><h3 id="Ulysses：All-to-All-的-P-1-P-2"><a href="#Ulysses：All-to-All-的-P-1-P-2" class="headerlink" title="Ulysses：All-to-All 的 $(P-1)&#x2F;P^2$"></a>Ulysses：All-to-All 的 $(P-1)&#x2F;P^2$</h3><p>Ulysses 输入是 <code>[N/P, h, d]</code>（序列已被切，head 完整），输出是 <code>[N, h/P, d]</code>（序列完整，head 被切）。</p>
 <p>每 GPU 发送 <code>P-1</code> 个 chunk，每个 chunk 大小：</p>
-<p>$$<br>\frac{N}{P} \times \frac{h}{P} \times d &#x3D; \frac{N \cdot h \cdot d}{P^2}<br>$$</p>
+<p>$$
+\frac{N}{P} \times \frac{h}{P} \times d &#x3D; \frac{N \cdot h \cdot d}{P^2}
+$$</p>
 <p>总发送量：</p>
-<p>$$<br>\text{send per GPU} &#x3D; (P-1) \times \frac{N \cdot h \cdot d}{P^2} &#x3D; N \cdot h \cdot d \cdot \frac{P-1}{P^2}<br>$$</p>
+<p>$$
+\text{send per GPU} &#x3D; (P-1) \times \frac{N \cdot h \cdot d}{P^2} &#x3D; N \cdot h \cdot d \cdot \frac{P-1}{P^2}
+$$</p>
 <p>两个 <code>1/P</code> 的来源：</p>
 <ul>
 <li>第一个 <code>1/P</code>：序列维度已被切（<code>N/P</code>）</li>
 <li>第二个 <code>1/P</code>：head 维度再切一次（<code>h/P</code>）</li>
 </ul>
 <h3 id="Ring：P2P-的-P-1-P"><a href="#Ring：P2P-的-P-1-P" class="headerlink" title="Ring：P2P 的 $(P-1)&#x2F;P$"></a>Ring：P2P 的 $(P-1)&#x2F;P$</h3><p>Ring 只传 KV（Q 不动），每轮传 <code>(N/P) × d_kv</code>：</p>
-<p>$$<br>\text{send per GPU} &#x3D; (P-1) \times \frac{N}{P} \times d_{kv} &#x3D; N \cdot d_{kv} \cdot \frac{P-1}{P}<br>$$</p>
+<p>$$
+\text{send per GPU} &#x3D; (P-1) \times \frac{N}{P} \times d_{kv} &#x3D; N \cdot d_{kv} \cdot \frac{P-1}{P}
+$$</p>
 <p>只有一个 <code>1/P</code>（序列切分），没有 head 切分。</p>
 <h3 id="对比（P-8-h-64-d-128-d-kv-576）"><a href="#对比（P-8-h-64-d-128-d-kv-576）" class="headerlink" title="对比（P&#x3D;8, h&#x3D;64, d&#x3D;128, d_kv&#x3D;576）"></a>对比（P&#x3D;8, h&#x3D;64, d&#x3D;128, d_kv&#x3D;576）</h3><table>
 <thead>
@@ -310,10 +316,10 @@
 <h2 id="三、MLA-对-Ulysses-的致命问题"><a href="#三、MLA-对-Ulysses-的致命问题" class="headerlink" title="三、MLA 对 Ulysses 的致命问题"></a>三、MLA 对 Ulysses 的致命问题</h2><h3 id="MLA-的-KV-cache-结构"><a href="#MLA-的-KV-cache-结构" class="headerlink" title="MLA 的 KV cache 结构"></a>MLA 的 KV cache 结构</h3><p>DeepSeek-V3&#x2F;V4 使用 <strong>MLA（Multi-head Latent Attention）</strong>，KV cache 不是 multi-head 的：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">c_kv [seq, 512]     ← 压缩的共享 latent</span><br><span class="line">k_rope [seq, 64]    ← RoPE 位置编码部分</span><br><span class="line">合计：576 dim/token（vs MHA 的 16384 dim/token）</span><br></pre></td></tr></table></figure>
 
-<p><strong>只有 1 个”头”</strong>，无法按 head 切分。</p>
+<p><strong>只有 1 个&quot;头&quot;</strong>，无法按 head 切分。</p>
 <h3 id="DeepSpeed-Ulysses-代码验证"><a href="#DeepSpeed-Ulysses-代码验证" class="headerlink" title="DeepSpeed Ulysses 代码验证"></a>DeepSpeed Ulysses 代码验证</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># deepspeed/sequence/layer.py 核心逻辑</span></span><br><span class="line">q = _SeqAllToAll.apply(group, query, scatter_idx=<span class="number">2</span>, gather_idx=<span class="number">0</span>)</span><br><span class="line">k = _SeqAllToAll.apply(group, key,   scatter_idx=<span class="number">2</span>, gather_idx=<span class="number">0</span>)  <span class="comment"># K 和 Q 对称处理</span></span><br><span class="line">v = _SeqAllToAll.apply(group, value, scatter_idx=<span class="number">2</span>, gather_idx=<span class="number">0</span>)</span><br></pre></td></tr></table></figure>
 
-<p>Q、K、V <strong>走完全相同的 All-to-All 路径</strong>，没有”KV 走 All-Gather”的分支。当 <code>num_kv_heads=1</code> 时：</p>
+<p>Q、K、V <strong>走完全相同的 All-to-All 路径</strong>，没有&quot;KV 走 All-Gather&quot;的分支。当 <code>num_kv_heads=1</code> 时：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">1 KV head / 4 GPUs → [1, 0, 0, 0]</span><br><span class="line">GPU 1-3：没有 KV head → 无法计算 ❌</span><br></pre></td></tr></table></figure>
 
 <h3 id="Ulysses-SP-上限-num-kv-heads"><a href="#Ulysses-SP-上限-num-kv-heads" class="headerlink" title="Ulysses SP 上限 &#x3D; num_kv_heads"></a>Ulysses SP 上限 &#x3D; num_kv_heads</h3><table>

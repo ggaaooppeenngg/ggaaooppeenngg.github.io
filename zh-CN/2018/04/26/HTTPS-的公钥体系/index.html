@@ -278,7 +278,11 @@
 <h3 id="证书"><a href="#证书" class="headerlink" title="证书"></a>证书</h3><p>证书包含了版本、序列号、签名算法、颁发者、有效期、使用者、公钥。证书也有证书链，比如 root CA 可以签发 中间 CA 的证书。根证书一般是跟着操作系统一起造就装好了的，大公司的操作系统和浏览器都有自己的根证书库，自带就在电脑上。</p>
 <h3 id="应用"><a href="#应用" class="headerlink" title="应用"></a>应用</h3><p>RSA 是目前最广泛应用的密钥算法，破解 1024 位的 RSA 密钥的成本大约是 1000 万人民币，现在一般用 2048 位的 RSA，基本无解。</p>
 <p>其实公钥体系已经很完全了，但是大部分出问题都情况是私钥泄漏，管理自己的私钥非常重要。</p>
-<p>1. 不要用 CA 生成的私钥，尽量自己生成。<br>2. 不要用刚开机的机器生成随机数，这台机器获得的外界熵不够多。<br>3. 定期更换私钥<br>4. 不要随意传播私钥<br>5. 安全存储私钥，这个主要是中间 CA 可能要用，普通服务直接换私钥就可以。</p>
+<p>1. 不要用 CA 生成的私钥，尽量自己生成。
+2. 不要用刚开机的机器生成随机数，这台机器获得的外界熵不够多。
+3. 定期更换私钥
+4. 不要随意传播私钥
+5. 安全存储私钥，这个主要是中间 CA 可能要用，普通服务直接换私钥就可以。</p>
 <p>下面就用 OpenSSL 进行一些实验。</p>
 <p>首先我们生成一个 RSA 密钥，前面提到了最好用 2048 位的，用 AES-128 算法来加密保存，会让你输入密码，这个密钥基于这个密码保存，这个文件的格式叫 <code>PEM</code> 所以如果看到 <code>PEM</code> 格式的文件就知道是私钥了。</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">$openssl genrsa -aes128 -out test.key 2048</span><br><span class="line">Generating RSA private key, 2048 bit long modulus</span><br><span class="line">...+++</span><br><span class="line">.............................+++</span><br><span class="line">e is 65537 (0x10001)</span><br><span class="line">Enter pass phrase for test.key:</span><br><span class="line">Verifying - Enter pass phrase for test.key:</span><br></pre></td></tr></table></figure>

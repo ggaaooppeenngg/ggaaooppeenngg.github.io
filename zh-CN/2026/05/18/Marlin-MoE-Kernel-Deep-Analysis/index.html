@@ -311,7 +311,7 @@
 <p>假设 token 的 top-2 是 Expert 3 (weight&#x3D;0.6) 和 Expert 7 (weight&#x3D;0.4)：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">W1 输出（不乘权重）:</span><br><span class="line">  [Expert 3 的 gate/up, Expert 7 的 gate/up]</span><br><span class="line"></span><br><span class="line">经过 SwiGLU:</span><br><span class="line">  [Expert 3 的 activated, Expert 7 的 activated]</span><br><span class="line"></span><br><span class="line">W2 输出（乘权重）:</span><br><span class="line">  Expert 3 输出 × 0.6 + Expert 7 输出 × 0.4</span><br></pre></td></tr></table></figure>
 
-<p>如果 W1 就乘了权重，SwiGLU 激活函数作用在”已经被压缩的信号”上，精度会下降。</p>
+<p>如果 W1 就乘了权重，SwiGLU 激活函数作用在&quot;已经被压缩的信号&quot;上，精度会下降。</p>
 <h3 id="Step-4-SwiGLU-Clamp"><a href="#Step-4-SwiGLU-Clamp" class="headerlink" title="Step 4: SwiGLU + Clamp"></a>Step 4: SwiGLU + Clamp</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> clamp_limit <span class="keyword">is</span> <span class="keyword">not</span> <span class="literal">None</span>:</span><br><span class="line">    <span class="comment"># DeepSeek-V4: swiglu_limit=10.0</span></span><br><span class="line">    swiglu_limit_func(intermediate_cache2, intermediate_cache1, clamp_limit)</span><br><span class="line"><span class="keyword">else</span>:</span><br><span class="line">    silu_and_mul(intermediate_cache1, intermediate_cache2)</span><br></pre></td></tr></table></figure>
 
 <p><strong>输入</strong> <code>[M*topk, 2*N]</code> 拆成 gate 和 up：</p>
@@ -349,7 +349,7 @@
 <p><code>intermediate_cache2</code> 如果能复用 <code>intermediate_cache1</code> 的后半部分（up 分支在 SwiGLU 后就没用了），可以进一步节省显存。</p>
 <h2 id="Marlin-在-SGLang-中的注册"><a href="#Marlin-在-SGLang-中的注册" class="headerlink" title="Marlin 在 SGLang 中的注册"></a>Marlin 在 SGLang 中的注册</h2><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@register_fused_func(<span class="params"><span class="string">&quot;none&quot;</span>, <span class="string">&quot;marlin&quot;</span></span>)</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">fused_experts_none_to_marlin</span>(<span class="params">dispatch_output, quant_info, runner_config</span>):</span><br><span class="line">    ...</span><br></pre></td></tr></table></figure>
 
-<p><strong>“none”</strong> 是 A2A backend（无 EP，纯 TP），<strong>“marlin”</strong> 是 runner backend。</p>
+<p><strong>&quot;none&quot;</strong> 是 A2A backend（无 EP，纯 TP），<strong>&quot;marlin&quot;</strong> 是 runner backend。</p>
 <p>这意味着 <strong>Marlin MoE 目前只支持纯 TP 模式</strong>（每张卡有所有专家的 1&#x2F;N 权重），不支持 EP（Expert Parallelism）。</p>
 <h3 id="为什么-Marlin-没做-EP？"><a href="#为什么-Marlin-没做-EP？" class="headerlink" title="为什么 Marlin 没做 EP？"></a>为什么 Marlin 没做 EP？</h3><ol>
 <li><p><strong>MXFP4 权重大小不是瓶颈</strong></p>

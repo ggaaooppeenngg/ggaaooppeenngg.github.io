@@ -255,7 +255,8 @@
 <h3 id="代码实现"><a href="#代码实现" class="headerlink" title="代码实现"></a>代码实现</h3><p>在 <code>./vllm/worker/model_runner.py</code> 中：</p>
 <ol>
 <li>在计算之前执行 <code>need_rev_kv</code>，检查是否是 consumer，且当前 run 是不是 prefill。然后调用 <code>get_kv_transfer_group().recv_kv_caches_and_hidden_states</code>。</li>
-<li>在计算之后执行 <code>need_send_kv</code>，检查是否开启配置 producer，并且当前 run 是不是 prefill（对于以前未分离的结构来说，decode实例要经历prefill阶段，<br>但是prefill已经被prefill实例做掉了，所以要等着接受prefill的KVCache，不需要重复计算prefill了）。然后调用 <code>get_kv_transfer_group().send_kv_caches_and_hidden_states</code>。</li>
+<li>在计算之后执行 <code>need_send_kv</code>，检查是否开启配置 producer，并且当前 run 是不是 prefill（对于以前未分离的结构来说，decode实例要经历prefill阶段，
+但是prefill已经被prefill实例做掉了，所以要等着接受prefill的KVCache，不需要重复计算prefill了）。然后调用 <code>get_kv_transfer_group().send_kv_caches_and_hidden_states</code>。</li>
 </ol>
 <h3 id="KVTransfer-实例"><a href="#KVTransfer-实例" class="headerlink" title="KVTransfer 实例"></a>KVTransfer 实例</h3><p><code>get_kv_transfer_group</code> 会返回一个 KVTransfer 的实例，是一个全局实例，初始化方式如下。其中的 rank 0 代表 prefill，rank 1 代表 decode。</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">_KV_TRANSFER = kv_transfer.KVTransferAgent(</span><br><span class="line">    rank=get_world_group().rank,</span><br><span class="line">    local_rank=get_world_group().local_rank,</span><br><span class="line">    config=vllm_config)</span><br></pre></td></tr></table></figure>

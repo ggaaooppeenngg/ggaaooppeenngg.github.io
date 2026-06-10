@@ -269,7 +269,7 @@
 <h3 id="pfifo"><a href="#pfifo" class="headerlink" title="pfifo"></a>pfifo</h3><p>默认 qdisc 就是 pfifo，实现在 <code>net/sched/sch_prio.c</code>。</p>
 <p>设有三个优先级的队列，优先级由高到低分别是</p>
 <ol start="0">
-<li>“interactive”</li>
+<li>“interactive&quot;</li>
 <li>“best effort”</li>
 <li>“bulk”</li>
 </ol>
@@ -327,7 +327,7 @@
 <h3 id="使用"><a href="#使用" class="headerlink" title="使用"></a>使用</h3><p>qdisc 参数</p>
 <p>parent major:minor  或者 <em>root</em>。</p>
 <p>一个 qdisc 是根节点就是 root，否则其他的情况指定 parent。其中 major:minor 是 class 的 handle id，每个 class 都要指定一个 id 用于标识。</p>
-<p><em>handle major:</em> ，这个语法有点奇怪，是可选的，如果 qdisc 下面还要分类（多个 class)，则需要指定这个 hanlde。对于 root，通常是”1:”。</p>
+<p><em>handle major:</em> ，这个语法有点奇怪，是可选的，如果 qdisc 下面还要分类（多个 class)，则需要指定这个 hanlde。对于 root，通常是&quot;1:&quot;。</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">// handle 是一组用户指定的标示符，格式为 major:minor。</span><br><span class="line">// 如果是一条 queueing discipline，minor 需要一直为 0。</span><br><span class="line"># tc qdisc add dev eth0 root handle 1: htb</span><br><span class="line"></span><br><span class="line">// parent 指明该新增的 class 添加到那一个父 handle 上去</span><br><span class="line">// classid 指明该 class handle 的唯一 ID，minor 需要是非零值</span><br><span class="line">// ceil 定义 rate 的上界</span><br><span class="line"># tc class add dev eth0 parent 1:1 classid 1:6 htb rate 256kbit ceil 512kbit</span><br><span class="line"></span><br><span class="line">// 新建一个带宽为 100kbps 的 root class, 其 classid 为 1:1</span><br><span class="line"># tc class add dev eth0 parent 1: classid 1:1 htb rate 100kbps ceil 100kbps</span><br><span class="line">// 接着建立两个子 class，指定其 parent 为 1:1，ceil 用来限制子类最大的带宽</span><br><span class="line"># tc class add dev eth0 parent 1:1 classid 1:10 htb rate 40kbps ceil 100kbps</span><br><span class="line"># tc class add dev eth0 parent 1:1 classid 1:11 htb rate 60kbps ceil 100kbps</span><br><span class="line">// 随后建立 filter 指定哪些类型的 packet 进入那个 class</span><br><span class="line"># tc filter add dev eth0 protocol ip parent 1:0 prio 1 u32 match ip src 1.2.3.4 match ip dport 80 0xffff flowid 1:10</span><br><span class="line"># tc filter add dev eth0 protocol ip parent 1:0 prio 1 u32 match ip src 1.2.3.4 flow 1:11</span><br><span class="line">// 最后为这些 class 添加 queuing disciplines</span><br><span class="line"># tc qdisc add dev eth0 parent 1:10 handle 20: pfifo limit 5</span><br><span class="line"># tc qdisc add dev eth0 parent 1:11 handle 30: sfq perturb 10</span><br></pre></td></tr></table></figure>
 
 <h3 id="实现"><a href="#实现" class="headerlink" title="实现"></a>实现</h3><p>用 rtnetlink 接口实现 API。</p>

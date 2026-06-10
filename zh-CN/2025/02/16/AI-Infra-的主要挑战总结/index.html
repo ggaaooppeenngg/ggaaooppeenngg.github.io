@@ -306,7 +306,8 @@
 <p>这种权衡本质上是一个网络流优化问题。通过图论中的网络流算法，可以在通信延迟和带宽利用率之间找到最优平衡点，从而实现更高效的跨节点通信。</p>
 <p>一个分布式训练的带宽瓶颈来源于带宽最低的那条路径。</p>
 <h3 id="利用-Kubernetes-Pod-亲和性优化网络拓扑"><a href="#利用-Kubernetes-Pod-亲和性优化网络拓扑" class="headerlink" title="利用 Kubernetes Pod 亲和性优化网络拓扑"></a>利用 Kubernetes Pod 亲和性优化网络拓扑</h3><p>在 Kubernetes 环境下，我们可以通过 Pod 亲和性（Affinity）和规则来优化 GPU 任务的分配。主要可以从以下几个方面入手：</p>
-<p><strong>拓扑感知调度</strong>：使用 <code>topologyKey</code> 确保相关联的 Pod 被调度到网络拓扑上接近的节点：<br>例如同一个分布式训练任务<code>(training-group = group1)</code>尽让分配在一个机架上，同交换机，同核心交换机也是类似的。</p>
+<p><strong>拓扑感知调度</strong>：使用 <code>topologyKey</code> 确保相关联的 Pod 被调度到网络拓扑上接近的节点：
+例如同一个分布式训练任务<code>(training-group = group1)</code>尽让分配在一个机架上，同交换机，同核心交换机也是类似的。</p>
 <figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">affinity:</span></span><br><span class="line">  <span class="attr">podAffinity:</span></span><br><span class="line">    <span class="attr">preferredDuringSchedulingIgnoredDuringExecution:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">weight:</span> <span class="number">50</span></span><br><span class="line">      <span class="attr">podAffinityTerm:</span></span><br><span class="line">        <span class="attr">labelSelector:</span></span><br><span class="line">          <span class="attr">matchExpressions:</span></span><br><span class="line">          <span class="bullet">-</span> <span class="attr">key:</span> <span class="string">training-group</span></span><br><span class="line">            <span class="attr">operator:</span> <span class="string">In</span></span><br><span class="line">            <span class="attr">values:</span></span><br><span class="line">            <span class="bullet">-</span> <span class="string">group1</span></span><br><span class="line">        <span class="attr">topologyKey:</span> <span class="string">topology.kubernetes.io/rack</span>  <span class="comment"># 同机架优先</span></span><br></pre></td></tr></table></figure>
 
 <p>这种方案的优势在于：</p>
@@ -339,12 +340,14 @@
 <h2 id="训练的稳定性"><a href="#训练的稳定性" class="headerlink" title="训练的稳定性"></a>训练的稳定性</h2><p>在大规模 AI 训练中，硬件故障是一个常见问题。特别是新型号显卡往往会有较高的故障率，再加上传统的硬件错误，这些都可能导致训练中断。因此，快速识别错误并恢复训练成为了一个关键挑战。目前主流的解决方案主要有以下两种：</p>
 <h3 id="基于-torchrun-的弹性训练"><a href="#基于-torchrun-的弹性训练" class="headerlink" title="基于 torchrun 的弹性训练"></a>基于 torchrun 的弹性训练</h3><p>torchrun 提供了两种容错机制：简单重试和弹性训练。</p>
 <ol>
-<li><strong>简单重试模式</strong>：<br>通过 <code>--max-restarts</code> 参数配置重试次数：</li>
+<li><strong>简单重试模式</strong>：
+通过 <code>--max-restarts</code> 参数配置重试次数：</li>
 </ol>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">torchrun \</span><br><span class="line">    --nnodes=<span class="variable">$NUM_NODES</span> \</span><br><span class="line">    --nproc-per-node=<span class="variable">$NUM_TRAINERS</span> \</span><br><span class="line">    --max-restarts=3 \</span><br><span class="line">    --rdzv-id=<span class="variable">$JOB_ID</span> \</span><br><span class="line">    --rdzv-backend=c10d \</span><br><span class="line">    --rdzv-endpoint=<span class="variable">$HOST_NODE_ADDR</span> \</span><br><span class="line">    YOUR_TRAINING_SCRIPT.py [script args...]</span><br></pre></td></tr></table></figure>
 
 <ol start="2">
-<li><strong>弹性训练模式</strong>：<br>通过设置 <code>nnodes</code> 的范围来支持动态节点数：</li>
+<li><strong>弹性训练模式</strong>：
+通过设置 <code>nnodes</code> 的范围来支持动态节点数：</li>
 </ol>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">torchrun \</span><br><span class="line">    --nnodes=1:4 \  <span class="comment"># 支持1-4个节点的动态伸缩</span></span><br><span class="line">    --nproc-per-node=<span class="variable">$NUM_TRAINERS</span> \</span><br><span class="line">    --max-restarts=3 \</span><br><span class="line">    --rdzv-id=<span class="variable">$JOB_ID</span> \</span><br><span class="line">    --rdzv-backend=c10d \</span><br><span class="line">    --rdzv-endpoint=<span class="variable">$HOST_NODE_ADDR</span> \</span><br><span class="line">    YOUR_TRAINING_SCRIPT.py [script args...]</span><br></pre></td></tr></table></figure>
 
@@ -390,8 +393,10 @@
 <li><p><strong>集群维护</strong>：集群中的其他任务或系统维护、升级，可能需要暂停当前训练任务。</p>
 </li>
 </ol>
-<p>可以使用<a target="_blank" rel="noopener" href="https://github.com/kubernetes/node-problem-detector">node-promblem-detector</a>，<br>node-problem-detector 是一个用于在集群管理栈的上游层次中使各个节点问题可见的守护进程。它在每个节点上运行，检测节点问题并将其报告给 apiserver。</p>
-<p>监控和容错是一个比较难的问题，需要结合硬件和软件的特性，以及业务需求，进行综合考量。<br>特别是万卡集群，MFU 只有 50%左右。</p>
+<p>可以使用<a target="_blank" rel="noopener" href="https://github.com/kubernetes/node-problem-detector">node-promblem-detector</a>，
+node-problem-detector 是一个用于在集群管理栈的上游层次中使各个节点问题可见的守护进程。它在每个节点上运行，检测节点问题并将其报告给 apiserver。</p>
+<p>监控和容错是一个比较难的问题，需要结合硬件和软件的特性，以及业务需求，进行综合考量。
+特别是万卡集群，MFU 只有 50%左右。</p>
 <p>在训练 OPT-175B 模型的过程中，Meta团队使用了 992 个 80GB 的 A100 GPU，每个 GPU 实现了约 147 TFLOP&#x2F;s 的性能，对应的机器浮点利用率（MFU）约为 47%（147&#x2F;312）。 </p>
 <p>为了应对可能的硬件故障，团队额外准备了 12 台备用机器，以便在出现问题时进行替换。在训练期间，平均每天约有 2 台机器发生故障，即每台机器每天发生故障的概率约为 1.61%。</p>
 <p>整个训练过程持续了约 2 个多月，包括从 2021 年 10 月 20 日到 2021 年 11 月 11 日的测试阶段，以及从 2021 年 11 月 11 日到 2022 年 1 月 6 日的正式训练阶段，正式训练约 57 天。</p>

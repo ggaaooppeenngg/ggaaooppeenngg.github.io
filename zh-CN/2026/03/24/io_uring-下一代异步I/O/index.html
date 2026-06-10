@@ -318,7 +318,7 @@
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">用户空间                              内核空间</span><br><span class="line">┌─────────────────┐                ┌─────────────────┐</span><br><span class="line">│  SQ Ring        │◄────共享内存────►│  SQ Ring        │</span><br><span class="line">│  (提交队列)      │                │  (提交队列)      │</span><br><span class="line">├─────────────────┤                ├─────────────────┤</span><br><span class="line">│  CQ Ring        │◄────共享内存────►│  CQ Ring        │</span><br><span class="line">│  (完成队列)      │                │  (完成队列)      │</span><br><span class="line">└─────────────────┘                └─────────────────┘</span><br></pre></td></tr></table></figure>
 
 <hr>
-<h2 id="零拷贝机制详解"><a href="#零拷贝机制详解" class="headerlink" title="零拷贝机制详解"></a>零拷贝机制详解</h2><p>io_uring 的”零拷贝”不是魔法，而是<strong>巧妙的虚拟内存映射设计</strong>。</p>
+<h2 id="零拷贝机制详解"><a href="#零拷贝机制详解" class="headerlink" title="零拷贝机制详解"></a>零拷贝机制详解</h2><p>io_uring 的&quot;零拷贝&quot;不是魔法，而是<strong>巧妙的虚拟内存映射设计</strong>。</p>
 <h3 id="两个阶段"><a href="#两个阶段" class="headerlink" title="两个阶段"></a>两个阶段</h3><h4 id="阶段一：io-uring-setup-—-内核分配物理页"><a href="#阶段一：io-uring-setup-—-内核分配物理页" class="headerlink" title="阶段一：io_uring_setup() — 内核分配物理页"></a>阶段一：<code>io_uring_setup()</code> — 内核分配物理页</h4><p>内核分配物理页 P1, P2, P3，并在<strong>内核页表</strong>中建立映射。此时用户进程页表中没有任何映射，用户态无法访问这些物理页。</p>
 <h4 id="阶段二：mmap-三次-—-插入用户态映射"><a href="#阶段二：mmap-三次-—-插入用户态映射" class="headerlink" title="阶段二：mmap() 三次 — 插入用户态映射"></a>阶段二：<code>mmap()</code> 三次 — 插入用户态映射</h4><p>内核在用户进程的页表里插入新条目——把用户态的某段虚拟地址（比如 <code>0x7f000000</code>）也指向同一批物理页。</p>
 <p><img data-src="/images/io_uring-mmap-mechanism.jpg" alt="io_uring mmap 机制"></p>
@@ -342,7 +342,7 @@
 <p>内核程序读 SQ Ring：</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">tail = sqring-&gt;tail;  <span class="comment">// 虚拟地址 0xffff8000，CPU 翻译到同一个物理页 P1</span></span><br></pre></td></tr></table></figure>
 
-<p><strong>数据从未被复制</strong>，只是同一块物理内存有两个”门牌号”。</p>
+<p><strong>数据从未被复制</strong>，只是同一块物理内存有两个&quot;门牌号&quot;。</p>
 <h3 id="页表切换优化"><a href="#页表切换优化" class="headerlink" title="页表切换优化"></a>页表切换优化</h3><table>
 <thead>
 <tr>
@@ -551,13 +551,13 @@
 <li><strong>云原生基础设施</strong>：Service Mesh、API Gateway 等中间件受益</li>
 </ol>
 <p>正如 Bluesky 的案例所示，在极端场景下，<strong>运行时抽象会变成瓶颈</strong>。io_uring 提供了一种更底层的、更高效的 I&#x2F;O 模型，让我们能够突破这些瓶颈。</p>
-<p>对于追求极致性能的系统工程师来说，io_uring 不是”要不要学”的问题，而是”什么时候学”的问题。</p>
+<p>对于追求极致性能的系统工程师来说，io_uring 不是&quot;要不要学&quot;的问题，而是&quot;什么时候学&quot;的问题。</p>
 <hr>
 <h2 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a>参考资料</h2><ol>
-<li>Bluesky Engineering. “Scaling AppView to 192 Cores.” <a target="_blank" rel="noopener" href="https://jazco.dev/2024/01/10/golang-and-epoll/">https://jazco.dev/2024/01/10/golang-and-epoll/</a></li>
-<li>Jens Axboe. “io_uring: A New Linux Async I&#x2F;O Subsystem.” <a target="_blank" rel="noopener" href="https://kernel.dk/io_uring.pdf">https://kernel.dk/io_uring.pdf</a></li>
-<li>Shuveb Hussain. “Lord of the io_uring.” <a target="_blank" rel="noopener" href="https://unixism.net/loti/">https://unixism.net/loti/</a></li>
-<li>Linux Kernel Documentation. “io_uring.” <a target="_blank" rel="noopener" href="https://github.com/torvalds/linux/tree/master/Documentation/io_uring">https://github.com/torvalds/linux/tree/master/Documentation/io_uring</a></li>
+<li>Bluesky Engineering. &quot;Scaling AppView to 192 Cores.&quot; <a target="_blank" rel="noopener" href="https://jazco.dev/2024/01/10/golang-and-epoll/">https://jazco.dev/2024/01/10/golang-and-epoll/</a></li>
+<li>Jens Axboe. &quot;io_uring: A New Linux Async I&#x2F;O Subsystem.&quot; <a target="_blank" rel="noopener" href="https://kernel.dk/io_uring.pdf">https://kernel.dk/io_uring.pdf</a></li>
+<li>Shuveb Hussain. &quot;Lord of the io_uring.&quot; <a target="_blank" rel="noopener" href="https://unixism.net/loti/">https://unixism.net/loti/</a></li>
+<li>Linux Kernel Documentation. &quot;io_uring.&quot; <a target="_blank" rel="noopener" href="https://github.com/torvalds/linux/tree/master/Documentation/io_uring">https://github.com/torvalds/linux/tree/master/Documentation/io_uring</a></li>
 </ol>
 
     </div>

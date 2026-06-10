@@ -307,9 +307,12 @@
 <h4 id="V2-分布式版本"><a href="#V2-分布式版本" class="headerlink" title="V2 分布式版本"></a>V2 分布式版本</h4><p>V2 版本将扩展为分布式架构，形成一个全局的 KVCache 池。</p>
 <h4 id="Mooncake-的实现"><a href="#Mooncake-的实现" class="headerlink" title="Mooncake 的实现"></a>Mooncake 的实现</h4><p>Mooncake 的 KVCache Pool 完全基于显存的 P2P 传输，不涉及 offload 操作。它通过开源的 TransferEngine，将缓存节点上的 KVCache 调度到需要缓存的节点上。</p>
 <h4 id="AIBrix-的实现"><a href="#AIBrix-的实现" class="headerlink" title="AIBrix 的实现"></a>AIBrix 的实现</h4><p>AIBrix 提供了一个分布式 KVCache Pool，基于 <a target="_blank" rel="noopener" href="https://v6d.io/docs.html">Vineyard</a> 的分布式内存存储。通过 Vineyard 实现 KVCache 的共享，但与专门的传输引擎相比，其传输效率可能稍逊一筹。</p>
-<h2 id="NIXL"><a href="#NIXL" class="headerlink" title="NIXL"></a>NIXL</h2><p>NIXL 通过简化的同步和批处理以及简化的源和目标抽象简化了数据搬迁。<br>NIXL 能够在不同类型的内存和快速存储中抽象数据搬迁，而其他数据搬迁库通常只支持一层内存。<br>这些增强带来了显着的性能提升，加速了第一个词元的时间（TTFT）和整体吞吐量。</p>
+<h2 id="NIXL"><a href="#NIXL" class="headerlink" title="NIXL"></a>NIXL</h2><p>NIXL 通过简化的同步和批处理以及简化的源和目标抽象简化了数据搬迁。
+NIXL 能够在不同类型的内存和快速存储中抽象数据搬迁，而其他数据搬迁库通常只支持一层内存。
+这些增强带来了显着的性能提升，加速了第一个词元的时间（TTFT）和整体吞吐量。</p>
 <p>NIXL的地位应该是和Mooncake的TransferEngine相当的，至于两者谁的效果更好可能要具体看一下。</p>
-<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>看设计的话，感觉还是Mooncake更漂亮一点，层次分得较清楚，不额外依赖什么中间件，kvcache pool的这个设计虽然是纯P2P的，应该后面也可以去做offload之类的。<br>dynamo就显得更具有工程具体性，并且实现相对来说是要更简单一些，毕竟依赖了message queue又依赖了etcd，把一些复杂度转移给了中间件，入口从worker（or decode instance）可以自己直接prefill短prompt肯定也是做了很多tradeoff才给出了一个不完全分离的条件PD分离的实现。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>看设计的话，感觉还是Mooncake更漂亮一点，层次分得较清楚，不额外依赖什么中间件，kvcache pool的这个设计虽然是纯P2P的，应该后面也可以去做offload之类的。
+dynamo就显得更具有工程具体性，并且实现相对来说是要更简单一些，毕竟依赖了message queue又依赖了etcd，把一些复杂度转移给了中间件，入口从worker（or decode instance）可以自己直接prefill短prompt肯定也是做了很多tradeoff才给出了一个不完全分离的条件PD分离的实现。</p>
 
     </div>
 

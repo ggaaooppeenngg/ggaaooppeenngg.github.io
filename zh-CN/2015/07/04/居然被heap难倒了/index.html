@@ -21,12 +21,12 @@
 
 <script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
 
-    <meta name="description" content="之前一直小看了heap觉得这个数据结构比较简单,等串讲的时候发现其实并不是的,居然为了heap的插入删除争论了很久.这里特地记录一下,heap的性质是递归的父结点比子节点大，说白了就是一个优先队列.push,pop都只要分别做一次向上调整和向下调整. 但之前我的知识体系好像调整要有一次down再一次up.这是在真正调整的时候用的比如替换任意一个元素或者删除任意一个元素.替换很好理解就是引入一个元素">
+    <meta name="description" content="之前一直小看了heap觉得这个数据结构比较简单,等串讲的时候发现其实并不是的,居然为了heap的插入删除争论了很久. 这里特地记录一下,heap的性质是递归的父结点比子节点大，说白了就是一个优先队列. push,pop都只要分别做一次向上调整和向下调整. 但之前我的知识体系好像调整要有一次down再一次up. 这是在真正调整的时候用的比如替换任意一个元素或者删除任意一个元素. 替换很好理解就是引入">
 <meta property="og:type" content="article">
 <meta property="og:title" content="居然被heap难倒了">
 <meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2015/07/04/%E5%B1%85%E7%84%B6%E8%A2%ABheap%E9%9A%BE%E5%80%92%E4%BA%86/index.html">
 <meta property="og:site_name" content="ggaaooppeenngg">
-<meta property="og:description" content="之前一直小看了heap觉得这个数据结构比较简单,等串讲的时候发现其实并不是的,居然为了heap的插入删除争论了很久.这里特地记录一下,heap的性质是递归的父结点比子节点大，说白了就是一个优先队列.push,pop都只要分别做一次向上调整和向下调整. 但之前我的知识体系好像调整要有一次down再一次up.这是在真正调整的时候用的比如替换任意一个元素或者删除任意一个元素.替换很好理解就是引入一个元素">
+<meta property="og:description" content="之前一直小看了heap觉得这个数据结构比较简单,等串讲的时候发现其实并不是的,居然为了heap的插入删除争论了很久. 这里特地记录一下,heap的性质是递归的父结点比子节点大，说白了就是一个优先队列. push,pop都只要分别做一次向上调整和向下调整. 但之前我的知识体系好像调整要有一次down再一次up. 这是在真正调整的时候用的比如替换任意一个元素或者删除任意一个元素. 替换很好理解就是引入">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2015-07-04T11:46:57.000Z">
 <meta property="article:modified_time" content="2025-03-14T05:50:06.800Z">
@@ -256,8 +256,14 @@
     
     
     
-    <div class="post-body" itemprop="articleBody"><p>之前一直小看了heap觉得这个数据结构比较简单,等串讲的时候发现其实并不是的,居然为了heap的插入删除争论了很久.<br>这里特地记录一下,heap的性质是递归的父结点比子节点大，说白了就是一个优先队列.<br>push,pop都只要分别做一次向上调整和向下调整.</p>
-<p>但之前我的知识体系好像调整要有一次down再一次up.<br>这是在真正调整的时候用的比如替换任意一个元素或者删除任意一个元素.<br>替换很好理解就是引入一个元素可能很大也可能很小,要么向上要么向下.<br>而我卡住的地方是删除,老是觉得把最后一个结点换上来应该是不用向上调整只要向下的，<br>因为这个定义是递归的,但是不是的，虽然在删除处i下面的子树可以，但是如果最后一个结点不在i的子树下面,比如另外一个i的兄弟子树下面，整棵树都比i小的话（这里指最小堆），那么其实情况和替换是类似的，所以任意删除和替换才是会把down up两个函数都写入,但都是只执行一次.</p>
+    <div class="post-body" itemprop="articleBody"><p>之前一直小看了heap觉得这个数据结构比较简单,等串讲的时候发现其实并不是的,居然为了heap的插入删除争论了很久.
+这里特地记录一下,heap的性质是递归的父结点比子节点大，说白了就是一个优先队列.
+push,pop都只要分别做一次向上调整和向下调整.</p>
+<p>但之前我的知识体系好像调整要有一次down再一次up.
+这是在真正调整的时候用的比如替换任意一个元素或者删除任意一个元素.
+替换很好理解就是引入一个元素可能很大也可能很小,要么向上要么向下.
+而我卡住的地方是删除,老是觉得把最后一个结点换上来应该是不用向上调整只要向下的，
+因为这个定义是递归的,但是不是的，虽然在删除处i下面的子树可以，但是如果最后一个结点不在i的子树下面,比如另外一个i的兄弟子树下面，整棵树都比i小的话（这里指最小堆），那么其实情况和替换是类似的，所以任意删除和替换才是会把down up两个函数都写入,但都是只执行一次.</p>
 
     </div>
 

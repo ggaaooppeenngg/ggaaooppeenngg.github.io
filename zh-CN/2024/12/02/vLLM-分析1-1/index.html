@@ -258,7 +258,7 @@
 </li>
 <li><p><strong>pipeline_parallel_size</strong>: pipeline stages 数，如果用多个 GPU 可以用到，会根据这个将模型的前向计算的layers分成多个阶段，每个阶段在不同的 GPU 上计算。</p>
 <p>  可以参考下面这个例子：</p>
-<p>  假设我们有 8 个 GPU，分别表示为 g0 … g7，并且我们使用 2 个 GPU 来并行化模型张量，使用 4 个 GPU 来并行化模型流水线。当前函数将创建 4 个张量模型并行组和 2 个流水线模型并行组：</p>
+<p>  假设我们有 8 个 GPU，分别表示为 g0 ... g7，并且我们使用 2 个 GPU 来并行化模型张量，使用 4 个 GPU 来并行化模型流水线。当前函数将创建 4 个张量模型并行组和 2 个流水线模型并行组：</p>
 <p>  4 个张量模型并行组：</p>
 <ul>
 <li>[g0, g1]</li>
@@ -312,7 +312,8 @@
 <ul>
 <li><code>resolve_chat_template_content_format</code>：检查对话模板格式，因为每种大模型的用于生成文本的训练数据的格式有所不同，要确认对应的格式，LLAMA 有 LLAMA 的格式，可以参考下面的例子。</li>
 <li><code>parse_chat_messages_futures</code>：解析输入的聊天消息，生成一个对话消息列表，变成有类型的对话消息。其中 <code>mm_tracker</code> 要处理 <code>image_url</code> 和 <code>audio_url</code> 的消息，会根据构造 <code>placeholder</code>，<code>placeholder</code> 是一个特殊的字符串，用来标记这个位置是一个占位符。<code>llama3.2</code> 用的是 <code>&lt;|image|&gt;</code>。</li>
-<li><code>apply_&#123;hf,mistral&#125;_chat_template</code>：模板会给提示词添加提示词的开头和结束的标志，从而和实际训练的数据标注对齐，比如 <code>llama3</code> 用 <code>&lt;|eot_id|&gt;</code> 标记结束，<code>padding</code> 等。<code>request_prompt</code> 和 <code>engine_prompt</code> 包含 <code>token ids</code> 和多模态数据。<br> 例如：</li>
+<li><code>apply_&#123;hf,mistral&#125;_chat_template</code>：模板会给提示词添加提示词的开头和结束的标志，从而和实际训练的数据标注对齐，比如 <code>llama3</code> 用 <code>&lt;|eot_id|&gt;</code> 标记结束，<code>padding</code> 等。<code>request_prompt</code> 和 <code>engine_prompt</code> 包含 <code>token ids</code> 和多模态数据。
+ 例如：</li>
 </ul>
  <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">chat = [</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="string">&quot;role&quot;</span>: <span class="string">&quot;user&quot;</span>,</span><br><span class="line">        <span class="string">&quot;content&quot;</span>: [</span><br><span class="line">            &#123;<span class="string">&quot;type&quot;</span>: <span class="string">&quot;image&quot;</span>&#125;,</span><br><span class="line">            &#123;<span class="string">&quot;type&quot;</span>: <span class="string">&quot;text&quot;</span>, <span class="string">&quot;text&quot;</span>: <span class="string">&quot;If I had to write a haiku for this one, it would be: &quot;</span>&#125;</span><br><span class="line">        ]</span><br><span class="line">    &#125;</span><br><span class="line">]</span><br></pre></td></tr></table></figure>
 

@@ -280,7 +280,8 @@
 
 
 <blockquote>
-<p>When TP&#x3D;n &amp; PP&#x3D;m, vLLM engine will have n*m + 1 processes in total.<br>Corollary: even when using a single GPU, we will have 2 processes.</p>
+<p>When TP&#x3D;n &amp; PP&#x3D;m, vLLM engine will have n*m + 1 processes in total.
+Corollary: even when using a single GPU, we will have 2 processes.</p>
 </blockquote>
 <h2 id="EngineCore"><a href="#EngineCore" class="headerlink" title="EngineCore"></a>EngineCore</h2><p>EngineCore主要是完成 schedule、execute 和 output 的循环。</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">step</span>(<span class="params">self</span>) -&gt; <span class="type">List</span>[EngineCoreOutput]:</span><br><span class="line">    <span class="string">&quot;&quot;&quot;Schedule, execute, and make output.&quot;&quot;&quot;</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> <span class="keyword">not</span> <span class="variable language_">self</span>.scheduler.has_unfinished_requests():</span><br><span class="line">        <span class="keyword">return</span> []</span><br><span class="line"></span><br><span class="line">    scheduler_output = <span class="variable language_">self</span>.scheduler.schedule()</span><br><span class="line">    output = <span class="variable language_">self</span>.model_executor.execute_model(scheduler_output)</span><br><span class="line">    engine_core_outputs = <span class="variable language_">self</span>.scheduler.update_from_output(</span><br><span class="line">        scheduler_output, output)</span><br><span class="line">    <span class="keyword">return</span> engine_core_outputs</span><br></pre></td></tr></table></figure>
@@ -370,17 +371,21 @@
 </ul>
 <p>这些字段共同描述了调度器在一个调度周期内的所有操作和状态变化。</p>
 <h2 id="KVCacheManager"><a href="#KVCacheManager" class="headerlink" title="KVCacheManager"></a>KVCacheManager</h2><p>来自<code>v1/core/kv_cache_manager.py</code>，这是v1版本的实现。</p>
-<p>kv cache比较简单，<br>这个<a target="_blank" rel="noopener" href="https://medium.com/my-musings-with-llms/understanding-kv-cache-and-paged-attention-in-llms-a-deep-dive-into-efficient-inference-62fa372432ce">博客</a>中的图片很好地阐述了kvcache的作用。</p>
+<p>kv cache比较简单，
+这个<a target="_blank" rel="noopener" href="https://medium.com/my-musings-with-llms/understanding-kv-cache-and-paged-attention-in-llms-a-deep-dive-into-efficient-inference-62fa372432ce">博客</a>中的图片很好地阐述了kvcache的作用。</p>
 <img data-src="/zh-CN/2024/12/10/vLLM-%E5%88%86%E6%9E%902-%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E/kvcache.gif" class="" title="KV Cache">
 
 <p>但涉及PagedAttention的实现，就需要管理block。这类似于操作系统中的虚拟地址、页表和物理页的关系。</p>
-<p>PagedAttention的主要思想是基于操作系统中分页（paging）的经典概念。传统的注意力算法通常要求keys和values在内存空间中连续存储，<br>而PagedAttention则允许在非连续的内存空间中存储keys和values。</p>
-<p>PagedAttention将每个序列（sequence）的KV缓存（KV cache）分成固定大小的块（block）。<br>每个块包含一个固定数量的token的key和value向量。这意味着，即使keys和values不连续存储，也可以有效地访问和操作它们。</p>
+<p>PagedAttention的主要思想是基于操作系统中分页（paging）的经典概念。传统的注意力算法通常要求keys和values在内存空间中连续存储，
+而PagedAttention则允许在非连续的内存空间中存储keys和values。</p>
+<p>PagedAttention将每个序列（sequence）的KV缓存（KV cache）分成固定大小的块（block）。
+每个块包含一个固定数量的token的key和value向量。这意味着，即使keys和values不连续存储，也可以有效地访问和操作它们。</p>
 <p>block的管理会有一个类似于页表的结构，用于映射block的逻辑地址到物理地址。</p>
 <img data-src="/zh-CN/2024/12/10/vLLM-%E5%88%86%E6%9E%902-%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E/block_table.png" class="">
 
 <p>论文中的这个图很好的表示了他们的关系，如果新生成的token填满了当前block就会分配一个新的block用于新token的生成。</p>
-<p>共享的prefix cache指的是提示词的前缀一样的情况，他们的位置编码也不变的情况下可以在不同的sequence之间共享。<br>例如对于一个英语到法语翻译的提示词，前面有很多事可以共享的，对于跨请求的kv cache来说可以基于这个前缀来共享kv cache的block。</p>
+<p>共享的prefix cache指的是提示词的前缀一样的情况，他们的位置编码也不变的情况下可以在不同的sequence之间共享。
+例如对于一个英语到法语翻译的提示词，前面有很多事可以共享的，对于跨请求的kv cache来说可以基于这个前缀来共享kv cache的block。</p>
 <table>
 <thead>
 <tr>
@@ -395,18 +400,18 @@
 <tbody><tr>
 <td><strong>Sequence A</strong></td>
 <td>Translate English to French: <br> “sea otter” &#x3D;&gt; “loutre de mer” <br> “peppermint” &#x3D;&gt; “menthe poivrée” <br> “plush giraffe” &#x3D;&gt; “girafe en peluche”</td>
-<td>“cheese” &#x3D;&gt;</td>
-<td>Translate English to French: <br> “sea otter” &#x3D;&gt; “loutre de mer” <br> “peppermint” &#x3D;&gt; “menthe poivrée” <br> “plush giraffe” &#x3D;&gt; “girafe en peluche” <br> “cheese” &#x3D;&gt;</td>
+<td>&quot;cheese&quot; &#x3D;&gt;</td>
+<td>Translate English to French: <br> “sea otter” &#x3D;&gt; “loutre de mer” <br> “peppermint” &#x3D;&gt; “menthe poivrée” <br> “plush giraffe” &#x3D;&gt; “girafe en peluche” <br> &quot;cheese&quot; &#x3D;&gt;</td>
 <td>fromage</td>
 <td>fromage</td>
 </tr>
 <tr>
 <td><strong>Sequence B</strong></td>
 <td>Translate English to French: <br> “sea otter” &#x3D;&gt; “loutre de mer” <br> “peppermint” &#x3D;&gt; “menthe poivrée” <br> “plush giraffe” &#x3D;&gt; “girafe en peluche”</td>
-<td>“I love you” &#x3D;&gt;</td>
-<td>Translate English to French: <br> “sea otter” &#x3D;&gt; “loutre de mer” <br> “peppermint” &#x3D;&gt; “menthe poivrée” <br> “plush giraffe” &#x3D;&gt; “girafe en peluche” <br> “I love you” &#x3D;&gt;</td>
-<td>Je t’aime</td>
-<td>Je t’aime</td>
+<td>&quot;I love you&quot; &#x3D;&gt;</td>
+<td>Translate English to French: <br> “sea otter” &#x3D;&gt; “loutre de mer” <br> “peppermint” &#x3D;&gt; “menthe poivrée” <br> “plush giraffe” &#x3D;&gt; “girafe en peluche” <br> &quot;I love you&quot; &#x3D;&gt;</td>
+<td>Je t&#39;aime</td>
+<td>Je t&#39;aime</td>
 </tr>
 </tbody></table>
 <p><code>free_block_queue</code>是一个链表，用于分配block，初始化时将<code>block_pool</code>中的所有blocks串起来。它通过链表实现对<code>KVCacheBlock</code>的管理，删除操作是O(1)的，没有使用标准库中的dequeue。</p>
@@ -417,7 +422,8 @@
 <p><code>cached_block_hash_to_block</code> 保存的数据结构是 <code>&#123;block_hash: &#123;block ID: block&#125;&#125;</code></p>
 <p><code>req_to_blocks</code> 保存了 request到 block列表的映射关系，<code>&#123;request ID: [block ID]&#125;</code></p>
 <p>block的eviction的定义，<code>eviction candidate == in free queue and ref_cnt == 0</code>。</p>
-<h3 id="get-computed-blocks方法"><a href="#get-computed-blocks方法" class="headerlink" title="get_computed_blocks方法"></a><code>get_computed_blocks</code>方法</h3><p>根据request获取已经计算过（缓存过）的block，获取kv cache blocks的方式是通过block hash 从<code>cached_block_hash_to_block</code>寻找的。<br>hash的计算是之前的block hash加上当前token ids做一次hash，第一个block则没有父block只用当前自己的token ids做hash。</p>
+<h3 id="get-computed-blocks方法"><a href="#get-computed-blocks方法" class="headerlink" title="get_computed_blocks方法"></a><code>get_computed_blocks</code>方法</h3><p>根据request获取已经计算过（缓存过）的block，获取kv cache blocks的方式是通过block hash 从<code>cached_block_hash_to_block</code>寻找的。
+hash的计算是之前的block hash加上当前token ids做一次hash，第一个block则没有父block只用当前自己的token ids做hash。</p>
 <h3 id="append-slots方法"><a href="#append-slots方法" class="headerlink" title="append_slots方法"></a><code>append_slots</code>方法</h3><p>会为需要新计算的token ids分配block（如果现有的block不够的话）。</p>
 <h2 id="Worker"><a href="#Worker" class="headerlink" title="Worker"></a>Worker</h2><h3 id="GPUModelRunner"><a href="#GPUModelRunner" class="headerlink" title="GPUModelRunner"></a>GPUModelRunner</h3><p><code>v1/worker</code>中的<code>gpu_runner.py</code>v1版本的实现。</p>
 <p>首先依赖一个大的config参数<code>vllm_config</code>，包含了<code>model_config</code>，<code>cache_config</code>，<code>scheduler_config</code>，<code>device_config</code>等。</p>
@@ -444,16 +450,20 @@
 <h4 id="update-states方法"><a href="#update-states方法" class="headerlink" title="_update_states方法"></a><code>_update_states</code>方法</h4><p>在每次运行一个 batch 时，会根据调度器（scheduler）的要求调整每个 batch 中请求的优先级。调度器会更新请求的状态缓存 <code>id -&gt; CachedRequestState</code> 和 <code>input_batch</code> 的缓存，移除被抢占和停止的请求，并将新加入的请求放入 batch 中。因此，runner 只负责执行，具体的策略由调度器决定。</p>
 <p><code>CachedRequestState</code> 记录了请求 ID、使用的缓存块 ID 以及已计算的 token 数量。</p>
 <h4 id="excute-encoder方法"><a href="#excute-encoder方法" class="headerlink" title="_excute_encoder方法"></a><code>_excute_encoder</code>方法</h4><p>执行多模态中的encoder，对于新的多模态的encode，调用<code>model.process_mm_inputs</code>存入到encoder_cache当中。</p>
-<p><code>self.model.compute_logits</code>使用<br><code>vllm/model_executor/layers/logits_processor.py</code>中的<code>LogitsProcessor</code>，从<code>hidden_states</code>计算<code>logits</code>。</p>
+<p><code>self.model.compute_logits</code>使用
+<code>vllm/model_executor/layers/logits_processor.py</code>中的<code>LogitsProcessor</code>，从<code>hidden_states</code>计算<code>logits</code>。</p>
 <p><code>self.model.sample</code>使用<code>vllm/model_executor/layers/sampler.py</code>中的sampler进行sample。</p>
 <p>最终得到<code>sampled_token_ids = sampler_output.sampled_token_ids</code>。</p>
 <h4 id="gather-encoder-outputs-方法"><a href="#gather-encoder-outputs-方法" class="headerlink" title="_gather_encoder_outputs 方法"></a><code>_gather_encoder_outputs</code> 方法</h4><p>从<code>encoder_cache</code>中获取当前batch需要用到的encoder的输出。</p>
-<h4 id="prepare-inputs方法"><a href="#prepare-inputs方法" class="headerlink" title="_prepare_inputs方法"></a><code>_prepare_inputs</code>方法</h4><p><code>input_batch.block_table</code> 在 GPU 上，而 <code>input_batch.block_table_cpu_tensor</code> 在 CPU 上。<br>前面提到 batch 的整理是在 CPU 上进行的，这里是将要推理的部分拷贝到 GPU 上的 <code>block_table</code> 中。由于使用了 PagedAttention，因此所有的序列都是按 block 为粒度进行切分的。</p>
+<h4 id="prepare-inputs方法"><a href="#prepare-inputs方法" class="headerlink" title="_prepare_inputs方法"></a><code>_prepare_inputs</code>方法</h4><p><code>input_batch.block_table</code> 在 GPU 上，而 <code>input_batch.block_table_cpu_tensor</code> 在 CPU 上。
+前面提到 batch 的整理是在 CPU 上进行的，这里是将要推理的部分拷贝到 GPU 上的 <code>block_table</code> 中。由于使用了 PagedAttention，因此所有的序列都是按 block 为粒度进行切分的。</p>
 <p>获取<code>input_ids</code>，构造出传给FlashAttention的数据，例如<code>block_table</code>，和<code>query_start_loc</code>和<code>seq_start_loc</code>用于定位query和seq的位置。</p>
 <p>input_ids, attn_metadata, logits_indices</p>
 <h4 id="prepare-sampling方法"><a href="#prepare-sampling方法" class="headerlink" title="_prepare_sampling方法"></a><code>_prepare_sampling</code>方法</h4><p>构造出sampling的参数，获取每个request的<code>temperature</code>，<code>top_k</code>，<code>top_p</code>等参数。</p>
-<h3 id="GPUWorker"><a href="#GPUWorker" class="headerlink" title="GPUWorker"></a>GPUWorker</h3><p><code>v1/worker</code>中的<code>gpu_worker.py</code>v1版本的实现。<br>初始化GPUModelRunner，如果开始了<code>VLLM_TORCH_PROFILER_DIR</code>就会调用<code>torch.profiler.profile</code>。</p>
-<p><code>determine_num_available_blocks</code>会通过profile的方式决定可以使用的block数量。<br>然后根据block数量调用Runner的<code>initialize_kv_cache</code>。</p>
+<h3 id="GPUWorker"><a href="#GPUWorker" class="headerlink" title="GPUWorker"></a>GPUWorker</h3><p><code>v1/worker</code>中的<code>gpu_worker.py</code>v1版本的实现。
+初始化GPUModelRunner，如果开始了<code>VLLM_TORCH_PROFILER_DIR</code>就会调用<code>torch.profiler.profile</code>。</p>
+<p><code>determine_num_available_blocks</code>会通过profile的方式决定可以使用的block数量。
+然后根据block数量调用Runner的<code>initialize_kv_cache</code>。</p>
 <p>做一些GPU的dtype支持检查，比如一些老的GPU是不支持bf16的。</p>
 <p>FlashAttentionMetadata 包含了input的结构和对应的block table的映射。</p>
 

@@ -262,13 +262,17 @@
 <p>为了能够测试不同数据集的前缀重复度，需要一种方法衡量对话的前缀重复度，如果前缀的重复度不高，可能测试结果不太能体现前缀缓存的优势。</p>
 <p>对于所有的对话构造一个Radix树，每个树节点保存一个计数器记录经过该节点的字符串的数量。</p>
 <p>计数重复前缀的数量，比如<code>W</code>这个前缀是比较多的因为很多英文问句都是Wh-开头的，而中文的话是比较随机的。</p>
-<p>对于每个节点，在进行计数器过滤的时候，要一直遍历到某个节点的子节点都小于计数器N才结束，这样防止过滤出多个公共前缀的前缀，<br>因为较短的前缀肯定是被较长的前缀包含的。相当于对这棵树做剪枝，删除所有计数器小于过滤值的节点。</p>
+<p>对于每个节点，在进行计数器过滤的时候，要一直遍历到某个节点的子节点都小于计数器N才结束，这样防止过滤出多个公共前缀的前缀，
+因为较短的前缀肯定是被较长的前缀包含的。相当于对这棵树做剪枝，删除所有计数器小于过滤值的节点。</p>
 <p>再从满足要求的所有被剪枝完的叶子结点中选择长度大于L的前缀。</p>
 <p><code>对话数据集的前缀重复度 = 基于N剪枝的所有长度大于L的叶子前缀节点数 / 所有对话数量</code></p>
 <p><strong>压力测试数据集</strong></p>
 <ul>
-<li><a target="_blank" rel="noopener" href="https://huggingface.co/datasets/databricks/databricks-dolly-15k">databricks-dolly-15k</a> 这个数据集的前缀重复度不高。<br>只有两个前缀长度超过00，重复次数大于1，因为里面都是单轮的对话。<br>(‘Extract all of the dates mentioned in this paragraph and list them using bullets in the format {Date} - {Description}’, 11) (‘Extract all of the names of people mentioned in this paragraph and list them using bullets in the format {Name}’, 15)</li>
-<li><a target="_blank" rel="noopener" href="https://huggingface.co/datasets/lmsys/lmsys-chat-1m">LMSYS-CHAT-1M</a><br>一个parquet有16W个对话。前缀重复比较高的是30~40次。这样的对话有9483条，也就占总数的5%，重复前缀的平均长度只有300左右。</li>
+<li><a target="_blank" rel="noopener" href="https://huggingface.co/datasets/databricks/databricks-dolly-15k">databricks-dolly-15k</a> 这个数据集的前缀重复度不高。
+只有两个前缀长度超过00，重复次数大于1，因为里面都是单轮的对话。
+(&#39;Extract all of the dates mentioned in this paragraph and list them using bullets in the format {Date} - {Description}&#39;, 11) (&#39;Extract all of the names of people mentioned in this paragraph and list them using bullets in the format {Name}&#39;, 15)</li>
+<li><a target="_blank" rel="noopener" href="https://huggingface.co/datasets/lmsys/lmsys-chat-1m">LMSYS-CHAT-1M</a>
+一个parquet有16W个对话。前缀重复比较高的是30~40次。这样的对话有9483条，也就占总数的5%，重复前缀的平均长度只有300左右。</li>
 <li><a target="_blank" rel="noopener" href="https://huggingface.co/datasets/anon8231489123/ShareGPT_Vicuna_unfiltered">ShareGPT</a>这是vLLM官方使用的一个压测数据集。压测脚本在<a target="_blank" rel="noopener" href="https://github.com/vllm-project/vllm/tree/main/benchmarks">这</a>。这个的比重也只有2%，重复前缀的平均长度是4K。</li>
 </ul>
 <p>以上数据集可能对于前缀缓存的优势体现不太明显。</p>
@@ -294,11 +298,18 @@
 </li>
 </ul>
 <p><strong>构造数据集</strong></p>
-<p>用实际的数据集结果不是特别好，差异度不是很高，因为这些数据集的前缀重复度比重都不是很高。<br>没有特别好的现成的数据集，需要使用人工构造的方式去构造数据集。</p>
-<p>sglang 的benchmark提供了 generated-shared-prefix dataset arguments相关的参数。<br>他是通过随机生成一个系统提示词再组合问题，但是Prompt是随机的。语言不是很明朗。但可能并不<br>影响测试效果。</p>
-<p>比较理想的应该是认为构造一些长度的系统提示词加一些问题进行组合，这个可读性会更高一点，但是没那么灵活<br>不太好按要求生成指定上下文长度的提示词。</p>
-<h2 id="测试结果"><a href="#测试结果" class="headerlink" title="测试结果"></a>测试结果</h2><p>结果来看，在batch size更大的情况下，TTFT会变得特别长，而TBT也会相应的增加一些但没有TTFT恐怖。<br>batch size变大以后，TTFT从300s变成了900s，而ITL则从0.2s变成了0.3s。<br>这和MoonCacke的论文是一致的。</p>
-<p>测试一下PD分离的效果，使用vLLM的1P1D。<br>PD分离以后TTFT可以降低一个数量级，这个效果还是很明显的，直接降了一个数量级。</p>
+<p>用实际的数据集结果不是特别好，差异度不是很高，因为这些数据集的前缀重复度比重都不是很高。
+没有特别好的现成的数据集，需要使用人工构造的方式去构造数据集。</p>
+<p>sglang 的benchmark提供了 generated-shared-prefix dataset arguments相关的参数。
+他是通过随机生成一个系统提示词再组合问题，但是Prompt是随机的。语言不是很明朗。但可能并不
+影响测试效果。</p>
+<p>比较理想的应该是认为构造一些长度的系统提示词加一些问题进行组合，这个可读性会更高一点，但是没那么灵活
+不太好按要求生成指定上下文长度的提示词。</p>
+<h2 id="测试结果"><a href="#测试结果" class="headerlink" title="测试结果"></a>测试结果</h2><p>结果来看，在batch size更大的情况下，TTFT会变得特别长，而TBT也会相应的增加一些但没有TTFT恐怖。
+batch size变大以后，TTFT从300s变成了900s，而ITL则从0.2s变成了0.3s。
+这和MoonCacke的论文是一致的。</p>
+<p>测试一下PD分离的效果，使用vLLM的1P1D。
+PD分离以后TTFT可以降低一个数量级，这个效果还是很明显的，直接降了一个数量级。</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line">============ Serving Benchmark Result ============</span><br><span class="line">Backend:                                 vllm</span><br><span class="line">Traffic request rate:                    inf</span><br><span class="line">Max reqeuest concurrency:                not set</span><br><span class="line">Successful requests:                     47</span><br><span class="line">Benchmark duration (s):                  127.03</span><br><span class="line">Total input tokens:                      14545</span><br><span class="line">Total generated tokens:                  2993</span><br><span class="line">Total generated tokens (retokenized):    2992</span><br><span class="line">Request throughput (req/s):              0.37</span><br><span class="line">Input token throughput (tok/s):          114.50</span><br><span class="line">Output token throughput (tok/s):         23.56</span><br><span class="line">Total token throughput (tok/s):          138.06</span><br><span class="line">Concurrency:                             24.49</span><br><span class="line">----------------End-to-End Latency----------------</span><br><span class="line">Mean E2E Latency (ms):                   66177.90</span><br><span class="line">Median E2E Latency (ms):                 61336.75</span><br><span class="line">---------------Time to First Token----------------</span><br><span class="line">Mean TTFT (ms):                          39888.70</span><br><span class="line">Median TTFT (ms):                        22421.85</span><br><span class="line">P99 TTFT (ms):                           116090.20</span><br><span class="line">-----Time per Output Token (excl. 1st token)------</span><br><span class="line">Mean TPOT (ms):                          491.86</span><br><span class="line">Median TPOT (ms):                        394.97</span><br><span class="line">P99 TPOT (ms):                           1917.39</span><br><span class="line">---------------Inter-token Latency----------------</span><br><span class="line">Mean ITL (ms):                           419.69</span><br><span class="line">Median ITL (ms):                         275.52</span><br><span class="line">P99 ITL (ms):                            1766.40</span><br><span class="line">==================================================</span><br></pre></td></tr></table></figure>
 <p>双v100 LLAMA3.2:11b</p>
 <p><code>python -m sglang_router.launch_router --worker-urls http://127.0.0.1:8081 http://127.0.0.1:8082</code></p>
@@ -315,7 +326,9 @@
 <img data-src="/zh-CN/2025/04/04/LLM-Inference-Benchmark/kv_group_1.png" class="">
 
 
-<p>从测试结果可以看出来单机多卡的PD分离能够降低TBT（TPOT），一个TP的decode就已经超过8TP的decode了，这里主要是因为没有了prefill的干扰。<br>但是TTFT相对变大了，这个可能是TTFT多了一次传输的时间，具体原因不知道是不是我的实现方式不对，还是因为4TP的prefill就是要慢一些。<br>这个可能需要一个更综合性的tuning。</p>
+<p>从测试结果可以看出来单机多卡的PD分离能够降低TBT（TPOT），一个TP的decode就已经超过8TP的decode了，这里主要是因为没有了prefill的干扰。
+但是TTFT相对变大了，这个可能是TTFT多了一次传输的时间，具体原因不知道是不是我的实现方式不对，还是因为4TP的prefill就是要慢一些。
+这个可能需要一个更综合性的tuning。</p>
 <p>4P4D(4TP+4TP) V0调度器</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line">============ Serving Benchmark Result ============    </span><br><span class="line">Backend:                                 vllm        </span><br><span class="line">Traffic request rate:                    inf         </span><br><span class="line">Max reqeuest concurrency:                not set     </span><br><span class="line">Successful requests:                     100         </span><br><span class="line">Benchmark duration (s):                  37.95       </span><br><span class="line">Total input tokens:                      34965       </span><br><span class="line">Total generated tokens:                  20654       </span><br><span class="line">Total generated tokens (retokenized):    20654       </span><br><span class="line">Request throughput (req/s):              2.64        </span><br><span class="line">Input token throughput (tok/s):          921.42      </span><br><span class="line">Output token throughput (tok/s):         544.29      </span><br><span class="line">Total token throughput (tok/s):          1465.71     </span><br><span class="line">Concurrency:                             46.49       </span><br><span class="line">----------------End-to-End Latency----------------    </span><br><span class="line">Mean E2E Latency (ms):                   17642.84    </span><br><span class="line">Median E2E Latency (ms):                 14298.02    </span><br><span class="line">---------------Time to First Token----------------    </span><br><span class="line">Mean TTFT (ms):                          8147.33     </span><br><span class="line">Median TTFT (ms):                        8393.70     </span><br><span class="line">P99 TTFT (ms):                           8834.48     </span><br><span class="line">-----Time per Output Token (excl. 1st token)------    </span><br><span class="line">Mean TPOT (ms):                          58.38       </span><br><span class="line">Median TPOT (ms):                        50.79       </span><br><span class="line">P99 TPOT (ms):                           162.16      </span><br><span class="line">---------------Inter-token Latency----------------    </span><br><span class="line">Mean ITL (ms):                           46.27       </span><br><span class="line">Median ITL (ms):                         42.21       </span><br><span class="line">P99 ITL (ms):                            56.21       </span><br><span class="line">==================================================   </span><br></pre></td></tr></table></figure>
 <p>8TP V0调度器</p>

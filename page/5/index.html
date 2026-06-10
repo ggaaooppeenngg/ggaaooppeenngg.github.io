@@ -241,14 +241,21 @@
     
     
     <div class="post-body" itemprop="articleBody">
-          <p>WASM 作为一种通用字节码可以让很多语言编译成 WASM 跑在沙箱VM环境当中：跑在浏览器的 V8 引擎上，让别的语言可以写前端、<br>构建成 Istio 的代理 Envoy 的 WASM 插件形成一些过滤器或者日志插件（有点像内核的 eBPF）、作为各种语言的浇水层（让Rust调用Go编译出的WASM）。</p>
+          <p>WASM 作为一种通用字节码可以让很多语言编译成 WASM 跑在沙箱VM环境当中：跑在浏览器的 V8 引擎上，让别的语言可以写前端、
+构建成 Istio 的代理 Envoy 的 WASM 插件形成一些过滤器或者日志插件（有点像内核的 eBPF）、作为各种语言的浇水层（让Rust调用Go编译出的WASM）。</p>
 <blockquote>
-<p>The major problem is that, whilst the Go compiler supports WebAssembly, it does not support WASI (WebAssembly System Interface). It generates an ABI that is deeply tied to JavaScript, and one needs to use the wasm_exec.js file provided by the Go toolchain, which doesn’t work outside a JavaScript host.</p>
+<p>The major problem is that, whilst the Go compiler supports WebAssembly, it does not support WASI (WebAssembly System Interface). It generates an ABI that is deeply tied to JavaScript, and one needs to use the wasm_exec.js file provided by the Go toolchain, which doesn&#39;t work outside a JavaScript host.</p>
 </blockquote>
-<p>Go 的 WASM 目前没有支持 WASI，类似于没有 native 的系统调用，所以很多文件、网络的请求不能通过系统执行，目前只能跑在浏览器通过浏览器的接口执行。<br><a target="_blank" rel="noopener" href="https://github.com/tinygo-org/tinygo">TinyGo</a> 是一个支持比较好的 WASM 的 Go 的运行时，有些需要WASI的项目就需要TinyGo来构建。</p>
-<h2 id="调度"><a href="#调度" class="headerlink" title="调度"></a>调度</h2><p>WASM 是一个单线程的环境，js 是一个基于事件的模型，对于 goroutine 的调度是如何进行的，本着这个好奇研究了一下 Go 本身的 WASM 运行时。比如下面这段代码就明确了 Go 的 WASM 没有多线程也就没有跑 sysmon。<br>没有sysmon就相当于sysmon的forcegc触发gc的部分也没有，只能靠主动GC和内存分配的时候触发超过阈值开始gc。</p>
+<p>Go 的 WASM 目前没有支持 WASI，类似于没有 native 的系统调用，所以很多文件、网络的请求不能通过系统执行，目前只能跑在浏览器通过浏览器的接口执行。
+<a target="_blank" rel="noopener" href="https://github.com/tinygo-org/tinygo">TinyGo</a> 是一个支持比较好的 WASM 的 Go 的运行时，有些需要WASI的项目就需要TinyGo来构建。</p>
+<h2 id="调度"><a href="#调度" class="headerlink" title="调度"></a>调度</h2><p>WASM 是一个单线程的环境，js 是一个基于事件的模型，对于 goroutine 的调度是如何进行的，本着这个好奇研究了一下 Go 本身的 WASM 运行时。比如下面这段代码就明确了 Go 的 WASM 没有多线程也就没有跑 sysmon。
+没有sysmon就相当于sysmon的forcegc触发gc的部分也没有，只能靠主动GC和内存分配的时候触发超过阈值开始gc。</p>
 <figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> GOARCH != <span class="string">&quot;wasm&quot;</span> &#123; <span class="comment">// no threads on wasm yet, so no sysmon</span></span><br><span class="line">        <span class="comment">// For runtime_syscall_doAllThreadsSyscall, we</span></span><br><span class="line">        <span class="comment">// register sysmon is not ready for the world to be</span></span><br><span class="line">        <span class="comment">// stopped.</span></span><br><span class="line">        atomic.Store(&amp;sched.sysmonStarting, <span class="number">1</span>)</span><br><span class="line">        systemstack(<span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;</span><br><span class="line">                newm(sysmon, <span class="literal">nil</span>, <span class="number">-1</span>)</span><br><span class="line">        &#125;)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<p>在这里回忆一下 GMP 的关系。P的数量由启动时环境变量 $GOMAXPROCS 或者是由 runtime 的方法 GOMAXPROCS() 决定。这意味着在程序执行的任意时刻都只有 $GOMAXPROCS 个 goroutine 在同时运行。<br>M的数量可以通过 runtime&#x2F;debug 中的 SetMaxThreads 函数，设置 M 的最大数量一个 M 阻塞了，会创建新的 M。<br>M 与 P 的数量没有绝对关系，一个 M 阻塞，P 就会去创建或者切换另一个 M，所以，即使 P 的默认数量是 1，也有可能会创建很多个 M 出来。<br>在确定了 P 的最大数量 n 后，运行时系统会根据这个数量创建 n 个 P。<br>没有足够的 M 来关联 P 并运行其中的可运行的 G。比如所有的 M 此时都阻塞住了，而 P 中还有很多就绪任务，就会去寻找空闲的 M，而没有空闲的，就会去创建新的 M。</p>
+<p>在这里回忆一下 GMP 的关系。P的数量由启动时环境变量 $GOMAXPROCS 或者是由 runtime 的方法 GOMAXPROCS() 决定。这意味着在程序执行的任意时刻都只有 $GOMAXPROCS 个 goroutine 在同时运行。
+M的数量可以通过 runtime&#x2F;debug 中的 SetMaxThreads 函数，设置 M 的最大数量一个 M 阻塞了，会创建新的 M。
+M 与 P 的数量没有绝对关系，一个 M 阻塞，P 就会去创建或者切换另一个 M，所以，即使 P 的默认数量是 1，也有可能会创建很多个 M 出来。
+在确定了 P 的最大数量 n 后，运行时系统会根据这个数量创建 n 个 P。
+没有足够的 M 来关联 P 并运行其中的可运行的 G。比如所有的 M 此时都阻塞住了，而 P 中还有很多就绪任务，就会去寻找空闲的 M，而没有空闲的，就会去创建新的 M。</p>
 <p>这个关系在对应的代码里面也有体现，在 osinit 的时候会强制将 P 设置为1，newosproc 也是空的，无法启动新进程。</p>
 <figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">osinit</span><span class="params">()</span></span> &#123;</span><br><span class="line">        ncpu = <span class="number">1</span></span><br><span class="line">        getg().m.procid = <span class="number">2</span></span><br><span class="line">        physPageSize = <span class="number">64</span> * <span class="number">1024</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 <p>没有 sysmon 也就没有异步抢占，只能靠 goroutine 之间的协作式抢占来切换 goroutine。</p>
@@ -258,7 +265,8 @@
 <p>等于是在 wasm 中在找不到 G 的时候会启动一个 pause goroutine 占住当前的 P。</p>
 <p>Lock_js 有 handle event 的逻辑。</p>
 <h2 id="内存分配"><a href="#内存分配" class="headerlink" title="内存分配"></a>内存分配</h2><p>通过 WASM 的内存分配接口代替 linux 里面的 mmap 接管过来做内存分配。</p>
-<h2 id="系统调用"><a href="#系统调用" class="headerlink" title="系统调用"></a>系统调用</h2><p>系统调用是使用 js 实现的，而且也不是像 linux 那种完整一套系统调用这个可能需要 WASI 的支持。<br>没有系统调用 M 也不会阻塞，等于是一个完全的单 P 单 M 多 G 的模型。</p>
+<h2 id="系统调用"><a href="#系统调用" class="headerlink" title="系统调用"></a>系统调用</h2><p>系统调用是使用 js 实现的，而且也不是像 linux 那种完整一套系统调用这个可能需要 WASI 的支持。
+没有系统调用 M 也不会阻塞，等于是一个完全的单 P 单 M 多 G 的模型。</p>
 <figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">var</span> jsProcess = js.Global().Get(<span class="string">&quot;process&quot;</span>)</span><br><span class="line"><span class="keyword">var</span> jsFS = js.Global().Get(<span class="string">&quot;fs&quot;</span>)</span><br><span class="line"><span class="keyword">var</span> constants = jsFS.Get(<span class="string">&quot;constants&quot;</span>)</span><br></pre></td></tr></table></figure>
 
 
@@ -356,13 +364,17 @@
 <p>0.x的代码是C写的，其中两个汇编函数实现的上下文的保存和切换。这里简单先补充一下Go中汇编的一些知识点。</p>
 <p>函数定义:</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"> TEXT 包名·函数名(SB),一些标签,$栈帧大小-参数大小(包括返回值)</span><br></pre></td></tr></table></figure>
-<p>SP表示栈指针，AX是对应的ax系列的寄存器。<br>保存上下文的汇编函数如下,gobuf是一个结构体有两个指针成员分别是sp和pc。</p>
+<p>SP表示栈指针，AX是对应的ax系列的寄存器。
+保存上下文的汇编函数如下,gobuf是一个结构体有两个指针成员分别是sp和pc。</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">TEXT gosave(SB), NOSPLIT, $0</span><br><span class="line">		MOVQ	8(SP), AX		// 8(SP)是函数的第一个参数：gobuf的地址</span><br><span class="line">		MOVQ	SP, 0(AX)		// 保存SP也就是栈指针到 gobuf.sp 中。</span><br><span class="line">		MOVQ	0(SP), BX    // 0(SP)是函数的返回地址</span><br><span class="line">		MOVQ	BX, 8(AX)		// 将函数的返回地址保存到 gobuf.pc 中。</span><br><span class="line">		MOVL	$0, AX			// return 0</span><br><span class="line">		RET</span><br></pre></td></tr></table></figure>
-<p>这段函数其实主要是保存了gosave调用时的栈指针，而返回地址就是gosave返回后的下一条指令的地址，返回值是0，这个0可以标记到这个函数是从gosave返回的，这个要结合后面的gogo来理解。<br>现在来看gogo</p>
+<p>这段函数其实主要是保存了gosave调用时的栈指针，而返回地址就是gosave返回后的下一条指令的地址，返回值是0，这个0可以标记到这个函数是从gosave返回的，这个要结合后面的gogo来理解。
+现在来看gogo</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">TEXT gogo(SB), 7, $0</span><br><span class="line">		MOVQ	8(SP), AX		// 8(SP)是gobuf这个参数的地址</span><br><span class="line">		MOVQ	0(AX), SP		// 将栈针修改为之前保存的SP</span><br><span class="line">		MOVQ	8(AX), AX   // 获取PC</span><br><span class="line">		MOVQ	AX, 0(SP)		// 把 PC 放到0(SP)上</span><br><span class="line">		MOVL	$1, AX			// return 1</span><br><span class="line">		RET</span><br></pre></td></tr></table></figure>
-<p>gogo返回以后其实是返回到了之前gosave需要返回的地方，并且返回值是1。这里用寄存器做返回值是c里面的一种方式。所以如果一个gosave是返回0那么它是从真正的调用者那里返回的，如果返回的是1就是从gogo返回的，如果这里点理解了以后就可以实现一个上下文切换了。<br>对应Go的函数调用的版本就是：</p>
+<p>gogo返回以后其实是返回到了之前gosave需要返回的地方，并且返回值是1。这里用寄存器做返回值是c里面的一种方式。所以如果一个gosave是返回0那么它是从真正的调用者那里返回的，如果返回的是1就是从gogo返回的，如果这里点理解了以后就可以实现一个上下文切换了。
+对应Go的函数调用的版本就是：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">TEXT ·gogogo(SB), NOSPLIT, $0-16</span><br><span class="line">MOVQ	8(SP), AX		// gogobuf</span><br><span class="line">MOVQ	0(AX), SP		// restore SP</span><br><span class="line">MOVQ	8(AX), AX</span><br><span class="line">MOVQ	AX, 0(SP)		// put PC on the stack</span><br><span class="line">MOVL	$1, 16(SP) // return true</span><br><span class="line">RET</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">TEXT ·gosave(SB), NOSPLIT, $0-16</span><br><span class="line">MOVQ	8(SP), AX		// gogobuf</span><br><span class="line">MOVQ	SP, 0(AX)		// save SP</span><br><span class="line">MOVQ	0(SP), BX</span><br><span class="line">MOVQ	BX, 8(AX)		// save PC</span><br><span class="line">MOVB	$0, 16(SP)		// return false</span><br><span class="line">RET</span><br></pre></td></tr></table></figure>
-<p>这面的区别是参数gobuf和返回值用了16个字节，因为Go的调用是用栈的，之前说到过。<br>0(SP)就是返回地址，8(SP)是gobuf，16(SP)是true或者false的返回地址。</p>
+<p>这面的区别是参数gobuf和返回值用了16个字节，因为Go的调用是用栈的，之前说到过。
+0(SP)就是返回地址，8(SP)是gobuf，16(SP)是true或者false的返回地址。</p>
 <h2 id="gogoroutine的创建"><a href="#gogoroutine的创建" class="headerlink" title="gogoroutine的创建"></a>gogoroutine的创建</h2><p>原本函数做的两件事情就是分配栈和指定PC，pc只要对于一个新的gogoroutine指向函数指针就可以。</p>
 <figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span></span><br><span class="line">	sys·<span class="built_in">newproc</span>(int32 siz, byte* fn, byte* arg0)</span><br><span class="line">	&#123;</span><br><span class="line">		byte *stk, *sp;</span><br><span class="line">		G *newg;</span><br><span class="line"></span><br><span class="line">	<span class="comment">//prints(&quot;newproc siz=&quot;);</span></span><br><span class="line">	<span class="comment">//sys·printint(siz);</span></span><br><span class="line">	<span class="comment">//prints(&quot; fn=&quot;);</span></span><br><span class="line">	<span class="comment">//sys·printpointer(fn);</span></span><br><span class="line"></span><br><span class="line">		siz = (siz<span class="number">+7</span>) &amp; ~<span class="number">7</span>;</span><br><span class="line">		<span class="keyword">if</span>(siz &gt; <span class="number">1024</span>)</span><br><span class="line">			<span class="keyword">throw</span>(<span class="string">&quot;sys·newproc: too many args&quot;</span>);</span><br><span class="line"></span><br><span class="line">		<span class="built_in">lock</span>(&amp;sched);</span><br><span class="line"></span><br><span class="line">		<span class="keyword">if</span>((newg = <span class="built_in">gfget</span>()) != nil)&#123;</span><br><span class="line">			newg-&gt;status = Gwaiting;</span><br><span class="line">			stk = newg-&gt;stack0;</span><br><span class="line">		&#125;<span class="keyword">else</span>&#123;</span><br><span class="line">			newg = <span class="built_in">mal</span>(<span class="built_in">sizeof</span>(G));</span><br><span class="line">			stk = <span class="built_in">mal</span>(<span class="number">4096</span>);</span><br><span class="line">			newg-&gt;stack0 = stk;</span><br><span class="line">			newg-&gt;status = Gwaiting;</span><br><span class="line">			newg-&gt;alllink = allg;</span><br><span class="line">			allg = newg;</span><br><span class="line">		&#125;</span><br></pre></td></tr></table></figure>
 <p>到这就是分配了一段给栈用的内存，内存的具体分配后面会有一个文章讲解。</p>
@@ -466,21 +478,31 @@
     
     <div class="post-body" itemprop="articleBody">
           <p>大规模的并发并行计算考虑的问题主要关于数据、计算的吞吐量还有容错。不管是设计者还是使用者，关心的是在期望上（因为可能会失败）运行任务的效率，从设计者的角度来讲要提供一个可靠高效的环境，从使用者的角度来讲这个东西需要足够的简单，简单意味着编程效率也保证了可靠性。大数据的整套技术栈在解决一些吞吐量大的批处理问题时得心应手，但是到了深度学习的场景，计算吞吐的要求反而提高了，比较现实点的情况是很多时候我们考虑的是能处理多大的数据量的日志，和多快能把一个ImageNet ResNet50训练完。这个区别在于 Spark 或者 Hadoop 的 MapReduce 的设计和 Tensorflow 以及 PyTorch 的设计理念不同以及对应的计算场景的不同。到了强化学习的场景又是一个大融合，强化学习的场景不光有迭代式的反向误差传播的计算，同时也包含了大规模的仿真环境的计算，Ray主要是在这方面提供了一个一站式的解决框架。分布式系统的问题某种程度上和操作系统的问题其实很类似，都是要考量如何从整个系统的角度充分利用物理资源，从错误中恢复，满足效率。这篇文章主要是比较一下几种主流的计算引擎或者框架或者说是算法的异同。</p>
-<h1 id="Spark-MapReduce"><a href="#Spark-MapReduce" class="headerlink" title="Spark(MapReduce)"></a>Spark(MapReduce)</h1><p>我把Spark和MapReduce都归于大数据栈这一类，RDD(Resillient Distributed Dataset) 和 MapReduce<br>这两者的区别没有和MPI&#x2F;PS的区别大那么多。</p>
+<h1 id="Spark-MapReduce"><a href="#Spark-MapReduce" class="headerlink" title="Spark(MapReduce)"></a>Spark(MapReduce)</h1><p>我把Spark和MapReduce都归于大数据栈这一类，RDD(Resillient Distributed Dataset) 和 MapReduce
+这两者的区别没有和MPI&#x2F;PS的区别大那么多。</p>
 <img data-src="/zh-CN/2020/05/13/Spark-Ray-PS-MPI%E7%AD%89%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E%E5%92%8C%E6%A1%86%E6%9E%B6%E7%9A%84%E6%80%BB%E7%BB%93/spark.png" class="">
 
 <p>MapReduce 有 JobTracker，Spark 有 Driver</p>
 <p>MapReduce 有 TaskTracker，Spark 有 Executor</p>
 <p>MapReduce 中间结果是基于 HDFS，会落盘，Spark 中间结果是基于内存的，也可以落盘，主要是利用内存做缓存</p>
 <p>MapReduce 计算抽象由Map和Reduce构成，Spark 的 RDD 有一系列的Transform和Action，封装程度更高</p>
-<p>MapReduce 的错误处理比较简单，把失败的Map重试就好了，重试是一种非常好理解的错误处理。<br>Spark 的重试是根据 RDD 的有向无环图中的血缘关系计算的，可以理解为从失败的拓扑序上重新计算，也可以有中间的checkpoint。</p>
+<p>MapReduce 的错误处理比较简单，把失败的Map重试就好了，重试是一种非常好理解的错误处理。
+Spark 的重试是根据 RDD 的有向无环图中的血缘关系计算的，可以理解为从失败的拓扑序上重新计算，也可以有中间的checkpoint。</p>
 <img data-src="/zh-CN/2020/05/13/Spark-Ray-PS-MPI%E7%AD%89%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E%E5%92%8C%E6%A1%86%E6%9E%B6%E7%9A%84%E6%80%BB%E7%BB%93/rdd.png" class="">
 
-<p>RDD 的特性是只读的，在机器学习场景下参数不大的时候 MLLib 通过把参数存到 Driver 上来计算，当参数比较大特别是深度网络的参数大得吓人 Driver 存不下的时候,<br>只能通过新增 RDD，对于要频繁更新的模型参数要生成非常多的 RDD，这是 Spark 在深度学习上设计的缺陷。<br>一般来说一些简单的机器学习任务通过 sklearn 就能完成，当数据量比较大的时候就需要通过 Spark 的MLLib来处理。<br>当然 MLLib 现在也在开始从RDD-based转向SparkSQL用的Dataframe-based，从大的角度上讲两者互相融合是可行的，可能需要一些时间。<br>上 Spark 用 Yarn 调度 Tensorflow，还是用 Kuberenetes 调度 Spark 和 Tensorflow，我个人支持后者，而且这种分层是我比较喜欢的一种分层。</p>
+<p>RDD 的特性是只读的，在机器学习场景下参数不大的时候 MLLib 通过把参数存到 Driver 上来计算，当参数比较大特别是深度网络的参数大得吓人 Driver 存不下的时候,
+只能通过新增 RDD，对于要频繁更新的模型参数要生成非常多的 RDD，这是 Spark 在深度学习上设计的缺陷。
+一般来说一些简单的机器学习任务通过 sklearn 就能完成，当数据量比较大的时候就需要通过 Spark 的MLLib来处理。
+当然 MLLib 现在也在开始从RDD-based转向SparkSQL用的Dataframe-based，从大的角度上讲两者互相融合是可行的，可能需要一些时间。
+上 Spark 用 Yarn 调度 Tensorflow，还是用 Kuberenetes 调度 Spark 和 Tensorflow，我个人支持后者，而且这种分层是我比较喜欢的一种分层。</p>
 <h1 id="Ray"><a href="#Ray" class="headerlink" title="Ray"></a>Ray</h1><p>Ray 的基本抽象就是 Remote 或者 Actor，一个是分布式调用函数，一个式分布式调用类。Ray 和 Ray 的 RLlib 主要面对的问题是强化学习有大量的 simulating 的环境，比如仿真一局Dota，涉及到模拟一局Dota，反馈Agent的神经网络，是并行计算和神经网络训练的结合。当然 Ray 本身的抽象就是个分布式 goroutine，所以某种程度上可以完成的事情不光是强化学习一种任务，比如HypterTunning等一些并行计算的模型也是试用的。</p>
 <img data-src="/zh-CN/2020/05/13/Spark-Ray-PS-MPI%E7%AD%89%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E%E5%92%8C%E6%A1%86%E6%9E%B6%E7%9A%84%E6%80%BB%E7%BB%93/ray.png" class="">
 
-<p>反过来想，如果没有 Ray 的话，如何做这个系统呢，要构建大批量的仿真计算环境，然后能根据仿真的反馈训练神经网络。<br>这两个任务的调度控制就是一个问题，当然放到 k8s 的调度器里做似乎也可以，然后涉及这些分布式任务的同步问题，<br>需要构建这些任务的关系和信息传输，似乎用一些 DAG （比如 argo）的 workflow 也能解决，但他们之间通信的高效性似乎会是一个问题，需要<br>选择一种高效的远程调用传输方式，肯能gRPC也可以，还有他们的元数据管理用什么呢，自己搞个Redis似乎也行。<br>Ray 从这些方面综合考虑了这些问题提供了一个一站式的RL训练平台。</p>
+<p>反过来想，如果没有 Ray 的话，如何做这个系统呢，要构建大批量的仿真计算环境，然后能根据仿真的反馈训练神经网络。
+这两个任务的调度控制就是一个问题，当然放到 k8s 的调度器里做似乎也可以，然后涉及这些分布式任务的同步问题，
+需要构建这些任务的关系和信息传输，似乎用一些 DAG （比如 argo）的 workflow 也能解决，但他们之间通信的高效性似乎会是一个问题，需要
+选择一种高效的远程调用传输方式，肯能gRPC也可以，还有他们的元数据管理用什么呢，自己搞个Redis似乎也行。
+Ray 从这些方面综合考虑了这些问题提供了一个一站式的RL训练平台。</p>
 <h1 id="PS和MPI"><a href="#PS和MPI" class="headerlink" title="PS和MPI"></a>PS和MPI</h1><p>MPI和PS的介绍有很多，我也不需要费篇幅唠叨。</p>
 <p>PS和MPI是比较常用的分布式深度学习的训练方式，两者的主要区别在于Paramater Server，在PS的场景下参数统一走一个或者shard多个PS更新。</p>
 <img data-src="/zh-CN/2020/05/13/Spark-Ray-PS-MPI%E7%AD%89%E8%AE%A1%E7%AE%97%E5%BC%95%E6%93%8E%E5%92%8C%E6%A1%86%E6%9E%B6%E7%9A%84%E6%80%BB%E7%BB%93/ps_worker_arch.png" class="">
@@ -580,7 +602,12 @@
     
     <div class="post-body" itemprop="articleBody">
           <h2 id="贝叶斯优化-BO"><a href="#贝叶斯优化-BO" class="headerlink" title="贝叶斯优化(BO)"></a>贝叶斯优化(BO)</h2><p>贝叶斯优化是一种黑盒优化方法，一般有几个特征：</p>
-<p>输入纬度不大，一般小于 20 个，时间复杂度是$O(n^3)$<br>有设定的取值空间<br>目标函数需要是连续的（我觉得这个好像不是必须的，离散的也可以）<br>目标函数的计算非常消耗成本（时间等等）<br>目标函数是黑盒的，没有明确的结构<br>目标函数（derivative-free）没有一阶二阶导数（不然就可以用梯度下降去算了）</p>
+<p>输入纬度不大，一般小于 20 个，时间复杂度是$O(n^3)$
+有设定的取值空间
+目标函数需要是连续的（我觉得这个好像不是必须的，离散的也可以）
+目标函数的计算非常消耗成本（时间等等）
+目标函数是黑盒的，没有明确的结构
+目标函数（derivative-free）没有一阶二阶导数（不然就可以用梯度下降去算了）</p>
 <p>因为这些特性，在做机器学习的超参数调优的时候特别合适。</p>
 <blockquote>
 <p>BayesOpt consists of two main components: a Bayesian statistical model for modeling the objective function, and an acquisition function for deciding where to sample next.</p>
@@ -593,9 +620,14 @@
 <p>协方差的核函数就很多选项，<a target="_blank" rel="noopener" href="https://distill.pub/2019/visual-exploration-gaussian-processes/">A Visual Exploration of Gaussian Processes</a> 提供了一个非常 intuitive 的可视化来解释 GP 和各种描述协方差矩阵的核函数。</p>
 <p>高斯过程被定义为一个<a target="_blank" rel="noopener" href="https://zh.wikipedia.org/wiki/%E9%9A%8F%E6%9C%BA%E8%BF%87%E7%A8%8B">随机过程</a>，相当于每个样本点自己也是个随机函数，对于高斯分布来说，每个样本点也是一个高斯分布函数就是高斯过程，<a target="_blank" rel="noopener" href="http://www.cs.cornell.edu/courses/cs4780/2018fa/lectures/lecturenote15.html">cs4780 的 Lecture 15</a>有非常详细的解释。</p>
 <blockquote>
-<p>Definition: A GP is a (potentially infinte) collection of random variables (RV) such that the joint distribution of every finite subset of RVs is multivariate Gaussian:<br>$ f \sim GP(\mu, k), $<br>where $\mu(\mathbf{x})$ and $k(\mathbf{x}, \mathbf{x}’)$ are the mean resp. covariance function! Now, in order to model the predictive distribution $P(f_* \mid \mathbf{x}_*, D)$ we can use a Bayesian approach by using a GP prior: $P(f\mid \mathbf{x}) \sim \mathcal{N}(\mu, \Sigma)$ and condition it on the training data $D$ to model the joint distribution of $f&#x3D;f(X)$ (vector of training observations) and $f_* &#x3D; f(\mathbf{x}_*)$ (prediction at test input).</p>
+<p>Definition: A GP is a (potentially infinte) collection of random variables (RV) such that the joint distribution of every finite subset of RVs is multivariate Gaussian:
+$ f \sim GP(\mu, k), $
+where $\mu(\mathbf{x})$ and $k(\mathbf{x}, \mathbf{x}&#39;)$ are the mean resp. covariance function! Now, in order to model the predictive distribution $P(f_* \mid \mathbf{x}_*, D)$ we can use a Bayesian approach by using a GP prior: $P(f\mid \mathbf{x}) \sim \mathcal{N}(\mu, \Sigma)$ and condition it on the training data $D$ to model the joint distribution of $f&#x3D;f(X)$ (vector of training observations) and $f_* &#x3D; f(\mathbf{x}_*)$ (prediction at test input).</p>
 </blockquote>
-<h2 id="采样函数"><a href="#采样函数" class="headerlink" title="采样函数"></a>采样函数</h2><p>采样函数一般有 expected improvement(EI)，当然还有 probability improvement(PI), upper confidence bound(UCB), knowledge gradient(KG),entropy search and predictive entropy search 等等。<br>采样的策略有两种：<br>Explore：探索新的点，这种采样有助于估计更准确的；<br>Exploit：利用已有结果附近的点进行采样，从而希望找到更大的；</p>
+<h2 id="采样函数"><a href="#采样函数" class="headerlink" title="采样函数"></a>采样函数</h2><p>采样函数一般有 expected improvement(EI)，当然还有 probability improvement(PI), upper confidence bound(UCB), knowledge gradient(KG),entropy search and predictive entropy search 等等。
+采样的策略有两种：
+Explore：探索新的点，这种采样有助于估计更准确的；
+Exploit：利用已有结果附近的点进行采样，从而希望找到更大的；</p>
 <p>这两个标准是互相矛盾的，如何在这两者之间寻找一个平衡点可以说是采样函数面对的主要挑战。</p>
 <blockquote>
 <p>Expected improvement is a popular acquisition function owing to its good practical performance and an analytic form that is easy to compute. As the name suggests it rewards evaluation of the objective $f$ based on the expected improvement relative to the current best. If $f^* &#x3D; \max_i y_i$ is the current best observed outcome and our goal is to maximize $f$, then EI is defined as</p>
@@ -613,9 +645,10 @@
 <img data-src="/zh-CN/2019/10/14/%E8%B4%9D%E5%8F%B6%E6%96%AF%E4%BC%98%E5%8C%96%E4%B9%8B%E9%AB%98%E6%96%AF%E8%BF%87%E7%A8%8B%E5%92%8C%E5%BA%94%E7%94%A8/bo_1d_opt.gif" class="">
 
 
-<h2 id="应用"><a href="#应用" class="headerlink" title="应用"></a>应用</h2><p>高斯过程本身可以用来回归和分类，使用高斯过程的贝叶斯优化有很多具体的应用场景，除了超参数优化之外，对于网络结果（层数，数据并行度）等等也是可以使用的。<br>除此之外像 horovod 也使用了贝叶斯优化，在这个目录<a target="_blank" rel="noopener" href="https://github.com/horovod/horovod/tree/master/horovod/common/optim">下面</a>。</p>
+<h2 id="应用"><a href="#应用" class="headerlink" title="应用"></a>应用</h2><p>高斯过程本身可以用来回归和分类，使用高斯过程的贝叶斯优化有很多具体的应用场景，除了超参数优化之外，对于网络结果（层数，数据并行度）等等也是可以使用的。
+除此之外像 horovod 也使用了贝叶斯优化，在这个目录<a target="_blank" rel="noopener" href="https://github.com/horovod/horovod/tree/master/horovod/common/optim">下面</a>。</p>
 <blockquote>
-<p>Horovod comes with several adjustable “knobs” that can affect runtime performance, including –fusion-threshold-mb and –cycle-time-ms (tensor fusion), –cache-capacity (response cache), and hierarchical collective algorithms –hierarchical-allreduce and –hierarchical-allgather.</p>
+<p>Horovod comes with several adjustable “knobs” that can affect runtime performance, including --fusion-threshold-mb and --cycle-time-ms (tensor fusion), --cache-capacity (response cache), and hierarchical collective algorithms --hierarchical-allreduce and --hierarchical-allgather.</p>
 </blockquote>
 <p>他主要是服务于一些 Tensor Fusion 和 response cache 等参数以及层级 collective 通信选择，<a target="_blank" rel="noopener" href="https://horovod.readthedocs.io/en/latest/autotune.html">文档</a>提到了通过设置一些参数细致控制调优的过程。</p>
 <h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2><ol>
@@ -875,7 +908,8 @@
     
     <div class="post-body" itemprop="articleBody">
           <p>总结一下 SysML 2019 的一些论文。</p>
-<h2 id="TICTAC"><a href="#TICTAC" class="headerlink" title="TICTAC"></a>TICTAC</h2><p>问题背景是解决分布式训练的 scale 问题。<br>如图，网络带宽和传输的顺序是关键因素，网络带宽很好理解，如果 Best 要提高只能加带宽，同时传输顺序如图会影响计算时间。</p>
+<h2 id="TICTAC"><a href="#TICTAC" class="headerlink" title="TICTAC"></a>TICTAC</h2><p>问题背景是解决分布式训练的 scale 问题。
+如图，网络带宽和传输的顺序是关键因素，网络带宽很好理解，如果 Best 要提高只能加带宽，同时传输顺序如图会影响计算时间。</p>
 <img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/tictac.png" class="">
 
 <p>Communication to Computation Ratio 传输计算比，如果比值大说明效率高</p>
@@ -889,10 +923,13 @@
 
 <p>计算最优传输依赖，这是个 NP 问题，需要找近似解。recv op 是图的 root，可行的拓扑排序有很多种，解决方案就是找到近似优化排序。（原问题是 NP 问题）</p>
 <p>几种符号</p>
-<p>op.P 直接 Op 执行计算时间<br>op.M Op传输时间<br>op.M+ 触发计算 op 的最小传输时间</p>
+<p>op.P 直接 Op 执行计算时间
+op.M Op传输时间
+op.M+ 触发计算 op 的最小传输时间</p>
 <img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic1.png" class="">
 
-<h3 id="Tic"><a href="#Tic" class="headerlink" title="Tic"></a>Tic</h3><p>设 Communication Time 对于每个 recv op 来说都相等，从直觉上解释就是计算执行 recv op 的优先度。<br>如图计算对应的值</p>
+<h3 id="Tic"><a href="#Tic" class="headerlink" title="Tic"></a>Tic</h3><p>设 Communication Time 对于每个 recv op 来说都相等，从直觉上解释就是计算执行 recv op 的优先度。
+如图计算对应的值</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">case 1</span><br><span class="line">A.M = B.M = 1</span><br><span class="line">case 2</span><br><span class="line">A.M = B.M = 1</span><br><span class="line">C.M = 1+1</span><br><span class="line">D.M = 1+1+1</span><br></pre></td></tr></table></figure>
 <p>越小优先级越高，这个可以在 DAG 中静态算出</p>
 <img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic2.png" class="">
@@ -910,11 +947,17 @@
 <img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic6.png" class="">
 
 <h2 id="P3"><a href="#P3" class="headerlink" title="P3"></a>P3</h2><p>PRIORITY-BASED PARAMETER PROPAGATION FOR DISTRIBUTED DNN TRAINING</p>
-<p>和上一篇论文类似，也是基于传输优化的思路，因为网络带宽基本上就是一个硬件问题。一些优化手段是用了有损压缩或者降低收敛时准确率的方式。还是通过提高 overlap 来实现。<br>直观的现象是如图 L4 的一次正向传播和反向传播之间的间隔很大。</p>
+<p>和上一篇论文类似，也是基于传输优化的思路，因为网络带宽基本上就是一个硬件问题。一些优化手段是用了有损压缩或者降低收敛时准确率的方式。还是通过提高 overlap 来实现。
+直观的现象是如图 L4 的一次正向传播和反向传播之间的间隔很大。</p>
 <img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic7.png" class="">
 
-<h3 id="解决方法：带优先级的参数切分"><a href="#解决方法：带优先级的参数切分" class="headerlink" title="解决方法：带优先级的参数切分"></a>解决方法：带优先级的参数切分</h3><p>在 MXNet 里面，worker 算完当层的梯度<br>就会提一个 pull request 当其他 work 同步了这个梯度。<br>问题在于发送的顺序和反向传播的顺序一致，并且颗粒度<br>是以 layer 为单位的。</p>
-<p>根据领域知识将大 layer 分片成小 slice。<br>对每个 slice 进行权重排序，优先传输权重高的 slice。<br>被称为 Priority-Based Parameter Propagation</p>
+<h3 id="解决方法：带优先级的参数切分"><a href="#解决方法：带优先级的参数切分" class="headerlink" title="解决方法：带优先级的参数切分"></a>解决方法：带优先级的参数切分</h3><p>在 MXNet 里面，worker 算完当层的梯度
+就会提一个 pull request 当其他 work 同步了这个梯度。
+问题在于发送的顺序和反向传播的顺序一致，并且颗粒度
+是以 layer 为单位的。</p>
+<p>根据领域知识将大 layer 分片成小 slice。
+对每个 slice 进行权重排序，优先传输权重高的 slice。
+被称为 Priority-Based Parameter Propagation</p>
 <img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic8.png" class="">
 
 <p>如图如果参数传输有优先级能够被中断就能减少 delay</p>
@@ -930,11 +973,13 @@
 
 <img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic13.png" class="">
 
-<h3 id="P3-的设计"><a href="#P3-的设计" class="headerlink" title="P3 的设计"></a>P3 的设计</h3><p>参数切片：根据领域知识和实验选择大小(50000)<br>参数优先级：下一层先需要的先发送，可以抢占低优先级的</p>
+<h3 id="P3-的设计"><a href="#P3-的设计" class="headerlink" title="P3 的设计"></a>P3 的设计</h3><p>参数切片：根据领域知识和实验选择大小(50000)
+参数优先级：下一层先需要的先发送，可以抢占低优先级的</p>
 <img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic14.png" class="">
 
 <p>我个人觉得简单，这个比上一个更好理解也简单。</p>
-<h2 id="BlueConnect"><a href="#BlueConnect" class="headerlink" title="BlueConnect"></a>BlueConnect</h2><p>主要是一个对分层（原本的一层或者两层）的 All-Reduce 的泛化算法。<br>首先使用递归的方法可以减少 all-gather 的传输次数。</p>
+<h2 id="BlueConnect"><a href="#BlueConnect" class="headerlink" title="BlueConnect"></a>BlueConnect</h2><p>主要是一个对分层（原本的一层或者两层）的 All-Reduce 的泛化算法。
+首先使用递归的方法可以减少 all-gather 的传输次数。</p>
 <img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic15.png" class="">
 
 <img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic16.png" class="">
@@ -942,7 +987,8 @@
 <p>这个只要三次 logp</p>
 <img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic17.png" class="">
 <p>ring reduce 要7次 (p-1)</p>
-<h3 id="问题背景"><a href="#问题背景" class="headerlink" title="问题背景"></a>问题背景</h3><p>多卡之间的带宽很高 32GB&#x2F;s，不同网络拓扑下，最慢的会成为瓶颈。<br>分两层可以解决网络和总线的带宽差异。</p>
+<h3 id="问题背景"><a href="#问题背景" class="headerlink" title="问题背景"></a>问题背景</h3><p>多卡之间的带宽很高 32GB&#x2F;s，不同网络拓扑下，最慢的会成为瓶颈。
+分两层可以解决网络和总线的带宽差异。</p>
 <p>对于二层的一个泛化，</p>
 <img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic18.png" class="">
 <img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic20.png" class="">
@@ -951,19 +997,26 @@
 <img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic21.png" class="">
 <img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic22.png" class="">
 
-<h2 id="BEYOND-DATA-AND-MODEL-PARALLELISM-FOR-DEEP-NEURAL-NETWORKS"><a href="#BEYOND-DATA-AND-MODEL-PARALLELISM-FOR-DEEP-NEURAL-NETWORKS" class="headerlink" title="BEYOND DATA AND MODEL PARALLELISM FOR DEEP NEURAL NETWORKS"></a>BEYOND DATA AND MODEL PARALLELISM FOR DEEP NEURAL NETWORKS</h2><p>这个主要是提到了并行程度除了数据和模型之外可以更细粒度到参数和属性，也就是模型的小划分和样本的小划分。<br>SOAP&#x3D; Sample Attribute Operator Parameter</p>
+<h2 id="BEYOND-DATA-AND-MODEL-PARALLELISM-FOR-DEEP-NEURAL-NETWORKS"><a href="#BEYOND-DATA-AND-MODEL-PARALLELISM-FOR-DEEP-NEURAL-NETWORKS" class="headerlink" title="BEYOND DATA AND MODEL PARALLELISM FOR DEEP NEURAL NETWORKS"></a>BEYOND DATA AND MODEL PARALLELISM FOR DEEP NEURAL NETWORKS</h2><p>这个主要是提到了并行程度除了数据和模型之外可以更细粒度到参数和属性，也就是模型的小划分和样本的小划分。
+SOAP&#x3D; Sample Attribute Operator Parameter</p>
 <img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic23.png" class="">
 
-<p>全连接层有大量的参数，造成传输瓶颈。<br>领域特定的优化：RNN 和 CNN 用 data 并行，最后全连接用 model 并行。</p>
+<p>全连接层有大量的参数，造成传输瓶颈。
+领域特定的优化：RNN 和 CNN 用 data 并行，最后全连接用 model 并行。</p>
 <h3 id="搜索策略"><a href="#搜索策略" class="headerlink" title="搜索策略"></a>搜索策略</h3><img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic25.png" class="">
 
-<p>找到最优并行策略是 NP 问题。<br>Execution Optimizer 通过找到最小 cost 的<br>并行策略寻找较优解。<br>Cost &#x3D; tensor size&#x2F; bandwidth</p>
+<p>找到最优并行策略是 NP 问题。
+Execution Optimizer 通过找到最小 cost 的
+并行策略寻找较优解。
+Cost &#x3D; tensor size&#x2F; bandwidth</p>
 <img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic28.png" class="">
 
-<p>随机从搜索空间选取策略，依据 MCMC<br>最够贪心，又不会太局部贪心。</p>
+<p>随机从搜索空间选取策略，依据 MCMC
+最够贪心，又不会太局部贪心。</p>
 <img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic23.png" class="">
 
-<p>总的来有点和 AutoML 类似，在一个搜索空间选择一个策略使得 cost 最低，一个是原本的 cost 函数，这个是<br>计算本身执行的时间。目前主流框架也不支持 SOAP 级别的并行划分，没手调的好，但很接近。</p>
+<p>总的来有点和 AutoML 类似，在一个搜索空间选择一个策略使得 cost 最低，一个是原本的 cost 函数，这个是
+计算本身执行的时间。目前主流框架也不支持 SOAP 级别的并行划分，没手调的好，但很接近。</p>
 <img data-src="/zh-CN/2019/08/12/SysML2019-%E6%A6%82%E8%A7%881/pic26.png" class="">
 
 <p>可以看到搜索出来的结果全连接基本上是单卡算的</p>
@@ -1207,7 +1260,8 @@
 <p>tensorflow_serving 自己给了个<a target="_blank" rel="noopener" href="https://github.com/tensorflow/serving/blob/master/tensorflow_serving/example/mnist_saved_model.py">例子</a>，执行 <code>python mnist_saved_model.py /tmp/tf-test-2</code> 以后可以获得一个目录，下面有版本 1 的模型数据，执行 <code>saved_model_cli show --dir  /tmp/tf-test-2/1</code> 可以查看对应的签名。可以看到对应的层级关系，默认用于服务的模型会打上 serve 的标签，函数签名有两个，分别对应了 predict 和 classify 的方法。</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line">MetaGraphDef with tag-set: &#x27;serve&#x27; contains the following SignatureDefs:</span><br><span class="line"></span><br><span class="line">signature_def[&#x27;predict_images&#x27;]:</span><br><span class="line">  The given SavedModel SignatureDef contains the following input(s):</span><br><span class="line">    inputs[&#x27;images&#x27;] tensor_info:</span><br><span class="line">        dtype: DT_FLOAT</span><br><span class="line">        shape: (-1, 784)</span><br><span class="line">        name: x:0</span><br><span class="line">  The given SavedModel SignatureDef contains the following output(s):</span><br><span class="line">    outputs[&#x27;scores&#x27;] tensor_info:</span><br><span class="line">        dtype: DT_FLOAT</span><br><span class="line">        shape: (-1, 10)</span><br><span class="line">        name: y:0</span><br><span class="line">  Method name is: tensorflow/serving/predict</span><br><span class="line"></span><br><span class="line">signature_def[&#x27;serving_default&#x27;]:</span><br><span class="line">  The given SavedModel SignatureDef contains the following input(s):</span><br><span class="line">    inputs[&#x27;inputs&#x27;] tensor_info:</span><br><span class="line">        dtype: DT_STRING</span><br><span class="line">        shape: unknown_rank</span><br><span class="line">        name: tf_example:0</span><br><span class="line">  The given SavedModel SignatureDef contains the following output(s):</span><br><span class="line">    outputs[&#x27;classes&#x27;] tensor_info:</span><br><span class="line">        dtype: DT_STRING</span><br><span class="line">        shape: (-1, 10)</span><br><span class="line">        name: index_to_string_Lookup:0</span><br><span class="line">    outputs[&#x27;scores&#x27;] tensor_info:</span><br><span class="line">        dtype: DT_FLOAT</span><br><span class="line">        shape: (-1, 10)</span><br><span class="line">        name: TopKV2:0</span><br><span class="line">  Method name is: tensorflow/serving/classify</span><br></pre></td></tr></table></figure>
 <p>可以参考 tensorflow 的 <a target="_blank" rel="noopener" href="https://www.tensorflow.org/tfx/serving/api_rest">REST API</a>，比如 <code>GET http://host:port/v1/models/$&#123;MODEL_NAME&#125;[/versions/$&#123;MODEL_VERSION&#125;]</code> 其实对应这个例子就是 <code>GET http://host:port/v1/models/tf-test-2/versions/1</code>，然后感觉函数签名不同的 method name，可以调用不同的 request，比如 <code>POST http://host:port/v1/models/$&#123;MODEL_NAME&#125;[/versions/$&#123;MODEL_VERSION&#125;]:predict</code> 这个格式，如果输入和输出对应的是 <code>images</code> 和 <code>scores</code> 那么就对应了第一个签名。</p>
-<h2 id="冻结"><a href="#冻结" class="headerlink" title="冻结"></a>冻结</h2><p>冻结的情况就是变量不再需要修改，直接把变量转化成常量保存成单一的模型，方便在部署的场景下使用。<br>冻结模型的代码在<a target="_blank" rel="noopener" href="https://github.com/tensorflow/tensorflow/blob/master/tensorflow/python/tools/freeze_graph.py">这里</a>，他的主要流程如下</p>
+<h2 id="冻结"><a href="#冻结" class="headerlink" title="冻结"></a>冻结</h2><p>冻结的情况就是变量不再需要修改，直接把变量转化成常量保存成单一的模型，方便在部署的场景下使用。
+冻结模型的代码在<a target="_blank" rel="noopener" href="https://github.com/tensorflow/tensorflow/blob/master/tensorflow/python/tools/freeze_graph.py">这里</a>，他的主要流程如下</p>
 <ol>
 <li>清除所有 Op 中的 device，让原来在指定 CPU&#x2F;GPU&#x2F;节点 上的 Op 不再绑定。</li>
 <li>通过 <code>graph_util.convert_variables_to_constants</code> 将所有的 Variable <code>eval</code> 一次，把变量的 Op 的结果拿到，替换成 constant</li>
@@ -1315,10 +1369,12 @@
 <div class="video-container"><iframe src="https://www.youtube.com/embed/WjsrdYQ1SH0" frameborder="0" loading="lazy" allowfullscreen></iframe></div>
 
 <p>之后的 walkthrough 应该会慢慢补上，关于一些其他的逻辑和具体的一些函数的细节部分会在后面放出。</p>
-<h2 id="mvcc"><a href="#mvcc" class="headerlink" title="mvcc"></a>mvcc</h2><p>v2 版本的实现存在 watcher 丢失或者丢失事件的问题，导致客户端要重新获取一遍。新版本是有本地嵌入式的数据库来避免这些问题。<br>mvcc 是 etcd v3 版本的存储实现主要有两个部分，一个是 backend 的 boltDB 和内存索引 key index。</p>
+<h2 id="mvcc"><a href="#mvcc" class="headerlink" title="mvcc"></a>mvcc</h2><p>v2 版本的实现存在 watcher 丢失或者丢失事件的问题，导致客户端要重新获取一遍。新版本是有本地嵌入式的数据库来避免这些问题。
+mvcc 是 etcd v3 版本的存储实现主要有两个部分，一个是 backend 的 boltDB 和内存索引 key index。</p>
 <p>BoltDB 是一个 B+ 树的嵌入式 KV store，相对于 leveldb 适用于写多读少的情况，我之前的<a href="https://ggaaooppeenngg.github.io/zh-CN/2017/03/31/%E4%BB%8E%E6%9C%B4%E7%B4%A0%E8%A7%A3%E9%87%8A%E5%87%BA%E5%8F%91%E8%A7%A3%E9%87%8Aleveldb%E7%9A%84%E8%AE%BE%E8%AE%A1/">文章</a>简单介绍了一下 leveldb 的设计，BoltDB 比较适合读多写少，或者存在大范围 scan 的情况下比较合适，还有类似 levedb 的产品 <a target="_blank" rel="noopener" href="https://blog.dgraph.io/post/badger/">badger</a>，是纯 Go 实现的，在多写的情况下 leveldb 的衍生品表现更好。</p>
 <p>BatchTx 就是收集很多的 call，然后在一个 Update 里面完成。</p>
-<p>backend 里面存的 key 是 revision ，其中 main revision 是事务编号，sub revision 是事务中操作的编号，etcd 在 boltdb 上还做了一层缓存，所以多了一些锁机制。<br>内存索引中存的是真正的 key 到 revison 的索引。</p>
+<p>backend 里面存的 key 是 revision ，其中 main revision 是事务编号，sub revision 是事务中操作的编号，etcd 在 boltdb 上还做了一层缓存，所以多了一些锁机制。
+内存索引中存的是真正的 key 到 revison 的索引。</p>
 <p>key_index -&gt; tx_buffer -&gt; boltdb.tx</p>
 <p>调用路径</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">kv:</span><br><span class="line">  WriteView 是一些直接操作</span><br><span class="line">  ReadView</span><br><span class="line">  Read() TxnRead</span><br><span class="line">  Write() TxnWrite 是拿到对应的 transaction</span><br><span class="line"></span><br><span class="line">revision:</span><br><span class="line">  main</span><br><span class="line">  sub</span><br><span class="line">kvstore:</span><br><span class="line">  readView readView&#123;kv&#125; 用了 Read() Read/Write 是 kvstore 自己实现的用于拿 backend 的和自己的各种锁。(kvstore\_txn.go)</span><br><span class="line">  writeView writeView&#123;kv&#125; 用了 Write()</span><br><span class="line">treeIndex:</span><br><span class="line">  keyIndex</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">writeView:</span><br><span class="line">  拿到 kv 的 Write(storeTxnWrite):  首先查 tw.s.kvindex.Get 然后再 backend.Tx UnsageSeqPut，然后更新 keyindex，append changes，处理 lease (old detach new attach)</span><br><span class="line">readView</span><br><span class="line">   storeTxnRead: keyindex Revisons -&gt; tx.UnsafeRange</span><br><span class="line"></span><br><span class="line">lessor  lesor(重音在后面)</span><br><span class="line">   leaseBucket 在单独的一个 bucket 里面</span><br></pre></td></tr></table></figure>
