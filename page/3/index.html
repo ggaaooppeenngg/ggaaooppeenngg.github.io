@@ -242,90 +242,123 @@
     
     <div class="post-body" itemprop="articleBody">
           <p>dynamo对于vLLM的给懂是一个patch文件，vLLM给了一个<a target="_blank" rel="noopener" href="https://github.com/vllm-project/vllm/pull/16124/files">PR</a>方便在线对比。</p>
-<h2 id="PD分离的背景介绍"><a href="#PD分离的背景介绍" class="headerlink" title="PD分离的背景介绍"></a>PD分离的背景介绍</h2><p>在大模型推理中，Prefill 和 Decode 的计算特性存在显著差异：  </p>
+<h2 id="PD分离的背景介绍">PD分离的背景介绍</h2>
+<p>在大模型推理中，Prefill 和 Decode 的计算特性存在显著差异：</p>
 <ul>
-<li><strong>Prefill</strong>：计算密集型，计算比例更高。  </li>
+<li><strong>Prefill</strong>：计算密集型，计算比例更高。</li>
 <li><strong>Decode</strong>：访存密集型，访存比例更高。</li>
 </ul>
 <p>Decode 的计算依赖于 Prefill 生成的 KV Cache。在没有 PD 分离的情况下，较长的 Prefill 通常会优先占用计算资源，导致长 Prompt 的 Prefill 时间过长，从而增加 Decode 的延迟。</p>
-<h3 id="Chunked-Prefill-的局限性"><a href="#Chunked-Prefill-的局限性" class="headerlink" title="Chunked Prefill 的局限性"></a>Chunked Prefill 的局限性</h3><p>为了解决上述问题，Chunked Prefill 是一种常见的优化方案，但它也存在以下挑战：  </p>
+<h3 id="Chunked-Prefill-的局限性">Chunked Prefill 的局限性</h3>
+<p>为了解决上述问题，Chunked Prefill 是一种常见的优化方案，但它也存在以下挑战：</p>
 <ol>
-<li><strong>适合超长 Context Length</strong>：Chunked Prefill 能有效降低中间显存的占用，但仅适用于超长上下文场景。  </li>
-<li><strong>大 Chunked Prefill 的影响</strong>：当大 Chunk Prefill 和 Decode 同时出现在一个 Batch 中时，会显著拖慢 Decode 的速度。  </li>
+<li><strong>适合超长 Context Length</strong>：Chunked Prefill 能有效降低中间显存的占用，但仅适用于超长上下文场景。</li>
+<li><strong>大 Chunked Prefill 的影响</strong>：当大 Chunk Prefill 和 Decode 同时出现在一个 Batch 中时，会显著拖慢 Decode 的速度。</li>
 <li><strong>小 Chunked Prefill 的退化</strong>：小 Chunk Prefill 容易退化为 Memory Bound，导致计算单元的利用率（MFU）下降。</li>
 </ol>
 <p>因此，PD 分离的优势在于可以分别优化 Prefill 和 Decode 的性能。</p>
-<h3 id="Dynamo-的-PD-分离策略"><a href="#Dynamo-的-PD-分离策略" class="headerlink" title="Dynamo 的 PD 分离策略"></a>Dynamo 的 PD 分离策略</h3><p>Dynamo 使用了一种条件 PD 分离策略：  </p>
+<h3 id="Dynamo-的-PD-分离策略">Dynamo 的 PD 分离策略</h3>
+<p>Dynamo 使用了一种条件 PD 分离策略：</p>
 <ul>
 <li>仅在满足特定条件时，Prefill 才会远程计算；否则，仍然在本地进行 PD 混合计算。</li>
 </ul>
-<p>PD 分离的实现主要包括两部分：  </p>
+<p>PD 分离的实现主要包括两部分：</p>
 <ol>
-<li><strong>模型的切分与传输</strong>：通过合理的切分策略和高效的传输机制实现计算资源的分离。  </li>
+<li><strong>模型的切分与传输</strong>：通过合理的切分策略和高效的传输机制实现计算资源的分离。</li>
 <li><strong>高效的异步传输或存储引擎</strong>：这是性能优化的关键，尤其是 KV Cache 的传输或存储。</li>
 </ol>
-<h3 id="KV-Cache-传输的挑战"><a href="#KV-Cache-传输的挑战" class="headerlink" title="KV Cache 传输的挑战"></a>KV Cache 传输的挑战</h3><p>以 A100 为例，在 8B LLAMA 模型下，Prefill 的计算速度可达 1 万 tokens&#x2F;s，这会产生约 3GB 的 KV Cache 数据，给传输带宽带来极大压力。<br>对于计算速度更快的 H100，这种传输需求会进一步增加，对带宽提出了更高的要求。</p>
-<h2 id="xPyD-的主要设计概要"><a href="#xPyD-的主要设计概要" class="headerlink" title="xPyD 的主要设计概要"></a>xPyD 的主要设计概要</h2><p>以下是 xPyD 的主要设计概要，不同框架可能在 PD 负载均衡方式、KV 传输和存储上有所不同。</p>
-<h3 id="KV-Cache-的切分"><a href="#KV-Cache-的切分" class="headerlink" title="KV Cache 的切分"></a>KV Cache 的切分</h3><h4 id="TP-条件下的切分"><a href="#TP-条件下的切分" class="headerlink" title="TP 条件下的切分"></a>TP 条件下的切分</h4><p>在 Tensor Parallel (TP) 条件下，KV Cache 按照 head 进行切分。例如，对于 Qwen 小模型，其 KV head 数为 8，Q head 数为 40，hidden size 为 5120。<br>一个 token 的大小计算如下：<br><code>8 * 5120 / 40 = 1024</code>  </p>
-<p>如果 P&#x2F;D TP比例为 2，则 P 会沿着 head 切分为两部分。传输引擎会将切分后的 tensor 发送给每个 D。<br>因此，一个 token 在 D 上的大小为：<br><code>8 / 2 * 5120 / 40 = 512</code>  </p>
+<h3 id="KV-Cache-传输的挑战">KV Cache 传输的挑战</h3>
+<p>以 A100 为例，在 8B LLAMA 模型下，Prefill 的计算速度可达 1 万 tokens/s，这会产生约 3GB 的 KV Cache 数据，给传输带宽带来极大压力。<br>
+对于计算速度更快的 H100，这种传输需求会进一步增加，对带宽提出了更高的要求。</p>
+<h2 id="xPyD-的主要设计概要">xPyD 的主要设计概要</h2>
+<p>以下是 xPyD 的主要设计概要，不同框架可能在 PD 负载均衡方式、KV 传输和存储上有所不同。</p>
+<h3 id="KV-Cache-的切分">KV Cache 的切分</h3>
+<h4 id="TP-条件下的切分">TP 条件下的切分</h4>
+<p>在 Tensor Parallel (TP) 条件下，KV Cache 按照 head 进行切分。例如，对于 Qwen 小模型，其 KV head 数为 8，Q head 数为 40，hidden size 为 5120。<br>
+一个 token 的大小计算如下：<br>
+<code>8 * 5120 / 40 = 1024</code></p>
+<p>如果 P/D TP比例为 2，则 P 会沿着 head 切分为两部分。传输引擎会将切分后的 tensor 发送给每个 D。<br>
+因此，一个 token 在 D 上的大小为：<br>
+<code>8 / 2 * 5120 / 40 = 512</code></p>
 <p>需要注意，上述计算未包含数据宽度。如果数据类型为 FP8，则宽度为 1；如果为 BF16，则宽度为 2。</p>
-<h4 id="PP-条件下的切分"><a href="#PP-条件下的切分" class="headerlink" title="PP 条件下的切分"></a>PP 条件下的切分</h4><p>在 Pipeline Parallel (PP) 条件下，切分相对简单，直接沿着层进行切分即可。例如，如果 P&#x2F;D PP比例为 2，且模型有 64 层，则：  </p>
+<h4 id="PP-条件下的切分">PP 条件下的切分</h4>
+<p>在 Pipeline Parallel (PP) 条件下，切分相对简单，直接沿着层进行切分即可。例如，如果 P/D PP比例为 2，且模型有 64 层，则：</p>
 <ul>
-<li>层 0-31 分配给 D0  </li>
+<li>层 0-31 分配给 D0</li>
 <li>层 32-63 分配给 D1</li>
 </ul>
 <p>这种切分方式无需对 tensor 进行额外处理。</p>
-<h4 id="DP-和-EP-条件下的切分"><a href="#DP-和-EP-条件下的切分" class="headerlink" title="DP 和 EP 条件下的切分"></a>DP 和 EP 条件下的切分</h4><ul>
-<li>EP：EP 主要用于 FFN，与注意力机制无关，因此无需考虑 EP 条件下的切分。  </li>
-<li>DP：DP 条件下无需切分。如果 P&#x2F;D 比例为 2，直接将 P 的副本同时发送给两个 D 即可。</li>
-</ul>
-<h3 id="传输方式"><a href="#传输方式" class="headerlink" title="传输方式"></a>传输方式</h3><h4 id="P2P-传输"><a href="#P2P-传输" class="headerlink" title="P2P 传输"></a>P2P 传输</h4><p>P2P 传输采用点对点方式：  </p>
+<h4 id="DP-和-EP-条件下的切分">DP 和 EP 条件下的切分</h4>
 <ul>
-<li>P 向 D 建立 RDMA 连接，并申请 RDMA 的 VRAM。  </li>
+<li>EP：EP 主要用于 FFN，与注意力机制无关，因此无需考虑 EP 条件下的切分。</li>
+<li>DP：DP 条件下无需切分。如果 P/D 比例为 2，直接将 P 的副本同时发送给两个 D 即可。</li>
+</ul>
+<h3 id="传输方式">传输方式</h3>
+<h4 id="P2P-传输">P2P 传输</h4>
+<p>P2P 传输采用点对点方式：</p>
+<ul>
+<li>P 向 D 建立 RDMA 连接，并申请 RDMA 的 VRAM。</li>
 <li>P 直接将数据发送给 D。</li>
 </ul>
-<h4 id="KV-Cache-Store"><a href="#KV-Cache-Store" class="headerlink" title="KV Cache Store"></a>KV Cache Store</h4><p>KV Cache Store 属于 Pooling 模式，支持以下功能：  </p>
+<h4 id="KV-Cache-Store">KV Cache Store</h4>
+<p>KV Cache Store 属于 Pooling 模式，支持以下功能：</p>
 <ul>
-<li><strong>中间存储</strong>：P 将数据存储到 KV Store，D 从 KV Store 中领取数据。  </li>
-<li><strong>缓存优化</strong>：Store 也可以基于 P2P 实现，支持显存缓存、内存或 SSD 上的 KV Cache Swap。  </li>
+<li><strong>中间存储</strong>：P 将数据存储到 KV Store，D 从 KV Store 中领取数据。</li>
+<li><strong>缓存优化</strong>：Store 也可以基于 P2P 实现，支持显存缓存、内存或 SSD 上的 KV Cache Swap。</li>
 <li><strong>Prefix Cache 共享</strong>：通过中间存储，可以实现跨请求的 Prefix Cache 共享。</li>
 </ul>
-<h3 id="PD-顺序"><a href="#PD-顺序" class="headerlink" title="PD 顺序"></a>PD 顺序</h3><ul>
-<li><strong>Dynamo 的策略</strong>：Dynamo 采用先 Decode 后 Prefill 的条件PD策略。请求首先发送到 Decode 实例。如果是短的 Prefill，Decode 实例会直接计算，无需触发远端 Prefill；如果需要远端 Prefill，则会触发远端计算。  </li>
+<h3 id="PD-顺序">PD 顺序</h3>
+<ul>
+<li><strong>Dynamo 的策略</strong>：Dynamo 采用先 Decode 后 Prefill 的条件PD策略。请求首先发送到 Decode 实例。如果是短的 Prefill，Decode 实例会直接计算，无需触发远端 Prefill；如果需要远端 Prefill，则会触发远端计算。</li>
 <li><strong>其他框架的策略</strong>：大多数框架采用先 Prefill 后 Decode 的策略。请求先由 Prefill 计算出第一个bonus token，然后转交给 Decode 继续计算。</li>
 </ul>
-<h2 id="Dynamo-实现分析"><a href="#Dynamo-实现分析" class="headerlink" title="Dynamo 实现分析"></a>Dynamo 实现分析</h2><p>本文仅分析 Dynamo 对 vLLM 本身的一些改动，不涉及 Dynamo 在上层的工作，例如全局基于消息队列的 <code>PrefillQueue</code> 是在上层实现的。<br>vLLM 在被请求时会告知自己是否是 Prefill 请求，或者是否需要远程 Prefill 的 Decode 请求，这一层逻辑由 Dynamo 在上层完成。</p>
+<h2 id="Dynamo-实现分析">Dynamo 实现分析</h2>
+<p>本文仅分析 Dynamo 对 vLLM 本身的一些改动，不涉及 Dynamo 在上层的工作，例如全局基于消息队列的 <code>PrefillQueue</code> 是在上层实现的。<br>
+vLLM 在被请求时会告知自己是否是 Prefill 请求，或者是否需要远程 Prefill 的 Decode 请求，这一层逻辑由 Dynamo 在上层完成。</p>
 <p>Dynamo 基于 vLLM V0 的调度器实现。V0 的调度器主要将 Prefill 和 Decode 明确分开，而 V1 的调度器则考虑了 Chunked Prefill，不再在调度器内部区分 Prefill 和 Decode 两种 sequence。</p>
-<h3 id="vLLM-V0-调度器回顾"><a href="#vLLM-V0-调度器回顾" class="headerlink" title="vLLM V0 调度器回顾"></a>vLLM V0 调度器回顾</h3><p>在 vLLM V0 的实现中，<code>engine</code> 的 <code>step</code> 方法会调用调度器，调度器负责给出需要执行的 sequence group request，然后调用模型执行器（model executor）执行这些请求。执行完成后，调度器会处理结果并更新被调度请求的状态。</p>
-<h3 id="LLMEngine"><a href="#LLMEngine" class="headerlink" title="LLMEngine"></a>LLMEngine</h3><p><code>LLMEngine</code> 是 vLLM 的核心组件之一，负责协调调度器和模型执行器的工作。Dynamo 在此基础上进行了扩展，以支持 PD 分离的功能。</p>
+<h3 id="vLLM-V0-调度器回顾">vLLM V0 调度器回顾</h3>
+<p>在 vLLM V0 的实现中，<code>engine</code> 的 <code>step</code> 方法会调用调度器，调度器负责给出需要执行的 sequence group request，然后调用模型执行器（model executor）执行这些请求。执行完成后，调度器会处理结果并更新被调度请求的状态。</p>
+<h3 id="LLMEngine">LLMEngine</h3>
+<p><code>LLMEngine</code> 是 vLLM 的核心组件之一，负责协调调度器和模型执行器的工作。Dynamo 在此基础上进行了扩展，以支持 PD 分离的功能。</p>
 <p>增加<code>_finished_transfers</code>和<code>_finished_prefills</code>用于保存prefill的传输结束的request和decode接收传输的request，这两个变量会传给调度器。</p>
 <p><code>remote_prefill_requests</code>保存在remote prefill中的requests。</p>
 <p>调度结束以后会拆分出running request和remote prefill requests。</p>
-<p>对于running request逻辑不变，但是remote prefill requests会在model execution执行前先发出去。方法是给seq的<code>remote_prefill_request_callback</code>添加<code>remote_prefill_request</code>。<br>这个callback是dynamo上层的worker设置的，他对应的是向全局的消息队列PrefillQueue发送Prefill消息。</p>
-<p>通过比较<code>computed_block_nums</code>是否等于<code>block_table</code>标记完成并且放入到本地的<code>_finished_prefills</code>当中。<br>这是decode视角：把调度器调度的prefill的request发送出去不在本地计算。</p>
+<p>对于running request逻辑不变，但是remote prefill requests会在model execution执行前先发出去。方法是给seq的<code>remote_prefill_request_callback</code>添加<code>remote_prefill_request</code>。<br>
+这个callback是dynamo上层的worker设置的，他对应的是向全局的消息队列PrefillQueue发送Prefill消息。</p>
+<p>通过比较<code>computed_block_nums</code>是否等于<code>block_table</code>标记完成并且放入到本地的<code>_finished_prefills</code>当中。<br>
+这是decode视角：把调度器调度的prefill的request发送出去不在本地计算。</p>
 <p>到prefill视角来看，会在<code>memory_transfer_reqs</code>中加入已经计算好的computed block和requestid等信息构造的MemoryTransferRequest。</p>
 <p><code>excute_model_req</code>会增加一个需要传输的requests。</p>
 <p><code>execute_model_req.memory_transfer_requests = memory_transfer_reqs</code></p>
 <p>然后开始执行<code>model_excutor</code>的<code>excute_model</code>。</p>
 <p>根据执行结果返回的<code>request_notif_counter</code>和<code>request_done_counter</code>更新对应的<code>_finished_prefills</code>和<code>_finished_transfers</code>。</p>
 <p>上层需要初始化LLMEngine的NIXL Agent。</p>
-<h3 id="Schedule"><a href="#Schedule" class="headerlink" title="Schedule"></a>Schedule</h3><p>调度器的改动其实比较简单，对于prefill角度，prefill结束的释放掉request，decode角度把remote prefill结束的变成running走原本的decode流程。</p>
-<p>除了running之外额外增加了一个<code>remote_prefilling</code>的queue用于管理在远端prefill的请求，他和running queue的关系是有相似性的，<br>比如判断有无未完成的请求时会同时看running和<code>remote_prefilling</code>，但他们的区别在于是不是在本地running。<br>也增加了<code>prefill_sending</code>用户标记正在传输的prefill。</p>
+<h3 id="Schedule">Schedule</h3>
+<p>调度器的改动其实比较简单，对于prefill角度，prefill结束的释放掉request，decode角度把remote prefill结束的变成running走原本的decode流程。</p>
+<p>除了running之外额外增加了一个<code>remote_prefilling</code>的queue用于管理在远端prefill的请求，他和running queue的关系是有相似性的，<br>
+比如判断有无未完成的请求时会同时看running和<code>remote_prefilling</code>，但他们的区别在于是不是在本地running。<br>
+也增加了<code>prefill_sending</code>用户标记正在传输的prefill。</p>
 <p>调度主体会接收<code>finished_prefills</code>和<code>finished_transfers</code>用于D标记的远端prefill结束（已经传到了本地）和P标记已经完成传输的requests。</p>
-<p>当<code>remote_prefilling</code>的中的request在<code>finished_prefills</code>中时代表prefill结束，会把状态设置为running并且开始decode调度。<br>当<code>prefill_sending</code>的中的request在<code>finished_transfers</code>中时代表prefill传输结束，会free掉这个request。</p>
-<p><code>prefill_sending</code>和<code>finished_transfers</code>是一对，是对于prefill instance来说的。<br><code>remote_prefilling</code>和<code>finished_prefills</code>是一对，是对于decode instance来说的。</p>
+<p>当<code>remote_prefilling</code>的中的request在<code>finished_prefills</code>中时代表prefill结束，会把状态设置为running并且开始decode调度。<br>
+当<code>prefill_sending</code>的中的request在<code>finished_transfers</code>中时代表prefill传输结束，会free掉这个request。</p>
+<p><code>prefill_sending</code>和<code>finished_transfers</code>是一对，是对于prefill instance来说的。<br>
+<code>remote_prefilling</code>和<code>finished_prefills</code>是一对，是对于decode instance来说的。</p>
 <p><code>seq_group</code>中会添加<code>is_remote_decode</code>这个用于标记这个请求只在自己这里prefill，decode要在decode instance上做，这个标记是上层的worker设置的，不在vLLM层。</p>
-<p>每个sequence group会添加一个标记，<code>seq_group.remote_prefill_params.is_remote_prefill</code>，标记了就加入到<code>remote_prefilling</code>队列中<br>不然就走老的流程。这也是上层决定。</p>
+<p>每个sequence group会添加一个标记，<code>seq_group.remote_prefill_params.is_remote_prefill</code>，标记了就加入到<code>remote_prefilling</code>队列中<br>
+不然就走老的流程。这也是上层决定。</p>
 <!-- 这个参数会决定block的分配会多一倍，对于prefill节点需要多一倍的kv cache for staging。what is staging? -->
-
-<h3 id="EventManager"><a href="#EventManager" class="headerlink" title="EventManager"></a>EventManager</h3><p>只和 router 负载均衡有关。</p>
-<p>worker 上有 KVPublisher 负责发送 kvcache 的创建和删除事件，同时 KvMetricsPublisher 用于发送监控指标（如队列排队长度等）。<br>router 上则包含 KVIndexer，用于收集 kvcache 的事件并建立前缀树，同时 KvMetricsAggregator 用于收集监控指标。</p>
+<h3 id="EventManager">EventManager</h3>
+<p>只和 router 负载均衡有关。</p>
+<p>worker 上有 KVPublisher 负责发送 kvcache 的创建和删除事件，同时 KvMetricsPublisher 用于发送监控指标（如队列排队长度等）。<br>
+router 上则包含 KVIndexer，用于收集 kvcache 的事件并建立前缀树，同时 KvMetricsAggregator 用于收集监控指标。</p>
 <p>路由策略基于 <code>KV match rate - Load</code> 的最大值，旨在平衡负载与 kvcache 的匹配度。</p>
 <!-- `_free_block_indices`使用了heapq，这是为啥，时间复杂度从O(1)变成了O(logn)，优先使用id更小的block是为了啥。 -->
-
 <p><code>PrefixCachingBlockAllocator</code>加入了<code>event_manager</code>。<code>KVCacheEventManager</code>实现就不细说了，就是一个事件收发器。</p>
-<p>在evict block的时候，发送删除事件<code>event_manager.enqueue_removed_event(content_hash_to_evict)</code><br>当block被填满变成 immutable block 的时候，发送分配事件<code>event_manager.enqueue_stored_event(block.prev_block, block)</code>。</p>
-<h3 id="NIXL-Transfer"><a href="#NIXL-Transfer" class="headerlink" title="NIXL Transfer"></a>NIXL Transfer</h3><h4 id="数据传输的切分"><a href="#数据传输的切分" class="headerlink" title="数据传输的切分"></a>数据传输的切分</h4><p>假设：</p>
+<p>在evict block的时候，发送删除事件<code>event_manager.enqueue_removed_event(content_hash_to_evict)</code><br>
+当block被填满变成 immutable block 的时候，发送分配事件<code>event_manager.enqueue_stored_event(block.prev_block, block)</code>。</p>
+<h3 id="NIXL-Transfer">NIXL Transfer</h3>
+<h4 id="数据传输的切分">数据传输的切分</h4>
+<p>假设：</p>
 <ul>
 <li><code>PS(prefill parallel size)=1</code></li>
 <li><code>DS(decode parallel size)=1</code></li>
@@ -333,7 +366,8 @@
 <li><code>DTP(decode tensor parallel size)=4</code></li>
 </ul>
 <p>存在两个 <code>kvgroup</code>：<code>P0,D0,D1</code> 和 <code>P1,D2,D3</code>。</p>
-<p>计算可得：<br><code>TPM(tensor parallel multiplier) = DTP/PTP = 2</code></p>
+<p>计算可得：<br>
+<code>TPM(tensor parallel multiplier) = DTP/PTP = 2</code></p>
 <p>由此可以推导出以下关系：</p>
 <ul>
 <li><code>kv_rank</code>：表示每个 <code>P</code> 或者 <code>D</code> 实例的序号，在本示例中分别为 <code>0</code> 和 <code>1</code>。</li>
@@ -361,7 +395,8 @@
 <th>port_offset_base</th>
 </tr>
 </thead>
-<tbody><tr>
+<tbody>
+<tr>
 <td>P</td>
 <td>0</td>
 <td>0</td>
@@ -415,14 +450,14 @@
 <td>5</td>
 <td>3</td>
 </tr>
-</tbody></table>
+</tbody>
+</table>
 <p>初始化 rank 0 收集all_gather所有的<code>parallel_config</code></p>
 <p>每有一个<code>kv_role = kv_producer</code>则<code>kv_producers_parallel_size</code>就+1。</p>
 <!-- 
 `kv_producers_parallel_size`应该对应的是DP的数量？
 `local_kv_rank`是`rank%tp`
 `global_kv_rank`和`kv_rank`还不一样？ -->
-
 <p>第一步当然要支持xPyD的配置，比如下面的配置。</p>
 <p>P的并行规模</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kv_producers_parallel_size: Optional[int] = None</span><br></pre></td></tr></table></figure>
@@ -434,8 +469,8 @@
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kv_consumers_tensor_parallel_size: Optional[int] = None</span><br></pre></td></tr></table></figure>
 <p>D的PP</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kv_consumers_pipeline_parallel_size: Optional[int] = None</span><br></pre></td></tr></table></figure>
-
-<p>属性函数<br>其中<code>tensor_parallel_multiplier</code>是 <code>p的tp // d的tp</code></p>
+<p>属性函数<br>
+其中<code>tensor_parallel_multiplier</code>是 <code>p的tp // d的tp</code></p>
 <p>然后总结一下各种pp,tp,rank的关系。</p>
 <ol>
 <li>TP的倍率由D的TP地板除P的TP：<code>tensor_parallel_multiplier = self.kv_consumers_tensor_parallel_size // self.kv_producers_tensor_parallel_size</code></li>
@@ -469,18 +504,16 @@ Simple Connector
 
 传输层用的是NIXL，这个和Mooncake的TransferEngine以及NCCL的区别还有待考量
 目前还是先把他当作传输层的引擎来看。 -->
-
 <p>发送的入口是<code>send_kv_caches_and_hidden_states</code></p>
-<p>这个函数的主要工作是根据TP的大小，从Prefill worker上切出Decode worker上需要的tensor<br>并且发送给Decode worker。</p>
-<p>在这个函数中根据自己的rank计算对应的D的rank。<br>PP的话比较容易，直接按层的range就行了，TP的话需要在给定层的range下做TP的切分。从代码来看dynamo只支持PP&#x3D;1。</p>
+<p>这个函数的主要工作是根据TP的大小，从Prefill worker上切出Decode worker上需要的tensor<br>
+并且发送给Decode worker。</p>
+<p>在这个函数中根据自己的rank计算对应的D的rank。<br>
+PP的话比较容易，直接按层的range就行了，TP的话需要在给定层的range下做TP的切分。从代码来看dynamo只支持PP=1。</p>
 <p>笔者写了一个简易版的示例带代码方便查看对应的shape</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> torch</span><br><span class="line"><span class="comment"># kv_cache 是一个包含张量的列表</span></span><br><span class="line"><span class="comment"># head 数量是 8, hidden_state per head 也是8</span></span><br><span class="line"><span class="comment"># key_cache 是一个连续的空间，有slot_mapping做索引</span></span><br><span class="line">key_cache = torch.randn(<span class="number">10</span>, <span class="number">8</span>, <span class="number">8</span>)</span><br><span class="line"><span class="built_in">print</span>(<span class="string">&quot;原始 key_cache shape&quot;</span>)</span><br><span class="line"><span class="built_in">print</span>(key_cache.shape)</span><br><span class="line"><span class="comment"># output: torch.Size([10, 8, 8])</span></span><br><span class="line"><span class="comment"># 这次request使用的是第0和5条的key cache</span></span><br><span class="line">current_slot_mapping = [<span class="number">0</span>,<span class="number">5</span>]</span><br><span class="line"><span class="comment"># prefill tp=2</span></span><br><span class="line">p_tp = <span class="number">2</span></span><br><span class="line"><span class="comment"># decode tp=4</span></span><br><span class="line">d_tp = <span class="number">4</span></span><br><span class="line">tp_multiplier = d_tp // p_tp</span><br><span class="line"><span class="comment"># 考虑decode worker 的 rank 0 的情况</span></span><br><span class="line">target_rank = <span class="number">0</span></span><br><span class="line"><span class="comment"># num_heads_per_rank = 1 也就是每个decode rank分到一个head</span></span><br><span class="line">num_heads_per_rank = <span class="number">8</span> // p_tp // d_tp</span><br><span class="line"><span class="comment"># 计算head的range</span></span><br><span class="line">head_start = target_rank * num_heads_per_rank</span><br><span class="line">head_end = head_start + num_heads_per_rank</span><br><span class="line"><span class="comment"># 按 p_tp reshape</span></span><br><span class="line">key_cache = key_cache.reshape(-<span class="number">1</span>,<span class="number">8</span>//p_tp,<span class="number">8</span>)</span><br><span class="line"><span class="built_in">print</span>(<span class="string">&quot;按 prefill tp 切分&quot;</span>)</span><br><span class="line"><span class="built_in">print</span>(key_cache.shape)</span><br><span class="line"><span class="comment"># output: torch.Size([20, 4, 8])</span></span><br><span class="line"><span class="built_in">print</span>(<span class="string">&quot;decode 选择器（在第0维度）&quot;</span>, current_slot_mapping, <span class="string">&quot;,head range（在第1维度）&quot;</span>, <span class="built_in">str</span>(head_start)+<span class="string">&quot;:&quot;</span>+<span class="built_in">str</span>(head_end))</span><br><span class="line"><span class="comment"># output: decode 选择器（在第0维度） [0, 5] ,head range（在第1维度） 0:1</span></span><br><span class="line">d_key_cache = key_cache[current_slot_mapping, head_start:head_end]</span><br><span class="line"><span class="built_in">print</span>(<span class="string">&quot;获取 d key cache&quot;</span>)</span><br><span class="line"><span class="built_in">print</span>(d_key_cache.shape)</span><br><span class="line"><span class="comment"># output: torch.Size([2, 1, 8])</span></span><br></pre></td></tr></table></figure>
-
 <!-- 函数中对于deepseek就直接传了没有依据tp切分，可能又特殊的处理。 -->
-
 <p>相对应的接收函数的入口<code>recv_kv_caches_and_hidden_states</code> 没啥特殊处理，直接已经切好，收到以后直接cache住就行。</p>
 <!-- 根据层的range填到对应的slots当中。里面有个`key_scale`是啥？`reshape_and_cache_flash`干了啥。 -->
-
 <!-- ## KV Cache 的 rearrange
 
 TP实现的[教程](https://uvadlc-notebooks.readthedocs.io/en/latest/tutorial_notebooks/scaling/JAX/tensor_parallel_simple.html)
@@ -493,15 +526,24 @@ kvcache的形状应该是 `[batch_size, sequence_length, number_of_layers, head,
 
 dynamo里面这几个值代表什么呢。H和C应该是head和`n_head`，函数参数应该是分母，表示切分的份数。
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">def rearrange_tensors(t1: torch.Tensor, t2: torch.Tensor, d: int, direction: str):</span><br><span class="line">    N, B, H, C = t1.shape</span><br></pre></td></tr></table></figure>
-
-<p>Attention 的 TP 实现是把头做切分。<br>从 <code>register_kv_caches</code> 可以看出 <code>kv_caches</code> 的 shape 是 <code>[num_layers, k_or_v, num_blocks, block_size, num_heads, head_dmi]</code></p>
+<p>Attention 的 TP 实现是把头做切分。<br>
+从 <code>register_kv_caches</code> 可以看出 <code>kv_caches</code> 的 shape 是 <code>[num_layers, k_or_v, num_blocks, block_size, num_heads, head_dmi]</code></p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">def register_kv_caches(self, kv_caches: List[torch.Tensor]):</span><br><span class="line">    _, num_blocks, block_size, num_heads, head_dim = kv_caches[0].shape</span><br></pre></td></tr></table></figure>
-
-<p>这么来看 N 代表 <code>num_blocks</code>，B 代表 <code>block_size</code> H 代表 <code>num_heads</code> C 代表 <code>head_dim</code>, d 代表 <code>tp_multiplier</code><br>所以  <code>block_size = B * H * C</code><br><code>token_size</code> 是 <code>H*C</code> 这里还是要注意如果是GHA，他会比<code>d_model</code>小g倍。<br><code>tensor_subset_size = tensor_size // d</code>，tp以后的切分的tensor size<br><code>grid = ((N * B * H * C + BLOCK_SIZE - 1) // BLOCK_SIZE,)</code> 在faltten的tensor上，按<code>BLOCK_SIZE</code>的tile分别计算。<br>如果是read，把t2读到t1。<br>如果是write，把t1写到t2。<br>所以看一个read就行，另外一个是一样的。<br><code>BLOCK_SIZE</code>和<code>block_size</code>不是一个东西，一个是tirton里面的tile，一个是PagedAttention里面的page</p>
-<p>单看 H C，太高维度的tensor形状处理有点复杂。<br><code>curr_h = offsets // C % H</code> -&gt; 得到 h 的索引<br><code>curr_c = offsets % C</code> -&gt; 得到 c 的索引<br><code>tp_group = curr_h * d // H</code> -&gt; </p>
+<p>这么来看 N 代表 <code>num_blocks</code>，B 代表 <code>block_size</code> H 代表 <code>num_heads</code> C 代表 <code>head_dim</code>, d 代表 <code>tp_multiplier</code><br>
+所以  <code>block_size = B * H * C</code><br>
+<code>token_size</code> 是 <code>H*C</code> 这里还是要注意如果是GHA，他会比<code>d_model</code>小g倍。<br>
+<code>tensor_subset_size = tensor_size // d</code>，tp以后的切分的tensor size<br>
+<code>grid = ((N * B * H * C + BLOCK_SIZE - 1) // BLOCK_SIZE,)</code> 在faltten的tensor上，按<code>BLOCK_SIZE</code>的tile分别计算。<br>
+如果是read，把t2读到t1。<br>
+如果是write，把t1写到t2。<br>
+所以看一个read就行，另外一个是一样的。<br>
+<code>BLOCK_SIZE</code>和<code>block_size</code>不是一个东西，一个是tirton里面的tile，一个是PagedAttention里面的page</p>
+<p>单看 H C，太高维度的tensor形状处理有点复杂。<br>
+<code>curr_h = offsets // C % H</code> -&gt; 得到 h 的索引<br>
+<code>curr_c = offsets % C</code> -&gt; 得到 c 的索引<br>
+<code>tp_group = curr_h * d // H</code> -&gt;</p>
 <p>笔者用numpy实现了胰腺癌没看出区别</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> numpy <span class="keyword">as</span> np</span><br><span class="line">BLOCK_SIZE=<span class="number">1024</span></span><br><span class="line">N=<span class="number">1</span></span><br><span class="line">B=<span class="number">1</span></span><br><span class="line">H=<span class="number">8</span></span><br><span class="line">C=<span class="number">128</span></span><br><span class="line">d=<span class="number">2</span></span><br><span class="line">block_size=B*H*C</span><br><span class="line">token_size=H*C</span><br><span class="line">tensor_size = N * block_size</span><br><span class="line">tensor_subset_size = tensor_size // d</span><br><span class="line"><span class="keyword">for</span> block_start <span class="keyword">in</span> [<span class="number">0</span>]:</span><br><span class="line">    block_start=<span class="number">0</span></span><br><span class="line">    offsets = block_start + np.arange(<span class="number">0</span>, BLOCK_SIZE)</span><br><span class="line">    curr_n = offsets // block_size</span><br><span class="line">    <span class="built_in">print</span>(<span class="string">&quot;curr_n&quot;</span>)</span><br><span class="line">    <span class="built_in">print</span>(curr_n,<span class="built_in">len</span>(curr_n))</span><br><span class="line">    curr_b = offsets // token_size % B</span><br><span class="line">    <span class="built_in">print</span>(<span class="string">&quot;curr_b&quot;</span>)</span><br><span class="line">    <span class="built_in">print</span>(curr_b)</span><br><span class="line">    curr_h = offsets // C % H</span><br><span class="line">    <span class="built_in">print</span>(<span class="string">&quot;curr_h&quot;</span>)</span><br><span class="line">    <span class="built_in">print</span>(curr_h)</span><br><span class="line">    curr_c = offsets % C</span><br><span class="line">    <span class="built_in">print</span>(<span class="string">&quot;curr_c&quot;</span>)</span><br><span class="line">    <span class="built_in">print</span>(curr_c)</span><br><span class="line">    src_pos = offsets</span><br><span class="line"></span><br><span class="line">    tp_group = curr_h * d // H</span><br><span class="line">    <span class="built_in">print</span>(<span class="string">&quot;tp_group&quot;</span>)</span><br><span class="line">    <span class="built_in">print</span>(tp_group[<span class="number">0</span>:<span class="number">512</span>])</span><br><span class="line">    <span class="built_in">print</span>(tp_group[<span class="number">512</span>:<span class="number">1024</span>])</span><br><span class="line">    dst_h = curr_h % (H // d)</span><br><span class="line">    <span class="built_in">print</span>(<span class="string">&quot;dst_h&quot;</span>)</span><br><span class="line">    <span class="built_in">print</span>(dst_h[<span class="number">0</span>:<span class="number">512</span>])</span><br><span class="line">    <span class="built_in">print</span>(dst_h[<span class="number">512</span>:<span class="number">1024</span>])</span><br><span class="line"></span><br><span class="line">    tp_group_offset = curr_n * (block_size // d) + curr_b * (H // d) * C + dst_h * C + curr_c</span><br><span class="line">    <span class="built_in">print</span>(<span class="string">&quot;tp_group_offset&quot;</span>)</span><br><span class="line">    <span class="built_in">print</span>(tp_group_offset[<span class="number">0</span>:<span class="number">512</span>])</span><br><span class="line">    <span class="built_in">print</span>(tp_group_offset[<span class="number">512</span>:<span class="number">1024</span>])</span><br><span class="line">    dst_pos = tensor_subset_size * tp_group + tp_group_offset</span><br><span class="line">    <span class="built_in">print</span>(<span class="string">&quot;dst_pos&quot;</span>)</span><br><span class="line">    <span class="built_in">print</span>(dst_pos[<span class="number">0</span>:<span class="number">512</span>])</span><br><span class="line">    <span class="built_in">print</span>(dst_pos[<span class="number">512</span>:<span class="number">1024</span>])</span><br><span class="line">    <span class="built_in">print</span>(dst_pos == offsets)</span><br></pre></td></tr></table></figure>
-
 <p>接着看看吧，找一找计算的时候的形状。</p>
 <p>应该是按head切分的tp，好像也还可以，毕竟k v head一般有8个。</p>
 <p>可以看到deepseek额外乘了4.5，不知道对应的是什么，是完美部署的那个4.5的比例么？</p>
@@ -591,7 +633,8 @@ dynamo里面这几个值代表什么呢。H和C应该是head和`n_head`，函数
     
     <div class="post-body" itemprop="articleBody">
           <p>本文讨论了稀疏注意力的计算方法，其核心思想是通过选择矩阵的分块，将重要的矩阵挑选出来参与计算。这是因为注意力矩阵具有稀疏性，而如何选择这些重点矩阵是各类算法需要解决的主要问题。</p>
-<h2 id="稀疏性模式总结"><a href="#稀疏性模式总结" class="headerlink" title="稀疏性模式总结"></a>稀疏性模式总结</h2><p><a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2407.02490">MInference</a> 总结了三种稀疏性模式，这些模式具有动态特性，分别是：</p>
+<h2 id="稀疏性模式总结">稀疏性模式总结</h2>
+<p><a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2407.02490">MInference</a> 总结了三种稀疏性模式，这些模式具有动态特性，分别是：</p>
 <ul>
 <li><strong>A-shape</strong>：注意力集中在初始词元及其相近词元上。</li>
 <li><strong>Vertical-Slash</strong>：注意力集中在一些重点词元及其相近词元上。</li>
@@ -599,19 +642,19 @@ dynamo里面这几个值代表什么呢。H和C应该是head和`n_head`，函数
 </ul>
 <p>以下是稀疏性模式的示意图：</p>
 <img data-src="/zh-CN/2025/03/25/xattention%E7%A8%80%E7%96%8F%E6%B3%A8%E6%84%8F%E5%8A%9B%E7%9A%84%E8%AE%A1%E7%AE%97%E6%96%B9%E6%B3%95/a1.png" class="">
-
 <p>稀疏性的动态性从左到右逐渐增强：</p>
 <img data-src="/zh-CN/2025/03/25/xattention%E7%A8%80%E7%96%8F%E6%B3%A8%E6%84%8F%E5%8A%9B%E7%9A%84%E8%AE%A1%E7%AE%97%E6%96%B9%E6%B3%95/a2.png" class="">
-
-<h3 id="MInference-算法"><a href="#MInference-算法" class="headerlink" title="MInference 算法"></a>MInference 算法</h3><p>MInference 使用最后 64 个 Q 进行计算，选出 top-k 的垂线和斜线作为重点块的索引。对于 Block-Sparse 模式，使用 mean pool 方法选出 top-k。</p>
-<h2 id="FlexPrefill-算法"><a href="#FlexPrefill-算法" class="headerlink" title="FlexPrefill 算法"></a>FlexPrefill 算法</h2><p><a target="_blank" rel="noopener" href="https://openreview.net/pdf?id=OfjIlbelrT">FlexPrefill</a> 同样使用最后的 64 个 Q 进行 query-aware index selection，计算 <code>QK^T</code> 的 pool。通过 Jensen-Shannon divergence 计算分布距离，如果距离不满足条件，则回退到匹配垂线和斜线模式。</p>
-<h2 id="Xattention-算法"><a href="#Xattention-算法" class="headerlink" title="Xattention 算法"></a>Xattention 算法</h2><p><a target="_blank" rel="noopener" href="https://arxiv.org/abs/2503.16428">Xattention</a> 采用分块和反斜对角线的形式选择块的索引。与仅使用最后一块 Q 进行选择的方式相比，Xattention 允许所有词元参与计算，不依赖垂线和斜线模式的连续性。</p>
-<h3 id="反斜对角线的构造"><a href="#反斜对角线的构造" class="headerlink" title="反斜对角线的构造"></a>反斜对角线的构造</h3><p>首先对矩阵进行分块，并按 stride 构造反斜对角线。与其说是反斜对角线，更像是一种形似反斜对角线的纹理构造方式：</p>
+<h3 id="MInference-算法">MInference 算法</h3>
+<p>MInference 使用最后 64 个 Q 进行计算，选出 top-k 的垂线和斜线作为重点块的索引。对于 Block-Sparse 模式，使用 mean pool 方法选出 top-k。</p>
+<h2 id="FlexPrefill-算法">FlexPrefill 算法</h2>
+<p><a target="_blank" rel="noopener" href="https://openreview.net/pdf?id=OfjIlbelrT">FlexPrefill</a> 同样使用最后的 64 个 Q 进行 query-aware index selection，计算 <code>QK^T</code> 的 pool。通过 Jensen-Shannon divergence 计算分布距离，如果距离不满足条件，则回退到匹配垂线和斜线模式。</p>
+<h2 id="Xattention-算法">Xattention 算法</h2>
+<p><a target="_blank" rel="noopener" href="https://arxiv.org/abs/2503.16428">Xattention</a> 采用分块和反斜对角线的形式选择块的索引。与仅使用最后一块 Q 进行选择的方式相比，Xattention 允许所有词元参与计算，不依赖垂线和斜线模式的连续性。</p>
+<h3 id="反斜对角线的构造">反斜对角线的构造</h3>
+<p>首先对矩阵进行分块，并按 stride 构造反斜对角线。与其说是反斜对角线，更像是一种形似反斜对角线的纹理构造方式：</p>
 <img data-src="/zh-CN/2025/03/25/xattention%E7%A8%80%E7%96%8F%E6%B3%A8%E6%84%8F%E5%8A%9B%E7%9A%84%E8%AE%A1%E7%AE%97%E6%96%B9%E6%B3%95/a3.png" class="">
-
 <p>反斜对角线的优势在于，它可以与垂线和斜线交叉，从而让相关词元参与计算：</p>
 <img data-src="/zh-CN/2025/03/25/xattention%E7%A8%80%E7%96%8F%E6%B3%A8%E6%84%8F%E5%8A%9B%E7%9A%84%E8%AE%A1%E7%AE%97%E6%96%B9%E6%B3%95/a4.png" class="">
-
 <p>选择方式就是通过纹理匹配到的词元注意力进行求和，根据求和结果选择重要矩阵。</p>
 
       
@@ -703,7 +746,9 @@ dynamo里面这几个值代表什么呢。H和C应该是head和`n_head`，函数
     
     <div class="post-body" itemprop="articleBody">
           <p>Dynamo 发布以后，我大概速览了一些设计文档，并且提取了一些关键点，并对比一些其他方案的异同点。</p>
-<h2 id="Smart-Router"><a href="#Smart-Router" class="headerlink" title="Smart Router"></a>Smart Router</h2><p>worker 上有 KVPublisher 负责发送 kvcache 的创建和删除事件，同时 KvMetricsPublisher 用于发送监控指标（如队列排队长度等）。<br>router 上则包含 KVIndexer，用于收集 kvcache 的事件并建立前缀树，同时 KvMetricsAggregator 用于收集监控指标。</p>
+<h2 id="Smart-Router">Smart Router</h2>
+<p>worker 上有 KVPublisher 负责发送 kvcache 的创建和删除事件，同时 KvMetricsPublisher 用于发送监控指标（如队列排队长度等）。<br>
+router 上则包含 KVIndexer，用于收集 kvcache 的事件并建立前缀树，同时 KvMetricsAggregator 用于收集监控指标。</p>
 <p>路由策略基于 <code>KV match rate - Load</code> 的最大值，旨在平衡负载与 kvcache 的匹配度。</p>
 <p><code>KVPublisher</code> 应该是侵入式实现，需要给vLLM打这个<a target="_blank" rel="noopener" href="https://github.com/ai-dynamo/dynamo/blob/c448061f0955baf133c1dcea9d172c22f065e534/container/deps/vllm/vllm_v0.7.2-dynamo-kv-disagg-patch.patch#L3067">patch</a>才能实现，需要修改代码才能捕获这些事件。所以光从他的依赖来看，应该是只支持了vLLM，其他的支持估计还没开源出来。</p>
 <p><a target="_blank" rel="noopener" href="https://github.com/sgl-project/sglang/tree/main/sgl-router">sgl-router</a> 完全不依赖 worker 的信息，仅通过路由自身的请求实现可过期的前缀匹配。虽然这种方式的匹配精度不如直接获取信息，但实现上更为解耦。</p>
@@ -711,7 +756,8 @@ dynamo里面这几个值代表什么呢。H和C应该是head和`n_head`，函数
 <p><a target="_blank" rel="noopener" href="https://github.com/AlibabaPAI/llumnix">llumnix</a> 支持请求的重调度功能，可以将排队中的请求重新分配。</p>
 <p><a target="_blank" rel="noopener" href="https://github.com/vllm-project/aibrix/tree/main/pkg/plugins/gateway/prefixcacheindexer">aibrix gateway</a> 同时支持基于树和哈希的匹配方式，并且支持用tokenizer使用 token 进行前缀匹配，而不像 sgl-router 基于字符的匹配。</p>
 <p>从 Dynamo 的 Indexer 实现来看，其基于 block 级别的 radix tree，事件通过 Component 的 publish 机制进行分发然后触发radix tree的更新。</p>
-<h2 id="条件-PD-分离"><a href="#条件-PD-分离" class="headerlink" title="条件 PD 分离"></a>条件 PD 分离</h2><p>并非所有请求的 prefill 阶段都需要在 prefill instance 中计算。如果 prefill 很短，或者 decode instance 的 KV 缓存命中率较高，通常在 decode instance 中直接完成 prefill 更为高效。Dynamo 的分解设计充分考虑了这些场景，并提供了一个灵活的框架，能够在多种条件下实现卓越性能。</p>
+<h2 id="条件-PD-分离">条件 PD 分离</h2>
+<p>并非所有请求的 prefill 阶段都需要在 prefill instance 中计算。如果 prefill 很短，或者 decode instance 的 KV 缓存命中率较高，通常在 decode instance 中直接完成 prefill 更为高效。Dynamo 的分解设计充分考虑了这些场景，并提供了一个灵活的框架，能够在多种条件下实现卓越性能。</p>
 <p>在 Decode Instance（在 Dynamo 中称为普通的 worker）上，需要决定是否执行分离操作。如果需要PD分离，则将 prefill 请求交给 prefill worker，通过 prefill queue 进行处理。当 prefill queue 完成后，再通过 prefill queue 将结果传回 worker，开始 decode 阶段。</p>
 <p>具体而言，只有在满足以下两个条件时，才会向远程 prefill instance 发送请求：</p>
 <ol>
@@ -719,7 +765,8 @@ dynamo里面这几个值代表什么呢。H和C应该是head和`n_head`，函数
 <li>Prefill queue 的长度小于设定阈值。</li>
 </ol>
 <p>这种条件化的 PD 分离设计，使得 Dynamo 能够在动态工作负载下实现高性能。</p>
-<h3 id="Prefill-Queue"><a href="#Prefill-Queue" class="headerlink" title="Prefill Queue"></a>Prefill Queue</h3><p>Prefill Queue 是一个基于 NATS Stream 的全局消息队列。</p>
+<h3 id="Prefill-Queue">Prefill Queue</h3>
+<p>Prefill Queue 是一个基于 NATS Stream 的全局消息队列。</p>
 <p>在这一部分中，最具挑战性的是 KV Cache 的传输。Mooncake 开源了其 TransferEngine，而 vLLM 提供了一些 KV Connector 和 KVStore 的抽象。可以推测 Dynamo 也在 vLLM 的基础上实现了相关功能，可以看到在这个<a target="_blank" rel="noopener" href="https://github.com/ai-dynamo/dynamo/blob/c448061f0955baf133c1dcea9d172c22f065e534/container/deps/vllm/vllm_v0.7.2-dynamo-kv-disagg-patch.patch">patch</a>中，给vLLM的kv connector实现了一个DynamoNixlConnector。</p>
 <blockquote>
 <p>The key to high-performance disaggregation is efficient KV transfer. Dynamo leverages NIXL to transfer KV cache directly from the VRAM of the prefill engine to the VRAM of the decode engine.</p>
@@ -727,20 +774,35 @@ dynamo里面这几个值代表什么呢。H和C应该是head和`n_head`，函数
 <p>Dynamo 的 KV Cache 传输是通过直接 RDMA（远程直接内存访问）实现的。</p>
 <p>为了减少 Memory Descriptors（RDMA 的描述对象）的大小，Dynamo 采用了以下两种优化：</p>
 <ol>
-<li><p><strong>Memory Descriptors 缓存</strong><br> 每个 Worker（对应传统的 Decode Instance，但在 Prefill 较短时也会执行 Prefill）在初始化并分配所有 KV 缓存池后，会将所有块的 Memory Descriptors（也称为 NIXL 元数据）存储在分布式键值存储 ETCD 中。当 Prefill Worker 第一次服务来自 Worker 的远程预填充请求时，会从 ETCD 加载这些 Memory Descriptors 并缓存到该 Worker 中。因此，在发出 Prefill 请求时，只需要传递 KV 块 ID，而无需传递完整的 Memory Descriptors。这一优化的具体作用可能需要进一步分析 NIXL 的传输过程才能完全理解。</p>
+<li>
+<p><strong>Memory Descriptors 缓存</strong><br>
+每个 Worker（对应传统的 Decode Instance，但在 Prefill 较短时也会执行 Prefill）在初始化并分配所有 KV 缓存池后，会将所有块的 Memory Descriptors（也称为 NIXL 元数据）存储在分布式键值存储 ETCD 中。当 Prefill Worker 第一次服务来自 Worker 的远程预填充请求时，会从 ETCD 加载这些 Memory Descriptors 并缓存到该 Worker 中。因此，在发出 Prefill 请求时，只需要传递 KV 块 ID，而无需传递完整的 Memory Descriptors。这一优化的具体作用可能需要进一步分析 NIXL 的传输过程才能完全理解。</p>
 </li>
-<li><p><strong>显存分配优化</strong><br> Dynamo 在 Prefill 过程中提升了显存分配能力，通过分配连续的内存块并将其合并为更大的块，从而减少 KV 块的总数。这种合并的具体效果需要结合实现NIXL细节进一步评估。</p>
+<li>
+<p><strong>显存分配优化</strong><br>
+Dynamo 在 Prefill 过程中提升了显存分配能力，通过分配连续的内存块并将其合并为更大的块，从而减少 KV 块的总数。这种合并的具体效果需要结合实现NIXL细节进一步评估。</p>
 </li>
 </ol>
 <p>此外，对于不同 KV 布局（例如由于不同的 TP 导致的 Decode 和 Prefill 布局差异），Dynamo 使用了一个高性能内核。在 NIXL 读取之后和写入之前，该内核会将 KV 块转置为 KV Receiver 中的匹配布局。这可能是为了将 KV Cache 分块传输到不同的 TP 上。</p>
 <p>由于引入了 ETCD，Dynamo 支持动态调整 Worker 和 Prefill Worker 的数量。</p>
-<h3 id="和其他方案对比"><a href="#和其他方案对比" class="headerlink" title="和其他方案对比"></a>和其他方案对比</h3><p>Mooncake 的设计在架构上更加分离，主要通过一个调度器（scheduler）来负责 kvcache 的传输调度，并直接决定 P 和 D 之间的 P2P 传输，基于其 TransferEngine 实现了以下功能：</p>
+<h3 id="和其他方案对比">和其他方案对比</h3>
+<p>Mooncake 的设计在架构上更加分离，主要通过一个调度器（scheduler）来负责 kvcache 的传输调度，并直接决定 P 和 D 之间的 P2P 传输，基于其 TransferEngine 实现了以下功能：</p>
 <ol>
-<li><p><strong>基于 kvcache 的前缀匹配分配 prefill 请求</strong><br> 如果 prefill 节点上缓存了足够的前缀（由 <code>kvcache_balancing_threshold</code> 控制），则选择预估 TTFT（Time to First Token）最小的实例：<br> <code>TTFT = min(T_queue + T_prefill)</code>。<br> 如果 prefill 节点上缓存不足，则选择：<br> <code>TTFT = min(T_queue + T_prefill + T_transfer)</code>，<br> 其中 <code>T_transfer</code> 指的是将最长匹配的 KVCache 从其他实例拷贝到当前实例的预估时间。</p>
+<li>
+<p><strong>基于 kvcache 的前缀匹配分配 prefill 请求</strong><br>
+如果 prefill 节点上缓存了足够的前缀（由 <code>kvcache_balancing_threshold</code> 控制），则选择预估 TTFT（Time to First Token）最小的实例：<br>
+<code>TTFT = min(T_queue + T_prefill)</code>。<br>
+如果 prefill 节点上缓存不足，则选择：<br>
+<code>TTFT = min(T_queue + T_prefill + T_transfer)</code>，<br>
+其中 <code>T_transfer</code> 指的是将最长匹配的 KVCache 从其他实例拷贝到当前实例的预估时间。</p>
 </li>
-<li><p><strong>高频使用的 kvcache P2P 传输</strong><br> Scheduler 负责 kvcache 的传输调度，例如从一个 prefill 节点传输到另一个 prefill 节点（适合Prefix Cache），或者从 prefill 节点传输到 decode 节点，decode到其他decode节点（适合多轮对话）。</p>
+<li>
+<p><strong>高频使用的 kvcache P2P 传输</strong><br>
+Scheduler 负责 kvcache 的传输调度，例如从一个 prefill 节点传输到另一个 prefill 节点（适合Prefix Cache），或者从 prefill 节点传输到 decode 节点，decode到其他decode节点（适合多轮对话）。</p>
 </li>
-<li><p><strong>基于负载均衡的 decode 请求分配</strong><br> 通过负载均衡的方式预估 TBT（Time to Best Throughput），从而优化 decode instance 的请求分配。</p>
+<li>
+<p><strong>基于负载均衡的 decode 请求分配</strong><br>
+通过负载均衡的方式预估 TBT（Time to Best Throughput），从而优化 decode instance 的请求分配。</p>
 </li>
 </ol>
 <p>Mooncake 的设计在模块划分上更加清晰，调度器（scheduler）与各个组件的职责分离明确。</p>
@@ -750,22 +812,37 @@ dynamo里面这几个值代表什么呢。H和C应该是head和`n_head`，函数
 <li>引入了全局队列（queue）来处理 kvcache 的计算和计算就绪信息。</li>
 <li>提供了 NIXL 传输引擎，但仅支持 P 到 D 的 kvcache 传输，相对实现更为直白。</li>
 </ul>
-<h3 id="AIBrix-的现状"><a href="#AIBrix-的现状" class="headerlink" title="AIBrix 的现状"></a>AIBrix 的现状</h3><p>AIBrix 目前尚未实现 PD 分离功能，相关文档和白皮书中未提及此功能。</p>
-<h3 id="依赖与工程复杂度"><a href="#依赖与工程复杂度" class="headerlink" title="依赖与工程复杂度"></a>依赖与工程复杂度</h3><p>从 Dynamo 的依赖项来看，其使用了 <code>ai-dynamo-vllm v0.7.2</code>，这是对 vLLM v0.7.2 的定制化补丁版本，需修改 vLLM 以支持 Publisher 功能。</p>
+<h3 id="AIBrix-的现状">AIBrix 的现状</h3>
+<p>AIBrix 目前尚未实现 PD 分离功能，相关文档和白皮书中未提及此功能。</p>
+<h3 id="依赖与工程复杂度">依赖与工程复杂度</h3>
+<p>从 Dynamo 的依赖项来看，其使用了 <code>ai-dynamo-vllm v0.7.2</code>，这是对 vLLM v0.7.2 的定制化补丁版本，需修改 vLLM 以支持 Publisher 功能。</p>
 <p>Dynamo 的工程栈相对复杂，依赖消息队列和 ETCD，但其 PD 分离设计较为直白，例如仅支持 P 到 D 的传输。相比之下，Mooncake 的设计更注重架构分离，尽管目前未实现 offload 功能，但其 P2P kvcache pool 的设计为未来扩展提供了可能性。</p>
-<h3 id="关键问题"><a href="#关键问题" class="headerlink" title="关键问题"></a>关键问题</h3><p>俗话说得好，关键问题是问题的关键。无论是 Mooncake 还是 Dynamo，其核心目标都是提高传输效率和 kvcache 的利用率。Dynamo 的实现更简化，而 Mooncake 则在架构设计上更具层次感。</p>
-<h2 id="KVCache-管理"><a href="#KVCache-管理" class="headerlink" title="KVCache 管理"></a>KVCache 管理</h2><h3 id="KVCache-Offload"><a href="#KVCache-Offload" class="headerlink" title="KVCache Offload"></a>KVCache Offload</h3><p>当显存不足时，可以将 KVCache 卸载到更低级别的存储中，例如内存、磁盘，甚至对象存储。<br>管理器的核心在于结合驱逐策略，在以下两种情况之间取得平衡：  </p>
+<h3 id="关键问题">关键问题</h3>
+<p>俗话说得好，关键问题是问题的关键。无论是 Mooncake 还是 Dynamo，其核心目标都是提高传输效率和 kvcache 的利用率。Dynamo 的实现更简化，而 Mooncake 则在架构设计上更具层次感。</p>
+<h2 id="KVCache-管理">KVCache 管理</h2>
+<h3 id="KVCache-Offload">KVCache Offload</h3>
+<p>当显存不足时，可以将 KVCache 卸载到更低级别的存储中，例如内存、磁盘，甚至对象存储。<br>
+管理器的核心在于结合驱逐策略，在以下两种情况之间取得平衡：</p>
 <ul>
-<li><strong>过度缓存</strong>：可能引入查找延迟。  </li>
+<li><strong>过度缓存</strong>：可能引入查找延迟。</li>
 <li><strong>缓存不足</strong>：导致查找失败和 KV 缓存的重新计算。</li>
 </ul>
-<h4 id="V1-单机版本"><a href="#V1-单机版本" class="headerlink" title="V1 单机版本"></a>V1 单机版本</h4><p>V1 版本支持将 KVCache 卸载到磁盘，同时使用 CPU 的内存作为缓存。在需要加载时，从磁盘读取数据回显存。</p>
-<h4 id="V2-分布式版本"><a href="#V2-分布式版本" class="headerlink" title="V2 分布式版本"></a>V2 分布式版本</h4><p>V2 版本将扩展为分布式架构，形成一个全局的 KVCache 池。</p>
-<h4 id="Mooncake-的实现"><a href="#Mooncake-的实现" class="headerlink" title="Mooncake 的实现"></a>Mooncake 的实现</h4><p>Mooncake 的 KVCache Pool 完全基于显存的 P2P 传输，不涉及 offload 操作。它通过开源的 TransferEngine，将缓存节点上的 KVCache 调度到需要缓存的节点上。</p>
-<h4 id="AIBrix-的实现"><a href="#AIBrix-的实现" class="headerlink" title="AIBrix 的实现"></a>AIBrix 的实现</h4><p>AIBrix 提供了一个分布式 KVCache Pool，基于 <a target="_blank" rel="noopener" href="https://v6d.io/docs.html">Vineyard</a> 的分布式内存存储。通过 Vineyard 实现 KVCache 的共享，但与专门的传输引擎相比，其传输效率可能稍逊一筹。</p>
-<h2 id="NIXL"><a href="#NIXL" class="headerlink" title="NIXL"></a>NIXL</h2><p>NIXL 通过简化的同步和批处理以及简化的源和目标抽象简化了数据搬迁。<br>NIXL 能够在不同类型的内存和快速存储中抽象数据搬迁，而其他数据搬迁库通常只支持一层内存。<br>这些增强带来了显着的性能提升，加速了第一个词元的时间（TTFT）和整体吞吐量。</p>
+<h4 id="V1-单机版本">V1 单机版本</h4>
+<p>V1 版本支持将 KVCache 卸载到磁盘，同时使用 CPU 的内存作为缓存。在需要加载时，从磁盘读取数据回显存。</p>
+<h4 id="V2-分布式版本">V2 分布式版本</h4>
+<p>V2 版本将扩展为分布式架构，形成一个全局的 KVCache 池。</p>
+<h4 id="Mooncake-的实现">Mooncake 的实现</h4>
+<p>Mooncake 的 KVCache Pool 完全基于显存的 P2P 传输，不涉及 offload 操作。它通过开源的 TransferEngine，将缓存节点上的 KVCache 调度到需要缓存的节点上。</p>
+<h4 id="AIBrix-的实现">AIBrix 的实现</h4>
+<p>AIBrix 提供了一个分布式 KVCache Pool，基于 <a target="_blank" rel="noopener" href="https://v6d.io/docs.html">Vineyard</a> 的分布式内存存储。通过 Vineyard 实现 KVCache 的共享，但与专门的传输引擎相比，其传输效率可能稍逊一筹。</p>
+<h2 id="NIXL">NIXL</h2>
+<p>NIXL 通过简化的同步和批处理以及简化的源和目标抽象简化了数据搬迁。<br>
+NIXL 能够在不同类型的内存和快速存储中抽象数据搬迁，而其他数据搬迁库通常只支持一层内存。<br>
+这些增强带来了显着的性能提升，加速了第一个词元的时间（TTFT）和整体吞吐量。</p>
 <p>NIXL的地位应该是和Mooncake的TransferEngine相当的，至于两者谁的效果更好可能要具体看一下。</p>
-<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>看设计的话，感觉还是Mooncake更漂亮一点，层次分得较清楚，不额外依赖什么中间件，kvcache pool的这个设计虽然是纯P2P的，应该后面也可以去做offload之类的。<br>dynamo就显得更具有工程具体性，并且实现相对来说是要更简单一些，毕竟依赖了message queue又依赖了etcd，把一些复杂度转移给了中间件，入口从worker（or decode instance）可以自己直接prefill短prompt肯定也是做了很多tradeoff才给出了一个不完全分离的条件PD分离的实现。</p>
+<h2 id="总结">总结</h2>
+<p>看设计的话，感觉还是Mooncake更漂亮一点，层次分得较清楚，不额外依赖什么中间件，kvcache pool的这个设计虽然是纯P2P的，应该后面也可以去做offload之类的。<br>
+dynamo就显得更具有工程具体性，并且实现相对来说是要更简单一些，毕竟依赖了message queue又依赖了etcd，把一些复杂度转移给了中间件，入口从worker（or decode instance）可以自己直接prefill短prompt肯定也是做了很多tradeoff才给出了一个不完全分离的条件PD分离的实现。</p>
 
       
     </div>
@@ -850,26 +927,27 @@ dynamo里面这几个值代表什么呢。H和C应该是head和`n_head`，函数
     
     <div class="post-body" itemprop="articleBody">
           <p>参考 <a target="_blank" rel="noopener" href="https://openai.com/index/triton/">OpenAI Triton 主页</a></p>
-<p>参考 <a target="_blank" rel="noopener" href="https://www.eecs.harvard.edu/~htk/publication/2019-mapl-tillet-kung-cox.pdf">Triton论文</a> </p>
+<p>参考 <a target="_blank" rel="noopener" href="https://www.eecs.harvard.edu/~htk/publication/2019-mapl-tillet-kung-cox.pdf">Triton论文</a></p>
 <p>参考 <a target="_blank" rel="noopener" href="https://christianjmills.com/posts/cuda-mode-notes/lecture-014/">GPU MODE Lecture 14: Practitioners Guide to Triton</a></p>
 <p>从Trinton主页引用的话</p>
 <p>现代 GPU 的架构大致可以分为三个主要组件 ——DRAM、SRAM 和 ALU—— 在优化 CUDA 代码时必须考虑每个组件：</p>
 <ol>
 <li>来自 DRAM 的内存传输必须合并为更大的事务，以利用现代内存接口的大型总线宽度。</li>
 <li>数据在被再次使用之前，必须手动存储到SRAM中，并且要对数据进行管理，以便在检索数据时尽量减少共享内存存储体冲突的情况。</li>
-<li>计算必须在流式多处理器（SM）之间和内部仔细分区和调度，以促进指令 &#x2F; 线程级并行性并利用专用 ALU（例如Tensor Core）。</li>
+<li>计算必须在流式多处理器（SM）之间和内部仔细分区和调度，以促进指令 / 线程级并行性并利用专用 ALU（例如Tensor Core）。</li>
 </ol>
-<p>这几句话可能比较抽象，下面给一下这几个组件的指标可能感受更直观，参考<a target="_blank" rel="noopener" href="https://timdettmers.com/2023/01/30/which-gpu-for-deep-learning/">Which GPU(s) to Get for Deep Learning: My Experience and Advice for Using GPUs in Deep Learning</a>。<br>其中指出：</p>
+<p>这几句话可能比较抽象，下面给一下这几个组件的指标可能感受更直观，参考<a target="_blank" rel="noopener" href="https://timdettmers.com/2023/01/30/which-gpu-for-deep-learning/">Which GPU(s) to Get for Deep Learning: My Experience and Advice for Using GPUs in Deep Learning</a>。<br>
+其中指出：</p>
 <ul>
-<li>全局内存访问（高达 80GB）：<code>~380</code> 个周期 </li>
-<li>L2 缓存：<code>~200</code> 个周期 </li>
+<li>全局内存访问（高达 80GB）：<code>~380</code> 个周期</li>
+<li>L2 缓存：<code>~200</code> 个周期</li>
 <li>L1 缓存或共享内存访问（每个流式多处理器高达 128 kb）：<code>~34</code> 个周期</li>
 <li>融合乘法和加法，ab+c（FFMA）： 4 个周期</li>
 <li>Tensor Core 矩阵乘法：1 个周期</li>
 </ul>
-<p>每个操作总是由 32 个线程组成的Warp执行，Warp中的线程必须相互等待。GPU 上的所有内存操作都针对warp进行了优化。 </p>
+<p>每个操作总是由 32 个线程组成的Warp执行，Warp中的线程必须相互等待。GPU 上的所有内存操作都针对warp进行了优化。</p>
 <p>根据<a target="_blank" rel="noopener" href="https://arunjitha.medium.com/simplifying-cuda-kernels-with-triton-a-pythonic-approach-to-gpu-programming-79bb7121e974">Simplifying CUDA kernels with Triton: A Pythonic Approach to GPU Programming</a>的说法，GPU中的HBM（High Bandwidth Memory）等价于我们讲的Global Memory，SRAM对应的是L1和L2 Cache对应的是Shared Memory，这几个词在一些文档中可能会有不同的叫法，但是意思是一样的。</p>
-<p>A100中的内存带宽约为 2TB&#x2F;s，L1 缓存带宽：<code>~100-200</code> TB&#x2F;s 理论带宽，L2 缓存带宽：<code>~4-7 TB/s</code> 理论带宽。</p>
+<p>A100中的内存带宽约为 2TB/s，L1 缓存带宽：<code>~100-200</code> TB/s 理论带宽，L2 缓存带宽：<code>~4-7 TB/s</code> 理论带宽。</p>
 <p>再看OpenAI的三条说明的意思就是：</p>
 <ol>
 <li>因为DRAM很大，比较容易占满总线带宽，所以尽量合并传输的事务可以减少传输的时间，让高速公路跑满。</li>
@@ -877,40 +955,55 @@ dynamo里面这几个值代表什么呢。H和C应该是head和`n_head`，函数
 <li>尽量跑满并行度，并且利用更高效的计算单元，比如Tensor Core。</li>
 </ol>
 <img data-src="/zh-CN/2025/03/19/Triton%E4%BD%BF%E7%94%A8%E5%92%8CSoftmax%E5%AE%9E%E7%8E%B0/gpu-architecture.svg" class="">
-
 <p>这个是OpenAI给出的GPU架构的简图，我们需要明确不同内存，缓存，和执行单元的周期之间的关系就比较好理解GPU计算当中的性能瓶颈。</p>
 <p>Triton的目标其实就是优化 <code>HBM -&gt; SRAM -&gt; 寄存器</code> 的带宽，这在Torch里面直接实现不了，通过一些融合算子是可以减少写回到HBM的。</p>
-<p>Triton的文档给出的很多实现的代码，可能都不太奏效了，笔者自己测试下来并没有超过torch本身的实现，<br>可能torch本身也再不断改进吧，这些差别很快就超越了，但是在一些写自定义融合算子方面应该还是比较有优势的。</p>
-<h2 id="Triton的使用"><a href="#Triton的使用" class="headerlink" title="Triton的使用"></a>Triton的使用</h2><p>和CUDA对应的关系：</p>
+<p>Triton的文档给出的很多实现的代码，可能都不太奏效了，笔者自己测试下来并没有超过torch本身的实现，<br>
+可能torch本身也再不断改进吧，这些差别很快就超越了，但是在一些写自定义融合算子方面应该还是比较有优势的。</p>
+<h2 id="Triton的使用">Triton的使用</h2>
+<p>和CUDA对应的关系：</p>
 <ul>
 <li>程序（Program）：处理数据块的kernel实例。</li>
 <li>PID（程序 ID）：等同于 CUDA 中的块 ID。</li>
 <li>向量化操作：在多个数据点上同时操作（triton不需要用户关心向量操作的并行化）。</li>
 </ul>
 <p>先给出变量和修饰器的解释，大部分文档都混在注释里面不是很好阅读，我觉得先介绍一些简单概念再看代码会比较好一点。</p>
-<p><code>@triton.jit</code> 装饰器表示这个函数会被编译。<br><code>tl.constexpr</code>  代表常量表达式，可以让编译器在编译期间直接求值，可以当作常量使用了。<br><code>BLOCK_SIZE</code>对于GPU来说是比较固定的，因为一个block是有threads数上限的。<br>通过执行<a target="_blank" rel="noopener" href="https://github.com/NVIDIA/cuda-samples">cuda-samples</a>中的<code>deviceQuery</code><br>可以发现L40的显卡BLOCK_SIZE最大是1024，大部分显卡应该都是这个固定大小。  </p>
+<p><code>@triton.jit</code> 装饰器表示这个函数会被编译。<br>
+<code>tl.constexpr</code>  代表常量表达式，可以让编译器在编译期间直接求值，可以当作常量使用了。<br>
+<code>BLOCK_SIZE</code>对于GPU来说是比较固定的，因为一个block是有threads数上限的。<br>
+通过执行<a target="_blank" rel="noopener" href="https://github.com/NVIDIA/cuda-samples">cuda-samples</a>中的<code>deviceQuery</code><br>
+可以发现L40的显卡BLOCK_SIZE最大是1024，大部分显卡应该都是这个固定大小。</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">Total number of registers available per block: 65536  </span><br><span class="line">Warp size:                                     32  </span><br><span class="line">L2 Cache Size:                                 100663296 bytes（96MB）</span><br><span class="line">Maximum number of threads per multiprocessor:  1536  </span><br><span class="line">Maximum number of threads per block:           1024  </span><br><span class="line">Max dimension size of a thread block (x,y,z): (1024, 1024, 64)  </span><br><span class="line">Max dimension size of a grid size    (x,y,z): (2147483647, 65535, 65535)  </span><br><span class="line">Total amount of shared memory per block:       49152 bytes（48KB）</span><br><span class="line">Total shared memory per multiprocessor:        102400 bytes (100KB)</span><br><span class="line">Total number of registers available per block: 65536</span><br></pre></td></tr></table></figure>
-
-<p><code>pid = tl.program_id(axis=0)</code> 应该是对应的CUDA中的<code>threadIdx.x</code>的作用，对应block的一维下标，<br><code>pid = tl.program_id(axis=1)</code> 应该是对应的CUDA中的<code>threadIdx.y</code>的作用，对应block的二维下标。</p>
-<p><code>autotune</code>是一个黑盒优化，通过内部的小benchmark的方式去基于key的变量，优化configs里面的参数。<br>下面是一个只有两个配置的搜索空间，当<code>n_elements</code>的值发生变化的时候，会自动选择最优的配置。</p>
+<p><code>pid = tl.program_id(axis=0)</code> 应该是对应的CUDA中的<code>threadIdx.x</code>的作用，对应block的一维下标，<br>
+<code>pid = tl.program_id(axis=1)</code> 应该是对应的CUDA中的<code>threadIdx.y</code>的作用，对应block的二维下标。</p>
+<p><code>autotune</code>是一个黑盒优化，通过内部的小benchmark的方式去基于key的变量，优化configs里面的参数。<br>
+下面是一个只有两个配置的搜索空间，当<code>n_elements</code>的值发生变化的时候，会自动选择最优的配置。</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">@triton.autotune(configs = [</span><br><span class="line">    triton.Config(&#123;&#x27;BLOCK_SIZE&#x27;: 128&#125;, num_warps = 4, pre_hook = clone_inplace_updated_params),</span><br><span class="line">    triton.Config(&#123;&#x27;BLOCK_SIZE&#x27;: 1024&#125;, num_warps = 8, pre_hook = clone_inplace_updated_params),</span><br><span class="line">], key = [&#x27;n_elements&#x27;])</span><br><span class="line">@triton.jit</span><br></pre></td></tr></table></figure>
-
-<p>BLOCK_SIZE表示的是一个<code>program</code>负责的BLOCK大小，放在triton的语境下更像是L2 Cache的<code>大小</code>。<br>但是cuda当中的block是包含n个thread的，表示的是并行线程的<code>大小</code>。<br>笔者的这个说法可能不太精准，但是这两种风格导致Cuda写一些element wise的操作比较合适.<br>每个element wise的操作都是一个thread，这样可以充分利用GPU的并行性。<br>而triton比较适合一些Reduce操作，例如对数据（也就是矩阵）切BLOCK，然后每个kernel去负责一个block，<br>他的好处就是比如softmax这样的在行上做reduce操作会比较直观，而矩阵乘法也可以沿着MxK,KxN的维度，沿着不同的维度切块。<br>Triton能够帮你把矩阵乘法优化得很不错，虽然可能还比不上精准手写的Cuda算子。</p>
+<p>BLOCK_SIZE表示的是一个<code>program</code>负责的BLOCK大小，放在triton的语境下更像是L2 Cache的<code>大小</code>。<br>
+但是cuda当中的block是包含n个thread的，表示的是并行线程的<code>大小</code>。<br>
+笔者的这个说法可能不太精准，但是这两种风格导致Cuda写一些element wise的操作比较合适.<br>
+每个element wise的操作都是一个thread，这样可以充分利用GPU的并行性。<br>
+而triton比较适合一些Reduce操作，例如对数据（也就是矩阵）切BLOCK，然后每个kernel去负责一个block，<br>
+他的好处就是比如softmax这样的在行上做reduce操作会比较直观，而矩阵乘法也可以沿着MxK,KxN的维度，沿着不同的维度切块。<br>
+Triton能够帮你把矩阵乘法优化得很不错，虽然可能还比不上精准手写的Cuda算子。</p>
 <p>Triton的范式和CUDA的Single Instruction, Multiple Thread (SIMT)不一样，官网给出了一个简化的例子。</p>
 <p>这是CUDA like的写法，每个<code>threadId.x</code>代表的线程只算一个<code>element</code>。</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">BLOCK = <span class="number">512</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># This is a GPU kernel in Numba.</span></span><br><span class="line"><span class="comment"># Different instances of this</span></span><br><span class="line"><span class="comment"># function may run in parallel.</span></span><br><span class="line"><span class="meta">@jit</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">add</span>(<span class="params">X, Y, Z, N</span>):</span><br><span class="line">   <span class="comment"># In Numba/CUDA, each kernel </span></span><br><span class="line">   <span class="comment"># instance itself uses an SIMT execution</span></span><br><span class="line">   <span class="comment"># model, where instructions are executed in</span></span><br><span class="line">   <span class="comment"># parallel for different values of threadIdx</span></span><br><span class="line">   tid = threadIdx.x</span><br><span class="line">   bid = blockIdx.x</span><br><span class="line">   <span class="comment"># scalar index</span></span><br><span class="line">   idx = bid * BLOCK + tid</span><br><span class="line">   <span class="keyword">if</span> <span class="built_in">id</span> &lt; N:</span><br><span class="line">     <span class="comment"># There is no pointer in Numba.</span></span><br><span class="line">     <span class="comment"># Z,X,Y are dense tensors</span></span><br><span class="line">     Z[idx] = X[idx] + Y[idx]</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">...</span><br><span class="line">grid = (ceil_div(N, BLOCK),)</span><br><span class="line">block = (BLOCK,)</span><br><span class="line">add[grid, block](x, y, z, x.shape[<span class="number">0</span>])</span><br></pre></td></tr></table></figure>
-
-<p>Triton<a target="_blank" rel="noopener" href="https://triton-lang.org/main/getting-started/tutorials/03-matrix-multiplication.html">文档</a>中的Matrix乘法简化来说就是并行计算M*N个block（沿着K所代表的维度）。<br>这是Triton的写法，每个Program负责了一个block，他就少了一个block的切分维度：</p>
+<p>Triton<a target="_blank" rel="noopener" href="https://triton-lang.org/main/getting-started/tutorials/03-matrix-multiplication.html">文档</a>中的Matrix乘法简化来说就是并行计算M*N个block（沿着K所代表的维度）。<br>
+这是Triton的写法，每个Program负责了一个block，他就少了一个block的切分维度：</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line">BLOCK = <span class="number">512</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># This is a GPU kernel in Triton.</span></span><br><span class="line"><span class="comment"># Different instances of this</span></span><br><span class="line"><span class="comment"># function may run in parallel.</span></span><br><span class="line"><span class="meta">@jit</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">add</span>(<span class="params">X, Y, Z, N</span>):</span><br><span class="line">   <span class="comment"># In Triton, each kernel instance</span></span><br><span class="line">   <span class="comment"># executes block operations on a</span></span><br><span class="line">   <span class="comment"># single thread: there is no construct</span></span><br><span class="line">   <span class="comment"># analogous to threadIdx</span></span><br><span class="line">   pid = program_id(<span class="number">0</span>)</span><br><span class="line">   <span class="comment"># block of indices</span></span><br><span class="line">   idx = pid * BLOCK + arange(BLOCK)</span><br><span class="line">   mask = idx &lt; N</span><br><span class="line">   <span class="comment"># Triton uses pointer arithmetics  </span></span><br><span class="line">   <span class="comment"># rather than indexing operators</span></span><br><span class="line">   x = load(X + idx, mask=mask)</span><br><span class="line">   y = load(Y + idx, mask=mask)</span><br><span class="line">   store(Z + idx, x + y, mask=mask)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">...</span><br><span class="line">grid = (ceil_div(N, BLOCK),)</span><br><span class="line"><span class="comment"># no thread-block</span></span><br><span class="line">add[grid](x, y, z, x.shape[<span class="number">0</span>])</span><br></pre></td></tr></table></figure>
-
-<p>笔者比较疑惑，单就这两个代码他们的并行度貌似是不一样的，难道是把block那一层隐式的放在了<code>load</code>和<code>store</code>当中，他的<code>load</code>和<code>store</code>其实是隐含了并行能力的。<br>援引知乎的<a target="_blank" rel="noopener" href="https://zhuanlan.zhihu.com/p/671434808">文章</a>，<strong>Triton中一直是以Block为中心来计算，直到Lowering到LLVM和PTX才会转为Thread为中心的计算，而这些对于使用Block抽象进行编程的用户来说都是无感的</strong>。是符合笔者预期的，triton简化了CUDA的写法，block具体的线程数的，每个线程处理多少元素，triton自己会去帮你处理。</p>
+<p>笔者比较疑惑，单就这两个代码他们的并行度貌似是不一样的，难道是把block那一层隐式的放在了<code>load</code>和<code>store</code>当中，他的<code>load</code>和<code>store</code>其实是隐含了并行能力的。<br>
+援引知乎的<a target="_blank" rel="noopener" href="https://zhuanlan.zhihu.com/p/671434808">文章</a>，<strong>Triton中一直是以Block为中心来计算，直到Lowering到LLVM和PTX才会转为Thread为中心的计算，而这些对于使用Block抽象进行编程的用户来说都是无感的</strong>。是符合笔者预期的，triton简化了CUDA的写法，block具体的线程数的，每个线程处理多少元素，triton自己会去帮你处理。</p>
 <p>当使用 triton 的时候,<code>x = tl.load(x_ptr + offsets, mask=mask)</code>时，我们正在加载到 L2 缓存 或者叫 SRAM 中。</p>
-<p>根据Torch的<a target="_blank" rel="noopener" href="https://pytorch.org/blog/triton-kernel-compilation-stages/">blog</a>，以及参考 <a target="_blank" rel="noopener" href="https://superjomn.github.io/posts/triton-mlir-publish/">OpenAI&#x2F;Triton MLIR 迁移工作简介</a>，Triton编译的过程是<code>@triton.jit</code>装饰器通过遍历提供的 Python 函数的抽象语法树（AST）来工作，以便使用通用的 SSA 构造算法即时生成 Triton-IR。<br>然后，生成的 IR 代码被我们的编译器后端简化、优化和自动并行化，最后被转换成高质量的 LLVM IR，最终是 PTX（Nvidia GPU的汇编），可以在最近的Nvidia GPU上执行。</p>
-<h2 id="矩阵乘法"><a href="#矩阵乘法" class="headerlink" title="矩阵乘法"></a>矩阵乘法</h2><p>这段代码是基于K切BLOCK，比上面的代码要好理解一点。</p>
+<p>根据Torch的<a target="_blank" rel="noopener" href="https://pytorch.org/blog/triton-kernel-compilation-stages/">blog</a>，以及参考 <a target="_blank" rel="noopener" href="https://superjomn.github.io/posts/triton-mlir-publish/">OpenAI/Triton MLIR 迁移工作简介</a>，Triton编译的过程是<code>@triton.jit</code>装饰器通过遍历提供的 Python 函数的抽象语法树（AST）来工作，以便使用通用的 SSA 构造算法即时生成 Triton-IR。<br>
+然后，生成的 IR 代码被我们的编译器后端简化、优化和自动并行化，最后被转换成高质量的 LLVM IR，最终是 PTX（Nvidia GPU的汇编），可以在最近的Nvidia GPU上执行。</p>
+<h2 id="矩阵乘法">矩阵乘法</h2>
+<p>这段代码是基于K切BLOCK，比上面的代码要好理解一点。</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@triton.jit</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">simple_mm</span>(<span class="params">a, b, o, k, n,</span></span><br><span class="line"><span class="params">              K_BLOCK_SIZE: tl.constexpr = <span class="number">64</span>,</span></span><br><span class="line"><span class="params">              </span>) -&gt; <span class="literal">None</span>:</span><br><span class="line">    <span class="comment"># a -&gt; Matrix of size M x K and b -&gt; Matrix of size K x N</span></span><br><span class="line">    <span class="comment"># K is the common inner dimension</span></span><br><span class="line">    num_blocks = k//K_BLOCK_SIZE + <span class="number">1</span></span><br><span class="line">    row_id = tl.program_id(<span class="number">0</span>)</span><br><span class="line">    col_id = tl.program_id(<span class="number">1</span>)</span><br><span class="line"></span><br><span class="line">    <span class="comment"># Lets pick one column and one row and do a dot product</span></span><br><span class="line">    <span class="comment"># Like the 1-D example we dont want to look at the entire row/column</span></span><br><span class="line">    <span class="comment"># We are making use of the fact that each row/column will be of the size</span></span><br><span class="line">    <span class="comment"># &#x27;k&#x27; which is the inner common dimension of these matrices</span></span><br><span class="line">    <span class="comment"># But this will only be a part of the dot product so we have to keep track of many to cover the entire column or row.</span></span><br><span class="line">    </span><br><span class="line">    <span class="comment"># What we are going to do is to access block size elements from the column</span></span><br><span class="line">    <span class="comment"># and the row and compute the dot product and keep adding to a value till</span></span><br><span class="line">    <span class="comment"># we run out of numbers</span></span><br><span class="line">    value = <span class="number">0.</span></span><br><span class="line">    <span class="keyword">for</span> k_id <span class="keyword">in</span> <span class="built_in">range</span>(num_blocks):</span><br><span class="line">        row_start = row_id * k + k_id * K_BLOCK_SIZE</span><br><span class="line">        row_offsets = tl.arange(<span class="number">0</span>, K_BLOCK_SIZE) + row_start</span><br><span class="line">        <span class="comment"># The masks are a little more trickier as we cant just see if its</span></span><br><span class="line">        <span class="comment"># less than &#x27;k&#x27;. We need to account for the row we are in</span></span><br><span class="line">        row_masks = row_offsets &lt; (row_id + <span class="number">1</span>) * k</span><br><span class="line">        row = tl.load(a + row_offsets, mask=row_masks) <span class="comment"># Load this into the GPU SRAM</span></span><br><span class="line"></span><br><span class="line">        col_start = (K_BLOCK_SIZE * k_id)</span><br><span class="line">        col_offsets = n * (tl.arange(<span class="number">0</span>, K_BLOCK_SIZE) + col_start) + col_id <span class="comment"># 0, n, 2n || 3n, 4n, 5n for a block size of 3 for eg</span></span><br><span class="line">        col_masks = col_offsets/n &lt; k</span><br><span class="line">        col = tl.load(b + col_offsets, mask=col_masks)</span><br><span class="line">        value += tl.<span class="built_in">sum</span>(row * col)</span><br><span class="line">    </span><br><span class="line">    output_offset = row_id * n + col_id</span><br><span class="line">    tl.store(o + output_offset, value)</span><br></pre></td></tr></table></figure>
-
-<h3 id="BLOCK-SIZE-和-GROUP-SIZE-的优化。"><a href="#BLOCK-SIZE-和-GROUP-SIZE-的优化。" class="headerlink" title="BLOCK_SIZE 和 GROUP_SIZE 的优化。"></a>BLOCK_SIZE 和 GROUP_SIZE 的优化。</h3><p>一次计算的时候尽量用满L2 Cache，所以可以把多个BLOCK放到一个GROUP里面，这个GROUP变成了grid的切分，但在GROUP里面我们<br>再去做BLOCK级别的计算，要计算好对应的线性空间中的stride。</p>
-<h2 id="Softmax"><a href="#Softmax" class="headerlink" title="Softmax"></a>Softmax</h2><p>下面的代码只能在<code>n_cols</code>小于<code>BLOCK_SIZE</code>的数据上运行。</p>
+<h3 id="BLOCK-SIZE-和-GROUP-SIZE-的优化。">BLOCK_SIZE 和 GROUP_SIZE 的优化。</h3>
+<p>一次计算的时候尽量用满L2 Cache，所以可以把多个BLOCK放到一个GROUP里面，这个GROUP变成了grid的切分，但在GROUP里面我们<br>
+再去做BLOCK级别的计算，要计算好对应的线性空间中的stride。</p>
+<h2 id="Softmax">Softmax</h2>
+<p>下面的代码只能在<code>n_cols</code>小于<code>BLOCK_SIZE</code>的数据上运行。</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> triton</span><br><span class="line"><span class="keyword">import</span> triton.language <span class="keyword">as</span> tl</span><br><span class="line"></span><br><span class="line"><span class="meta">@triton.jit</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">softmax</span>(<span class="params">Y, stride_ym, stride_yn, X, stride_xm, stride_xn, M, N</span>):</span><br><span class="line">    <span class="comment"># row index</span></span><br><span class="line">    m = tl.program_id(<span class="number">0</span>)</span><br><span class="line">    <span class="comment"># col indices</span></span><br><span class="line">    <span class="comment"># this specific kernel only works for matrices that </span></span><br><span class="line">    <span class="comment"># have less than BLOCK_SIZE columns</span></span><br><span class="line">    BLOCK_SIZE = <span class="number">1024</span></span><br><span class="line">    n = tl.arange(<span class="number">0</span>, BLOCK_SIZE)</span><br><span class="line">    <span class="comment"># the memory address of all the elements</span></span><br><span class="line">    <span class="comment"># that we want to load can be computed as follows</span></span><br><span class="line">    X = X + m * stride_xm + n * stride_xn</span><br><span class="line">    <span class="comment"># load input data; pad out-of-bounds elements with 0 </span></span><br><span class="line">    x = tl.load(X, mask=n &lt; N, other=-<span class="built_in">float</span>(<span class="string">&#x27;inf&#x27;</span>))</span><br><span class="line">    <span class="comment"># compute numerically-stable softmax</span></span><br><span class="line">    z = x - tl.<span class="built_in">max</span>(x, axis=<span class="number">0</span>)</span><br><span class="line">    num = tl.exp(z)</span><br><span class="line">    denom = tl.<span class="built_in">sum</span>(num, axis=<span class="number">0</span>)</span><br><span class="line">    y = num / denom</span><br><span class="line">    <span class="comment"># write back to Y</span></span><br><span class="line">    Y = Y + m * stride_ym + n * stride_yn</span><br><span class="line">    tl.store(Y, y, mask=n &lt; N)</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> torch</span><br><span class="line"><span class="comment"># Allocate input/output tensors</span></span><br><span class="line">X = torch.normal(<span class="number">0</span>, <span class="number">1</span>, size=(<span class="number">583</span>, <span class="number">931</span>), device=<span class="string">&#x27;cuda&#x27;</span>)</span><br><span class="line">Y = torch.empty_like(X)</span><br><span class="line"><span class="comment"># SPMD launch grid</span></span><br><span class="line">grid = (X.shape[<span class="number">0</span>], )</span><br><span class="line"><span class="comment"># enqueue GPU kernel</span></span><br><span class="line">softmax[grid](Y, Y.stride(<span class="number">0</span>), Y.stride(<span class="number">1</span>), </span><br><span class="line">              X, X.stride(<span class="number">0</span>), X.stride(<span class="number">1</span>),</span><br><span class="line">              X.shape[<span class="number">0</span>]    , X.shape[<span class="number">1</span>])</span><br></pre></td></tr></table></figure>
       
     </div>
@@ -1001,83 +1094,101 @@ dynamo里面这几个值代表什么呢。H和C应该是head和`n_head`，函数
     
     <div class="post-body" itemprop="articleBody">
           <p>从一些大模型的训练技术报告来看有一些比较有代表性的挑战，比如 Meta 的 Research Super Compute (RSC) 和 X 的 Grok Infra。这些技术报告中提到了一些关键的技术挑战和解决方案，包括 GPU 架构与互联、存储系统、训练的稳定性等。</p>
-<h2 id="X-Grok-Infra"><a href="#X-Grok-Infra" class="headerlink" title="X Grok Infra"></a>X Grok Infra</h2><p>从 <a target="_blank" rel="noopener" href="https://x.ai/blog/grok-1.5">Grok-1.5 Infra</a> 的技术报告中可以窥见，Grok-1.5 在基础设施方面具有以下核心优势：</p>
+<h2 id="X-Grok-Infra">X Grok Infra</h2>
+<p>从 <a target="_blank" rel="noopener" href="https://x.ai/blog/grok-1.5">Grok-1.5 Infra</a> 的技术报告中可以窥见，Grok-1.5 在基础设施方面具有以下核心优势：</p>
 <ol>
 <li>先进的分布式训练框架：基于 JAX、Rust 和 Kubernetes 的技术栈，不仅确保了高性能，还能快速适配和训练新的模型架构。</li>
 <li>卓越的可靠性和可用性：通过自研的训练协调器，系统能够智能地检测并隔离故障节点，大幅降低训练任务中断的风险。</li>
 <li>高效的存储与数据处理：在检查点存储、数据加载和训练作业重启等环节都进行了深度优化，将训练过程中的停机时间降至最低。</li>
 </ol>
-<h2 id="Meta-Reasearch-Super-Compute"><a href="#Meta-Reasearch-Super-Compute" class="headerlink" title="Meta Reasearch Super Compute"></a>Meta Reasearch Super Compute</h2><p>另一个典型案例是 Meta 的 <a target="_blank" rel="noopener" href="https://engineering.fb.com/2024/03/12/data-center-engineering/building-metas-genai-infrastructure/">Research Super Compute (RSC)</a> 超算集群，在这上面训练了Llama3.2，有一份92页的<a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2407.21783">技术报告</a>，RSC的<a target="_blank" rel="noopener" href="https://www.usenix.org/conference/osdi24/presentation/choudhury">相关Talk</a>，以及里面用到的<a target="_blank" rel="noopener" href="https://www.usenix.org/system/files/osdi24-choudhury.pdf">MAST论文</a>调度器：</p>
-<h3 id="算力规模"><a href="#算力规模" class="headerlink" title="算力规模"></a>算力规模</h3><p>已升级至 16,000 张 H100 GPU，算力获得质的飞跃。每个服务器配备了 8 块 GPU 和 2 块 CPU。在服务器内部，八块 GPU 通过 NVLink 连接。</p>
-<h3 id="网络互联"><a href="#网络互联" class="headerlink" title="网络互联"></a>网络互联</h3><p>采用双网络方案：</p>
+<h2 id="Meta-Reasearch-Super-Compute">Meta Reasearch Super Compute</h2>
+<p>另一个典型案例是 Meta 的 <a target="_blank" rel="noopener" href="https://engineering.fb.com/2024/03/12/data-center-engineering/building-metas-genai-infrastructure/">Research Super Compute (RSC)</a> 超算集群，在这上面训练了Llama3.2，有一份92页的<a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2407.21783">技术报告</a>，RSC的<a target="_blank" rel="noopener" href="https://www.usenix.org/conference/osdi24/presentation/choudhury">相关Talk</a>，以及里面用到的<a target="_blank" rel="noopener" href="https://www.usenix.org/system/files/osdi24-choudhury.pdf">MAST论文</a>调度器：</p>
+<h3 id="算力规模">算力规模</h3>
+<p>已升级至 16,000 张 H100 GPU，算力获得质的飞跃。每个服务器配备了 8 块 GPU 和 2 块 CPU。在服务器内部，八块 GPU 通过 NVLink 连接。</p>
+<h3 id="网络互联">网络互联</h3>
+<p>采用双网络方案：</p>
 <ul>
-<li><strong>NVIDIA Quantum InfiniBand</strong>，带宽高达 1600 Gb&#x2F;s，RoCE（RDMA over Converged Ethernet）作为补充互联方案。</li>
+<li><strong>NVIDIA Quantum InfiniBand</strong>，带宽高达 1600 Gb/s，RoCE（RDMA over Converged Ethernet）作为补充互联方案。</li>
 </ul>
-<h4 id="网络拓扑"><a href="#网络拓扑" class="headerlink" title="网络拓扑"></a>网络拓扑</h4><ul>
+<h4 id="网络拓扑">网络拓扑</h4>
+<ul>
 <li><strong>底层网络（第一个层）</strong>：每个机架（rack）包含 16 块 GPU，分散在两个服务器上，并通过一个 Minipack2 顶层网络（ToR）交换机连接。</li>
 <li><strong>中间网络（第二层）</strong>：192 个这样的机架通过 Cluster Switches 连接，形成一个包含 3,072 块 GPU 的 Pod。这种设计确保了从任何两个 GPU 之间的通信都有满速带宽，没有过度订阅。</li>
 <li><strong>顶层网络（第三层）</strong>：八个这样的 Pod 通过 Aggregation Switches 连接，形成一个包含 24,000 块 GPU 的集群。然而，顶层网络的连接没有保持满速带宽，而是存在过度订阅比例为 1：7。</li>
 </ul>
-<h4 id="负载均衡"><a href="#负载均衡" class="headerlink" title="负载均衡"></a>负载均衡</h4><ul>
+<h4 id="负载均衡">负载均衡</h4>
+<ul>
 <li><strong>Collective library</strong> 将 16 个网络流中的两个 GPU 之间的数据传输从一个流变为 16 个流。</li>
 <li><strong>Enhanced-ECMP（E-ECMP）协议</strong> 通过在 RoCE（Rdma over Converged Ethernet）报头中添加额外的字段，进行 hash 计算，从而有效地在不同网络路径上平衡 16 个流。</li>
 </ul>
-<h4 id="拥塞控制"><a href="#拥塞控制" class="headerlink" title="拥塞控制"></a>拥塞控制</h4><p>使用深度缓冲区（deep-buffer switches）来解决在 Spine（Gangidi et al., 2024）中由于集体通信模式引起的暂时拥堵和缓冲问题。</p>
-<h3 id="存储系统"><a href="#存储系统" class="headerlink" title="存储系统"></a>存储系统</h3><p>采用自研的 Tectonic 文件系统，通过 FUSE 提供标准的 Linux 文件系统接口，确保高效的数据访问。</p>
+<h4 id="拥塞控制">拥塞控制</h4>
+<p>使用深度缓冲区（deep-buffer switches）来解决在 Spine（Gangidi et al., 2024）中由于集体通信模式引起的暂时拥堵和缓冲问题。</p>
+<h3 id="存储系统">存储系统</h3>
+<p>采用自研的 Tectonic 文件系统，通过 FUSE 提供标准的 Linux 文件系统接口，确保高效的数据访问。</p>
 <ul>
 <li><strong>存储容量</strong>：240 PB，基于 7,500 台 SSD servers</li>
-<li><strong>支持的最大吞吐量</strong>：7 TB&#x2F;s</li>
-<li><strong>支持的可持续吞吐量</strong>：2 TB&#x2F;s</li>
+<li><strong>支持的最大吞吐量</strong>：7 TB/s</li>
+<li><strong>支持的可持续吞吐量</strong>：2 TB/s</li>
 <li><strong>检查点写入</strong>：非常时断时续，导致存储网络饱和</li>
 <li><strong>检查点的目标</strong>：因为 checkpoint 非常大，最小化 GPU 停顿时间，加快检查点频率也变得非常重要</li>
 </ul>
-<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>从这些实践可以看出，现代 AI 基础设施主要围绕三大核心要素展开：</p>
+<h2 id="总结">总结</h2>
+<p>从这些实践可以看出，现代 AI 基础设施主要围绕三大核心要素展开：</p>
 <ul>
 <li>计算能力（以 GPU 为核心）</li>
 <li>网络互联（RoCE 或 InfiniBand）</li>
 <li>存储系统</li>
 </ul>
 <p>而在上层的编排调度领域，系统的容错能力和可靠性则成为关键考量因素。</p>
-<h2 id="GPU-架构与互联"><a href="#GPU-架构与互联" class="headerlink" title="GPU 架构与互联"></a>GPU 架构与互联</h2><p>在当前AI训练领域，主流的GPU型号主要是NVIDIA的A100、H100和H200系列，它们按照发布时间依次提供了更强大的算力和更优化的架构设计。关于GPU的详细架构，特别是其拓扑结构，可以参考<a target="_blank" rel="noopener" href="https://arthurchiao.art/blog/gpu-advanced-notes-1-zh/">这篇深度解析文章</a>。</p>
-<h3 id="GPU互联拓扑"><a href="#GPU互联拓扑" class="headerlink" title="GPU互联拓扑"></a>GPU互联拓扑</h3><p>GPU之间的互联拓扑结构主要取决于不同总线间的传输特性，GPU之间可以通过NVIDIA专有的NVLink高速互联技术直接通信。在现代GPU集群中，主要有以下几种互联方式：</p>
+<h2 id="GPU-架构与互联">GPU 架构与互联</h2>
+<p>在当前AI训练领域，主流的GPU型号主要是NVIDIA的A100、H100和H200系列，它们按照发布时间依次提供了更强大的算力和更优化的架构设计。关于GPU的详细架构，特别是其拓扑结构，可以参考<a target="_blank" rel="noopener" href="https://arthurchiao.art/blog/gpu-advanced-notes-1-zh/">这篇深度解析文章</a>。</p>
+<h3 id="GPU互联拓扑">GPU互联拓扑</h3>
+<p>GPU之间的互联拓扑结构主要取决于不同总线间的传输特性，GPU之间可以通过NVIDIA专有的NVLink高速互联技术直接通信。在现代GPU集群中，主要有以下几种互联方式：</p>
 <ol>
 <li>NVSwitch架构：通过NVIDIA的交换架构实现所有GPU之间的全互联</li>
 <li>走网卡，如果卡之间没有NVSwitch的话，可以绕过CPU走网卡：<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">GPU0 -&gt; PCIe -&gt; IB(InfiniBand) -&gt; PCIe -&gt; GPU1</span><br></pre></td></tr></table></figure>
 这种通信模式由NCCL（NVIDIA Collective Communications Library）负责协调和优化。</li>
 </ol>
-<h3 id="GPU分配策略"><a href="#GPU分配策略" class="headerlink" title="GPU分配策略"></a>GPU分配策略</h3><p>NVIDIA开源的<a target="_blank" rel="noopener" href="https://github.com/NVIDIA/go-gpuallocator">go-gpuallocator</a>库提供了一系列基于拓扑关系的GPU分配策略。例如，其中的<code>NewStaticDGX1Policy</code>专门针对DGX-1标准配置优化。考虑到单机环境下GPU组合的可能性有限，这种基于静态规则的分配策略已经能够很好地满足需求。</p>
+<h3 id="GPU分配策略">GPU分配策略</h3>
+<p>NVIDIA开源的<a target="_blank" rel="noopener" href="https://github.com/NVIDIA/go-gpuallocator">go-gpuallocator</a>库提供了一系列基于拓扑关系的GPU分配策略。例如，其中的<code>NewStaticDGX1Policy</code>专门针对DGX-1标准配置优化。考虑到单机环境下GPU组合的可能性有限，这种基于静态规则的分配策略已经能够很好地满足需求。</p>
 <p>这些分配策略的核心目标是最小化跨总线和跨NUMA节点的通信开销，确保GPU间通信尽可能利用最高带宽的数据通路，从而提供最优的训练性能。</p>
-<h3 id="跨节点的通信"><a href="#跨节点的通信" class="headerlink" title="跨节点的通信"></a>跨节点的通信</h3><p>在分布式训练场景下，跨节点通信需要经过更长的数据传输路径：</p>
+<h3 id="跨节点的通信">跨节点的通信</h3>
+<p>在分布式训练场景下，跨节点通信需要经过更长的数据传输路径：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">GPU -&gt; NIC -&gt; 叶层交换机 -&gt; 核心交换机 -&gt; NIC -&gt; GPU</span><br></pre></td></tr></table></figure>
-
 <p>这种通信模式面临两个主要的优化方向：</p>
 <ol>
-<li><p><strong>本地化优化</strong>：尽可能将相关联的GPU任务分配在物理位置相近的节点上，以减少网络延迟。</p>
+<li>
+<p><strong>本地化优化</strong>：尽可能将相关联的GPU任务分配在物理位置相近的节点上，以减少网络延迟。</p>
 </li>
-<li><p><strong>负载均衡</strong>：避免将所有任务集中在同一交换机下，防止出现网络拥塞。过度集中可能导致局部带宽饱和，反而降低整体训练效率。</p>
+<li>
+<p><strong>负载均衡</strong>：避免将所有任务集中在同一交换机下，防止出现网络拥塞。过度集中可能导致局部带宽饱和，反而降低整体训练效率。</p>
 </li>
 </ol>
 <p>这种权衡本质上是一个网络流优化问题。通过图论中的网络流算法，可以在通信延迟和带宽利用率之间找到最优平衡点，从而实现更高效的跨节点通信。</p>
 <p>一个分布式训练的带宽瓶颈来源于带宽最低的那条路径。</p>
-<h3 id="利用-Kubernetes-Pod-亲和性优化网络拓扑"><a href="#利用-Kubernetes-Pod-亲和性优化网络拓扑" class="headerlink" title="利用 Kubernetes Pod 亲和性优化网络拓扑"></a>利用 Kubernetes Pod 亲和性优化网络拓扑</h3><p>在 Kubernetes 环境下，我们可以通过 Pod 亲和性（Affinity）和规则来优化 GPU 任务的分配。主要可以从以下几个方面入手：</p>
-<p><strong>拓扑感知调度</strong>：使用 <code>topologyKey</code> 确保相关联的 Pod 被调度到网络拓扑上接近的节点：<br>例如同一个分布式训练任务<code>(training-group = group1)</code>尽让分配在一个机架上，同交换机，同核心交换机也是类似的。</p>
+<h3 id="利用-Kubernetes-Pod-亲和性优化网络拓扑">利用 Kubernetes Pod 亲和性优化网络拓扑</h3>
+<p>在 Kubernetes 环境下，我们可以通过 Pod 亲和性（Affinity）和规则来优化 GPU 任务的分配。主要可以从以下几个方面入手：</p>
+<p><strong>拓扑感知调度</strong>：使用 <code>topologyKey</code> 确保相关联的 Pod 被调度到网络拓扑上接近的节点：<br>
+例如同一个分布式训练任务<code>(training-group = group1)</code>尽让分配在一个机架上，同交换机，同核心交换机也是类似的。</p>
 <figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">affinity:</span></span><br><span class="line">  <span class="attr">podAffinity:</span></span><br><span class="line">    <span class="attr">preferredDuringSchedulingIgnoredDuringExecution:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">weight:</span> <span class="number">50</span></span><br><span class="line">      <span class="attr">podAffinityTerm:</span></span><br><span class="line">        <span class="attr">labelSelector:</span></span><br><span class="line">          <span class="attr">matchExpressions:</span></span><br><span class="line">          <span class="bullet">-</span> <span class="attr">key:</span> <span class="string">training-group</span></span><br><span class="line">            <span class="attr">operator:</span> <span class="string">In</span></span><br><span class="line">            <span class="attr">values:</span></span><br><span class="line">            <span class="bullet">-</span> <span class="string">group1</span></span><br><span class="line">        <span class="attr">topologyKey:</span> <span class="string">topology.kubernetes.io/rack</span>  <span class="comment"># 同机架优先</span></span><br></pre></td></tr></table></figure>
-
 <p>这种方案的优势在于：</p>
 <ul>
 <li>配置简单，易于理解和维护</li>
 <li>充分利用 Kubernetes 原生能力，无需额外组件</li>
 <li>可以根据实际需求灵活调整权重和策略</li>
 </ul>
-<h2 id="存储系统-1"><a href="#存储系统-1" class="headerlink" title="存储系统"></a>存储系统</h2><p>AI训练中的存储系统面临着两个主要挑战：</p>
-<h3 id="1-海量小文件问题"><a href="#1-海量小文件问题" class="headerlink" title="1. 海量小文件问题"></a>1. 海量小文件问题</h3><p>AI训练数据集通常包含大量的小文件，这对传统文件系统的性能和管理造成了巨大压力。一些现代分布式文件系统提供了很好的解决方案，例如 Meta 的 Tectonic 和与其架构类似的 JuiceFS，它们采用了以下优化方案：</p>
+<h2 id="存储系统-2">存储系统</h2>
+<p>AI训练中的存储系统面临着两个主要挑战：</p>
+<h3 id="1-海量小文件问题">1. 海量小文件问题</h3>
+<p>AI训练数据集通常包含大量的小文件，这对传统文件系统的性能和管理造成了巨大压力。一些现代分布式文件系统提供了很好的解决方案，例如 Meta 的 Tectonic 和与其架构类似的 JuiceFS，它们采用了以下优化方案：</p>
 <p><strong>元数据管理优化</strong>：</p>
 <ul>
 <li>使用元数据库管理文件结构，将 <code>ls</code> 命令转化为简单的字符串前缀匹配操作</li>
 <li>避免了传统 Linux 文件系统依赖 inode 管理的方式</li>
 <li>解决了 inode 臃肿问题（在传统系统中，一个 inode 的大小可能与文件本身相当）</li>
 </ul>
-<h3 id="2-Checkpoint-存储挑战"><a href="#2-Checkpoint-存储挑战" class="headerlink" title="2. Checkpoint 存储挑战"></a>2. Checkpoint 存储挑战</h3><p>分布式训练中的 checkpoint 文件体积巨大，这在大语言模型训练中尤为明显：</p>
+<h3 id="2-Checkpoint-存储挑战">2. Checkpoint 存储挑战</h3>
+<p>分布式训练中的 checkpoint 文件体积巨大，这在大语言模型训练中尤为明显：</p>
 <ul>
 <li>以 LLaMA-2-70B 为例，单个完整的 checkpoint 就需要 140GB 存储空间（FP16格式）</li>
 <li>训练过程中需要定期保存 checkpoint，累积存储需求可能达到 TB 甚至 PB 级别</li>
@@ -1090,34 +1201,37 @@ dynamo里面这几个值代表什么呢。H和C应该是head和`n_head`，函数
 <li>智能的数据分层存储机制</li>
 <li>可靠的数据备份和恢复能力</li>
 </ul>
-<h2 id="训练的稳定性"><a href="#训练的稳定性" class="headerlink" title="训练的稳定性"></a>训练的稳定性</h2><p>在大规模 AI 训练中，硬件故障是一个常见问题。特别是新型号显卡往往会有较高的故障率，再加上传统的硬件错误，这些都可能导致训练中断。因此，快速识别错误并恢复训练成为了一个关键挑战。目前主流的解决方案主要有以下两种：</p>
-<h3 id="基于-torchrun-的弹性训练"><a href="#基于-torchrun-的弹性训练" class="headerlink" title="基于 torchrun 的弹性训练"></a>基于 torchrun 的弹性训练</h3><p>torchrun 提供了两种容错机制：简单重试和弹性训练。</p>
+<h2 id="训练的稳定性">训练的稳定性</h2>
+<p>在大规模 AI 训练中，硬件故障是一个常见问题。特别是新型号显卡往往会有较高的故障率，再加上传统的硬件错误，这些都可能导致训练中断。因此，快速识别错误并恢复训练成为了一个关键挑战。目前主流的解决方案主要有以下两种：</p>
+<h3 id="基于-torchrun-的弹性训练">基于 torchrun 的弹性训练</h3>
+<p>torchrun 提供了两种容错机制：简单重试和弹性训练。</p>
 <ol>
-<li><strong>简单重试模式</strong>：<br>通过 <code>--max-restarts</code> 参数配置重试次数：</li>
+<li><strong>简单重试模式</strong>：<br>
+通过 <code>--max-restarts</code> 参数配置重试次数：</li>
 </ol>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">torchrun \</span><br><span class="line">    --nnodes=<span class="variable">$NUM_NODES</span> \</span><br><span class="line">    --nproc-per-node=<span class="variable">$NUM_TRAINERS</span> \</span><br><span class="line">    --max-restarts=3 \</span><br><span class="line">    --rdzv-id=<span class="variable">$JOB_ID</span> \</span><br><span class="line">    --rdzv-backend=c10d \</span><br><span class="line">    --rdzv-endpoint=<span class="variable">$HOST_NODE_ADDR</span> \</span><br><span class="line">    YOUR_TRAINING_SCRIPT.py [script args...]</span><br></pre></td></tr></table></figure>
-
 <ol start="2">
-<li><strong>弹性训练模式</strong>：<br>通过设置 <code>nnodes</code> 的范围来支持动态节点数：</li>
+<li><strong>弹性训练模式</strong>：<br>
+通过设置 <code>nnodes</code> 的范围来支持动态节点数：</li>
 </ol>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">torchrun \</span><br><span class="line">    --nnodes=1:4 \  <span class="comment"># 支持1-4个节点的动态伸缩</span></span><br><span class="line">    --nproc-per-node=<span class="variable">$NUM_TRAINERS</span> \</span><br><span class="line">    --max-restarts=3 \</span><br><span class="line">    --rdzv-id=<span class="variable">$JOB_ID</span> \</span><br><span class="line">    --rdzv-backend=c10d \</span><br><span class="line">    --rdzv-endpoint=<span class="variable">$HOST_NODE_ADDR</span> \</span><br><span class="line">    YOUR_TRAINING_SCRIPT.py [script args...]</span><br></pre></td></tr></table></figure>
-
 <p>弹性训练模式需要配置服务发现机制，默认使用 c10d 作为内置的节点发现服务，也支持使用 etcd 等外部服务。</p>
 <p>当节点发生变化时，系统会自动处理以下场景：</p>
 <ul>
 <li><strong>节点离开（缩容）</strong>：系统通知 agent，停止现有 workers，重新组建 WorkerGroup，使用新的 RANK 和 WORLD_SIZE 启动所有 workers</li>
 <li><strong>节点加入（扩容）</strong>：接纳新节点，按照相同流程重组 WorkerGroup</li>
 </ul>
-<h3 id="基于-DeepSpeed-的弹性训练"><a href="#基于-DeepSpeed-的弹性训练" class="headerlink" title="基于 DeepSpeed 的弹性训练"></a>基于 DeepSpeed 的弹性训练</h3><p>DeepSpeed 提供了更细粒度的弹性训练配置：</p>
+<h3 id="基于-DeepSpeed-的弹性训练">基于 DeepSpeed 的弹性训练</h3>
+<p>DeepSpeed 提供了更细粒度的弹性训练配置：</p>
 <figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">  <span class="attr">&quot;elasticity&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;enabled&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">true</span></span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;max_train_batch_size&quot;</span><span class="punctuation">:</span> <span class="string">&quot;seqlen&quot;</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;micro_batch_sizes&quot;</span><span class="punctuation">:</span> <span class="number">8</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;min_gpus&quot;</span><span class="punctuation">:</span> <span class="number">1024</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;max_gpus&quot;</span><span class="punctuation">:</span> <span class="string">&quot;fixed_linear&quot;</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;min_time&quot;</span><span class="punctuation">:</span> <span class="string">&quot;seqlen&quot;</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;version&quot;</span><span class="punctuation">:</span> <span class="number">8</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;ignore_non_elastic_batch_info&quot;</span><span class="punctuation">:</span> <span class="number">1024</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;num_gpus_per_node&quot;</span><span class="punctuation">:</span> <span class="string">&quot;fixed_linear&quot;</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;model_parallel_size&quot;</span><span class="punctuation">:</span> MODEL_PARALLEL_SIZE</span><br><span class="line">  <span class="punctuation">&#125;</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
-
 <p>DeepSpeed 的特点是：</p>
 <ul>
 <li>支持动态调整 batch size</li>
 <li>以 GPU 为粒度进行弹性伸缩（而不是节点级别）</li>
 <li>提供更丰富的训练参数配置</li>
 </ul>
-<h3 id="弹性训练控制器"><a href="#弹性训练控制器" class="headerlink" title="弹性训练控制器"></a>弹性训练控制器</h3><p>要实现完整的弹性训练支持，控制器需要：</p>
+<h3 id="弹性训练控制器">弹性训练控制器</h3>
+<p>要实现完整的弹性训练支持，控制器需要：</p>
 <ol>
 <li>依赖服务发现机制进行节点注册和健康检查</li>
 <li>动态调整弹性策略（如 min_nodes、max_nodes 等参数）</li>
@@ -1127,32 +1241,43 @@ dynamo里面这几个值代表什么呢。H和C应该是head和`n_head`，函数
 <li>将 max_nodes 设置为总资源规格</li>
 <li>将 min_nodes 设置为最小运行要求（如设置为 1:4 表示支持 1-4 张显卡的动态伸缩）</li>
 </ul>
-<h3 id="节点的问题发现"><a href="#节点的问题发现" class="headerlink" title="节点的问题发现"></a>节点的问题发现</h3><p>在大规模语言模型（LLM）预训练过程中，常见的硬件异常包括：</p>
+<h3 id="节点的问题发现">节点的问题发现</h3>
+<p>在大规模语言模型（LLM）预训练过程中，常见的硬件异常包括：</p>
 <ol>
-<li><p><strong>GPU ECC 错误</strong>：当 GPU 发生不可纠正的显存 ECC（Error Correcting Code）错误时，通常需要重置 GPU 或重启节点来清除这个错误。 </p>
+<li>
+<p><strong>GPU ECC 错误</strong>：当 GPU 发生不可纠正的显存 ECC（Error Correcting Code）错误时，通常需要重置 GPU 或重启节点来清除这个错误。</p>
 </li>
-<li><p><strong>Infiniband（IB）&#x2F;NCCL 问题</strong>：这类问题通常源于硬件故障，如网卡损坏或网络抖动，可能导致训练速度下降或任务异常中断。</p>
+<li>
+<p><strong>Infiniband（IB）/NCCL 问题</strong>：这类问题通常源于硬件故障，如网卡损坏或网络抖动，可能导致训练速度下降或任务异常中断。</p>
 </li>
-<li><p><strong>任务挂起（Hang）</strong>：通常与 IB&#x2F;NCCL 问题相关，需要人工检测和处理。</p>
+<li>
+<p><strong>任务挂起（Hang）</strong>：通常与 IB/NCCL 问题相关，需要人工检测和处理。</p>
 </li>
-<li><p><strong>GPU 掉卡</strong>：此时一般会触发 CUDA 错误或程序异常退出，可能需要重置 GPU 或重启节点来解决。</p>
+<li>
+<p><strong>GPU 掉卡</strong>：此时一般会触发 CUDA 错误或程序异常退出，可能需要重置 GPU 或重启节点来解决。</p>
 </li>
-<li><p><strong>机器异常</strong>：包括 GPU 之外的硬件异常，如硬盘、CPU 等，甚至整机故障，可能需要更换硬件或进行系统维护。</p>
+<li>
+<p><strong>机器异常</strong>：包括 GPU 之外的硬件异常，如硬盘、CPU 等，甚至整机故障，可能需要更换硬件或进行系统维护。</p>
 </li>
-<li><p><strong>机器配置异常</strong>：例如，某台机器意外启用了 MIG（多实例 GPU），可能影响训练任务的正常运行。</p>
+<li>
+<p><strong>机器配置异常</strong>：例如，某台机器意外启用了 MIG（多实例 GPU），可能影响训练任务的正常运行。</p>
 </li>
-<li><p><strong>集群维护</strong>：集群中的其他任务或系统维护、升级，可能需要暂停当前训练任务。</p>
+<li>
+<p><strong>集群维护</strong>：集群中的其他任务或系统维护、升级，可能需要暂停当前训练任务。</p>
 </li>
 </ol>
-<p>可以使用<a target="_blank" rel="noopener" href="https://github.com/kubernetes/node-problem-detector">node-promblem-detector</a>，<br>node-problem-detector 是一个用于在集群管理栈的上游层次中使各个节点问题可见的守护进程。它在每个节点上运行，检测节点问题并将其报告给 apiserver。</p>
-<p>监控和容错是一个比较难的问题，需要结合硬件和软件的特性，以及业务需求，进行综合考量。<br>特别是万卡集群，MFU 只有 50%左右。</p>
-<p>在训练 OPT-175B 模型的过程中，Meta团队使用了 992 个 80GB 的 A100 GPU，每个 GPU 实现了约 147 TFLOP&#x2F;s 的性能，对应的机器浮点利用率（MFU）约为 47%（147&#x2F;312）。 </p>
+<p>可以使用<a target="_blank" rel="noopener" href="https://github.com/kubernetes/node-problem-detector">node-promblem-detector</a>，<br>
+node-problem-detector 是一个用于在集群管理栈的上游层次中使各个节点问题可见的守护进程。它在每个节点上运行，检测节点问题并将其报告给 apiserver。</p>
+<p>监控和容错是一个比较难的问题，需要结合硬件和软件的特性，以及业务需求，进行综合考量。<br>
+特别是万卡集群，MFU 只有 50%左右。</p>
+<p>在训练 OPT-175B 模型的过程中，Meta团队使用了 992 个 80GB 的 A100 GPU，每个 GPU 实现了约 147 TFLOP/s 的性能，对应的机器浮点利用率（MFU）约为 47%（147/312）。</p>
 <p>为了应对可能的硬件故障，团队额外准备了 12 台备用机器，以便在出现问题时进行替换。在训练期间，平均每天约有 2 台机器发生故障，即每台机器每天发生故障的概率约为 1.61%。</p>
 <p>整个训练过程持续了约 2 个多月，包括从 2021 年 10 月 20 日到 2021 年 11 月 11 日的测试阶段，以及从 2021 年 11 月 11 日到 2022 年 1 月 6 日的正式训练阶段，正式训练约 57 天。</p>
 <p>根据预估，实际训练时间应为约 25 天，但由于各种问题，实际有效训练时间仅占总时间的约 44%。在前期，由于各种问题，团队至少手动重启了 35 次任务。为减少人工干预，后续引入了自动重启机制，但由于硬件故障，仍触发了超过 70 次重启，平均每天需要重启一次任务。</p>
-<p>这些经验表明，在大规模模型训练中，硬件故障和其他问题会显著影响训练效率。为此，团队采取了多种措施来应对这些挑战，包括准备备用硬件、引入自动重启机制等，以确保训练过程的顺利进行。  </p>
+<p>这些经验表明，在大规模模型训练中，硬件故障和其他问题会显著影响训练效率。为此，团队采取了多种措施来应对这些挑战，包括准备备用硬件、引入自动重启机制等，以确保训练过程的顺利进行。</p>
 <p>这个问题在用新的卡的时候会有更多问题。</p>
-<h2 id="总结-1"><a href="#总结-1" class="headerlink" title="总结"></a>总结</h2><blockquote>
+<h2 id="总结-2">总结</h2>
+<blockquote>
 <p>To train our largest Llama 3 models, we combined three types of parallelization: data parallelization, model parallelization, and pipeline parallelization. Our most efficient implementation achieves a compute utilization of over 400 TFLOPS per GPU when trained on 16K GPUs simultaneously. We performed training runs on two custom-built 24K GPU clusters. To maximize GPU uptime, we developed an advanced new training stack that automates error detection, handling, and maintenance. We also greatly improved our hardware reliability and detection mechanisms for silent data corruption, and we developed new scalable storage systems that reduce overheads of checkpointing and rollback. Those improvements resulted in an overall effective training time of more than 95%. Combined, these improvements increased the efficiency of Llama 3 training by ~three times compared to Llama 2.</p>
 </blockquote>
 <p>LLAMA3 的<a target="_blank" rel="noopener" href="https://ai.meta.com/blog/meta-llama-3/">技术博客</a>揭示了许多令人振奋的优化成果，这些优化背后蕴含着大量值得深入研究的技术细节。虽然我们可能难以直接接触如此大规模的训练集群及其面临的挑战，但这些技术进展仍然为整个 AI 基础设施领域提供了宝贵的参考和启发。</p>
@@ -1247,21 +1372,17 @@ dynamo里面这几个值代表什么呢。H和C应该是head和`n_head`，函数
     <div class="post-body" itemprop="articleBody">
           <p>CacheBlend的主要目标是在一些RAG场景下，多个文档Chunk之间不能像多轮对话那样构成Prefix Cache。</p>
 <img data-src="/zh-CN/2025/01/24/CacheBlend%E5%88%86%E6%9E%90/attention.png" class="">
-
 <p>对于位置编码来说，RoPE得到的注意力是绝对位置无关的，所以两个下三角放到对应的位置就可以。但是，两个Chunk之间的交叉注意力机制实际上是空的，如果单纯这样使用会丢失交叉注意力的信息。</p>
 <p>论文中提到了一个例子。</p>
 <img data-src="/zh-CN/2025/01/24/CacheBlend%E5%88%86%E6%9E%90/loss.png" class="">
-
 <p>在比较两个球员进球数的场景中，就损失了球员之间的交叉信息。</p>
 <p>为了弥补下面那个空的矩形的注意力，同时尽量节省计算量，根据一些insights提出了一种选择性计算的方法。</p>
 <p>注意力矩阵是稀疏的，其中差异较大（颜色较深）的部分对最终结果贡献较大。另外，对于多层的Transformer，前几层的注意力差异往往会一直保持下去。因此，CacheBlend会完全重算第一层的注意力，然后标记差值较大的token，用它们的注意力来代表两个Chunk之间的完全注意力矩阵。当然，这还是有损的。</p>
 <p>其中的权衡在于选择多少比例的token来代表两个Chunk之间的注意力矩阵，这个比例是可以调整的。</p>
 
-
 <p>一个平衡点在于从异构存储中加载KVCache和重计算KVCache的时间。如果选择性计算token的时间大于加载的时间，则可以将这个过程流水线化。在计算当前层时，加载下一层的KVCache。</p>
 <p>比率<code>r%</code>刚好满足计算时间和加载时间相等。</p>
 <img data-src="/zh-CN/2025/01/24/CacheBlend%E5%88%86%E6%9E%90/r.png" class="">
-
 <p>尽管第一层高差异化的token的注意力比较重要，但只看第一层似乎不太合理。CacheBlend会用一个比<code>r%</code>更大的范围选择token，然后每一层逐渐递减<code>r%</code>，以容许更多的可能性。只从第一层选择<code>r%</code>可能会丢失一些重要信息。</p>
 <p>总体来说，利用交叉注意力的稀疏性选择性重计算Chunk之间的交叉注意力，并平衡加载和计算，使得计算过程和加载是并行的，时间损耗无影响。在精度上，选择一个较大的<code>r%</code>再每层缩小到理想<code>r%</code>来满足准确性。最终实验效果显示，与完全重算的交叉注意力相比，结果还是很接近的。</p>
 
@@ -1353,35 +1474,41 @@ dynamo里面这几个值代表什么呢。H和C应该是head和`n_head`，函数
     
     
     <div class="post-body" itemprop="articleBody">
-          <h2 id="vLLM的PD分离"><a href="#vLLM的PD分离" class="headerlink" title="vLLM的PD分离"></a>vLLM的PD分离</h2><p>vLLM的PD分离是指vLLM的Prefill和Decode分离到不同的实例中执行。</p>
-<h3 id="新增配置"><a href="#新增配置" class="headerlink" title="新增配置"></a>新增配置</h3><p>新增 <code>KVTransferConfig</code> 配置，决定了实例的类型。如果是 prefill 则 <code>role</code> 为 producer，如果是 decode 则 <code>role</code> 为 consumer，并且要设定传输的方法。</p>
+          <h2 id="vLLM的PD分离">vLLM的PD分离</h2>
+<p>vLLM的PD分离是指vLLM的Prefill和Decode分离到不同的实例中执行。</p>
+<h3 id="新增配置">新增配置</h3>
+<p>新增 <code>KVTransferConfig</code> 配置，决定了实例的类型。如果是 prefill 则 <code>role</code> 为 producer，如果是 decode 则 <code>role</code> 为 consumer，并且要设定传输的方法。</p>
 <ul>
 <li><code>is_kv_transfer_instance</code> 判断是否是 PD 分离的实例。</li>
 </ul>
-<h3 id="代码实现"><a href="#代码实现" class="headerlink" title="代码实现"></a>代码实现</h3><p>在 <code>./vllm/worker/model_runner.py</code> 中：</p>
+<h3 id="代码实现">代码实现</h3>
+<p>在 <code>./vllm/worker/model_runner.py</code> 中：</p>
 <ol>
 <li>在计算之前执行 <code>need_rev_kv</code>，检查是否是 consumer，且当前 run 是不是 prefill。然后调用 <code>get_kv_transfer_group().recv_kv_caches_and_hidden_states</code>。</li>
-<li>在计算之后执行 <code>need_send_kv</code>，检查是否开启配置 producer，并且当前 run 是不是 prefill（对于以前未分离的结构来说，decode实例要经历prefill阶段，<br>但是prefill已经被prefill实例做掉了，所以要等着接受prefill的KVCache，不需要重复计算prefill了）。然后调用 <code>get_kv_transfer_group().send_kv_caches_and_hidden_states</code>。</li>
+<li>在计算之后执行 <code>need_send_kv</code>，检查是否开启配置 producer，并且当前 run 是不是 prefill（对于以前未分离的结构来说，decode实例要经历prefill阶段，<br>
+但是prefill已经被prefill实例做掉了，所以要等着接受prefill的KVCache，不需要重复计算prefill了）。然后调用 <code>get_kv_transfer_group().send_kv_caches_and_hidden_states</code>。</li>
 </ol>
-<h3 id="KVTransfer-实例"><a href="#KVTransfer-实例" class="headerlink" title="KVTransfer 实例"></a>KVTransfer 实例</h3><p><code>get_kv_transfer_group</code> 会返回一个 KVTransfer 的实例，是一个全局实例，初始化方式如下。其中的 rank 0 代表 prefill，rank 1 代表 decode。</p>
+<h3 id="KVTransfer-实例">KVTransfer 实例</h3>
+<p><code>get_kv_transfer_group</code> 会返回一个 KVTransfer 的实例，是一个全局实例，初始化方式如下。其中的 rank 0 代表 prefill，rank 1 代表 decode。</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">_KV_TRANSFER = kv_transfer.KVTransferAgent(</span><br><span class="line">    rank=get_world_group().rank,</span><br><span class="line">    local_rank=get_world_group().local_rank,</span><br><span class="line">    config=vllm_config)</span><br></pre></td></tr></table></figure>
-
-<h3 id="Transfer-实现"><a href="#Transfer-实现" class="headerlink" title="Transfer 实现"></a>Transfer 实现</h3><p>Transfer 的实现在 <code>vllm/distributed/kv_transfer</code>，这种解耦的设计是为了对接多种实现，比如 Mooncake 的开源 TransferEngine。Transfer 内部会调用 connector 的 send 和 recv 方法，这个方法是一个抽象方法，需要子类实现。目前有两种实现：Mooncake 的 transfer 和 PyNccl 的 transfer。</p>
+<h3 id="Transfer-实现">Transfer 实现</h3>
+<p>Transfer 的实现在 <code>vllm/distributed/kv_transfer</code>，这种解耦的设计是为了对接多种实现，比如 Mooncake 的开源 TransferEngine。Transfer 内部会调用 connector 的 send 和 recv 方法，这个方法是一个抽象方法，需要子类实现。目前有两种实现：Mooncake 的 transfer 和 PyNccl 的 transfer。</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># Register various connectors here.</span></span><br><span class="line"><span class="comment"># The registration should not be done in each individual file, as we want to</span></span><br><span class="line"><span class="comment"># only load the files corresponding to the current connector.</span></span><br><span class="line">KVConnectorFactory.register_connector(</span><br><span class="line">    <span class="string">&quot;PyNcclConnector&quot;</span>,</span><br><span class="line">    <span class="string">&quot;vllm.distributed.kv_transfer.kv_connector.simple_connector&quot;</span>,</span><br><span class="line">    <span class="string">&quot;SimpleConnector&quot;</span>)</span><br><span class="line"></span><br><span class="line">KVConnectorFactory.register_connector(</span><br><span class="line">    <span class="string">&quot;MooncakeConnector&quot;</span>,</span><br><span class="line">    <span class="string">&quot;vllm.distributed.kv_transfer.kv_connector.simple_connector&quot;</span>,</span><br><span class="line">    <span class="string">&quot;SimpleConnector&quot;</span>)</span><br></pre></td></tr></table></figure>
-
-<h3 id="Connector-依赖"><a href="#Connector-依赖" class="headerlink" title="Connector 依赖"></a>Connector 依赖</h3><p>Connector 依赖 <code>kv_pipe</code> 的实现。</p>
+<h3 id="Connector-依赖">Connector 依赖</h3>
+<p>Connector 依赖 <code>kv_pipe</code> 的实现。</p>
 <ul>
 <li><code>from vllm.distributed.device_communicators.pynccl import PyNcclCommunicator</code> 用来实现 PyNccl 的 <code>kv_pipe</code>。其中的 Send 和 Recv 会依赖 NCCL 的集合通信实现。</li>
 <li>如果是 Mooncake pipe，<code>import mooncake_vllm_adaptor as mva</code> 这个模块，基于 ZeroMQ 的通信，通过 pickle 去序列化 tensor。</li>
 </ul>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">_send_impl</span>(<span class="params">self, tensor: torch.Tensor</span>) -&gt; <span class="literal">None</span>:</span><br><span class="line">    <span class="string">&quot;&quot;&quot;Implement the tensor sending logic.&quot;&quot;&quot;</span></span><br><span class="line">    value_bytes = pickle.dumps(tensor)</span><br><span class="line">    <span class="variable language_">self</span>.transfer_engine.send_bytes(value_bytes)</span><br></pre></td></tr></table></figure>
-
-<h3 id="KV-Lookup-Buffer-实现"><a href="#KV-Lookup-Buffer-实现" class="headerlink" title="KV Lookup Buffer 实现"></a>KV Lookup Buffer 实现</h3><p>另外还有一种 <code>kv_lookup_buffer</code> 的实现，抽象的接口是非阻塞 <code>insert</code> 和阻塞的 <code>drop_select</code>。</p>
+<h3 id="KV-Lookup-Buffer-实现">KV Lookup Buffer 实现</h3>
+<p>另外还有一种 <code>kv_lookup_buffer</code> 的实现，抽象的接口是非阻塞 <code>insert</code> 和阻塞的 <code>drop_select</code>。</p>
 <ul>
 <li>Producer 调用 <code>insert</code>，consumer 调用 <code>drop_select</code>。目前 <code>SimpleBuffer</code> 也是基于 Pipe 去实现的，insert 变 send，drop_select 变 recv。</li>
 <li>如果有一些中心化的 KVCacheBuffer 的话可能可以不用基于 Pipe 的实现。比如可以基于分布式的 <a target="_blank" rel="noopener" href="https://docs.lmcache.ai/index.html">LMCache</a>?</li>
 </ul>
-<h3 id="Prefill-启动"><a href="#Prefill-启动" class="headerlink" title="Prefill 启动"></a>Prefill 启动</h3><p>vLLM 目前的实现是基于 connector 的。Prefill 的启动时通过设置 <code>max_token</code> 为 1 来执行，当生成了 bonus token 以后转而去调用 decode 的实例。</p>
+<h3 id="Prefill-启动">Prefill 启动</h3>
+<p>vLLM 目前的实现是基于 connector 的。Prefill 的启动时通过设置 <code>max_token</code> 为 1 来执行，当生成了 bonus token 以后转而去调用 decode 的实例。</p>
 
       
     </div>
@@ -1471,12 +1598,13 @@ dynamo里面这几个值代表什么呢。H和C应该是head和`n_head`，函数
     
     
     <div class="post-body" itemprop="articleBody">
-          <p>LoRA一般的设定是认为微调任务应该只需要在一个更小的子空间去训练即可不需要复用基座模型的大空间，从而实现低成本的微调。<br>LoRA的前提是问题是不是在子空间能得到最优解。在线性回归 y&#x3D;W x 中，如果最优 W * 是高秩的，那么对 W 施加低秩假设永远不会导致最优解，无论使用什么优化器。</p>
+          <p>LoRA一般的设定是认为微调任务应该只需要在一个更小的子空间去训练即可不需要复用基座模型的大空间，从而实现低成本的微调。<br>
+LoRA的前提是问题是不是在子空间能得到最优解。在线性回归 y=W x 中，如果最优 W * 是高秩的，那么对 W 施加低秩假设永远不会导致最优解，无论使用什么优化器。</p>
 <p>Gradient Low-Rank Projection (GaLore) 允许全参数学习，但比 LoRA 等常见的低秩自适应方法更具内存效率。</p>
 <p>使用单个批处理大小从头开始预训练 LLaMA7B 模型至少需要 58 GB 内存（14GB 用于可训练参数，42GB 用于 Adam 优化器状态和权重梯度，2GB 用于激活函数）。这使得训练在消费级 GPU 上不可行，例如具有 24GB 内存的 NVIDIA RTX 4090。</p>
-<p>他证明梯度可能具有低秩结构，如果我们能够在优化器状态中保留梯度的一个小 “核心” 的梯度统计信息，而不是完整的梯度本身，那么内存消耗就可以大幅降低。这就引出了 GaLore 策略。<br>他的关键思想是利用权重矩阵 W 的梯度 G 上做LoRA，而不是试图将权重矩阵本身近似为低秩。他的核心逻辑用Torch写出来如下：</p>
+<p>他证明梯度可能具有低秩结构，如果我们能够在优化器状态中保留梯度的一个小 “核心” 的梯度统计信息，而不是完整的梯度本身，那么内存消耗就可以大幅降低。这就引出了 GaLore 策略。<br>
+他的关键思想是利用权重矩阵 W 的梯度 G 上做LoRA，而不是试图将权重矩阵本身近似为低秩。他的核心逻辑用Torch写出来如下：</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">for</span> weight <span class="keyword">in</span> model.parameters():</span><br><span class="line">    grad = weight.grad</span><br><span class="line">    <span class="comment"># original space -&gt; compact space</span></span><br><span class="line">    lor_grad = project(grad)</span><br><span class="line">    <span class="comment"># update by Adam, Adafactor, etc.</span></span><br><span class="line">    lor_update = update(lor_grad)</span><br><span class="line">    <span class="comment"># compact space -&gt; original space </span></span><br><span class="line">    update = project_back(lor_update) </span><br><span class="line">    weight.data += update</span><br></pre></td></tr></table></figure>
-
 
       
     </div>
@@ -1566,18 +1694,15 @@ dynamo里面这几个值代表什么呢。H和C应该是head和`n_head`，函数
     
     
     <div class="post-body" itemprop="articleBody">
-          <h1 id="Sequence-Parallelism"><a href="#Sequence-Parallelism" class="headerlink" title="Sequence Parallelism"></a>Sequence Parallelism</h1><p>假设有4个chunk，切四份。</p>
+          <h1>Sequence Parallelism</h1>
+<p>假设有4个chunk，切四份。</p>
 <img data-src="/zh-CN/2024/12/26/Sequence-Parallelism/step_0.png" class="">
-
 <p>初始化状态，每个GPU都有自己的 Qn Kn，可以计算出对应的注意力矩阵，然后类似AllReduce的方式传递切分的K。</p>
 <img data-src="/zh-CN/2024/12/26/Sequence-Parallelism/step_1.png" class="">
-
 <p>第一步环形传递K，然后再算一次注意力矩阵。</p>
 <img data-src="/zh-CN/2024/12/26/Sequence-Parallelism/step_2.png" class="">
-
 <p>第二步环形传递K，然后再算一次注意力矩阵。</p>
 <img data-src="/zh-CN/2024/12/26/Sequence-Parallelism/step_3.png" class="">
-
 <p>第三步全部传完，得到完整的Sn。</p>
 <p>然后 Sn 和 Vn 的计算也是类似的，经过三次环形传递Vn，然后每一份可以单独和小s的那一份做乘法。</p>
 <p>所以K和V的传播都要经历 3 次(N-1)的集合通信。</p>
@@ -1676,15 +1801,17 @@ dynamo里面这几个值代表什么呢。H和C应该是head和`n_head`，函数
 <li>每批次最大化token数量，从而改善Model FLOPs Utilization (MFU)。</li>
 </ol>
 <p>如果从远程内存获取KVCache，会增加数据传输时间，从而延长TTFT（Time To First Token）。因此，当本地KVCache的增量计算时间少于传输时间时，可以复用本地的KVCache，即使它不是最匹配的。而增大batch意味着系统处理的大批量数据，导致TBT（Token Between Token）延长，可以将负载均衡到低负载的Decode Instance。</p>
-<h3 id="架构"><a href="#架构" class="headerlink" title="架构"></a>架构</h3><img data-src="/zh-CN/2024/12/25/Mooncacke%E5%88%86%E6%9E%90/arch.png" class="">
-
+<h3 id="架构">架构</h3>
+<img data-src="/zh-CN/2024/12/25/Mooncacke%E5%88%86%E6%9E%90/arch.png" class="">
 <p>Mooncake的架构图主要分为三个部分：Prefill Instance，Decode Instance，Conductor。</p>
 <ol>
 <li>Cache-aware Prefill Scheduler：负责调度Request到Prefill Instance，主要考虑load和KVCache的复用率。</li>
 <li>KVCache Balance Scheduler：负责从匹配最多前缀的P2P传输KVCache到Instance（Decode和Prefill）。</li>
 <li>Load-balance Decoding Scheduler：负责负载均衡调度Request到Decode Instance。</li>
 </ol>
-<p>Prefill Instance要满足TTFT SLO，最小化MFU，保证KVCache &lt; DRAM。<br>Decode Instance要满足TBT SLO，保证KVCache &lt; VRAM。<br>Inter-Node Transfer基于RDMA的P2P，这也是一个较大的开销。</p>
+<p>Prefill Instance要满足TTFT SLO，最小化MFU，保证KVCache &lt; DRAM。<br>
+Decode Instance要满足TBT SLO，保证KVCache &lt; VRAM。<br>
+Inter-Node Transfer基于RDMA的P2P，这也是一个较大的开销。</p>
 <p>Mooncake的方法总结如下：</p>
 <ol>
 <li>转移可重用的KVCache，将尽可能多的可重用KVCache转移至Prefill Instance，减少增量计算的时间。</li>
@@ -1693,10 +1820,10 @@ dynamo里面这几个值代表什么呢。H和C应该是head和`n_head`，函数
 </ol>
 <p>Mooncake的主要特点是将prefill和decode拆开，并调度KVCache块。</p>
 <p>Reject Policy：如果一个请求不能在服务水平内完成其完整的执行，那么就应该尽早拒绝这个请求，基于这个理念需要设计一些拒绝策略，被称作Overloaded-Scheduling。</p>
-<h3 id="KVCache的复制"><a href="#KVCache的复制" class="headerlink" title="KVCache的复制"></a>KVCache的复制</h3><p>KVCache的调度主要是利用KV Cache（VRAM，DRAM），利用RDMA带宽。</p>
+<h3 id="KVCache的复制">KVCache的复制</h3>
+<p>KVCache的调度主要是利用KV Cache（VRAM，DRAM），利用RDMA带宽。</p>
 <p>下图是一个Prefill和Decode分离的计算过程。</p>
 <img data-src="/zh-CN/2024/12/25/Mooncacke%E5%88%86%E6%9E%90/kv_transfer.png" class="">
-
 <p>如果了解vLLM中的prefill和decode以及管理block的方法，这个图其实很简单。</p>
 <p>首先通过Hash判断block是否相同，例如很多系统提示词都是一样的，这部分的复用率很高。</p>
 <p>Prefill Instance已经有了ABCDE（这里是一个P2P的过程，但我看开源的版本有个KVCache Store的WIP，不知道后面会不会有一个中心化的KVCache Store的组件）。然后计算了FGHI，存入了KV Cache（在CPU mem上），论文里面提到这个prefill在超过<code>prefill_chunk</code> tokens数量会做chunked prefill。</p>
@@ -1710,13 +1837,15 @@ dynamo里面这几个值代表什么呢。H和C应该是head和`n_head`，函数
 </ol>
 <p>Mooncake的一个争论点是，是否需要在存在chunked prefill的情况下采用这种分离架构。毕竟，chunked prefill可以填补许多pipeline中的气泡，并且能让prefill和decode节点相对统一，只需要关心一种instance，对于scheduler比较友好。</p>
 <ol>
-<li><p>不分离的优点：</p>
+<li>
+<p>不分离的优点：</p>
 <ul>
 <li>所有节点被视为平等，使调度更简单；</li>
 <li>将chunked prefill内联到解码批处理中可以提高解码批次的计算强度，从而提高MFU。</li>
 </ul>
 </li>
-<li><p>分离的优点：</p>
+<li>
+<p>分离的优点：</p>
 <ul>
 <li>长文本的跨节点并行和VRAM的节省。长文本输入是输出的10倍甚至100倍，对于相同的模型来说，prefill需要多节点配置才能满足显存需求。prefill阶段可以进行layer-wise prefill，每次保存大量KVCache，而decode阶段每次只需保存一个KVCache。因此，prefill阶段可以通过layer-wise prefill来减少VRAM占用。</li>
 </ul>
@@ -1727,11 +1856,14 @@ dynamo里面这几个值代表什么呢。H和C应该是head和`n_head`，函数
 </blockquote>
 <p>然而，经过仔细考虑，论文决定保持Mooncake的分离架构。只有在请求的prefill可以不进行chunking且不影响TBT SLO的情况下，才会将其内联到解码批次中。我们这样决定的主要原因有两个：</p>
 <ol>
-<li><p>Prefill节点需要不同的跨节点并行设置来处理长上下文 (§5.1)。</p>
+<li>
+<p>Prefill节点需要不同的跨节点并行设置来处理长上下文 (§5.1)。</p>
 </li>
-<li><p>这为节省VRAM提供了独特的机会 (§5.2)。</p>
+<li>
+<p>这为节省VRAM提供了独特的机会 (§5.2)。</p>
 </li>
-<li><p>大模型需要部署在多机上，进行TP后，每一层都需要进行一次基于RDMA的reduce，这个过程开销巨大。虽然有一些Sequence Parallelism的方法，但效果并不理想，且无法避免跨节点通信。而Mooncake采用的是CPP（Chunked Parallelism Pipeline），将序列按<code>prefill_chunk</code>大小切分，交给prefill pool的不同节点，这些节点被切分成更小的节点池（pipelined prefill node group）。</p>
+<li>
+<p>大模型需要部署在多机上，进行TP后，每一层都需要进行一次基于RDMA的reduce，这个过程开销巨大。虽然有一些Sequence Parallelism的方法，但效果并不理想，且无法避免跨节点通信。而Mooncake采用的是CPP（Chunked Parallelism Pipeline），将序列按<code>prefill_chunk</code>大小切分，交给prefill pool的不同节点，这些节点被切分成更小的节点池（pipelined prefill node group）。</p>
 </li>
 </ol>
 <blockquote>
@@ -1740,36 +1872,43 @@ dynamo里面这几个值代表什么呢。H和C应该是head和`n_head`，函数
 <ol start="2">
 <li>Layer-wise prefill，这有点像airllm项目，在计算过程中动态加载KVCache。在每次注意力计算时，KVCache是异步加载的，计算当前层时可以异步加载下一层，并且当前层结束后可以异步保存当前层。论文中认为KVCache的保存时间可以被完全省略（相较于加载计算保存的线性循环）。这样也可以降低VRAM的占用。</li>
 </ol>
-<h3 id="调度算法"><a href="#调度算法" class="headerlink" title="调度算法"></a>调度算法</h3><ol>
-<li><p><strong>选择Prefill实例</strong>：</p>
+<h3 id="调度算法">调度算法</h3>
+<ol>
+<li>
+<p><strong>选择Prefill实例</strong>：</p>
 <ul>
 <li>如果Prefill节点上缓存了足够的前缀（由<code>kvcache_balancing_threshold</code>控制），则选择预估TTFT最小的实例：<code>TTFT = min(T_queue + T_prefill)</code>。</li>
 <li>如果Prefill节点上缓存不足，则选择<code>TTFT = min(T_queue + T_prefill + T_transfer)</code>最小的实例，其中<code>T_transfer</code>指的是有最长匹配的KVCache的实例拷贝到当前实例的预估时间。</li>
 </ul>
 </li>
-<li><p><strong>选择Decode实例</strong>：</p>
+<li>
+<p><strong>选择Decode实例</strong>：</p>
 <ul>
 <li>通过负载均衡的方式预估TBT。</li>
 <li>如果TBT和TTFT不满足SLO，则拒绝请求，并触发KVCache的传输。</li>
 </ul>
 </li>
-<li><p><strong>预测模型</strong>：</p>
+<li>
+<p><strong>预测模型</strong>：</p>
 <ul>
 <li>预估模型用于预测传输时间和决策传输。</li>
 <li>数据传输时间难以预测，因为它不仅取决于数据大小，还依赖于当前网络状态，特别是当发送节点处于拥塞状态时。</li>
 </ul>
 </li>
-<li><p><strong>KVCache复制</strong>：</p>
+<li>
+<p><strong>KVCache复制</strong>：</p>
 <ul>
 <li>热门的KVCache块需要被复制以确保高可用性。</li>
 </ul>
 </li>
-<li><p><strong>调度器目标</strong>：</p>
+<li>
+<p><strong>调度器目标</strong>：</p>
 <ul>
 <li>保证低Cache负载和高Cache命中率。</li>
 </ul>
 </li>
-<li><p><strong>高负载情况下的策略</strong>：</p>
+<li>
+<p><strong>高负载情况下的策略</strong>：</p>
 <ul>
 <li>请求可能不会被直接发送给缓存最长前缀的实例，而是转发给备选实例。备选实例会主动从缓存持有者处检索KV缓存并存储本地。</li>
 <li>当最佳的远程前缀匹配长度不超过当前本地可重用前缀的阈值时，系统优先使用本地缓存，而不是从远程实例获取令牌。</li>
@@ -1777,7 +1916,8 @@ dynamo里面这几个值代表什么呢。H和C应该是head和`n_head`，函数
 </li>
 </ol>
 <p>这些策略不仅减少了请求的Prefill时间，还自动复制热点缓存，使其在多台机器上更广泛地分布。</p>
-<h3 id="拒绝策略"><a href="#拒绝策略" class="headerlink" title="拒绝策略"></a>拒绝策略</h3><p>论文提到了一种基于预测的拒绝策略。Prefill和Decode的负载节奏是相反的，可能在Decode负载高时，Prefill负载较低。此时如果拒绝请求，会导致Decode负载下降，而Prefill完成后Decode负载又会升高，进而再次拒绝请求。引入预测拒绝策略后，可以使Prefill过程更加平滑，减少频繁拒绝请求的情况，从而减小负载节奏的波动。</p>
+<h3 id="拒绝策略">拒绝策略</h3>
+<p>论文提到了一种基于预测的拒绝策略。Prefill和Decode的负载节奏是相反的，可能在Decode负载高时，Prefill负载较低。此时如果拒绝请求，会导致Decode负载下降，而Prefill完成后Decode负载又会升高，进而再次拒绝请求。引入预测拒绝策略后，可以使Prefill过程更加平滑，减少频繁拒绝请求的情况，从而减小负载节奏的波动。</p>
 <img data-src="/zh-CN/2024/12/25/Mooncacke%E5%88%86%E6%9E%90/reject_policy.png" class="">
 
       

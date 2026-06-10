@@ -21,12 +21,12 @@
 
 <script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
 
-    <meta name="description" content="背景Horovod 是一个兼容主流计算框架的分布式机器学习训练框架，主要基于的算法是 AllReduce，这个是 baidu-research 在17年做的一个实现，这个东西原来是高性能计算范畴里的东西应用了 MPI 并行计算接口来实现，这是并行计算里的一个框架，已经很老了，这里有一个介绍 MPI 的 tutorial 写的比较好。 在介绍 horovod 的之前需要解释一下 AllReduce。">
+    <meta name="description" content="背景 Horovod 是一个兼容主流计算框架的分布式机器学习训练框架，主要基于的算法是 AllReduce，这个是 baidu-research 在17年做的一个实现，这个东西原来是高性能计算范畴里的东西应用了 MPI 并行计算接口来实现，这是并行计算里的一个框架，已经很老了，这里有一个介绍 MPI 的 tutorial 写的比较好。 在介绍 horovod 的之前需要解释一下 AllReduce">
 <meta property="og:type" content="article">
 <meta property="og:title" content="horovod 实现分析">
 <meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2019/08/30/horovod-%E5%AE%9E%E7%8E%B0%E5%88%86%E6%9E%90/index.html">
 <meta property="og:site_name" content="ggaaooppeenngg">
-<meta property="og:description" content="背景Horovod 是一个兼容主流计算框架的分布式机器学习训练框架，主要基于的算法是 AllReduce，这个是 baidu-research 在17年做的一个实现，这个东西原来是高性能计算范畴里的东西应用了 MPI 并行计算接口来实现，这是并行计算里的一个框架，已经很老了，这里有一个介绍 MPI 的 tutorial 写的比较好。 在介绍 horovod 的之前需要解释一下 AllReduce。">
+<meta property="og:description" content="背景 Horovod 是一个兼容主流计算框架的分布式机器学习训练框架，主要基于的算法是 AllReduce，这个是 baidu-research 在17年做的一个实现，这个东西原来是高性能计算范畴里的东西应用了 MPI 并行计算接口来实现，这是并行计算里的一个框架，已经很老了，这里有一个介绍 MPI 的 tutorial 写的比较好。 在介绍 horovod 的之前需要解释一下 AllReduce">
 <meta property="og:locale" content="zh_CN">
 <meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2019/08/30/horovod-%E5%AE%9E%E7%8E%B0%E5%88%86%E6%9E%90/mpi_reduce_1.png">
 <meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2019/08/30/horovod-%E5%AE%9E%E7%8E%B0%E5%88%86%E6%9E%90/mpi_allreduce_1.png">
@@ -250,7 +250,8 @@
     
     
     
-    <div class="post-body" itemprop="articleBody"><h2 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h2><p>Horovod 是一个兼容主流计算框架的分布式机器学习训练框架，主要基于的算法是 AllReduce，这个是 baidu-research 在17年做的一个实现，这个东西原来是高性能计算范畴里的东西应用了 MPI 并行计算接口来实现，这是并行计算里的一个框架，已经很老了，<a target="_blank" rel="noopener" href="https://mpitutorial.com/tutorials/">这里</a>有一个介绍 MPI 的 tutorial 写的比较好。</p>
+    <div class="post-body" itemprop="articleBody"><h2 id="背景">背景</h2>
+<p>Horovod 是一个兼容主流计算框架的分布式机器学习训练框架，主要基于的算法是 AllReduce，这个是 baidu-research 在17年做的一个实现，这个东西原来是高性能计算范畴里的东西应用了 MPI 并行计算接口来实现，这是并行计算里的一个框架，已经很老了，<a target="_blank" rel="noopener" href="https://mpitutorial.com/tutorials/">这里</a>有一个介绍 MPI 的 tutorial 写的比较好。</p>
 <p>在介绍 horovod 的之前需要解释一下 AllReduce。在 MapReduce 里面 reduce 被翻译成了规约，在上面提到的 MPI tutorial 里面的解释是</p>
 <blockquote>
 <p>Reduce is a classic concept from functional programming. Data reduction involves reducing a set of numbers into a smaller set of numbers via a function. For example, let’s say we have a list of numbers <code>[1, 2, 3, 4, 5]</code>. Reducing this list of numbers with the sum function would produce <code>sum([1, 2, 3, 4, 5]) = 15</code>. Similarly, the multiplication reduction would yield <code>multiply([1, 2, 3, 4, 5]) = 120</code>.</p>
@@ -260,17 +261,19 @@
 <img data-src="/zh-CN/2019/08/30/horovod-%E5%AE%9E%E7%8E%B0%E5%88%86%E6%9E%90/mpi_reduce_1.png" class="">
 <p>AllReduce 就是在每个节点都获得 Reduce 的结果</p>
 <img data-src="/zh-CN/2019/08/30/horovod-%E5%AE%9E%E7%8E%B0%E5%88%86%E6%9E%90/mpi_allreduce_1.png" class="">
-<p>基于这个标准就有很多的 All-Reduce 的实现，比如 Ring-Reduce，这个实现分两部分，一部分是 Scatter-Reduce 另一部分是 All-Gather。最早是在<a target="_blank" rel="noopener" href="http://andrew.gibiansky.com/">这篇 post</a>里提到的。这个算法的好处是可以摆脱之前 PS 非常依赖 Parameter-Server 的带宽，Parameter-Server 的带宽会成为计算瓶颈的问题，而 AllReduce 可以让每个节点在带宽传输中的位置是对等的，并且减少传输次数。具体的算法可以看文章的解释，scatter-reduce 就是让每个节点有 K&#x2F;N 的一个 reduce(也就是 sum)，然后把自己的一个 K&#x2F;N 的 reduce 再传递给其他节点，每个节点只和自己相邻的节点通信。</p>
+<p>基于这个标准就有很多的 All-Reduce 的实现，比如 Ring-Reduce，这个实现分两部分，一部分是 Scatter-Reduce 另一部分是 All-Gather。最早是在<a target="_blank" rel="noopener" href="http://andrew.gibiansky.com/">这篇 post</a>里提到的。这个算法的好处是可以摆脱之前 PS 非常依赖 Parameter-Server 的带宽，Parameter-Server 的带宽会成为计算瓶颈的问题，而 AllReduce 可以让每个节点在带宽传输中的位置是对等的，并且减少传输次数。具体的算法可以看文章的解释，scatter-reduce 就是让每个节点有 K/N 的一个 reduce(也就是 sum)，然后把自己的一个 K/N 的 reduce 再传递给其他节点，每个节点只和自己相邻的节点通信。</p>
 <blockquote>
-<p>In the system we described, each of the N GPUs will send and receive values N-1 times for the scatter-reduce, and N-1 times for the allgather. Each time, the GPUs will send K &#x2F; N values, where K is the total number of values in array being summed across the different GPUs. Therefore, the total amount of data transferred to and from every GPU is</p>
+<p>In the system we described, each of the N GPUs will send and receive values N-1 times for the scatter-reduce, and N-1 times for the allgather. Each time, the GPUs will send K / N values, where K is the total number of values in array being summed across the different GPUs. Therefore, the total amount of data transferred to and from every GPU is</p>
 </blockquote>
 <blockquote>
-<p>Data Transferred&#x3D;2(N−1)KN</p>
+<p>Data Transferred=2(N−1)KN</p>
 </blockquote>
 <p>数据传输量在 N 比较大的时候越没有影响，这就消弭了多节点给 Parameter-Server 造成的瓶颈。</p>
 <p>还有一些其他术语，假设有 4 台 4 卡的 GPU 服务器。size 是工作进程（GPU）的数量(6)，rank 是所有工作进程的 id(0-15)，local rank 是当前服务器上的 id(0-3)。</p>
-<h2 id="Horovod-的介绍"><a href="#Horovod-的介绍" class="headerlink" title="Horovod 的介绍"></a>Horovod 的介绍</h2><p>使用 horovod 有一定的侵入性，代码需要一定的修改才能变成适配分布式训练，但是有一个好处就是适配的成本不高，并且 horovod 提供的各种框架的支持可以让 horovod 比较好的在各个框架的基础上使用，他支持 tensorflow&#x2F;keras&#x2F;mxnet&#x2F;pytorch，MPI 的实现也有很多，比如 OpenMPI 还有 Nvidia 的 NCCL，还有 facebook 的 gloo，他们都实现了一种并行计算的通信和计算方式。而且 horovod 的本身的实现也很简单。</p>
-<h3 id="使用"><a href="#使用" class="headerlink" title="使用"></a>使用</h3><p>以 <a target="_blank" rel="noopener" href="https://github.com/horovod/horovod/blob/master/examples/keras_imagenet_resnet50.py">Keras 用 ResNet50 训练 ImageNet </a>为例，主要侵入了几部分 <code>hvd.init()</code> 这个是 MPI 的初始化，让并行进程能够知道自己的 rank&#x2F;local_rank 等信息。</p>
+<h2 id="Horovod-的介绍">Horovod 的介绍</h2>
+<p>使用 horovod 有一定的侵入性，代码需要一定的修改才能变成适配分布式训练，但是有一个好处就是适配的成本不高，并且 horovod 提供的各种框架的支持可以让 horovod 比较好的在各个框架的基础上使用，他支持 tensorflow/keras/mxnet/pytorch，MPI 的实现也有很多，比如 OpenMPI 还有 Nvidia 的 NCCL，还有 facebook 的 gloo，他们都实现了一种并行计算的通信和计算方式。而且 horovod 的本身的实现也很简单。</p>
+<h3 id="使用">使用</h3>
+<p>以 <a target="_blank" rel="noopener" href="https://github.com/horovod/horovod/blob/master/examples/keras_imagenet_resnet50.py">Keras 用 ResNet50 训练 ImageNet </a>为例，主要侵入了几部分 <code>hvd.init()</code> 这个是 MPI 的初始化，让并行进程能够知道自己的 rank/local_rank 等信息。</p>
 <p>第二部根据 local_rank（相当于单节点上的第n张卡），并且设置不占用全部显存，按需分配（可能因内没有统一管理导致显存碎片），然后传递给 keras 设置 session。</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"># Horovod: pin GPU to be used to process local rank (one GPU per process)</span><br><span class="line">config = tf.ConfigProto()</span><br><span class="line">config.gpu_options.allow_growth = True</span><br><span class="line">config.gpu_options.visible_device_list = str(hvd.local_rank())</span><br><span class="line">K.set_session(tf.Session(config=config))</span><br></pre></td></tr></table></figure>
 <p>然后在 rank 0 上恢复一个 checkpoint 并且广播给其他节点，这里的 broadcast 后面会介绍。</p>
@@ -281,11 +284,13 @@
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">callbacks = [</span><br><span class="line">    # Horovod: broadcast initial variable states from rank 0 to all other processes.</span><br><span class="line">    # This is necessary to ensure consistent initialization of all workers when</span><br><span class="line">    # training is started with random weights or restored from a checkpoint.</span><br><span class="line">    hvd.callbacks.BroadcastGlobalVariablesCallback(0),</span><br><span class="line"></span><br><span class="line">    # Horovod: average metrics among workers at the end of every epoch.</span><br><span class="line">    #</span><br><span class="line">    # Note: This callback must be in the list before the ReduceLROnPlateau,</span><br><span class="line">    # TensorBoard, or other metrics-based callbacks.</span><br><span class="line">    hvd.callbacks.MetricAverageCallback(),</span><br><span class="line"></span><br><span class="line">    # Horovod: using `lr = 1.0 * hvd.size()` from the very beginning leads to worse final</span><br><span class="line">    # accuracy. Scale the learning rate `lr = 1.0` ---&gt; `lr = 1.0 * hvd.size()` during</span><br><span class="line">    # the first five epochs. See https://arxiv.org/abs/1706.02677 for details.</span><br><span class="line">    hvd.callbacks.LearningRateWarmupCallback(warmup_epochs=args.warmup_epochs, verbose=verbose),</span><br><span class="line"></span><br><span class="line">    # Horovod: after the warmup reduce learning rate by 10 on the 30th, 60th and 80th epochs.</span><br><span class="line">    hvd.callbacks.LearningRateScheduleCallback(start_epoch=args.warmup_epochs, end_epoch=30, multiplier=1.),</span><br><span class="line">    hvd.callbacks.LearningRateScheduleCallback(start_epoch=30, end_epoch=60, multiplier=1e-1),</span><br><span class="line">    hvd.callbacks.LearningRateScheduleCallback(start_epoch=60, end_epoch=80, multiplier=1e-2),</span><br><span class="line">    hvd.callbacks.LearningRateScheduleCallback(start_epoch=80, multiplier=1e-3),</span><br><span class="line">]</span><br></pre></td></tr></table></figure>
 <p>最后直接用 allreduce 计算一个 evaluation score。</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># Evaluate the model on the full data set.</span><br><span class="line">score = hvd.allreduce(model.evaluate_generator(input_fn(False, args.train_dir, args.val_batch_size),NUM_IMAGES[&#x27;validation&#x27;]))</span><br></pre></td></tr></table></figure>
-<h3 id="实现"><a href="#实现" class="headerlink" title="实现"></a>实现</h3><h4 id="适配层和压缩算法"><a href="#适配层和压缩算法" class="headerlink" title="适配层和压缩算法"></a>适配层和压缩算法</h4><p>horovod 的实现主要分几部分，第一部分是一个适配层，用于兼容各种框架，比如 tensorflow 的适配就是实现一个新的 Op，这个可以参考 <a target="_blank" rel="noopener" href="https://www.tensorflow.org/guide/extend/op">add new op</a>，里面规范了 Tensorflow 自定义算子的实现。</p>
+<h3 id="实现">实现</h3>
+<h4 id="适配层和压缩算法">适配层和压缩算法</h4>
+<p>horovod 的实现主要分几部分，第一部分是一个适配层，用于兼容各种框架，比如 tensorflow 的适配就是实现一个新的 Op，这个可以参考 <a target="_blank" rel="noopener" href="https://www.tensorflow.org/guide/extend/op">add new op</a>，里面规范了 Tensorflow 自定义算子的实现。</p>
 <blockquote>
 <p>请注意，生成的函数将获得一个蛇形名称（以符合 PEP8）。因此，如果您的操作在 C++ 文件中命名为 ZeroOut，则 Python 函数将称为 zero_out。</p>
 </blockquote>
-<p>C++ 的定义是驼峰的，生成出来的 python 函数是下划线小写的，所以最后对应的是，适配Op的代码在 <a target="_blank" rel="noopener" href="https://github.com/horovod/horovod/tree/master/horovod/tensorflow">horovod&#x2F;tensorflow</a> 目录下面</p>
+<p>C++ 的定义是驼峰的，生成出来的 python 函数是下划线小写的，所以最后对应的是，适配Op的代码在 <a target="_blank" rel="noopener" href="https://github.com/horovod/horovod/tree/master/horovod/tensorflow">horovod/tensorflow</a> 目录下面</p>
 <table>
 <thead>
 <tr>
@@ -293,7 +298,8 @@
 <th>Python</th>
 </tr>
 </thead>
-<tbody><tr>
+<tbody>
+<tr>
 <td>HorovodAllgather</td>
 <td>horovod_allgather</td>
 </tr>
@@ -305,22 +311,21 @@
 <td>HorovodBroadcast</td>
 <td>horovod_broadcast</td>
 </tr>
-</tbody></table>
+</tbody>
+</table>
 <p>另外在适配层可以加入一些压缩算法(在 <code>horovod/[framework]/compression.py</code>)，我觉得压缩算法和框架无关的，放到适配层下面可能有别的原因，比如 tensorflow 默认带了一个 float16 压缩，具体的其他压缩算法比如<a target="_blank" rel="noopener" href="https://arxiv.org/abs/1802.07389">3LC</a>，可以通过有损压缩或者无损压缩提高带宽利用率。</p>
-<h4 id="统一层"><a href="#统一层" class="headerlink" title="统一层"></a>统一层</h4><p>这一层的实现是统一的，所有的适配层最后都是发出一些 Op+Tensor 的 Message 到队列中，后台初始化的时候会有一个专门的线程专门消费这个队列。他有一个同步消息的过程，相当于这个 tensor 在所有节点上都就绪以后就可以开始计算了，主体的流程是：</p>
+<h4 id="统一层">统一层</h4>
+<p>这一层的实现是统一的，所有的适配层最后都是发出一些 Op+Tensor 的 Message 到队列中，后台初始化的时候会有一个专门的线程专门消费这个队列。他有一个同步消息的过程，相当于这个 tensor 在所有节点上都就绪以后就可以开始计算了，主体的流程是：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line">// The coordinator currently follows a master-worker paradigm. Rank zero acts</span><br><span class="line">// as the master (the &quot;coordinator&quot;), whereas all other ranks are simply</span><br><span class="line">// workers. Each rank runs its own background thread which progresses in ticks.</span><br><span class="line">// In each tick, the following actions happen:</span><br><span class="line">//</span><br><span class="line">//      a) The workers send a Request to the coordinator, indicating what</span><br><span class="line">//      they would like to do (which tensor they would like to gather and</span><br><span class="line">//      reduce, as well as their shape and type). They repeat this for every</span><br><span class="line">//      tensor that they would like to operate on.</span><br><span class="line">//</span><br><span class="line">//      b) The workers send an empty &quot;DONE&quot; message to the coordinator to</span><br><span class="line">//      indicate that there are no more tensors they wish to operate on.</span><br><span class="line">//</span><br><span class="line">//      c) The coordinator receives the Requests from the workers, as well</span><br><span class="line">//      as from its own TensorFlow ops, and stores them in a [request table]. The</span><br><span class="line">//      coordinator continues to receive Request messages until it has</span><br><span class="line">//      received MPI_SIZE number of empty &quot;DONE&quot; messages.</span><br><span class="line">//</span><br><span class="line">//      d) The coordinator finds all tensors that are ready to be reduced,</span><br><span class="line">//      gathered, or all operations that result in an error. For each of those,</span><br><span class="line">//      it sends a Response to all the workers. When no more Responses</span><br><span class="line">//      are available, it sends a &quot;DONE&quot; response to the workers. If the process</span><br><span class="line">//      is being shutdown, it instead sends a &quot;SHUTDOWN&quot; response.</span><br><span class="line">//</span><br><span class="line">//      e) The workers listen for Response messages, processing each one by</span><br><span class="line">//      doing the required reduce or gather, until they receive a &quot;DONE&quot;</span><br><span class="line">//      response from the coordinator. At that point, the tick ends.</span><br><span class="line">//      If instead of &quot;DONE&quot; they receive &quot;SHUTDOWN&quot;, they exit their background</span><br><span class="line">//      loop.</span><br></pre></td></tr></table></figure>
-
 <p>简单来讲就是说 coordinator 集 size 个 request DONE，然后找出就绪的 tensor （在 message_table 里面查找）构造出一个 read_to_reduce 的列表，然后发出 size 个 request 告知进程进行计算，然后 worker 接受到 response 开始真正的计算过程(通过 op_manager 具体执行)。</p>
 <p>这是整体同步的过程，如果打开 horovod 的 trace log(<code>HOROVOD_LOG_LEVEL=trace</code>) 就能看到同步的过程。horovod 的主要 Op 除了 AllReduce 之外还有 allgather 和 broadcast。</p>
-<h3 id="算子实现层"><a href="#算子实现层" class="headerlink" title="算子实现层"></a>算子实现层</h3><p>具体的 op 在 <a target="_blank" rel="noopener" href="https://github.com/horovod/horovod/tree/master/horovod/common/ops">common&#x2F;op</a> 可以看到有 NCCL&#x2F;Gloo&#x2F;MPI 等等的，这些由 op_manager 管理，他会根据优先级找到可以用来计算的 op 进行计算，比如 MPI 用的就是 MPI_Allreduce，具体 scatter-gather 和 all-gather openMPI 有现成的实现，NCCL 就直接调用 <code>ncclAllReduce</code>，比较新的 nccl 也支持跨节点的 allreduce 了，不用自己再套一层。</p>
+<h3 id="算子实现层">算子实现层</h3>
+<p>具体的 op 在 <a target="_blank" rel="noopener" href="https://github.com/horovod/horovod/tree/master/horovod/common/ops">common/op</a> 可以看到有 NCCL/Gloo/MPI 等等的，这些由 op_manager 管理，他会根据优先级找到可以用来计算的 op 进行计算，比如 MPI 用的就是 MPI_Allreduce，具体 scatter-gather 和 all-gather openMPI 有现成的实现，NCCL 就直接调用 <code>ncclAllReduce</code>，比较新的 nccl 也支持跨节点的 allreduce 了，不用自己再套一层。</p>
 <p>除了 allreduce 之外，还有两个比较重要的算子。</p>
 <p>allgather 主要是比 allreduce 少一层 reduce，所有数据被发送到所有进程就可以。allreduce 的第二步就是把每个进程的 scatter-reduce 的 reduce 结果发送到所有进程。</p>
 <img data-src="/zh-CN/2019/08/30/horovod-%E5%AE%9E%E7%8E%B0%E5%88%86%E6%9E%90/mpi_allgather_1.png" class="">
 <p>broadcast 的作用是一对多的广播，主要是把初始化的参数同步给其他进程的时候使用。</p>
 <img data-src="/zh-CN/2019/08/30/horovod-%E5%AE%9E%E7%8E%B0%E5%88%86%E6%9E%90/mpi_broadcast_1.png" class="">
-
-
-
 
     </div>
 
