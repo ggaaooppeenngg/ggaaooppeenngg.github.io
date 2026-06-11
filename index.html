@@ -92,7 +92,7 @@
 
 
 <nav class="site-nav">
-  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-旅行路书"><a href="/travel/" rel="section"><i class="plane fa-fw"></i>旅行路书</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">191</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">23</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">96</span></a></li>
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-旅行路书"><a href="/travel/" rel="section"><i class="plane fa-fw"></i>旅行路书</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">195</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">23</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">97</span></a></li>
   </ul>
 </nav>
 
@@ -129,7 +129,7 @@
   <nav class="site-state">
       <div class="site-state-item site-state-posts">
         <a href="/archives/">
-          <span class="site-state-item-count">96</span>
+          <span class="site-state-item-count">97</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -140,7 +140,7 @@
       </div>
       <div class="site-state-item site-state-tags">
           <a href="/tags/">
-        <span class="site-state-item-count">191</span>
+        <span class="site-state-item-count">195</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
@@ -178,7 +178,7 @@
   
 
   <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2026/06/10/DeepSeek-V4-Indexer/">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2026/06/11/DeepSeek-V4-Indexer/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
@@ -196,7 +196,7 @@
     </span>
       <header class="post-header">
         <h2 class="post-title" itemprop="name headline">
-          <a href="/zh-CN/2026/06/10/DeepSeek-V4-Indexer/" class="post-title-link" itemprop="url">DeepSeek-V4 Lightning Indexer 全解析：原理、MQA 架构、计算逻辑与混合精度实践</a>
+          <a href="/zh-CN/2026/06/11/DeepSeek-V4-Indexer/" class="post-title-link" itemprop="url">DeepSeek-V4 Indexer 解析：FP4 量化的稀疏索引</a>
         </h2>
 
         <div class="post-meta-container">
@@ -208,7 +208,7 @@
       <span class="post-meta-item-text">发表于</span>
       
 
-      <time title="创建时间：2026-06-10 14:31:00 / 修改时间：15:28:08" itemprop="dateCreated datePublished" datetime="2026-06-10T14:31:00+08:00">2026-06-10</time>
+      <time title="创建时间：2026-06-11 17:30:00 / 修改时间：17:32:36" itemprop="dateCreated datePublished" datetime="2026-06-11T17:30:00+08:00">2026-06-11</time>
     </span>
     <span class="post-meta-item">
       <span class="post-meta-item-icon">
@@ -229,8 +229,8 @@
       </span>
       <span class="post-meta-item-text">Disqus：</span>
     
-    <a title="disqus" href="/zh-CN/2026/06/10/DeepSeek-V4-Indexer/#disqus_thread" itemprop="discussionUrl">
-      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2026/06/10/DeepSeek-V4-Indexer/" itemprop="commentCount"></span>
+    <a title="disqus" href="/zh-CN/2026/06/11/DeepSeek-V4-Indexer/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2026/06/11/DeepSeek-V4-Indexer/" itemprop="commentCount"></span>
     </a>
   </span>
   
@@ -244,18 +244,513 @@
     
     
     <div class="post-body" itemprop="articleBody">
-          <h2 id="一、前言"><a href="#一、前言" class="headerlink" title="一、前言"></a>一、前言</h2><p>在百万 Token 超长上下文场景中，传统标准注意力复杂度为 \(O(n^2))，海量 KV 缓存会带来显存溢出、带宽瓶颈、计算延迟等一系列问题。</p>
-<p>DeepSeek-V4 采用 <strong>CSA（Compressed Sparse Attention，压缩稀疏注意力）+ HCA（重度压缩注意力）</strong> 混合注意力架构破解该难题，而 <strong>Lightning Indexer（闪电索引器，下文简称 Indexer）</strong> 是 CSA 实现”先粗筛、后精算”稀疏推理的核心组件。</p>
-<p>Indexer 本质是一套轻量级 <strong>MQA（Multi-Query Attention，多查询注意力）</strong> 打分模块，不参与最终注意力加权，仅负责为历史 KV 计算相关性分数，通过 Top-K 筛选出高关联条目，让后续正式注意力仅处理少量有效 KV，将计算量从全量 \(O(n^2)) 降至亚线性复杂度。同时它搭配 <strong>FP4&#x2F;FP8&#x2F;BF16 分层混合精度</strong> 进一步压榨显存与带宽性能，是 DeepSeek-V4 实现百万上下文常态化部署的关键工程设计。</p>
-<p>本文结合官方论文、开源推理代码，全面拆解 Indexer 的定位、MQA 架构、完整计算流程、精度规则、KV 缓存设计与落地细节。</p>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/zh-CN/2026/06/10/DeepSeek-V4-Indexer/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
+          <h2 id="前言">前言</h2>
+<p>DeepSeek-V4 在 MoE 架构上引入了一个新组件：<strong>Indexer</strong>。它负责在 expert 路由之前，用 FP4 量化的轻量模型快速筛选候选 expert，减少后续 GEMM 的计算量。</p>
+<p>SGLang PR #26209 进一步给 Indexer 的 Q/K 路径加了 <strong>NVFP4</strong>（E2M1 + UE8M0）量化，在精度损失极小（GSM8K 96.5% vs FP8 98.0%）的情况下，提速 1.08×–1.53×，KV-cache 压缩到 68 B/token（相比 FP8 的 132 B/token 省 ~48%）。</p>
+<p>本文基于 PR #26209 的源码，从「数据格式 → Q 路径 → K 路径 → KV-cache 布局 → 上层调度」五层拆解。</p>
+<hr>
+<h2 id="一、Indexer-的定位">一、Indexer 的定位</h2>
+<p>在 DeepSeek-V3 中，gating 网络直接输出 top-k expert 选择，计算量是 <code>O(num_tokens × num_experts)</code>。当 <code>num_experts = 256</code> 时，这个计算本身就很重。</p>
+<p>Indexer 的思路：<strong>用 FP4 量化的小模型做「粗筛」，再用 BF16 做「精排」</strong>。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[token] → Indexer (FP4) → 候选 expert 子集 → Gating (BF16) → top-k expert</span><br><span class="line">         ↑ 计算量小                  ↑ 候选集小，计算量小</span><br></pre></td></tr></table></figure>
+<p><strong>注意</strong>：只有 indexer 这条 sparse 路径（给 attention 选 top-k token 用的辅助打分）被换成了 FP4。主 attention 的 KV cache 完全没动，精度损失也只来自 indexer 的打分质量。</p>
+<hr>
+<h2 id="二、FP4-量化方案：NVFP4-E2M1-UE8M0">二、FP4 量化方案：NVFP4 (E2M1 + UE8M0)</h2>
+<p>PR 选用的不是普通 FP4，而是 Blackwell GenAI 推的 <strong>NVFP4</strong> 风格。</p>
+<h3 id="2-1-数据格式">2.1 数据格式</h3>
+<ul>
+<li>
+<p><strong>元素格式</strong>：E2M1（1 sign + 2 exp + 1 mantissa，共 4 bit）</p>
+<ul>
+<li>表示集合（绝对值）：<code>&#123;0, 0.5, 1, 1.5, 2, 3, 4, 6&#125;</code></li>
+<li>最大正值：<code>6.0</code>，最小正规格：<code>0.25</code></li>
+</ul>
+</li>
+<li>
+<p><strong>Micro-scale</strong>：每 32 个元素共享一个 <strong>UE8M0</strong>（8 bit 纯指数，无尾数）缩放因子</p>
+<ul>
+<li><code>head_dim = 128</code> ⇒ 每 token 4 个 groups ⇒ <code>4 × 8bit scale = 32bit packed</code></li>
+<li>UE8M0 表示 <code>2^exp</code>，无尾数，计算高效</li>
+</ul>
+</li>
+</ul>
+<h3 id="2-2-量化实现（无分支-GPU-friendly）">2.2 量化实现（无分支 GPU-friendly）</h3>
+<p><code>_fp4_e2m1_code</code> 用 7 个阈值比较产生 4 位 magnitude index：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># fp4_indexer.py</span></span><br><span class="line">ax = <span class="built_in">min</span>(<span class="built_in">abs</span>(x), <span class="number">6.0</span>)</span><br><span class="line">idx = (ax &gt; <span class="number">0.25</span>) + (ax &gt; <span class="number">0.75</span>) + (ax &gt; <span class="number">1.25</span>) + (ax &gt; <span class="number">1.75</span>) + \</span><br><span class="line">      (ax &gt; <span class="number">2.5</span>) + (ax &gt; <span class="number">3.5</span>) + (ax &gt; <span class="number">5.0</span>)</span><br><span class="line">sign = (x &lt; <span class="number">0</span>) &amp; (idx != <span class="number">0</span>)</span><br><span class="line"><span class="keyword">return</span> idx | (sign &lt;&lt; <span class="number">3</span>)</span><br></pre></td></tr></table></figure>
+<p>阈值是 E2M1 相邻可表示值的中点，等价于 round-to-nearest-even，但实现成无分支 7-comp 并行 ALU。</p>
+<p><strong>UE8M0 scale 计算</strong>（避免 transcendentals）：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">_ceil_ue8m0_exp</span>(<span class="params">scale_fp32</span>):</span><br><span class="line">    bits = reinterpret_cast&lt;uint32&gt;(scale_fp32)</span><br><span class="line">    exp = (bits &gt;&gt; <span class="number">23</span>) &amp; <span class="number">0xFF</span></span><br><span class="line">    exp += (mantissa != <span class="number">0</span>)  <span class="comment"># ceil，不是 floor</span></span><br><span class="line">    <span class="keyword">return</span> clamp(exp, <span class="number">1</span>, <span class="number">254</span>)</span><br></pre></td></tr></table></figure>
+<p>直接通过 bitcast 抽出 exponent，避免「求 log2 → ceil → exp2」的超越函数。</p>
+<h3 id="2-3-反量化">2.3 反量化</h3>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 反量化：NVFP4 → BF16</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">dequantize_nvfp4</span>(<span class="params">fp4_data, sf_tensor</span>):</span><br><span class="line">    scale = reinterpret_cast&lt;<span class="built_in">float</span>&gt;(sf_tensor &lt;&lt; <span class="number">23</span>)  <span class="comment"># UE8M0 → fp32</span></span><br><span class="line">    <span class="keyword">return</span> fp4_data * scale</span><br></pre></td></tr></table></figure>
+<hr>
+<h2 id="三、Q-路径：fused-q-indexer-rope-hadamard-fp4-quant">三、Q 路径：fused_q_indexer_rope_hadamard_fp4_quant</h2>
+<p>文件：<code>jit_kernel/csrc/deepseek_v4/main_norm_rope.cuh:658</code></p>
+<p>一个 warp 处理一个 (token, head)，<code>head_dim=128</code>，<code>vec=4</code>（每 lane 4 个元素）。</p>
+<h3 id="3-1-流水线">3.1 流水线</h3>
+<table>
+<thead>
+<tr>
+<th>stage</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>① load</td>
+<td>每 lane 一个 <code>AlignedVector&lt;DType,4&gt;</code>，bf16/fp16 输入</td>
+</tr>
+<tr>
+<td>② RoPE</td>
+<td>仅 <code>is_rope_lane</code>（末尾 16 lane，<code>kRopeDim=64</code>）做复数旋转</td>
+</tr>
+<tr>
+<td>③ Hadamard-128</td>
+<td>先 4×4 内寄存器蝶形（2 步），再 5 步 <code>__shfl_xor_sync</code> 跨 lane 蝶形，最后乘 <code>1/√128</code></td>
+</tr>
+<tr>
+<td>④ FP4 量化</td>
+<td><code>warp::reduce_max&lt;8&gt;</code> 求 group amax → <code>scale = max/6</code> → <code>cast_to_ue8m0</code> → <code>quant_fp4_e2m1</code></td>
+</tr>
+<tr>
+<td>⑤ store</td>
+<td>4 个 fp4 → 16 bit 写 <code>q_fp4</code>；每 8 lane 一个 byte 写 <code>q_sf</code>（packed_sf 32bit）</td>
+</tr>
+</tbody>
+</table>
+<h3 id="3-2-关键技巧">3.2 关键技巧</h3>
+<ul>
+<li><strong><code>reduce_max&lt;8&gt;</code> 而不是全 warp</strong>：group size = 32 元素 = 8 lanes，正好和 NVFP4 的 micro-scale 粒度匹配</li>
+<li><strong><code>inv_scale_ue8m0</code> 直接 bitcast 构造 fp32</strong>（<code>scale_exp &lt;&lt; 23</code>），避免 <code>1/scale</code></li>
+<li><strong>PDL（Programmatic Dependent Launch）</strong>：Hopper 特性，允许相邻 kernel 重叠</li>
+<li><strong>Hadamard 在量化之前</strong>：利用 Hadamard 的能量平均性，把 outlier 摊薄到 128 个元素，让 NVFP4 的窄动态范围（±6）够用</li>
+</ul>
+<hr>
+<h2 id="四、K-路径（写-cache）">四、K 路径（写 cache）</h2>
+<h3 id="4-1-融合版本-fused-norm-rope-indexer-fp4（主路径）">4.1 融合版本 <code>fused_norm_rope_indexer_fp4</code>（主路径）</h3>
+<p>文件：<code>fused_norm_rope_v2.cuh:223</code>，被 <code>compress.py:compress_norm_rope_store(use_fp4=True)</code> 调度。</p>
+<p>流程：RMSNorm（rope 前）→ RoPE（rope warp）→ 4 步 in-register Hadamard → 5 步 shuffle Hadamard → <code>reduce_max&lt;8&gt;</code> → E2M1 + UE8M0 → 写 page。</p>
+<p><strong>写位置计算</strong>：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">page = out_loc &gt;&gt; kPageBits;</span><br><span class="line">offset = out_loc &amp; ((<span class="number">1</span> &lt;&lt; kPageBits) - <span class="number">1</span>);  <span class="comment">// 位运算，要求 page_size 是 2 的幂</span></span><br></pre></td></tr></table></figure>
+<p><strong>Page 内 layout</strong>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">[values: page_size × 64 B][scales: page_size × 4 B] = page_size × 68 B</span><br></pre></td></tr></table></figure>
+<p>values 区和 scales 区分段连续摆放，匹配 DeepGEMM 的访存假设。</p>
+<h3 id="4-2-Triton-兜底版本-fp4-indexer-py">4.2 Triton 兜底版本 <code>fp4_indexer.py</code></h3>
+<p>两个 <code>@triton.jit</code> kernel：<code>_quantize_fp4_indexer_kernel</code> + <code>_store_fp4_index_k_cache_kernel</code>。</p>
+<p>由 <code>memory_pool.py:set_index_fp4</code> 调用，作为 KV-pool 的兜底/通用写入路径（没经过融合的 K 输入时使用）。</p>
+<hr>
+<h2 id="五、KV-cache-Page-Layout">五、KV-cache Page Layout</h2>
+<p>PR 修改了 indexer KV-pool 的 bytes/token（<code>deepseek_v4_memory_pool.py:278</code>）：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">get_bytes_per_token</span>(<span class="params">self</span>) -&gt; <span class="built_in">int</span>:</span><br><span class="line">    <span class="keyword">if</span> <span class="variable language_">self</span>.use_fp4_indexer:</span><br><span class="line">        <span class="keyword">return</span> <span class="variable language_">self</span>.index_head_dim // <span class="number">2</span> + <span class="number">4</span>  <span class="comment"># 64 + 4 = 68 B</span></span><br><span class="line">    <span class="keyword">return</span> <span class="variable language_">self</span>.index_head_dim + <span class="number">4</span>  <span class="comment"># 128 + 4 = 132 B (老 FP8 路径)</span></span><br></pre></td></tr></table></figure>
+<table>
+<thead>
+<tr>
+<th>模式</th>
+<th>bytes/token</th>
+<th>节省</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FP8 indexer（老）</td>
+<td>128 (E4M3) + 4 (4×UE8M0) = 132</td>
+<td>—</td>
+</tr>
+<tr>
+<td>FP4 indexer（新）</td>
+<td>64 (E2M1×128 packed) + 4 (4×UE8M0) = 68</td>
+<td>~48%</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Page 内分块布局</strong>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">[values: page_size × 64 B][scales: page_size × 4 B]</span><br></pre></td></tr></table></figure>
+<p>避免了 paged MQA logits 读入时 scale/value stride 不一致的问题。</p>
+<hr>
+<h2 id="六、上层调度：DeepGEMM-fp8-fp4-paged-mqa-logits">六、上层调度：DeepGEMM fp8_fp4_paged_mqa_logits</h2>
+<p><code>indexer.py:437-441</code>：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> use_fp4_indexer:</span><br><span class="line">    weights = weights.<span class="built_in">float</span>()  <span class="comment"># FP8 路径不需要</span></span><br><span class="line">    <span class="keyword">from</span> deep_gemm <span class="keyword">import</span> fp8_fp4_paged_mqa_logits <span class="keyword">as</span> fn</span><br></pre></td></tr></table></figure>
+<p><strong>注意</strong>：</p>
+<ul>
+<li>函数名 <code>fp8_fp4_*</code> 里的 <code>fp8</code> 指 logits 累加链，不是 Q 端格式；Q 和 K 都是 FP4</li>
+<li>TileLang / AIter 路径不支持 FP4（显式 raise），只能用 DeepGEMM</li>
+<li><code>weights</code> 必须升到 float32（FP8 路径不需要）</li>
+</ul>
+<hr>
+<h2 id="七、FP4-的分工：SGLang-vs-DeepGEMM">七、FP4 的分工：SGLang vs DeepGEMM</h2>
+<h3 id="7-1-哪些张量是-FP4">7.1 哪些张量是 FP4</h3>
+<table>
+<thead>
+<tr>
+<th>张量</th>
+<th>格式</th>
+<th>由谁产生</th>
+<th>由谁消费</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Q (indexer query)</td>
+<td><code>q_fp4: [B,H,64] int8</code> + <code>q_sf: [B,H] int32</code></td>
+<td>SGLang <code>fused_q_indexer_rope_hadamard_fp4_quant</code></td>
+<td>DeepGEMM <code>fp8_fp4_paged_mqa_logits</code></td>
+</tr>
+<tr>
+<td>K (indexer key cache)</td>
+<td><code>[npages, page_size, 68B]</code> (64B values + 4B scales)</td>
+<td>SGLang <code>fused_norm_rope_indexer_fp4</code> / Triton 兜底</td>
+<td>DeepGEMM <code>fp8_fp4_paged_mqa_logits</code></td>
+</tr>
+<tr>
+<td>logits 输出</td>
+<td>bf16/fp32 (MQA scores)</td>
+<td>DeepGEMM</td>
+<td>SGLang sparse selector</td>
+</tr>
+</tbody>
+</table>
+<h3 id="7-2-主体在哪里？">7.2 主体在哪里？</h3>
+<p><strong>SGLang（本 PR ~95% 代码量）</strong>：</p>
+<ul>
+<li>造数据：把 bf16 的 Q/K 量化成 (E2M1, UE8M0) 格式（2 个新 CUDA kernel + 1 套 Triton）</li>
+<li>存数据：KV-pool 按 68B/token、values/scales 分段排好</li>
+<li>接数据：在 <code>forward_c4_indexer</code> 里把 <code>(q_fp4, q_sf)</code> 和 68B page 喂给 DeepGEMM</li>
+</ul>
+<p><strong>DeepGEMM（零代码改动）</strong>：</p>
+<ul>
+<li>本 PR 没有改动 DeepGEMM 仓库，只是 <code>from deep_gemm import fp8_fp4_paged_mqa_logits</code></li>
+<li>DeepGEMM 早就支持读 (FP4 Q, FP4 K) 这条接口，SGLang 这次只是把数据按照它要的 layout 凑出来</li>
+</ul>
+<p><strong>一句话总结</strong>：FP4 的「格式定义、Q/K 量化 kernel、KV cache layout、数据流改造」主体都在 SGLang；DeepGEMM 只负责消费这一对 (FP4 Q, FP4 K) 计算 paged MQA logits。</p>
+<hr>
+<h2 id="八、设计亮点与潜在坑">八、设计亮点与潜在坑</h2>
+<h3 id="亮点">亮点</h3>
+<ol>
+<li><strong>NVFP4 = E2M1 + UE8M0 (group=32)</strong> 是 Blackwell tensorcore 原生支持的格式，直接为后续 SM100 路径铺路</li>
+<li><strong>Q 和 K 各自一个完全融合的 CUDA kernel</strong>：Norm/RoPE/Hadamard/量化/写 cache 全部在一个 warp 的寄存器里完成，输入读 1 次、输出写 1 次</li>
+<li><strong>Hadamard 在量化之前</strong>：把 outlier 摊薄到 128 个元素，让 NVFP4 的窄动态范围（±6）够用（GSM8K 只掉 1.5pt 的核心原因）</li>
+<li><strong>bitcast 构造 inv_scale</strong>（<code>exp &lt;&lt; 23</code>）避免 fdiv；<code>ceil_ue8m0</code> 直接位运算避免 log/exp</li>
+<li><strong>Page layout 把 values 和 scales 分两段连续摆放</strong>，匹配 DeepGEMM 的访存假设</li>
+</ol>
+<h3 id="潜在限制">潜在限制</h3>
+<ol>
+<li><strong>head_dim 强约束 128</strong>（<code>assert x.shape[-1] == 128</code>），group=32 → 4 个 UE8M0 → 正好 32bit</li>
+<li><strong>page_size 必须是 2 的幂</strong>（K kernel 用 <code>out_loc &gt;&gt; kPageBits</code>）</li>
+<li><strong>HIP 不支持 Q 融合 fp4 路径</strong>（AMD 端目前只能跑老 FP8）</li>
+<li><strong>TileLang / AIter indexer 路径互斥</strong>，只能 DeepGEMM</li>
+<li><strong>4-bit 的低精度对长上下文/数值病态 prompt 仍可能发散</strong>，这就是它做成 opt-in flag 的原因</li>
+</ol>
+<hr>
+<h2 id="九、总结">九、总结</h2>
+<p>Indexer 是 DeepSeek-V4 在 MoE 路由上的新尝试——用 FP4 量化的轻量模型做粗筛，减少后续 gating 和 expert GEMM 的计算量。</p>
+<p>SGLang PR #26209 的完整实现是一个典型的「上游做格式+内存，下游做矩阵乘」的分工：</p>
+<ul>
+<li><strong>SGLang</strong>：格式定义、量化 kernel、KV-cache 布局、数据流改造（~95% 代码量）</li>
+<li><strong>DeepGEMM</strong>：消费 (FP4 Q, FP4 K) 计算 paged MQA logits（接口已存在，本 PR 没动）</li>
+</ul>
+<p>核心创新不是 FP4 本身，而是 <strong>「Hadamard 摊薄 outlier + NVFP4 窄动态范围 + 全融合 kernel」</strong> 的组合，让 4-bit 量化在 indexer 这种「辅助打分」场景下的精度损失可控（1.5pt），换来了显存和速度的双重收益。</p>
+<hr>
+<p><strong>参考资料</strong>：</p>
+<ul>
+<li>SGLang PR #26209 — Add FP4 Indexer for DeepSeek V4</li>
+<li>DeepGEMM GitHub：<a target="_blank" rel="noopener" href="https://github.com/deepseek-ai/DeepGEMM">https://github.com/deepseek-ai/DeepGEMM</a></li>
+<li>SGLang DeepSeek-V4 实现：<a target="_blank" rel="noopener" href="https://github.com/sgl-project/sglang">https://github.com/sgl-project/sglang</a></li>
+</ul>
+
+      
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+        <div class="post-eof"></div>
+      
+    </footer>
+  </article>
+</div>
+
+
+
+
+    
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2026/06/11/deepep-internals/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="undefined | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          <a href="/zh-CN/2026/06/11/deepep-internals/" class="post-title-link" itemprop="url">DeepEP 源码深度解析：MoE 专有的高效通信库</a>
+        </h2>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+      
+
+      <time title="创建时间：2026-06-11 17:30:00 / 修改时间：17:24:14" itemprop="dateCreated datePublished" datetime="2026-06-11T17:30:00+08:00">2026-06-11</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/%E6%8A%80%E6%9C%AF/" itemprop="url" rel="index"><span itemprop="name">技术</span></a>
+        </span>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2026/06/11/deepep-internals/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2026/06/11/deepep-internals/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+          <h2 id="前言">前言</h2>
+<p>DeepSeek-V3 之所以能在 2048 H800 上跑 671B MoE 模型，很大程度上归功于 <strong>DeepEP</strong>——一个专为 Mixture-of-Experts（MoE）设计的通信库。它不只是一个「更快的 NCCL」，而是把 MoE 的领域知识 hard-code 进通信原语，从根本上改变了「all-to-all 稀疏通信」的实现方式。</p>
+<p>本文基于 DeepEP V1（legacy）源码，从 Python 接口到 CUDA kernel，逐层拆解 dispatch 和 combine 的实现原理。所有代码引用均对照 <code>csrc/kernels/legacy/internode.cu</code> 本地 clone。</p>
+<hr>
+<h2 id="一、背景：MoE-EP-的通信痛点">一、背景：MoE EP 的通信痛点</h2>
+<p>MoE 模型中，每个 token 通过 gating 网络路由到不同的 expert，expert 分布在不同的 GPU 上。这个「动态、稀疏、不定长」的路由模式，暴露了传统 NCCL All-to-All 的三个硬伤：</p>
+<ol>
+<li><strong>CPU 同步阻塞</strong>：NCCL 的 <code>input_split_sizes</code> 必须 <code>.cpu()</code>，导致 CUDA Graph 难以捕获</li>
+<li><strong>冗余流量</strong>：一个 token 选了同节点的 8 个 expert，NCCL 会发 8 份独立的 RDMA 流量</li>
+<li><strong>无法流式处理</strong>：NCCL kernel 是「批量语义」（等所有数据到齐才返回），没法在「RDMA 数据到达一半」时立即转发到 NVLink</li>
+</ol>
+<p>DeepEP 的核心思路：<strong>把 MoE 的通信模式从「通用 collective」降级为「专用流水线」</strong>。</p>
+<hr>
+<h2 id="二、整体架构：V1-三阶段-Pipeline">二、整体架构：V1 三阶段 Pipeline</h2>
+<p>DeepEP V1 的 dispatch（token → expert）分三步：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">Step 0: [x, topk_idx, topk_weights]  ← 用户输入</span><br><span class="line">    │</span><br><span class="line">    ▼</span><br><span class="line">Step 1: get_dispatch_layout()  ← 算 is_token_in_rank, num_tokens_per_rank</span><br><span class="line">    │</span><br><span class="line">    ▼</span><br><span class="line">Step 2: notify_dispatch()  ← 跨 rank 交换 metadata，算 rank_prefix_matrix</span><br><span class="line">    │</span><br><span class="line">    ▼</span><br><span class="line">Step 3: dispatch()  ← 真正搬数据，输出 recv_x, recv_topk_idx, handle</span><br></pre></td></tr></table></figure>
+<p>combine（expert 输出 → token）是反向回路，但不需要 Step 2（metadata 从 dispatch handle 复用）。</p>
+<hr>
+<h2 id="三、Step-1：get-dispatch-layout-——-本地路由预计算">三、Step 1：get_dispatch_layout —— 本地路由预计算</h2>
+<p>一个纯本地 CUDA kernel，~5 µs，不通信：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 输入：topk_idx[4096, 8]</span></span><br><span class="line"><span class="comment">// 输出：</span></span><br><span class="line">num_tokens_per_rank [<span class="number">64</span>]          <span class="comment">// 我要给每个 rank 发多少 token</span></span><br><span class="line">num_tokens_per_rdma_rank [<span class="number">8</span>]      <span class="comment">// 去重后，我要给每个节点发多少 token</span></span><br><span class="line">num_tokens_per_expert [<span class="number">256</span>]       <span class="comment">// 我要给每个 expert 发多少 token</span></span><br><span class="line">is_token_in_rank [<span class="number">4096</span>, <span class="number">64</span>]       <span class="comment">// bool：第 i 个 token 是否要发给 rank j</span></span><br></pre></td></tr></table></figure>
+<p><strong>关键去重逻辑</strong>：一个 token 选 8 个 expert，可能同一 rank 上有 ≥1 个 expert，只算一次。这是 <code>is_token_in_rank</code> 是 bool 而不是 count 的原因——<strong>一个 token 去同一个 rank 上的多个 expert，dispatch 时只发一份数据</strong>。</p>
+<hr>
+<h2 id="四、Step-2：notify-dispatch-——-跨卡交换-metadata">四、Step 2：notify_dispatch —— 跨卡交换 metadata</h2>
+<p>启动 9 个 SM（1 + num_rdma_ranks），每 SM 256 线程。</p>
+<h3 id="4-1-双层通信结构">4.1 双层通信结构</h3>
+<p>DeepEP 的 RDMA 通信不是全连接，而是 <strong>「同 GPU index」配对</strong>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">节点 A 的 GPU 0 ↔ 节点 B 的 GPU 0</span><br><span class="line">节点 A 的 GPU 1 ↔ 节点 B 的 GPU 1</span><br><span class="line">...</span><br><span class="line">节点 A 的 GPU 7 ↔ 节点 B 的 GPU 7</span><br></pre></td></tr></table></figure>
+<p>这样 RDMA QP 数量 = <code>num_rdma_ranks</code>（8 个节点 × 1 条/节点 = 8 条），不是 64 条。</p>
+<h3 id="4-2-元数据交换流程">4.2 元数据交换流程</h3>
+<ol>
+<li><strong>本节点 NVL barrier</strong>：8 张卡通过 IPC 互写 <code>per_rank_buffer</code>，交换「每张卡分别要发给谁多少 token」</li>
+<li><strong>组装 RDMA metadata</strong>：汇总到 <code>rdma_recv_num_tokens_mixed.send_buffer</code>（41 ints/dst_rdma_rank）</li>
+<li><strong>RDMA put + barrier</strong>：通过 <code>nvshmem_int_put_nbi</code> 一次性发到 8 个远端节点</li>
+<li><strong>散到本节点 8 卡</strong>：把远端元信息通过 IPC 写到本机各卡的 <code>nvl_send_num_tokens_per_rank</code></li>
+<li><strong>Channel 级前缀和</strong>：8 个 SM 各算一个 <code>dst_rdma_rank</code>，输出 <code>rdma_channel_prefix_matrix</code> 和 <code>gbl_channel_prefix_matrix</code></li>
+</ol>
+<h3 id="4-3-为什么需要两次-barrier？">4.3 为什么需要两次 barrier？</h3>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">barrier_block()           ← 节点内 8 卡 IPC barrier</span><br><span class="line">nvshmem_barrier_with_same_gpu_idx(rdma_team)  ← 跨节点 8 个同 index GPU 的 RDMA barrier</span><br></pre></td></tr></table></figure>
+<p>第一次确保所有卡写完 <code>per_rank_buffer</code>，第二次确保所有节点的 <code>send_buffer</code> 都 put 完了。</p>
+<hr>
+<h2 id="五、Step-3：dispatch-kernel-——-20-SM-流水线">五、Step 3：dispatch kernel —— 20 SM 流水线</h2>
+<p>这是 DeepEP 最核心的部分。20 SM × 16 warp × 32 thread = 10240 个线程并发。</p>
+<h3 id="5-1-偶-SM-奇-SM-对偶模型">5.1 偶 SM / 奇 SM 对偶模型</h3>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">20 SM = 10 个 channel，每 channel 占 2 个 SM：</span><br><span class="line"></span><br><span class="line">偶 SM (is_forwarder = true):  从远端 RDMA 收 → 喂本机 8 个 NVL peer</span><br><span class="line">奇 SM (is_forwarder = false): 本机 token 写 RDMA send，并消费 NVL recv → 写 recv_x</span><br></pre></td></tr></table></figure>
+<p><strong>关键洞察</strong>：偶 SM 和奇 SM 角色完全对称但方向相反——偶 SM 是「RDMA → NVL」的 forwarder，奇 SM 是「NVL → recv_x」的 receiver。</p>
+<h3 id="5-2-四类-warp-角色">5.2 四类 warp 角色</h3>
+<table>
+<thead>
+<tr>
+<th>SM 类型</th>
+<th>warp 角色</th>
+<th>数量</th>
+<th>职责</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>偶 SM</td>
+<td>kRDMAAndNVLForwarder</td>
+<td>8</td>
+<td>从 RDMA recv buffer 读，forward 到 NVL recv buffer</td>
+</tr>
+<tr>
+<td>偶 SM</td>
+<td>kForwarderCoordinator</td>
+<td>1</td>
+<td>反向流控：向远端发 RDMA put 更新 head</td>
+</tr>
+<tr>
+<td>奇 SM</td>
+<td>kRDMASender</td>
+<td>7</td>
+<td>写 RDMA send buffer（有 sequential lock 保序）</td>
+</tr>
+<tr>
+<td>奇 SM</td>
+<td>kRDMASenderCoordinator</td>
+<td>1</td>
+<td>凑齐 28 个 token 后发 RDMA put（三连击）</td>
+</tr>
+<tr>
+<td>奇 SM</td>
+<td>kNVLReceivers</td>
+<td>8</td>
+<td>从 NVL recv buffer 读，写 recv_x（按 rank 重排）</td>
+</tr>
+</tbody>
+</table>
+<h3 id="5-3-四个环形队列">5.3 四个环形队列</h3>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">[本机 token x] ──kRDMASender写──► ① rdma_send_buf ──RDMA写──► ② rdma_recv_buf ──kNVLReceivers读──► ③ nvl_recv_buf ──NVL IPC写──► [recv_x 最终落点]</span><br><span class="line">                                       ▲                                        ▲                                      ▲</span><br><span class="line">                                  tail=rdma_send_                         tail=rdma_channel_                     tail=nvl_channel_</span><br><span class="line">                                  head=rdma_channel_head                  head=rdma_channel_tail                head=nvl_channel_head</span><br></pre></td></tr></table></figure>
+<ul>
+<li><strong>① rdma_send_buf</strong>：capacity = 140，sender 侧用 <code>sequential lock</code> 保证 token 顺序</li>
+<li><strong>② rdma_recv_buf</strong>：capacity = 140，forwarder 侧用 <code>ld.acquire.sys.global</code> 轮询 tail</li>
+<li><strong>③ nvl_recv_buf</strong>：capacity = 288，receiver 侧用 <code>gbl_channel_prefix_matrix</code> 重排到 recv_x</li>
+</ul>
+<h3 id="5-4-三连击-RDMA-优化">5.4 三连击 RDMA 优化</h3>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">nvshmemx_int8_put_nbi_warp</span>(...);  <span class="comment">// ① 异步 RDMA write，不等</span></span><br><span class="line"><span class="built_in">nvshmem_fence</span>();                  <span class="comment">// ② memory ordering：让 ① 在 ③ 之前对远端可见</span></span><br><span class="line"><span class="built_in">nvshmemx_signal_op</span>(... ADD ...);  <span class="comment">// ③ 远端原子加 tail，触发消费</span></span><br></pre></td></tr></table></figure>
+<p>为什么不直接用 <code>nvshmem_int_put + barrier</code>？因为 <code>barrier</code> 是同步阻塞调用。三连击让发送线程完全不阻塞——③ 是 fire-and-forget，远端通过 signal 自己触发消费。</p>
+<h3 id="5-5-常量来源">5.5 常量来源</h3>
+<ul>
+<li><code>num_max_rdma_chunked_send_tokens = 28</code>：28 × 7472 B ≈ 203 KB，是 InfiniBand HDR MTU 的整数倍，且 140 / 28 = 5 整除保证 wraparound 安全</li>
+<li><code>num_max_rdma_chunked_recv_tokens = 140</code>：必须是 28 的整数倍，让环形队列的模运算变成 <code>&amp; (capacity - 1)</code> 的位运算</li>
+<li><code>num_max_nvl_chunked_recv_tokens = 288</code>：NVL 带宽更高，需要更深的 buffer 吸收 burst</li>
+</ul>
+<hr>
+<h2 id="六、Step-4：返回-handle">六、Step 4：返回 + handle</h2>
+<p>dispatch kernel 完成后返回：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">recv_x                              <span class="comment"># [m, 7168] bf16 / fp8 + scale</span></span><br><span class="line">recv_topk_idx, recv_topk_weights    <span class="comment"># [m, 8]</span></span><br><span class="line">num_recv_tokens_per_expert_list     <span class="comment"># [4]，喂 DeepGEMM grouped GEMM</span></span><br><span class="line">handle                              <span class="comment"># 10-tuple，combine 用</span></span><br><span class="line">event                               <span class="comment"># CUDA event，async 时让 compute stream 等</span></span><br></pre></td></tr></table></figure>
+<p><code>handle</code> 里的 <code>send_nvl_head</code> 和 <code>send_rdma_head</code> 是 <strong>反向地址簿</strong>——combine 时直接读这些数组，就知道「我应该写到哪个槽位」，绕开了所有协商开销。</p>
+<hr>
+<h2 id="七、Combine：dispatch-的逆运算">七、Combine：dispatch 的逆运算</h2>
+<p>combine 是「多个 expert 输出 → 一个 token」的归约，有两个关键差异：</p>
+<ol>
+<li><strong>多了 reduce</strong>：用 <code>atomicAdd</code> 加权求和（权重来自 <code>topk_weights</code>）</li>
+<li><strong>没有 notify</strong>：所有 metadata 从 dispatch handle 复用</li>
+</ol>
+<h3 id="数据流（和-dispatch-反向）">数据流（和 dispatch 反向）</h3>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">[本机 x (expert 输出)]</span><br><span class="line">    ↓ kNVLSender (奇 SM)</span><br><span class="line">nvl_send_buf (NVL IPC 写)</span><br><span class="line">    ↓ 本机 8 卡 NVL 互联</span><br><span class="line">nvl_recv_buf (偶 SM 读)</span><br><span class="line">    ↓ kNVLAndRDMAForwarder (偶 SM)</span><br><span class="line">rdma_send_buf (RDMA put)</span><br><span class="line">    ↓ 跨节点 RDMA</span><br><span class="line">rdma_recv_buf (远端偶 SM 读)</span><br><span class="line">    ↓ kNVLAndRDMAForwarder (远端偶 SM)</span><br><span class="line">combined_x[orig_token_idx] (atomic add 归约)</span><br></pre></td></tr></table></figure>
+<p><strong>SM 角色反转</strong>：dispatch 偶 SM 是 forwarder（往里收），combine 奇 SM 是 forwarder（往外发）。这个对称性让 buffer 布局可以复用。</p>
+<hr>
+<h2 id="八、如果没有-DeepEP，会怎样？">八、如果没有 DeepEP，会怎样？</h2>
+<p>历史上 MoE 用 <code>torch.distributed.all_to_all_single</code> + NCCL。对比：</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>NCCL all_to_all</th>
+<th>DeepEP normal</th>
+<th>DeepEP low-latency</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>单次 dispatch 时延</td>
+<td>800-1200 µs</td>
+<td>250-300 µs</td>
+<td>80-120 µs</td>
+</tr>
+<tr>
+<td>RDMA 带宽利用率</td>
+<td>~40%</td>
+<td>~85%</td>
+<td>~90%</td>
+</tr>
+<tr>
+<td>NVL 带宽利用率</td>
+<td>~50%</td>
+<td>~90%</td>
+<td>~80%</td>
+</tr>
+<tr>
+<td>SM 占用</td>
+<td>32-128（波动）</td>
+<td>20 固定</td>
+<td>24 固定</td>
+</tr>
+<tr>
+<td>CPU sync 次数</td>
+<td>≥2</td>
+<td>1（cached=0）</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Kernel 数</td>
+<td>8+</td>
+<td>3</td>
+<td>1</td>
+</tr>
+</tbody>
+</table>
+<p><strong>NCCL 的 6 个具体问题</strong>：</p>
+<ol>
+<li><strong>CPU 同步阻塞 graph</strong>：至少 2 次 <code>.cpu()</code> 同步，CUDA Graph 难做</li>
+<li><strong>多次启动 kernel</strong>：layout + permute + 4× all_to_all + unpermute = 8+ kernel</li>
+<li><strong>多余拷贝</strong>：scatter_permute + NCCL 内部 2 次 + NCCL → recv_x = 4+ 次</li>
+<li><strong>没有节点内 forward 优化</strong>：一个 token 要去节点 j 的 8 张卡 = 8 份独立 RDMA 流量</li>
+<li><strong>SM 占用不可控</strong>：NCCL kernel 是 collective，要和计算的 SM 抢</li>
+<li><strong>Overlap 困难</strong>：NCCL 的 group_start/group_end 同步原语脆弱</li>
+</ol>
+<hr>
+<h2 id="九、DeepEP-的工程价值">九、DeepEP 的工程价值</h2>
+<p>不是「造个 NCCL 替代品」，而是把 MoE all-to-all 的领域知识 hard-code 进通信库：</p>
+<ol>
+<li><strong>去重投递</strong>：同节点多个 expert 只发一份 RDMA</li>
+<li><strong>FP8 + scale 同步路由</strong>：layout 一次算，三个 buffer 同步搬</li>
+<li><strong>handle 复用</strong>：decode 时 layout 不变就跳过 metadata 交换</li>
+<li><strong>精确 SM 预算</strong>：20 SM 是承诺值，可以放心规划其它 SM 给 GEMM</li>
+<li><strong>CUDA Graph 原生兼容</strong>：low-latency 路径用 fixed layout + zero-init + 符号位 sentinel</li>
+</ol>
+<p>DeepEP 的成功不在于「通信库本身有多快」，而在于<strong>它把 MoE 的通信模式从「通用 collective」降级为「专用流水线」</strong>，用领域知识换掉了通用抽象的开销。</p>
+<hr>
+<h2 id="十、总结">十、总结</h2>
+<p>DeepEP V1 通过三阶段 pipeline（layout 计算 → metadata 交换 → 流水线搬数据），把 MoE 的动态稀疏通信从 NCCL 的「批量语义」改成「流式语义」。其核心创新不是某个单独的优化，而是<strong>整个通信栈的领域专用重构</strong>——从 RDMA 三连击到 NVL IPC 环形队列，从 SM 对偶模型到 handle 反向地址簿，每一层都在为 MoE 的通信模式量身定制。</p>
+<p>V2 在此基础上进一步演进，用 JIT 编译 + ElasticBuffer 取代静态 channel 映射，让 SM 调度更灵活。但底层「RDMA-symmetric + NVL-IPC + head/tail 环形队列」的思想完全继承下来了。</p>
+<hr>
+<p><strong>参考资料</strong>：</p>
+<ul>
+<li>DeepEP GitHub：<a target="_blank" rel="noopener" href="https://github.com/deepseek-ai/DeepEP">https://github.com/deepseek-ai/DeepEP</a></li>
+<li>DeepSeek-V3 论文：<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2412.19437">https://arxiv.org/abs/2412.19437</a></li>
+<li>SGLang DeepEP 集成：<a target="_blank" rel="noopener" href="https://github.com/sgl-project/sglang">https://github.com/sgl-project/sglang</a></li>
+</ul>
+
       
     </div>
 
@@ -2786,880 +3281,6 @@ DeepSeek-V4 通过**序列维度压缩 + 混合精度存储 + 稀疏选择**，�
 </ol>
 <hr>
 <p><em>本文基于 SGLang 源码分析，涉及文件：<code>hiradix_cache.py</code>、<code>cache_controller.py</code>。</em></p>
-
-      
-    </div>
-
-    
-    
-    
-
-    <footer class="post-footer">
-        <div class="post-eof"></div>
-      
-    </footer>
-  </article>
-</div>
-
-
-
-
-    
-
-
-<div class="post-block">
-  
-  
-
-  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2026/04/24/SGLang-PP%E5%B9%B6%E8%A1%8C%E5%88%86%E6%9E%90/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="ggaaooppeenngg">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="ggaaooppeenngg">
-      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
-    </span>
-
-    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
-      <meta itemprop="name" content="undefined | ggaaooppeenngg">
-      <meta itemprop="description" content="">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          <a href="/zh-CN/2026/04/24/SGLang-PP%E5%B9%B6%E8%A1%8C%E5%88%86%E6%9E%90/" class="post-title-link" itemprop="url">SGLang Pipeline Parallelism 深度分析</a>
-        </h2>
-
-        <div class="post-meta-container">
-          <div class="post-meta">
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-calendar"></i>
-      </span>
-      <span class="post-meta-item-text">发表于</span>
-
-      <time title="创建时间：2026-04-24 16:30:00" itemprop="dateCreated datePublished" datetime="2026-04-24T16:30:00+08:00">2026-04-24</time>
-    </span>
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-calendar-check"></i>
-      </span>
-      <span class="post-meta-item-text">更新于</span>
-      <time title="修改时间：2026-04-30 17:16:51" itemprop="dateModified" datetime="2026-04-30T17:16:51+08:00">2026-04-30</time>
-    </span>
-
-  
-  
-  <span class="post-meta-item">
-    
-      <span class="post-meta-item-icon">
-        <i class="far fa-comment"></i>
-      </span>
-      <span class="post-meta-item-text">Disqus：</span>
-    
-    <a title="disqus" href="/zh-CN/2026/04/24/SGLang-PP%E5%B9%B6%E8%A1%8C%E5%88%86%E6%9E%90/#disqus_thread" itemprop="discussionUrl">
-      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2026/04/24/SGLang-PP并行分析/" itemprop="commentCount"></span>
-    </a>
-  </span>
-  
-  
-</div>
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-          <p>Pipeline Parallelism（PP）是多卡推理中的核心技术之一。SGLang 的 PP 实现有一套独立的事件循环和调度机制，和普通的 single-batch 路径完全不同。本文将从代码出发，深入分析 SGLang 的 PP 实现。</p>
-<h2 id="为什么需要-Pipeline-Parallelism"><a href="#为什么需要-Pipeline-Parallelism" class="headerlink" title="为什么需要 Pipeline Parallelism"></a>为什么需要 Pipeline Parallelism</h2><h3 id="单机推理的瓶颈"><a href="#单机推理的瓶颈" class="headerlink" title="单机推理的瓶颈"></a>单机推理的瓶颈</h3><p>单卡推理时，GPU 利用率受限于模型大小和显存。一个 70B 模型单卡放不下，必须拆分到多卡。</p>
-<h3 id="模型并行方案对比"><a href="#模型并行方案对比" class="headerlink" title="模型并行方案对比"></a>模型并行方案对比</h3><table>
-<thead>
-<tr>
-<th>方案</th>
-<th>原理</th>
-<th>优点</th>
-<th>缺点</th>
-</tr>
-</thead>
-<tbody><tr>
-<td>TP (Tensor Parallelism)</td>
-<td>按层切分权重</td>
-<td>通信少，延迟低</td>
-<td>受限于单节点卡数</td>
-</tr>
-<tr>
-<td>PP (Pipeline Parallelism)</td>
-<td>按层切分模型</td>
-<td>支持任意层数</td>
-<td>存在 pipeline bubble</td>
-</tr>
-<tr>
-<td>DP (Data Parallelism)</td>
-<td>每卡完整模型</td>
-<td>简单，吞吐高</td>
-<td>显存需求不变</td>
-</tr>
-</tbody></table>
-<p>SGLang 通常 TP + PP 组合使用：节点内 TP，跨节点 PP。</p>
-<h2 id="SGLang-PP-架构概览"><a href="#SGLang-PP-架构概览" class="headerlink" title="SGLang PP 架构概览"></a>SGLang PP 架构概览</h2><h3 id="PP-路径的独立事件循环"><a href="#PP-路径的独立事件循环" class="headerlink" title="PP 路径的独立事件循环"></a>PP 路径的独立事件循环</h3><p>SGLang 的调度器有三条事件循环路径：</p>
-<ul>
-<li><code>event_loop_normal</code> - 普通单 batch 调度</li>
-<li><code>event_loop_overlap</code> - 计算和通信 overlap 的调度</li>
-<li><strong><code>event_loop_pp</code></strong> - PP 路径的独立事件循环</li>
-</ul>
-<p>PP 路径有自己独立的事件循环，定义在 <code>scheduler_pp_mixin.py</code> 的 <code>SchedulerPPMixin</code> 类中。它和 normal&#x2F;overlap 路径完全隔离，因为 PP 的通信模式（send&#x2F;recv proxy tensors 跨 stage）和单机调度逻辑差异太大，硬塞进同一个 event loop 会很脏。</p>
-<h3 id="event-loop-pp-核心流程"><a href="#event-loop-pp-核心流程" class="headerlink" title="event_loop_pp 核心流程"></a>event_loop_pp 核心流程</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># scheduler_pp_mixin.py 第 72-145 行</span></span><br><span class="line"><span class="keyword">while</span> <span class="literal">True</span>:</span><br><span class="line">    <span class="keyword">for</span> mb_id <span class="keyword">in</span> <span class="built_in">range</span>(pp_loop_size):  <span class="comment"># 遍历 microbatch</span></span><br><span class="line">        <span class="number">1.</span> recv_requests()                                  <span class="comment"># 接收第 i 个请求（从上一个 PP stage 或 tokenizer）</span></span><br><span class="line">        <span class="number">2.</span> _pp_send_pyobj_to_next_stage()                   <span class="comment"># 立即把第 i 个请求转发给下一个 PP rank（async，提前发送）</span></span><br><span class="line">        <span class="number">3.</span> get_next_batch_to_run()                          <span class="comment"># 调度当前 microbatch 的 batch</span></span><br><span class="line">        <span class="number">4.</span> _pp_recv_proxy_tensors()                         <span class="comment"># 接收第 i 个 proxy（hidden states，来自上一个 PP stage）</span></span><br><span class="line">        <span class="number">5.</span> _pp_launch_batch()                               <span class="comment"># 执行第 i 个 batch 的 forward</span></span><br><span class="line">        <span class="number">6.</span> _pp_commit_send_output_work_and_preprocess...()  <span class="comment"># 发送+接收 output + 预处理 next_mb_id 槽位的结果</span></span><br><span class="line">        <span class="number">7.</span> _pp_process_batch_result()                       <span class="comment"># 处理 next_mb_id 槽位的 batch result</span></span><br><span class="line">        <span class="number">8.</span> _pp_send_dict_to_next_stage(msg_type=<span class="string">&quot;proxy&quot;</span>)    <span class="comment"># 发送第 i 个 proxy（hidden states）给下一个 PP stage</span></span><br></pre></td></tr></table></figure>
-
-<blockquote>
-<p><strong>⚠️ step 5 和 step 6 的顺序取决于 <code>pp_async_batch_depth</code></strong>：</p>
-<ul>
-<li><code>pp_async_batch_depth &gt; 0</code>：step 6（output 收发+预处理）在 step 5（forward）<strong>之前</strong>执行，与 forward 重叠，隐藏延迟</li>
-<li><code>pp_async_batch_depth == 0</code>：step 6（output 收发+预处理）在 step 5（forward）<strong>之后</strong>执行，串行不重叠</li>
-</ul>
-<p>上图展示的是 <code>pp_async_batch_depth == 0</code> 的顺序（step 6 在 step 5 之后）。</p>
-</blockquote>
-<p><strong>Microbatch 索引计算</strong>：</p>
-<p><strong>核心概念：commit &#x3D; 等待上一轮的异步操作完成</strong></p>
-<p>所有 <code>_pp_commit_comm_work(work)</code> 做的事情就是：</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">_pp_commit_comm_work</span>(<span class="params">self: Scheduler, work: <span class="type">List</span>[P2PWork]</span>) -&gt; <span class="literal">None</span>:</span><br><span class="line">    <span class="keyword">for</span> p2p_work <span class="keyword">in</span> work:</span><br><span class="line">        p2p_work.work.wait()  <span class="comment"># 阻塞等待 NCCL/Gloo 异步通信完成</span></span><br><span class="line">    work.clear()</span><br></pre></td></tr></table></figure>
-
-<p>即：<strong>commit 是一个同步屏障</strong>，确保上一轮发起的异步 send 已经完成，发送缓冲区可以安全复用。这是一种延迟等待模式–发送时不阻塞，到下一轮再等待完成，从而让发送和 GPU 计算重叠。</p>
-<p><strong>Microbatch 索引计算</strong>：</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">next_mb_id = (mb_id + <span class="number">1</span>) % <span class="variable language_">self</span>.pp_loop_size              <span class="comment"># 当前 rank 下一个要处理的 microbatch 槽位</span></span><br><span class="line">next_first_rank_mb_id = (mb_id + <span class="variable language_">self</span>.pp_size) % <span class="variable language_">self</span>.pp_loop_size  <span class="comment"># first rank 对应的&quot;下一轮&quot;槽位</span></span><br></pre></td></tr></table></figure>
-
-<ul>
-<li><code>next_mb_id</code>：当前 rank 下一个要处理的 microbatch 槽位（偏移 1，因为每次迭代处理一个 mb）</li>
-<li><code>next_first_rank_mb_id</code>：first rank 对应的”下一轮”microbatch 槽位（偏移 <code>pp_size</code>，因为流水线深度–first rank 产出的 batch 要经过 <code>pp_size</code> 个迭代才到 last rank 完成）</li>
-</ul>
-<p><strong>步骤与函数的对应关系</strong>：</p>
-<table>
-<thead>
-<tr>
-<th>步骤</th>
-<th>函数</th>
-<th>作用</th>
-</tr>
-</thead>
-<tbody><tr>
-<td>recv ith req</td>
-<td><code>recv_requests()</code></td>
-<td>接收请求（PP0 从 zmq，PP&gt;0 从前一个 rank P2P）</td>
-</tr>
-<tr>
-<td>send ith req to next</td>
-<td><code>_pp_send_pyobj_to_next_stage()</code></td>
-<td>把请求异步转发给下一个 PP rank（提前发送，隐藏通信延迟）</td>
-</tr>
-<tr>
-<td>get_next_batch_to_run</td>
-<td><code>get_next_batch_to_run()</code></td>
-<td>从 waiting_queue 调度请求组成 batch</td>
-</tr>
-<tr>
-<td>recv ith proxy</td>
-<td><code>_pp_recv_proxy_tensors()</code></td>
-<td>接收上游 stage 的 hidden_states + residual（forward 输入）</td>
-</tr>
-<tr>
-<td>send+recv output + preprocess</td>
-<td><code>_pp_commit_send_output_work_and_preprocess_output_tensors()</code></td>
-<td>发送 output 给下一个 stage + 接收 next_mb_id 槽位的 output + GPU→CPU 拷贝 + 解包</td>
-</tr>
-<tr>
-<td>run ith batch</td>
-<td><code>_pp_launch_batch()</code></td>
-<td>执行当前 microbatch 的 forward 计算</td>
-</tr>
-<tr>
-<td>process next_mb_id batch result</td>
-<td><code>_pp_process_batch_result()</code></td>
-<td>更新请求状态、判断是否结束、流式输出给 tokenizer</td>
-</tr>
-<tr>
-<td>send ith proxy to next</td>
-<td><code>_pp_send_dict_to_next_stage(msg_type=&quot;proxy&quot;)</code></td>
-<td>发送 forward 输出的 hidden_states 给下一个 stage</td>
-</tr>
-</tbody></table>
-<p><strong>关键设计</strong>：</p>
-<ul>
-<li><strong>send req 提前</strong>：收到请求后立即转发给下一个 rank（step 2），不等 forward 完成，隐藏 P2P 通信延迟</li>
-<li><strong>output 发送在 <code>_pp_commit_send_output_work_and_preprocess_output_tensors</code> 中处理</strong>：output 的发送和接收都在 step 6 中完成，last rank 把 output 发给 rank 0，中间 rank 转发</li>
-<li><strong>output 处理时机取决于 <code>pp_async_batch_depth</code></strong>：<ul>
-<li><code>&gt; 0</code>：output 收发+预处理在 forward <strong>之前</strong>执行，与当前 forward 重叠，隐藏延迟</li>
-<li><code>== 0</code>：output 收发+预处理在 forward <strong>之后</strong>执行，串行不重叠</li>
-</ul>
-</li>
-<li><strong>延迟等待异步通信</strong>：<code>_pp_commit_comm_work</code> 在下一轮迭代中调用 <code>.wait()</code> 确保上一轮的 async send 已完成，让发送和 GPU 计算重叠</li>
-<li>每个 microbatch 槽位独立管理状态</li>
-<li>async send + recv 实现计算和通信的 overlap</li>
-<li>主循环轮转处理每个 microbatch，填充 pipeline bubble</li>
-</ul>
-<h3 id="完整流程示例（pp-size-2-pp-async-batch-depth-0）"><a href="#完整流程示例（pp-size-2-pp-async-batch-depth-0）" class="headerlink" title="完整流程示例（pp_size&#x3D;2, pp_async_batch_depth&#x3D;0）"></a>完整流程示例（pp_size&#x3D;2, pp_async_batch_depth&#x3D;0）</h3><p>以 pp_size&#x3D;2, pp_async_batch_depth&#x3D;0 为例，pp_loop_size&#x3D;2，只有槽位 0 和 1：</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">参数：</span><br><span class="line">  pp_size = 2（PP0 = first rank, PP1 = last rank）</span><br><span class="line">  pp_async_batch_depth = 0</span><br><span class="line">  pp_loop_size = 2（槽位：mb_id ∈ &#123;0, 1&#125;）</span><br><span class="line">  next_mb_id = (mb_id + 1) % 2              # 另一个槽位</span><br><span class="line">  next_first_rank_mb_id = (mb_id + 2) % 2 = mb_id  # 注意：next_first_rank_mb_id == mb_id</span><br></pre></td></tr></table></figure>
-
-<p><strong>单次迭代（mb_id &#x3D; N）的完整步骤</strong>：</p>
-<p><strong>步骤 1：恢复上下文</strong></p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">running_batch = running_mbs[N]</span><br><span class="line">last_batch = last_mbs[N]</span><br><span class="line">next_first_rank_mb_id = N          <span class="comment"># 例如 N=0 时，next_first_rank_mb_id = 0</span></span><br><span class="line">next_mb_id = (N + <span class="number">1</span>) % <span class="number">2</span>           <span class="comment"># 例如 N=0 时，next_mb_id = 1（另一个槽位）</span></span><br></pre></td></tr></table></figure>
-
-<p><strong>步骤 2：接收并处理请求</strong></p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">recv_reqs = recv_requests()</span><br><span class="line">process_input_requests(recv_reqs)</span><br></pre></td></tr></table></figure>
-
-<ul>
-<li><strong>PP0</strong>：从 tokenizer_manager &#x2F; detokenizer 收请求（zmq 通道）</li>
-<li><strong>PP1</strong>：从 PP0 收转发过来的请求（P2P，含 PPHiCacheEventsReq 控制消息）</li>
-</ul>
-<p><strong>步骤 3：HiCache 事件同步 + 转发请求</strong></p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> enable_hierarchical_cache:</span><br><span class="line">    tree_cache.check_hicache_events()</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> <span class="keyword">not</span> is_last_rank:  <span class="comment"># 即 PP0</span></span><br><span class="line">    _pp_commit_comm_work(send_req_work)     <span class="comment"># ← 等待上一轮的 send_req 异步操作完成</span></span><br><span class="line">    send_req_work = async_send(pp_send_payload) → PP1</span><br></pre></td></tr></table></figure>
-
-<p><strong>commit 含义</strong>：上一轮（槽位 (N-1)%2）发起的 <code>send_req_work</code> 可能还没完成，这里阻塞等它完成后，才能安全地复用发送缓冲区发送本轮的请求。</p>
-<p><strong>步骤 4：调度决策</strong></p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">mbs[N] = get_next_batch_to_run()</span><br><span class="line">running_mbs[N] = running_batch</span><br><span class="line">cur_batch = mbs[N]</span><br></pre></td></tr></table></figure>
-
-<p><strong>步骤 5：接收 Proxy 张量</strong></p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> cur_batch <span class="keyword">is</span> <span class="keyword">not</span> <span class="literal">None</span>:</span><br><span class="line">    pp_proxy_tensors = _pp_recv_proxy_tensors()</span><br><span class="line">    <span class="comment"># PP0: 直接返回 None（第一个 stage 不需要接收）</span></span><br><span class="line">    <span class="comment"># PP1: 阻塞等待从 PP0 接收 hidden_states + residual (msg_type=&quot;proxy&quot;)</span></span><br></pre></td></tr></table></figure>
-
-<p><strong>步骤 6：等待上一轮 Proxy 发送完成</strong></p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">_pp_commit_comm_work(send_proxy_work)  <span class="comment"># ← 等待上一轮的 proxy 异步发送完成</span></span><br></pre></td></tr></table></figure>
-
-<p><strong>commit 含义</strong>：上一轮（槽位 (N-1)%2）PP0 发起的 proxy 异步发送可能还没完成，这里确保它完成，释放发送缓冲区。</p>
-<p><strong>步骤 7：GPU Forward 计算</strong></p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> cur_batch:</span><br><span class="line">    result, launch_event = _pp_launch_batch(N, pp_proxy_tensors, ...)</span><br><span class="line">    <span class="comment"># 在 forward_stream 上执行 run_batch</span></span><br><span class="line">    <span class="comment"># 记录 CUDA event</span></span><br><span class="line">    <span class="comment"># PP1(last rank): 将 output 张量 push 到 last_rank_comm_queue</span></span><br></pre></td></tr></table></figure>
-
-<p><strong>步骤 8：发送 Output + 接收 Output + 预处理</strong></p>
-<p>因为 <code>pp_async_batch_depth == 0</code>，这一步在 forward 之后执行（无法与 GPU 计算 overlap）。</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">_pp_commit_send_output_work_and_preprocess_output_tensors(</span><br><span class="line">    next_first_rank_mb_id=N, next_mb_id=(N+<span class="number">1</span>)%<span class="number">2</span>,</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
-
-<p>内部逻辑（<code>_pp_send_recv_and_preprocess_output_tensors</code>）：</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 1. 等待上一轮的 output 异步发送完成</span></span><br><span class="line">_pp_commit_comm_work(send_output_work)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 2. 发送 output:</span></span><br><span class="line"><span class="comment"># PP1(last rank): 如果 mbs[next_first_rank_mb_id=N] 不为空，</span></span><br><span class="line"><span class="comment">#   从 last_rank_comm_queue 取出 output，异步发送给 PP0 (msg_type=&quot;output&quot;)</span></span><br><span class="line"><span class="comment"># PP0(非 last rank): 如果有上一轮暂存的 pp_outputs，转发给 PP1</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 3. 接收 output + 预处理:</span></span><br><span class="line"><span class="comment"># 如果 mbs[next_mb_id] 不为空:</span></span><br><span class="line"><span class="comment">#   阻塞接收 output 张量 (msg_type=&quot;output&quot;)</span></span><br><span class="line"><span class="comment">#   在 copy_stream 上执行 _pp_prep_batch_result()（组装 GenerationBatchResult + D2H 拷贝）</span></span><br><span class="line"><span class="comment">#   记录 d2h_event</span></span><br></pre></td></tr></table></figure>
-
-<p><strong>commit 含义</strong>：上一轮（槽位 (N-1)%2）发起的 output 异步发送可能还没完成，这里确保完成后才能发起新的 output 发送。</p>
-<p><strong>步骤 9：后处理 next_mb_id 槽位的 Batch 结果</strong></p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> mbs[next_mb_id] <span class="keyword">is</span> <span class="keyword">not</span> <span class="literal">None</span>:</span><br><span class="line">    d2h_event.synchronize()  <span class="comment"># 等待 copy_stream 上的 D2H 拷贝完成</span></span><br><span class="line">    _pp_process_batch_result(mbs[next_mb_id], next_batch_result)</span><br><span class="line">    <span class="comment"># 更新请求状态、判断 EOS、发送给 detokenizer</span></span><br><span class="line">    last_mbs[next_mb_id] = mbs[next_mb_id]</span><br></pre></td></tr></table></figure>
-
-<p><strong>步骤 10：发送 Proxy 张量（仅 PP0）</strong></p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> <span class="keyword">not</span> is_last_rank <span class="keyword">and</span> cur_batch:</span><br><span class="line">    torch.cuda.current_stream().wait_event(launch_event)  <span class="comment"># 等 forward 完成</span></span><br><span class="line">    send_proxy_work = async_send(hidden_states + residual) → PP1  <span class="comment"># msg_type=&quot;proxy&quot;</span></span><br></pre></td></tr></table></figure>
-
-<p><strong>步骤 11：保存状态</strong></p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">pp_outputs = next_pp_outputs  <span class="comment"># 暂存本轮接收到的 output，供下一轮步骤 8 转发</span></span><br></pre></td></tr></table></figure>
-
-<h3 id="完整时序（稳态，两个槽位交替）"><a href="#完整时序（稳态，两个槽位交替）" class="headerlink" title="完整时序（稳态，两个槽位交替）"></a>完整时序（稳态，两个槽位交替）</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line">┌─────────────────────────────────────────────────────────────────┐</span><br><span class="line">│ mb_id=0                                                          │</span><br><span class="line">├─────────────────────────────────────────────────────────────────┤</span><br><span class="line">│ 1. recv_requests + process                                       │</span><br><span class="line">│ 2. commit(send_req_work[上轮mb=1的]) → async_send(reqs)         │</span><br><span class="line">│ 3. get_next_batch_to_run → cur_batch                            │</span><br><span class="line">│ 4. recv_proxy (PP1阻塞等PP0; PP0跳过)                            │</span><br><span class="line">│ 5. GPU forward (forward_stream)                                  │</span><br><span class="line">│ 6. commit(send_output_work[上轮mb=1的])                          │</span><br><span class="line">│    send_output → recv_output → prep_batch_result (copy_stream)  │</span><br><span class="line">│ 7. d2h_event.sync → process_batch_result(mbs[next_mb_id]的结果) │</span><br><span class="line">│ 8. commit(send_proxy_work[上轮mb=1的])                           │</span><br><span class="line">│ 9. PP0: wait(launch_event) → async_send(proxy) → PP1            │</span><br><span class="line">│10. pp_outputs = next_pp_outputs                                  │</span><br><span class="line">├─────────────────────────────────────────────────────────────────┤</span><br><span class="line">│ mb_id=1                                                          │</span><br><span class="line">├─────────────────────────────────────────────────────────────────┤</span><br><span class="line">│ 1. recv_requests + process                                       │</span><br><span class="line">│ 2. commit(send_req_work[上轮mb=0的]) → async_send(reqs)         │</span><br><span class="line">│ 3. get_next_batch_to_run → cur_batch                            │</span><br><span class="line">│ 4. recv_proxy (PP1阻塞等PP0; PP0跳过)                            │</span><br><span class="line">│ 5. GPU forward (forward_stream)                                  │</span><br><span class="line">│ 6. commit(send_output_work[上轮mb=0的])                          │</span><br><span class="line">│    send_output → recv_output → prep_batch_result (copy_stream)  │</span><br><span class="line">│ 7. d2h_event.sync → process_batch_result(mbs[next_mb_id]的结果) │</span><br><span class="line">│ 8. commit(send_proxy_work[上轮mb=0的])                           │</span><br><span class="line">│ 9. PP0: wait(launch_event) → async_send(proxy) → PP1            │</span><br><span class="line">│10. pp_outputs = next_pp_outputs                                  │</span><br><span class="line">└─────────────────────────────────────────────────────────────────┘</span><br></pre></td></tr></table></figure>
-
-<h3 id="PP0-与-PP1-的交互时序（稳态）"><a href="#PP0-与-PP1-的交互时序（稳态）" class="headerlink" title="PP0 与 PP1 的交互时序（稳态）"></a>PP0 与 PP1 的交互时序（稳态）</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">时间轴 →</span><br><span class="line"></span><br><span class="line">PP0 (mb_id=0):</span><br><span class="line">recv_req → commit(send_req) → send_req→PP1 → schedule → [skip proxy]</span><br><span class="line">→ FORWARD → commit(send_output)</span><br><span class="line">→ send_output(转发) → recv_output(从PP1) → prep → process_result</span><br><span class="line">→ commit(send_proxy) → send_proxy→PP1</span><br><span class="line"></span><br><span class="line">PP1 (mb_id=0):</span><br><span class="line">recv_req(从PP0) → process → schedule → recv_proxy(阻塞等PP0)</span><br><span class="line">→ FORWARD → commit(send_output)</span><br><span class="line">→ send_output→PP0 → recv_output(从PP0转发) → prep → process_result</span><br><span class="line">→ commit(send_proxy)</span><br></pre></td></tr></table></figure>
-
-<p><strong>关键依赖链</strong>：</p>
-<ul>
-<li>PP1 的 <code>recv_proxy</code> 必须等 PP0 的 <code>send_proxy</code>（上一轮的）完成</li>
-<li>PP0 的 <code>recv_output</code> 必须等 PP1 的 <code>send_output</code> 完成</li>
-<li>因为 <code>pp_async_batch_depth=0</code>，output 的发送&#x2F;接收在 forward 之后，无法与 GPU 计算重叠</li>
-</ul>
-<h3 id="所有-commit-汇总"><a href="#所有-commit-汇总" class="headerlink" title="所有 commit 汇总"></a>所有 commit 汇总</h3><table>
-<thead>
-<tr>
-<th>commit 调用</th>
-<th>等待的是什么</th>
-<th>目的</th>
-</tr>
-</thead>
-<tbody><tr>
-<td><code>commit(send_req_work)</code></td>
-<td>上一轮槽位发起的 reqs 异步发送</td>
-<td>确保发送完成，可以安全复用缓冲区发送本轮 reqs</td>
-</tr>
-<tr>
-<td><code>commit(send_proxy_work)</code></td>
-<td>上一轮槽位发起的 proxy 异步发送</td>
-<td>确保 hidden_states 张量已发送完毕，可以释放&#x2F;复用</td>
-</tr>
-<tr>
-<td><code>commit(send_output_work)</code></td>
-<td>上一轮槽位发起的 output 异步发送</td>
-<td>确保 output 张量已发送完毕，可以发起新的 output 发送</td>
-</tr>
-</tbody></table>
-<p><strong>模式统一</strong>：每个 <code>async_send</code> 在下一轮同一类型操作之前被 commit，形成”发起→（做其他事）→等待完成→再发起”的流水线模式。即使 <code>pp_async_batch_depth=0</code> 没有计算-通信 overlap，这种 commit 模式仍然保证了同类型通信操作之间不会冲突。</p>
-<h2 id="Microbatch：填充-Pipeline-Bubble"><a href="#Microbatch：填充-Pipeline-Bubble" class="headerlink" title="Microbatch：填充 Pipeline Bubble"></a>Microbatch：填充 Pipeline Bubble</h2><h3 id="问题：Pipeline-Bubble"><a href="#问题：Pipeline-Bubble" class="headerlink" title="问题：Pipeline Bubble"></a>问题：Pipeline Bubble</h3><p>PP2（2 个 stage）如果只用一个 batch，会出现大量空闲：</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">时间 →</span><br><span class="line">Stage 0: [ batch 0 ] [ batch 1 ]</span><br><span class="line">Stage 1:              [ batch 0 ] [ batch 1 ]</span><br><span class="line">              ↑ 空闲     ↑ 空闲</span><br></pre></td></tr></table></figure>
-
-<p>Stage 0 做完 batch 0 后必须等 Stage 1 处理完才能做 batch 1（因为只有一个 batch 在 pipeline 里流转），一半的时间都在空闲。这就是 <strong>pipeline bubble</strong>。</p>
-<h3 id="解法：Microbatch"><a href="#解法：Microbatch" class="headerlink" title="解法：Microbatch"></a>解法：Microbatch</h3><p>把多个 batch 同时塞进 pipeline，这些 batch 就叫 microbatch：</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">时间 →</span><br><span class="line">Stage 0: [ mb 0 ][ mb 1 ][ mb 2 ][ mb 3 ]</span><br><span class="line">Stage 1:         [ mb 0 ][ mb 1 ][ mb 2 ][ mb 3 ]</span><br></pre></td></tr></table></figure>
-
-<p>Stage 0 做完 mb0 不用等，立刻做 mb1；Stage 1 也紧接着处理，bubble 大幅减少。</p>
-<h3 id="Microbatch-数量的确定"><a href="#Microbatch-数量的确定" class="headerlink" title="Microbatch 数量的确定"></a>Microbatch 数量的确定</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># scheduler_pp_mixin.py 第 514 行</span></span><br><span class="line"><span class="variable language_">self</span>.pp_loop_size = <span class="variable language_">self</span>.pp_size + <span class="variable language_">self</span>.server_args.pp_async_batch_depth</span><br></pre></td></tr></table></figure>
-
-<ul>
-<li><code>pp_size</code> &#x3D; 2（PP2）→ 至少 2 个 microbatch 槽位</li>
-<li><code>pp_async_batch_depth</code> → 额外的 buffer 深度，进一步隐藏延迟</li>
-</ul>
-<p>每个 microbatch 都有独立的状态：</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="variable language_">self</span>.mbs = [<span class="literal">None</span>] * <span class="variable language_">self</span>.pp_loop_size          <span class="comment"># 当前 batch</span></span><br><span class="line"><span class="variable language_">self</span>.last_mbs = [<span class="literal">None</span>] * <span class="variable language_">self</span>.pp_loop_size     <span class="comment"># 最近一次处理的 batch</span></span><br><span class="line"><span class="variable language_">self</span>.running_mbs = [ScheduleBatch(...) <span class="keyword">for</span> _ <span class="keyword">in</span> <span class="built_in">range</span>(<span class="variable language_">self</span>.pp_loop_size)]  <span class="comment"># running 状态</span></span><br></pre></td></tr></table></figure>
-
-<h3 id="Microbatch-vs-正常-Batch"><a href="#Microbatch-vs-正常-Batch" class="headerlink" title="Microbatch vs 正常 Batch"></a>Microbatch vs 正常 Batch</h3><table>
-<thead>
-<tr>
-<th>维度</th>
-<th>正常 batch</th>
-<th>Microbatch（PP）</th>
-</tr>
-</thead>
-<tbody><tr>
-<td>数量</td>
-<td>同时 1 个</td>
-<td>同时 pp_size + async_depth 个</td>
-</tr>
-<tr>
-<td>目的</td>
-<td>普通调度</td>
-<td>填充 pipeline bubble，提升利用率</td>
-</tr>
-<tr>
-<td>状态管理</td>
-<td>单个 running_batch</td>
-<td>数组 running_mbs[mb_id] 各自独立</td>
-</tr>
-<tr>
-<td>本质</td>
-<td>就是一个 batch</td>
-<td>也是普通 batch，只是多个在 pipeline 中交替执行</td>
-</tr>
-</tbody></table>
-<p>Microbatch 和 batch 在数据结构上没有区别（都是 <code>ScheduleBatch</code>），区别只在于 PP 需要多个 batch 同时在不同 stage 中流转，所以给它们编号叫 microbatch。</p>
-<h3 id="Microbatch-数量不是越多越好"><a href="#Microbatch-数量不是越多越好" class="headerlink" title="Microbatch 数量不是越多越好"></a>Microbatch 数量不是越多越好</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">pp_loop_size = pp_size + pp_async_batch_depth</span><br></pre></td></tr></table></figure>
-
-<ul>
-<li><strong>太少</strong>（&#x3D; pp_size）：pipeline 容易断流，一个 stage 稍慢就导致下游空闲</li>
-<li><strong>太多</strong>：显存占用线性增长（每个 microbatch 都要有自己的 KV cache + activation），而且可能因为显存压力导致 batch size 被迫缩小，反而吞吐下降</li>
-</ul>
-<p><strong>调优经验</strong>：</p>
-<ul>
-<li><code>pp_async_batch_depth = 1~2</code> 通常足够，再深收益递减</li>
-<li>显存充裕时可以试更大的 depth，但要注意 activation memory 的开销</li>
-<li>如果 single batch 的 token 数很大（长上下文），microbatch 多了容易 OOM</li>
-</ul>
-<h2 id="PP-Rank-的请求接收路径"><a href="#PP-Rank-的请求接收路径" class="headerlink" title="PP Rank 的请求接收路径"></a>PP Rank 的请求接收路径</h2><p><code>recv_requests()</code> 根据 PP rank 的不同，有两条完全不同的接收路径。接收的请求包括两类：</p>
-<ul>
-<li><strong>外部 API 请求</strong>：tokenize 后的推理请求（<code>TokenizedGenerateReqInput</code>、<code>TokenizedEmbeddingReqInput</code> 等）</li>
-<li><strong>内部控制请求</strong>：PP 同步用的控制消息（如 <code>PPHiCacheEventsReq</code> 等）</li>
-</ul>
-<h3 id="PP-Rank-0（第一个-stage）"><a href="#PP-Rank-0（第一个-stage）" class="headerlink" title="PP Rank 0（第一个 stage）"></a>PP Rank 0（第一个 stage）</h3><p>从上游组件直接接收用户请求，走两条 zmq 通道：</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 1. 从 tokenizer 接收（zmq 通道）</span></span><br><span class="line">recv_req = <span class="variable language_">self</span>.recv_from_tokenizer.recv_pyobj(zmq.NOBLOCK)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 2. 从 rpc 接收（zmq 通道）</span></span><br><span class="line">recv_rpc = <span class="variable language_">self</span>.recv_from_rpc.recv_pyobj(zmq.NOBLOCK)</span><br></pre></td></tr></table></figure>
-
-<p>接收的是 tokenize 后的请求对象，类型为：</p>
-<ul>
-<li><code>TokenizedGenerateReqInput</code> - 生成请求</li>
-<li><code>TokenizedEmbeddingReqInput</code> - embedding 请求</li>
-<li>其他控制类消息（flush、abort 等）</li>
-</ul>
-<h3 id="PP-Rank-0（后续-stage）"><a href="#PP-Rank-0（后续-stage）" class="headerlink" title="PP Rank &gt; 0（后续 stage）"></a>PP Rank &gt; 0（后续 stage）</h3><p>不直接从 tokenizer 接收，而是从前一个 PP rank P2P 转发过来：</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">recv_reqs = point_to_point_pyobj(</span><br><span class="line">    [],</span><br><span class="line">    <span class="variable language_">self</span>.pp_rank * <span class="variable language_">self</span>.tp_size + dp_offset,  <span class="comment"># 本 rank</span></span><br><span class="line">    <span class="variable language_">self</span>.world_group.cpu_group,</span><br><span class="line">    (<span class="variable language_">self</span>.pp_rank - <span class="number">1</span>) * <span class="variable language_">self</span>.tp_size + dp_offset,  <span class="comment"># src: 前一个 PP rank</span></span><br><span class="line">    <span class="variable language_">self</span>.pp_rank * <span class="variable language_">self</span>.tp_size + dp_offset,  <span class="comment"># dst: 本 rank</span></span><br><span class="line">)</span><br></pre></td></tr></table></figure>
-
-<h3 id="对应-event-loop-pp-中的流转"><a href="#对应-event-loop-pp-中的流转" class="headerlink" title="对应 event_loop_pp 中的流转"></a>对应 event_loop_pp 中的流转</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># event_loop_pp 第 80-88 行</span></span><br><span class="line">recv_reqs = <span class="variable language_">self</span>.recv_requests()  <span class="comment"># PP0 从 zmq 收，PP1 从 PP0 的 P2P 收</span></span><br><span class="line"><span class="variable language_">self</span>.process_input_requests(recv_reqs)  <span class="comment"># 本地处理</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> <span class="keyword">not</span> <span class="variable language_">self</span>.pp_group.is_last_rank:</span><br><span class="line">    <span class="comment"># 步骤 2: send reqs to next PP stage</span></span><br><span class="line">    <span class="variable language_">self</span>.send_req_work = <span class="variable language_">self</span>._pp_send_pyobj_to_next_stage(  <span class="comment"># 转发给下一个 PP rank</span></span><br><span class="line">        recv_reqs, async_send=<span class="literal">True</span>,</span><br><span class="line">    )</span><br></pre></td></tr></table></figure>
-
-<h3 id="流转全图"><a href="#流转全图" class="headerlink" title="流转全图"></a>流转全图</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">Tokenizer / RPC</span><br><span class="line">     │ zmq</span><br><span class="line">     ▼</span><br><span class="line">PP Rank 0: recv_requests() ── point_to_point_pyobj (async) ──→ PP Rank 1: recv_requests()</span><br><span class="line">     │                              │</span><br><span class="line">     ▼                              ▼</span><br><span class="line">process_input_requests()     process_input_requests()</span><br></pre></td></tr></table></figure>
-
-<p><strong>关键设计</strong>：所有 PP rank 收到的内容是一样的（同样的请求列表），这样每个 stage 都能为同一批请求做 <code>get_next_batch_to_run()</code> 调度，保证各 stage 的 batch 一致。</p>
-<h3 id="process-input-requests：请求路由器"><a href="#process-input-requests：请求路由器" class="headerlink" title="process_input_requests：请求路由器"></a>process_input_requests：请求路由器</h3><p><code>recv_requests()</code> 收到请求后，<code>process_input_requests()</code> 负责按类型分发到对应的 handler：</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># scheduler_pp_mixin.py 第 1545-1566 行</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">process_input_requests</span>(<span class="params">self, recv_reqs: <span class="type">List</span></span>):</span><br><span class="line">    now = time.monotonic()</span><br><span class="line">    <span class="variable language_">self</span>.session_controller.maybe_reap(now)  <span class="comment"># 1. 清理过期 session</span></span><br><span class="line">    <span class="keyword">for</span> recv_req <span class="keyword">in</span> recv_reqs:</span><br><span class="line">        <span class="comment"># 2. 健康检查请求：服务器忙时跳过</span></span><br><span class="line">        <span class="keyword">if</span> is_health_check_generate_req(recv_req) <span class="keyword">and</span> <span class="keyword">not</span> <span class="variable language_">self</span>.is_fully_idle():</span><br><span class="line">            <span class="keyword">continue</span></span><br><span class="line">        <span class="comment"># 3. 按类型分发</span></span><br><span class="line">        output = <span class="variable language_">self</span>._request_dispatcher(recv_req)</span><br><span class="line">        <span class="comment"># 4. 有即时返回结果的，回送给 tokenizer/rpc</span></span><br><span class="line">        <span class="keyword">if</span> output <span class="keyword">is</span> <span class="keyword">not</span> <span class="literal">None</span>:</span><br><span class="line">            <span class="variable language_">self</span>.send_to_tokenizer.send_output(output, recv_req)</span><br></pre></td></tr></table></figure>
-
-<p><code>_request_dispatcher</code> 是一个 <code>TypeBasedDispatcher</code>，根据请求类型路由到不同 handler：</p>
-<p><strong>核心推理请求</strong>：</p>
-<table>
-<thead>
-<tr>
-<th>请求类型</th>
-<th>Handler</th>
-<th>说明</th>
-</tr>
-</thead>
-<tbody><tr>
-<td><code>TokenizedGenerateReqInput</code></td>
-<td><code>handle_generate_request</code></td>
-<td>生成请求 → 加入 waiting_queue</td>
-</tr>
-<tr>
-<td><code>TokenizedEmbeddingReqInput</code></td>
-<td><code>handle_embedding_request</code></td>
-<td>Embedding 请求</td>
-</tr>
-<tr>
-<td><code>BatchTokenized*</code></td>
-<td><code>handle_batch_*</code></td>
-<td>批量请求</td>
-</tr>
-</tbody></table>
-<p><strong>控制类请求</strong>：</p>
-<table>
-<thead>
-<tr>
-<th>请求类型</th>
-<th>Handler</th>
-<th>说明</th>
-</tr>
-</thead>
-<tbody><tr>
-<td><code>AbortReq</code></td>
-<td><code>abort_request</code></td>
-<td>中止请求</td>
-</tr>
-<tr>
-<td><code>FlushCacheReqInput</code></td>
-<td><code>flush_cache_wrapped</code></td>
-<td>清空 KV cache</td>
-</tr>
-<tr>
-<td><code>OpenSessionReqInput</code></td>
-<td><code>open_session</code></td>
-<td>开启会话</td>
-</tr>
-<tr>
-<td><code>CloseSessionReqInput</code></td>
-<td><code>close_session</code></td>
-<td>关闭会话</td>
-</tr>
-<tr>
-<td><code>ProfileReq</code></td>
-<td><code>profile</code></td>
-<td>性能分析</td>
-</tr>
-<tr>
-<td><code>SlowDownReqInput</code></td>
-<td><code>slow_down</code></td>
-<td>降速</td>
-</tr>
-<tr>
-<td><code>PauseGenerationReqInput</code></td>
-<td><code>pause_generation</code></td>
-<td>暂停生成</td>
-</tr>
-</tbody></table>
-<p><strong>权重管理请求</strong>：</p>
-<table>
-<thead>
-<tr>
-<th>请求类型</th>
-<th>Handler</th>
-<th>说明</th>
-</tr>
-</thead>
-<tbody><tr>
-<td><code>UpdateWeightsFrom*</code></td>
-<td><code>update_weights_from_*</code></td>
-<td>更新模型权重（disk&#x2F;distributed&#x2F;tensor&#x2F;IPC）</td>
-</tr>
-<tr>
-<td><code>LoadLoRAAdapterReqInput</code></td>
-<td><code>load_lora_adapter</code></td>
-<td>加载 LoRA</td>
-</tr>
-<tr>
-<td><code>UnloadLoRAAdapterReqInput</code></td>
-<td><code>unload_lora_adapter</code></td>
-<td>卸载 LoRA</td>
-</tr>
-</tbody></table>
-<p><strong>一句话总结</strong>：<code>process_input_requests</code> 就是一个请求路由器–生成请求进入 <code>waiting_queue</code> 等待后续调度，控制请求立即处理并回送结果，所有 PP rank 都执行同样的分发逻辑保证状态一致。</p>
-<h3 id="pp-recv-proxy-tensors：接收上游-Stage-的中间结果"><a href="#pp-recv-proxy-tensors：接收上游-Stage-的中间结果" class="headerlink" title="_pp_recv_proxy_tensors：接收上游 Stage 的中间结果"></a>_pp_recv_proxy_tensors：接收上游 Stage 的中间结果</h3><p><code>_pp_recv_proxy_tensors</code>（<code>scheduler_pp_mixin.py</code> 第 993-1004 行）负责从上一个 PP stage 接收 forward 的中间激活值：</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">_pp_recv_proxy_tensors</span>(<span class="params">self: Scheduler</span>) -&gt; <span class="type">Optional</span>[PPProxyTensors]:</span><br><span class="line">    pp_proxy_tensors = <span class="literal">None</span></span><br><span class="line">    <span class="keyword">if</span> <span class="keyword">not</span> <span class="variable language_">self</span>.pp_group.is_first_rank:</span><br><span class="line">        pp_proxy_tensors = PPProxyTensors(</span><br><span class="line">            <span class="variable language_">self</span>._pp_recv_typed_dict(</span><br><span class="line">                expected_kind=<span class="string">&quot;proxy&quot;</span>,</span><br><span class="line">                all_gather_group=<span class="variable language_">self</span>.attn_tp_group <span class="keyword">if</span> <span class="variable language_">self</span>.require_attn_tp_allgather <span class="keyword">else</span> <span class="literal">None</span>,</span><br><span class="line">            )</span><br><span class="line">        )</span><br><span class="line">    <span class="keyword">return</span> pp_proxy_tensors</span><br></pre></td></tr></table></figure>
-
-<p><strong>行为</strong>：</p>
-<ul>
-<li><strong>PP Rank 0（first rank）</strong>：返回 <code>None</code>，因为它是第一个 stage，没有上一级给它传 hidden states，直接用 embedding 层的输出开始 forward。代码里有 <code>is_first_rank</code> 判断，PP0 不会做任何接收操作。</li>
-<li><strong>PP Rank &gt; 0</strong>：从前一个 PP rank 接收 tensor dict（<code>msg_type=&quot;proxy&quot;</code>），包装成 <code>PPProxyTensors</code></li>
-</ul>
-<p><strong>Proxy tensors 是什么</strong>：</p>
-<p>看 <code>profile_and_init_predictor</code> 里的构造（第 609-622 行）就清楚了：</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">proxy_tensors = &#123;</span><br><span class="line">    <span class="string">&quot;hidden_states&quot;</span>: torch.zeros((seq_len, hidden_size), ...),</span><br><span class="line">    <span class="string">&quot;residual&quot;</span>: torch.zeros((seq_len, hidden_size), ...),</span><br><span class="line">&#125;</span><br><span class="line">pp_proxy = PPProxyTensors(proxy_tensors)</span><br></pre></td></tr></table></figure>
-
-<p>就是上一个 PP stage forward 输出的中间激活值：</p>
-<ul>
-<li><code>hidden_states</code> - 当前层的隐藏状态</li>
-<li><code>residual</code> - 残差连接</li>
-</ul>
-<p><strong>在 event_loop_pp 中的位置</strong>：</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> <span class="variable language_">self</span>.cur_batch:</span><br><span class="line">    pp_proxy_tensors = <span class="variable language_">self</span>._pp_recv_proxy_tensors()  <span class="comment"># rank&gt;0 在这里阻塞等 recv</span></span><br><span class="line">    ...</span><br><span class="line">    <span class="comment"># 步骤 5: run_batch → 实际调用 _pp_launch_batch()</span></span><br><span class="line">    result, <span class="variable language_">self</span>.launch_event = <span class="variable language_">self</span>._pp_launch_batch(</span><br><span class="line">        mb_id, pp_proxy_tensors, ...  <span class="comment"># 传入 forward，接着上一个 stage 继续算</span></span><br><span class="line">    )</span><br></pre></td></tr></table></figure>
-
-<p><strong>对应的发送端</strong>：在 event_loop_pp 末尾（第 129-139 行），非 last rank 发送 proxy：</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> <span class="keyword">not</span> <span class="variable language_">self</span>.pp_group.is_last_rank:</span><br><span class="line">    <span class="keyword">if</span> <span class="variable language_">self</span>.cur_batch:</span><br><span class="line">        torch.cuda.current_stream().wait_event(<span class="variable language_">self</span>.launch_event)  <span class="comment"># 等 forward 完成</span></span><br><span class="line">        <span class="variable language_">self</span>.send_proxy_work = <span class="variable language_">self</span>._pp_send_dict_to_next_stage(</span><br><span class="line">            result.pp_hidden_states_proxy_tensors.tensors,  <span class="comment"># forward 输出的 hidden_states</span></span><br><span class="line">            async_send=<span class="literal">True</span>,</span><br><span class="line">            msg_type=<span class="string">&quot;proxy&quot;</span>,</span><br><span class="line">        )</span><br></pre></td></tr></table></figure>
-
-<p><strong>一句话总结</strong>：<code>_pp_recv_proxy_tensors</code> 就是非首 rank 从前一个 PP stage 接收 forward 中间结果（hidden_states + residual），这样本 stage 的模型层才能接着算。这是 PP 的核心数据流–每个 stage 只有部分层，需要前一个 stage 的输出作为输入。</p>
-<h3 id="pp-recv-dict-from-prev-stage（接收-output）与-pp-recv-proxy-tensors（接收-proxy）的区别"><a href="#pp-recv-dict-from-prev-stage（接收-output）与-pp-recv-proxy-tensors（接收-proxy）的区别" class="headerlink" title="_pp_recv_dict_from_prev_stage（接收 output）与 _pp_recv_proxy_tensors（接收 proxy）的区别"></a>_pp_recv_dict_from_prev_stage（接收 output）与 _pp_recv_proxy_tensors（接收 proxy）的区别</h3><p>这两个接收操作虽然底层都走 <code>_pp_recv_typed_dict</code>，但它们在 <strong>语义、时机、数据内容、通信方向</strong> 上完全不同。</p>
-<h4 id="一、核心区别对比"><a href="#一、核心区别对比" class="headerlink" title="一、核心区别对比"></a>一、核心区别对比</h4><table>
-<thead>
-<tr>
-<th>维度</th>
-<th><code>_pp_recv_proxy_tensors</code>（proxy）</th>
-<th><code>_pp_recv_dict_from_prev_stage</code>（output）</th>
-</tr>
-</thead>
-<tbody><tr>
-<td><code>msg_type</code></td>
-<td><code>&quot;proxy&quot;</code></td>
-<td><code>&quot;output&quot;</code></td>
-</tr>
-<tr>
-<td>语义</td>
-<td>中间隐藏状态（模型前向传播的中间产物）</td>
-<td>最终输出（next_token_ids + logprob）</td>
-</tr>
-<tr>
-<td>数据内容</td>
-<td><code>hidden_states</code> + <code>residual</code>（形状 <code>[num_tokens, hidden_size]</code>）</td>
-<td><code>next_token_ids</code>（形状 <code>[batch_size]</code>）+ 可选的 logprob 张量</td>
-</tr>
-<tr>
-<td>通信方向</td>
-<td>PP(k-1) → PP(k)，前向传播方向</td>
-<td>PP(last) → PP(0)，反向回传方向（或非 last rank 的转发）</td>
-</tr>
-<tr>
-<td>对应的发送端</td>
-<td>上一个 PP stage 的 <code>_pp_send_dict_to_next_stage(..., msg_type=&quot;proxy&quot;)</code></td>
-<td>last rank 的 <code>_pp_send_dict_to_next_stage(..., msg_type=&quot;output&quot;)</code></td>
-</tr>
-<tr>
-<td>用途</td>
-<td>作为当前 stage 模型 forward 的输入</td>
-<td>作为 batch 后处理（process_batch_result）的输入</td>
-</tr>
-<tr>
-<td>时机</td>
-<td>在 <code>_pp_launch_batch</code>（GPU forward）之前接收</td>
-<td>在 GPU forward 之后&#x2F;并行接收（用于处理上一轮的结果）</td>
-</tr>
-<tr>
-<td>接收者</td>
-<td>非 first rank（PP1, PP2, …）</td>
-<td>所有 rank（PP0 从 last rank 收，中间 rank 从上一个 rank 转发）</td>
-</tr>
-</tbody></table>
-<h4 id="二、在流水线中的位置"><a href="#二、在流水线中的位置" class="headerlink" title="二、在流水线中的位置"></a>二、在流水线中的位置</h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">PP Rank 0              PP Rank 1              PP Rank 2 (Last)</span><br><span class="line">─────────              ──────────              ──────────────</span><br><span class="line">                       _pp_recv_proxy_tensors</span><br><span class="line">                       ← proxy (hidden_states + residual)</span><br><span class="line">                       _pp_launch_batch (forward)</span><br><span class="line">                       _pp_send_dict_to_next_stage</span><br><span class="line">                       → proxy (hidden_states + residual)</span><br><span class="line">                                                ← proxy (hidden_states + residual)</span><br><span class="line">                                                _pp_launch_batch (forward + sample)</span><br><span class="line">                                                _pp_send_dict_to_next_stage</span><br><span class="line">                                                → output (next_token_ids + logprobs)</span><br><span class="line">                       ← output (next_token_ids + logprobs)</span><br><span class="line">                       _pp_recv_dict_from_prev_stage (msg_type=&quot;output&quot;)</span><br><span class="line">                       _pp_commit_send_output_work_and_preprocess_output_tensors</span><br><span class="line">                       process_batch_result (更新请求状态、流式输出)</span><br></pre></td></tr></table></figure>
-
-<h4 id="三、数据内容详解"><a href="#三、数据内容详解" class="headerlink" title="三、数据内容详解"></a>三、数据内容详解</h4><p><strong>Proxy 张量（中间隐藏状态）</strong>：</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 发送端（_pp_launch_batch 之后）</span></span><br><span class="line">result.pp_hidden_states_proxy_tensors.tensors = &#123;</span><br><span class="line">    <span class="string">&quot;hidden_states&quot;</span>: tensor([num_tokens, hidden_size]),  <span class="comment"># 模型中间层输出</span></span><br><span class="line">    <span class="string">&quot;residual&quot;</span>: tensor([num_tokens, hidden_size]),       <span class="comment"># 残差连接</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>这是模型被纵向切分后，前半部分层的输出。下一个 PP stage 需要它作为输入继续跑后半部分层。<strong>没有它，下一个 stage 无法执行 forward。</strong></p>
-<p><strong>Output 张量（最终输出）</strong>：</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 发送端（_pp_prepare_tensor_dict）</span></span><br><span class="line">tensor_dict = &#123;</span><br><span class="line">    <span class="string">&quot;next_token_ids&quot;</span>: tensor([batch_size]),     <span class="comment"># 采样得到的下一个 token</span></span><br><span class="line">    <span class="comment"># 可选：</span></span><br><span class="line">    <span class="string">&quot;input_token_logprobs&quot;</span>: ...,</span><br><span class="line">    <span class="string">&quot;normalized_prompt_logprobs&quot;</span>: ...,</span><br><span class="line">    <span class="string">&quot;prefill_top_logprobs&quot;</span>: ...,</span><br><span class="line">    ...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>这是 last rank 完成整个模型 forward + 采样后的最终结果。PP0 需要它来执行后处理（更新请求状态、判断是否结束、发送给 tokenizer 等）。</p>
-<h4 id="四、为什么需要分开？"><a href="#四、为什么需要分开？" class="headerlink" title="四、为什么需要分开？"></a>四、为什么需要分开？</h4><ol>
-<li><p><strong>时序不同</strong>：proxy 必须在 forward 前到位（是 forward 的输入）；output 可以在 forward 后异步接收（是上一轮的结果，用于 CPU 后处理）。</p>
-</li>
-<li><p><strong>方向不同</strong>：proxy 沿流水线正向流动（rank 0→1→2→…→last）；output 从 last rank 反向回到 rank 0（形成环路）。</p>
-</li>
-<li><p><strong>同一条 P2P 链路上交错到达</strong>：由于 PP 使用环形拓扑（last rank 的 next 就是 rank 0），同一对 rank 之间可能同时有 proxy 和 output 在传输。<code>_pp_recv_typed_dict</code> 的 demux 机制（按 <code>msg_type</code> 分拣）就是为了解决这个问题–收到不匹配类型的消息时暂存到 inbox，等需要时再取出。</p>
-</li>
-<li><p><strong>大小差异巨大</strong>：proxy 张量很大（<code>num_tokens × hidden_size</code>，可能几十 MB）；output 张量很小（<code>batch_size</code> 个 int，几 KB）。这影响通信调度策略。</p>
-</li>
-</ol>
-<h4 id="五、一句话总结"><a href="#五、一句话总结" class="headerlink" title="五、一句话总结"></a>五、一句话总结</h4><ul>
-<li><code>_pp_recv_proxy_tensors</code>：接收的是 <strong>“半成品”</strong> –上一个 stage 跑完前半部分模型层后的隐藏状态，当前 stage 要拿它继续跑后半部分。</li>
-<li><code>_pp_recv_dict_from_prev_stage</code>（output）：接收的是 <strong>“成品”</strong> –last rank 跑完整个模型后采样出的 token，PP0 拿它做后处理（更新状态、返回用户）。</li>
-</ul>
-<h3 id="pp-launch-batch：执行当前-Microbatch-的-Forward"><a href="#pp-launch-batch：执行当前-Microbatch-的-Forward" class="headerlink" title="_pp_launch_batch：执行当前 Microbatch 的 Forward"></a>_pp_launch_batch：执行当前 Microbatch 的 Forward</h3><p><code>_pp_launch_batch</code>（<code>scheduler_pp_mixin.py</code>）对应 event_loop_pp 流程中的 <strong>step 5: run_batch</strong>，负责启动当前 microbatch 的 forward 计算：</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 伪代码示意</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">_pp_launch_batch</span>(<span class="params">self, mb_id, pp_proxy_tensors, ...</span>):</span><br><span class="line">    batch = <span class="variable language_">self</span>.mbs[mb_id]</span><br><span class="line">    <span class="comment"># 如果有 proxy tensors（非首 rank），用 proxy 的 hidden_states 作为输入</span></span><br><span class="line">    <span class="comment"># 否则用 embedding 输出作为输入</span></span><br><span class="line">    result = <span class="variable language_">self</span>.worker.forward_batch(batch, pp_proxy_tensors)</span><br><span class="line">    launch_event = torch.cuda.Event()</span><br><span class="line">    launch_event.record()</span><br><span class="line">    <span class="keyword">return</span> result, launch_event</span><br></pre></td></tr></table></figure>
-
-<p><strong>关键行为</strong>：</p>
-<ul>
-<li><strong>PP Rank 0（first rank）</strong>：不需要 proxy tensors，直接用 token embeddings 作为 forward 输入</li>
-<li><strong>PP Rank &gt; 0</strong>：用 <code>_pp_recv_proxy_tensors()</code> 收到的 hidden_states + residual 作为 forward 输入，接着上一个 stage 继续算</li>
-<li>返回 <code>result</code>（包含 <code>pp_hidden_states_proxy_tensors</code>，供后续发送给下一个 stage）和 <code>launch_event</code>（用于同步）</li>
-</ul>
-<p><strong>在 event_loop_pp 中的调用位置</strong>：</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">for</span> mb_id <span class="keyword">in</span> <span class="built_in">range</span>(<span class="variable language_">self</span>.pp_loop_size):</span><br><span class="line">    ...</span><br><span class="line">    <span class="comment"># 步骤 4: 接收 proxy tensors</span></span><br><span class="line">    pp_proxy_tensors = <span class="variable language_">self</span>._pp_recv_proxy_tensors()</span><br><span class="line"></span><br><span class="line">    <span class="comment"># 步骤 5: run_batch → _pp_launch_batch</span></span><br><span class="line">    result, <span class="variable language_">self</span>.launch_event = <span class="variable language_">self</span>._pp_launch_batch(</span><br><span class="line">        mb_id, pp_proxy_tensors, ...</span><br><span class="line">    )</span><br><span class="line"></span><br><span class="line">    <span class="comment"># 步骤 7: 发送 proxy tensors 给下一个 stage</span></span><br><span class="line">    <span class="keyword">if</span> <span class="keyword">not</span> <span class="variable language_">self</span>.pp_group.is_last_rank:</span><br><span class="line">        torch.cuda.current_stream().wait_event(<span class="variable language_">self</span>.launch_event)</span><br><span class="line">        <span class="variable language_">self</span>.send_proxy_work = <span class="variable language_">self</span>._pp_send_dict_to_next_stage(</span><br><span class="line">            result.pp_hidden_states_proxy_tensors.tensors,</span><br><span class="line">            async_send=<span class="literal">True</span>, msg_type=<span class="string">&quot;proxy&quot;</span>,</span><br><span class="line">        )</span><br></pre></td></tr></table></figure>
-
-<p><strong>一句话总结</strong>：<code>_pp_launch_batch</code> 就是 PP 路径下的 forward 执行器–首 rank 用 embedding 输入，非首 rank 用上游传来的 hidden_states 输入，执行当前 stage 的模型层计算后输出给下一个 stage。</p>
-<h3 id="pp-commit-send-output-work-and-preprocess-output-tensors：Output-的收发与预处理（对应-step-5-recv-next-mb-id-outputs-preprocess）"><a href="#pp-commit-send-output-work-and-preprocess-output-tensors：Output-的收发与预处理（对应-step-5-recv-next-mb-id-outputs-preprocess）" class="headerlink" title="_pp_commit_send_output_work_and_preprocess_output_tensors：Output 的收发与预处理（对应 step 5: recv next_mb_id outputs + preprocess）"></a>_pp_commit_send_output_work_and_preprocess_output_tensors：Output 的收发与预处理（对应 step 5: recv next_mb_id outputs + preprocess）</h3><p>这个函数（<code>scheduler_pp_mixin.py</code> 第 854-873 行）对应 event_loop_pp 流程中的 <strong>step 5: recv next_mb_id outputs + preprocess</strong>，负责处理 next_mb_id 槽位对应的 output tensors 的发送、接收和预处理：</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">_pp_commit_send_output_work_and_preprocess_output_tensors</span>(<span class="params"></span></span><br><span class="line"><span class="params">    self: Scheduler,</span></span><br><span class="line"><span class="params">    next_first_rank_mb_id: <span class="built_in">int</span>,</span></span><br><span class="line"><span class="params">    next_mb_id: <span class="built_in">int</span>,</span></span><br><span class="line"><span class="params"></span>) -&gt; <span class="type">Tuple</span>[PPProxyTensors, GenerationBatchResult, torch.cuda.Event]:</span><br><span class="line">    <span class="comment"># 1. 等待上一轮的 output 发送完成</span></span><br><span class="line">    <span class="variable language_">self</span>._pp_commit_comm_work(work=<span class="variable language_">self</span>.send_output_work)</span><br><span class="line">    <span class="comment"># 2. 发送 + 接收 + 预处理</span></span><br><span class="line">    (next_pp_outputs, next_batch_result, d2h_event, <span class="variable language_">self</span>.send_output_work) = \</span><br><span class="line">        <span class="variable language_">self</span>._pp_send_recv_and_preprocess_output_tensors(</span><br><span class="line">            next_first_rank_mb_id, next_mb_id,</span><br><span class="line">            <span class="variable language_">self</span>.mbs, <span class="variable language_">self</span>.mb_metadata, <span class="variable language_">self</span>.last_rank_comm_queue, <span class="variable language_">self</span>.pp_outputs,</span><br><span class="line">        )</span><br><span class="line">    <span class="keyword">return</span> next_pp_outputs, next_batch_result, d2h_event</span><br></pre></td></tr></table></figure>
-
-<p><strong>核心逻辑在 <code>_pp_send_recv_and_preprocess_output_tensors</code>（第 1081-1116 行），做了三件事</strong>：</p>
-<p><strong>1. 发送 output（last rank → rank 0）</strong></p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># Last rank: 从 last_rank_comm_queue 取出 forward 结果，发给 rank 0</span></span><br><span class="line"><span class="keyword">if</span> <span class="variable language_">self</span>.pp_group.is_last_rank:</span><br><span class="line">    q_event, pp_outputs_to_send = last_rank_comm_queue.popleft()</span><br><span class="line">    torch.cuda.current_stream().wait_event(q_event)</span><br><span class="line">    send_output_work = <span class="variable language_">self</span>._pp_send_dict_to_next_stage(</span><br><span class="line">        pp_outputs_to_send.tensors, msg_type=<span class="string">&quot;output&quot;</span></span><br><span class="line">    )</span><br><span class="line"></span><br><span class="line"><span class="comment"># 中间 rank: 把从前一个 rank 收到的 output 继续转发给下一个 rank</span></span><br><span class="line"><span class="keyword">if</span> <span class="keyword">not</span> <span class="variable language_">self</span>.pp_group.is_last_rank:</span><br><span class="line">    <span class="keyword">if</span> pp_outputs:</span><br><span class="line">        send_output_work = <span class="variable language_">self</span>._pp_send_dict_to_next_stage(</span><br><span class="line">            pp_outputs.tensors, msg_type=<span class="string">&quot;output&quot;</span></span><br><span class="line">        )</span><br></pre></td></tr></table></figure>
-
-<p><strong>2. 接收 output（rank 0 从 last rank 收）</strong></p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> mbs[next_mb_id] <span class="keyword">is</span> <span class="keyword">not</span> <span class="literal">None</span>:</span><br><span class="line">    next_pp_outputs = PPProxyTensors(<span class="variable language_">self</span>._pp_recv_dict_from_prev_stage())</span><br></pre></td></tr></table></figure>
-
-<p><strong>3. 预处理：GPU→CPU 拷贝（copy stream 上）</strong></p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">with</span> <span class="variable language_">self</span>.copy_stream_ctx:</span><br><span class="line">    <span class="variable language_">self</span>.copy_stream.wait_stream(<span class="variable language_">self</span>.schedule_stream)</span><br><span class="line">    batch_result = <span class="variable language_">self</span>._pp_prep_batch_result(  <span class="comment"># 解包 next_token_ids, logprobs</span></span><br><span class="line">        mbs[next_mb_id], mb_metadata[next_mb_id], next_pp_outputs</span><br><span class="line">    )</span><br><span class="line">    d2h_event = torch.cuda.Event()</span><br><span class="line">    d2h_event.record(torch.cuda.current_stream())  <span class="comment"># 记录 D2H 完成事件</span></span><br></pre></td></tr></table></figure>
-
-<p><strong>Output tensors 里有什么</strong>：</p>
-<p>看 <code>_pp_prepare_tensor_dict</code>（第 920-933 行）：</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">tensor_dict = &#123;</span><br><span class="line">    <span class="string">&quot;next_token_ids&quot;</span>: result.next_token_ids,  <span class="comment"># 采样出的 token id</span></span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">if</span> batch.return_logprob:</span><br><span class="line">    tensor_dict.update(logprob_dict)  <span class="comment"># logprob 相关张量</span></span><br></pre></td></tr></table></figure>
-
-<p>这是 last rank 采样后的最终结果，不是中间的 hidden states。</p>
-<p><strong>在 event_loop_pp 中的调用位置</strong>：</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">for</span> mb_id <span class="keyword">in</span> <span class="built_in">range</span>(<span class="variable language_">self</span>.pp_loop_size):</span><br><span class="line">    ...</span><br><span class="line">    <span class="comment"># ① 处理【next_mb_id 槽位】的 output 收发 + 预处理</span></span><br><span class="line">    <span class="keyword">if</span> <span class="variable language_">self</span>.server_args.pp_async_batch_depth &gt; <span class="number">0</span>:</span><br><span class="line">        next_pp_outputs, next_batch_result, d2h_event = \</span><br><span class="line">            <span class="variable language_">self</span>._pp_commit_send_output_work_and_preprocess_output_tensors(</span><br><span class="line">                next_first_rank_mb_id, next_mb_id,</span><br><span class="line">            )</span><br><span class="line"></span><br><span class="line">    <span class="comment"># ② 执行【当前 microbatch】的 forward</span></span><br><span class="line">    result, <span class="variable language_">self</span>.launch_event = <span class="variable language_">self</span>._pp_launch_batch(mb_id, ...)</span><br><span class="line"></span><br><span class="line">    <span class="comment"># ③ async_depth==0 时，forward 后再处理 output</span></span><br><span class="line">    <span class="keyword">if</span> <span class="variable language_">self</span>.server_args.pp_async_batch_depth == <span class="number">0</span>:</span><br><span class="line">        next_pp_outputs, next_batch_result, d2h_event = \</span><br><span class="line">            <span class="variable language_">self</span>._pp_commit_send_output_work_and_preprocess_output_tensors(...)</span><br><span class="line"></span><br><span class="line">    <span class="comment"># ④ 等 D2H 完成，处理 next_mb_id 槽位的结果</span></span><br><span class="line">    <span class="keyword">if</span> <span class="variable language_">self</span>.mbs[next_mb_id] <span class="keyword">is</span> <span class="keyword">not</span> <span class="literal">None</span>:</span><br><span class="line">        d2h_event.synchronize()</span><br><span class="line">        <span class="variable language_">self</span>._pp_process_batch_result(<span class="variable language_">self</span>.mbs[next_mb_id], next_batch_result)</span><br></pre></td></tr></table></figure>
-
-<p><strong><code>pp_async_batch_depth</code> 的影响</strong>：</p>
-<table>
-<thead>
-<tr>
-<th><code>pp_async_batch_depth</code></th>
-<th>output 处理时机</th>
-<th>效果</th>
-</tr>
-</thead>
-<tbody><tr>
-<td><code>&gt; 0</code></td>
-<td>forward 之前处理 next_mb_id 槽位的 output</td>
-<td>output 处理和当前 forward 重叠，隐藏延迟</td>
-</tr>
-<tr>
-<td><code>== 0</code></td>
-<td>forward 之后再处理</td>
-<td>串行执行，不重叠</td>
-</tr>
-</tbody></table>
-<p><strong>一句话总结</strong>：<code>_pp_commit_send_output_work_and_preprocess_output_tensors</code> 负责把 last rank 的采样结果（next_token_ids、logprobs）从 GPU 传回 rank 0，并在 rank 0 上做 GPU→CPU 拷贝和结果解包。这是 pipeline 的”最后一公里”–把最终输出送回给 tokenizer&#x2F;rpc 层。</p>
-<p><strong><code>next_batch_result</code> 是什么</strong>：</p>
-<p><code>next_batch_result</code> 是 <code>next_mb_id</code> 槽位对应的 microbatch 的最终输出结果（<code>GenerationBatchResult</code>），包含 <code>next_token_ids</code> 等。这里的逻辑是：当前迭代处理的是 <code>mb_id</code>，但同时要处理 <code>next_mb_id</code> 槽位的结果（因为流水线的延迟，<code>next_mb_id</code> 的 batch 在之前的迭代中已经完成了 GPU forward，output 在这一轮才到达）。</p>
-<blockquote>
-<p><strong>⚠️ 注意：<code>next_mb_id</code> 不是”上一个 microbatch”</strong></p>
-<p><code>next_mb_id = (mb_id + 1) % pp_loop_size</code>，从当前 stage 的视角看，它是<strong>下一个要处理结果的槽位</strong>。但从<strong>前一个 PP stage</strong> 的视角看，这个槽位对应的是它们<strong>刚刚处理完、准备发给我们的下一个 microbatch</strong>。</p>
-<p>之所以叫 <code>next_mb_id</code>，是因为从前一个 stage 的角度，它是”下一个要发给我们的 microbatch”。不是”上一个”。</p>
-<p><strong>简单记</strong>：<code>next_mb_id</code> &#x3D; 从前一个 PP stage 传过来的下一个 microbatch 槽位。</p>
-</blockquote>
-<p><strong>Output 与 Proxy 的发送完全分开</strong>：</p>
-<p><code>_pp_commit_send_output_work_and_preprocess_output_tensors</code> <strong>只发 output，不发 proxy</strong>。</p>
-<ul>
-<li><strong>output</strong>（<code>next_token_ids</code>）：通过 <code>_pp_send_output_to_next_stage</code> 发送（<code>msg_type=&quot;output&quot;</code>），方向是 last rank → rank 0（环形）</li>
-<li><strong>proxy</strong>（<code>hidden_states + residual</code>）：在 event_loop_pp 循环末尾单独发送（<code>msg_type=&quot;proxy&quot;</code>），方向是 rank k → rank k+1（正向）</li>
-</ul>
-<p>两者完全独立，不会混在一起。</p>
-<h3 id="pp-commit-comm-work：延迟等待异步通信完成"><a href="#pp-commit-comm-work：延迟等待异步通信完成" class="headerlink" title="_pp_commit_comm_work：延迟等待异步通信完成"></a><code>_pp_commit_comm_work</code>：延迟等待异步通信完成</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">_pp_commit_comm_work</span>(<span class="params">self: Scheduler, work: <span class="type">List</span>[P2PWork]</span>) -&gt; <span class="literal">None</span>:</span><br><span class="line">    <span class="keyword">for</span> p2p_work <span class="keyword">in</span> work:</span><br><span class="line">        p2p_work.work.wait()</span><br><span class="line">    work.clear()</span><br></pre></td></tr></table></figure>
-
-<p><strong>作用</strong>：等待上一轮的异步通信完成。</p>
-<p>因为 <code>_pp_send_pyobj_to_next_stage</code>、<code>_pp_send_dict_to_next_stage</code> 都用了 <code>async_send=True</code>，返回的是一个 <code>P2PWork</code> 列表（底层是 <code>dist.isend</code> 的 future）。<code>_pp_commit_comm_work</code> 就是在下一轮迭代中调用 <code>.wait()</code> 来确保上一轮的发送已经完成，然后清空 work 列表。</p>
-<p><strong>这是一种延迟等待的模式</strong>：发送时不阻塞，到下一轮再等待完成，从而让发送和 GPU 计算重叠。</p>
-<p><strong><code>_pp_commit_comm_work</code> 的调用位置</strong>：</p>
-<p>在 event_loop_pp 中，<code>_pp_commit_comm_work</code> 被调用于两个地方：</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">for</span> mb_id <span class="keyword">in</span> <span class="built_in">range</span>(<span class="variable language_">self</span>.pp_loop_size):</span><br><span class="line">    ...</span><br><span class="line">    <span class="comment"># ① 等待上一轮的 output 发送完成</span></span><br><span class="line">    <span class="variable language_">self</span>._pp_commit_comm_work(work=<span class="variable language_">self</span>.send_output_work)</span><br><span class="line"></span><br><span class="line">    <span class="comment"># ② 执行 forward</span></span><br><span class="line">    result, <span class="variable language_">self</span>.launch_event = <span class="variable language_">self</span>._pp_launch_batch(mb_id, ...)</span><br><span class="line"></span><br><span class="line">    <span class="comment"># ③ 等待上一轮的 proxy 发送完成</span></span><br><span class="line">    <span class="variable language_">self</span>._pp_commit_comm_work(work=<span class="variable language_">self</span>.send_proxy_work)</span><br></pre></td></tr></table></figure>
-
-<ul>
-<li><code>self._pp_commit_comm_work(work=self.send_output_work)</code> - 等待上一轮 output tensor 的 async send 完成</li>
-<li><code>self._pp_commit_comm_work(work=self.send_proxy_work)</code> - 等待上一轮 proxy tensor 的 async send 完成</li>
-</ul>
-<p>两者都是延迟等待，让上一轮的通信和当前轮的 GPU 计算重叠。</p>
-<p><strong>数据流全图</strong>：</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">Last Rank          中间 Rank              Rank 0</span><br><span class="line">─────────          ──────────             ──────</span><br><span class="line">forward 完成</span><br><span class="line">  │</span><br><span class="line">  ├─ next_token_ids 入 comm_queue</span><br><span class="line">  │</span><br><span class="line">  └─ send &quot;output&quot; ──────────→ recv &amp; 转发 &quot;output&quot; ──────────→ recv &quot;output&quot;</span><br><span class="line">                                    │</span><br><span class="line">                              copy_stream:</span><br><span class="line">                              prep_batch_result (D2H)</span><br><span class="line">                                    │</span><br><span class="line">                              d2h_event.sync()</span><br><span class="line">                                    │</span><br><span class="line">                              process_batch_result()</span><br><span class="line">                              (更新请求状态、流式输出)</span><br></pre></td></tr></table></figure>
-
-<h2 id="PP-路径中的-HiCache（分层-KV-Cache）"><a href="#PP-路径中的-HiCache（分层-KV-Cache）" class="headerlink" title="PP 路径中的 HiCache（分层 KV Cache）"></a>PP 路径中的 HiCache（分层 KV Cache）</h2><p>HiCache（Hierarchical Cache）是 SGLang 的多级 KV Cache 管理机制，把 KV cache 存在 L3（CPU 内存或磁盘），需要时再加载到 GPU。在 PP scheduler 中，HiCache 不在 <code>event_loop_pp</code> 本身，而是在 event loop 调用的子流程中发挥作用。</p>
-<h3 id="HiCache-在-PP-调度中的四个阶段"><a href="#HiCache-在-PP-调度中的四个阶段" class="headerlink" title="HiCache 在 PP 调度中的四个阶段"></a>HiCache 在 PP 调度中的四个阶段</h3><p><strong>1. 请求入队时 - 预取（Prefetch）</strong></p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># process_input_requests → handle_generate_request → _add_request_to_queue → _prefetch_kvcache</span></span><br><span class="line"><span class="comment"># 第 1868-1888 行</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">_prefetch_kvcache</span>(<span class="params">self, req: Req</span>):</span><br><span class="line">    <span class="keyword">if</span> <span class="variable language_">self</span>.enable_hicache_storage:</span><br><span class="line">        req.init_next_round_input(<span class="variable language_">self</span>.tree_cache, cow_mamba=<span class="literal">False</span>)</span><br><span class="line">        <span class="comment"># 从外部存储（L3）异步预取 KV cache 到 GPU</span></span><br><span class="line">        <span class="variable language_">self</span>.tree_cache.prefetch_from_storage(</span><br><span class="line">            req.rid, last_host_node, new_input_tokens, last_hash, prefix_keys</span><br><span class="line">        )</span><br></pre></td></tr></table></figure>
-
-<p><strong>时机</strong>：请求刚进入 <code>waiting_queue</code> 时，立即发起异步预取，利用等待调度的时间把 KV cache 从外部存储搬到 GPU。</p>
-<p><strong>2. 调度组 batch 时 - 检查预取进度 + 加载</strong></p>
-<p><code>get_next_batch_to_run</code> → <code>_get_new_batch_prefill_raw</code> 中有三处：</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 2a. 检查异步事件完成（第 2282-2283 行）</span></span><br><span class="line"><span class="keyword">if</span> <span class="variable language_">self</span>.enable_hierarchical_cache:</span><br><span class="line">    <span class="variable language_">self</span>.tree_cache.check_hicache_events()  <span class="comment"># 推进异步 D2H/H2D 事件</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 2b. 逐请求检查预取是否完成（第 2390-2398 行）</span></span><br><span class="line"><span class="keyword">for</span> req <span class="keyword">in</span> <span class="variable language_">self</span>.waiting_queue:</span><br><span class="line">    ...</span><br><span class="line">    <span class="keyword">if</span> <span class="variable language_">self</span>.enable_hicache_storage:</span><br><span class="line">        prefetch_done = <span class="variable language_">self</span>.tree_cache.check_prefetch_progress(req.rid)</span><br><span class="line">        <span class="keyword">if</span> <span class="keyword">not</span> prefetch_done:</span><br><span class="line">            <span class="keyword">continue</span>  <span class="comment"># 预取未完成，跳过这个请求，不放进本轮 batch</span></span><br><span class="line">        <span class="comment"># 预取完成，拿到从 L3 加载了多少 token 的 KV</span></span><br><span class="line">        req.storage_hit_length = <span class="variable language_">self</span>.tree_cache.pop_prefetch_loaded_tokens(req.rid)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 2c. batch 创建后，准备从 host 加载到 GPU（第 2459-2463 行）</span></span><br><span class="line"><span class="keyword">if</span> <span class="variable language_">self</span>.enable_hierarchical_cache:</span><br><span class="line">    new_batch.hicache_consumer_index = (</span><br><span class="line">        <span class="variable language_">self</span>.tree_cache.ready_to_load_host_cache()  <span class="comment"># 标记哪些 KV 需要从 host→GPU</span></span><br><span class="line">    )</span><br></pre></td></tr></table></figure>
-
-<p><strong>3. 请求被 abort 时 - 释放预取资源</strong></p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 在多个 abort 路径中（第 1965、1997、3146 行）</span></span><br><span class="line"><span class="keyword">if</span> <span class="variable language_">self</span>.enable_hicache_storage:</span><br><span class="line">    <span class="variable language_">self</span>.tree_cache.release_aborted_request(req.rid)  <span class="comment"># 取消预取，释放资源</span></span><br></pre></td></tr></table></figure>
-
-<p><strong>4. flush cache 时 - 等待异步操作完成</strong></p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 第 2877 行</span></span><br><span class="line"><span class="comment"># HiCache: in-flight async ops (GPU↔️Host↔️L3) must drain before flush</span></span><br></pre></td></tr></table></figure>
-
-<h3 id="check-hicache-events-：异步事件推进器"><a href="#check-hicache-events-：异步事件推进器" class="headerlink" title="check_hicache_events()：异步事件推进器"></a>check_hicache_events()：异步事件推进器</h3><p><code>check_hicache_events()</code> 是 HiCache 的核心–每轮调度前轮询一次，把已完成的 GPU↔️Host↔️L3 异步拷贝操作确认掉（解锁节点、释放资源、推进状态）。</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># tree_cache.py 第 1136-1144 行</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">check_hicache_events</span>(<span class="params">self</span>):</span><br><span class="line">    <span class="variable language_">self</span>.writing_check()        <span class="comment"># ① 检查 GPU→Host 写入完成</span></span><br><span class="line">    <span class="variable language_">self</span>.loading_check()        <span class="comment"># ② 检查 Host→GPU 加载完成</span></span><br><span class="line">    <span class="keyword">if</span> <span class="variable language_">self</span>.enable_storage:</span><br><span class="line">        <span class="variable language_">self</span>.drain_storage_control_queues()  <span class="comment"># ③ 处理 L3 存储控制队列</span></span><br></pre></td></tr></table></figure>
-
-<p><strong>① writing_check()（第 676-717 行）- GPU→Host 写入</strong></p>
-<p>KV cache 从 GPU 写到 Host 内存（备份），是异步的。这个函数检查哪些写入完成了：</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 遍历 ack_write_queue 里的 CUDA event</span></span><br><span class="line"><span class="keyword">for</span> _, finish_event, ack_list <span class="keyword">in</span> <span class="variable language_">self</span>.cache_controller.ack_write_queue:</span><br><span class="line">    <span class="keyword">if</span> <span class="keyword">not</span> finish_event.query():  <span class="comment"># CUDA event 未完成，停止检查</span></span><br><span class="line">        <span class="keyword">break</span></span><br><span class="line">    finish_count += <span class="number">1</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># TP 多卡时取 min，确保所有 TP rank 都完成</span></span><br><span class="line">torch.distributed.all_reduce(queue_size, op=ReduceOp.MIN, group=<span class="variable language_">self</span>.tp_group)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 对已完成的写入：</span></span><br><span class="line"><span class="keyword">for</span> ack_id <span class="keyword">in</span> ack_list:</span><br><span class="line">    backuped_node = <span class="variable language_">self</span>.ongoing_write_through.pop(ack_id)  <span class="comment"># 从进行中移除</span></span><br><span class="line">    <span class="variable language_">self</span>.dec_lock_ref(backuped_node)  <span class="comment"># 解锁，允许被驱逐</span></span><br><span class="line">    <span class="keyword">if</span> <span class="variable language_">self</span>.enable_storage:</span><br><span class="line">        <span class="variable language_">self</span>.write_backup_storage(backuped_node)  <span class="comment"># 继续写到 L3 存储</span></span><br></pre></td></tr></table></figure>
-
-<p><strong>作用</strong>：GPU 上的 KV cache 备份到 Host 完成后，解锁节点（可以被驱逐释放 GPU 显存），如果开了 L3 存储还会继续往 L3 写。</p>
-<p><strong>② loading_check()（第 719-732 行）- Host→GPU 加载</strong></p>
-<p>KV cache 从 Host 内存加载回 GPU，也是异步的：</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">for</span> _, finish_event, ack_list <span class="keyword">in</span> <span class="variable language_">self</span>.cache_controller.ack_load_queue:</span><br><span class="line">    <span class="keyword">if</span> <span class="keyword">not</span> finish_event.query():  <span class="comment"># CUDA event 未完成</span></span><br><span class="line">        <span class="keyword">break</span></span><br><span class="line">    finish_count += <span class="number">1</span></span><br><span class="line">    <span class="keyword">for</span> ack_id <span class="keyword">in</span> ack_list:</span><br><span class="line">        end_node = <span class="variable language_">self</span>.ongoing_load_back.pop(ack_id)  <span class="comment"># 从进行中移除</span></span><br><span class="line">        <span class="variable language_">self</span>.dec_lock_ref(end_node)  <span class="comment"># 解锁节点</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">del</span> <span class="variable language_">self</span>.cache_controller.ack_load_queue[:finish_count]</span><br></pre></td></tr></table></figure>
-
-<p><strong>作用</strong>：之前从 Host 加载回 GPU 的 KV cache 完成后，解锁节点，这些 KV cache 就可以被 forward 使用了。</p>
-<p><strong>③ drain_storage_control_queues()（第 1146-1172 行）- L3 存储控制</strong></p>
-<p>处理三个队列：</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">cc = <span class="variable language_">self</span>.cache_controller</span><br><span class="line">qsizes = torch.tensor([</span><br><span class="line">    cc.prefetch_revoke_queue.qsize(),   <span class="comment"># 取消预取</span></span><br><span class="line">    cc.ack_backup_queue.qsize(),        <span class="comment"># L3 备份确认</span></span><br><span class="line">    cc.host_mem_release_queue.qsize(),  <span class="comment"># Host 内存释放</span></span><br><span class="line">])</span><br><span class="line"><span class="comment"># TP 同步后统一处理</span></span><br><span class="line">torch.distributed.all_reduce(qsizes, op=ReduceOp.MIN, group=<span class="variable language_">self</span>.tp_group)</span><br></pre></td></tr></table></figure>
-
-<table>
-<thead>
-<tr>
-<th>队列</th>
-<th>作用</th>
-</tr>
-</thead>
-<tbody><tr>
-<td><code>prefetch_revoke_queue</code></td>
-<td>取消不再需要的 L3→Host 预取</td>
-</tr>
-<tr>
-<td><code>ack_backup_queue</code></td>
-<td>确认 Host→L3 备份写入完成</td>
-</tr>
-<tr>
-<td><code>host_mem_release_queue</code></td>
-<td>释放不再需要的 Host 内存</td>
-</tr>
-</tbody></table>
-<h3 id="HiCache-三级缓存的数据流"><a href="#HiCache-三级缓存的数据流" class="headerlink" title="HiCache 三级缓存的数据流"></a>HiCache 三级缓存的数据流</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">check_hicache_events() 推进的异步操作</span><br><span class="line">════════════════════════════════════</span><br><span class="line"></span><br><span class="line"> GPU (L1) ◄────── loading_check() ────── Host (L2) ◄──── drain (prefetch from L3)</span><br><span class="line">   │  ▲</span><br><span class="line">   └──── writing_check() ────────────────────┘</span><br><span class="line">   │</span><br><span class="line">   └──── drain (backup to L3) ────→ L3 Storage</span><br></pre></td></tr></table></figure>
-
-<h3 id="HiCache-数据流"><a href="#HiCache-数据流" class="headerlink" title="HiCache 数据流"></a>HiCache 数据流</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">请求进入 waiting_queue</span><br><span class="line">  │</span><br><span class="line">  ├─ _prefetch_kvcache() → 异步预取 KV cache 从 L3 到 GPU</span><br><span class="line">  │</span><br><span class="line">  ├─ get_next_batch_to_run()</span><br><span class="line">  │    ├─ check_hicache_events() → 推进 D2H/H2D 事件</span><br><span class="line">  │    ├─ check_prefetch_progress() → 检查预取是否完成</span><br><span class="line">  │    └─ ready_to_load_host_cache() → 标记 host→GPU 加载</span><br><span class="line">  │</span><br><span class="line">  └─ 预取完成 → 请求进入 batch → forward</span><br></pre></td></tr></table></figure>
-
-<p><strong>一句话总结</strong>：HiCache 在 PP 调度中贯穿请求的完整生命周期–入队时异步预取、调度时检查进度、abort 时释放资源、flush 时等待完成。核心思想是利用请求在 <code>waiting_queue</code> 中的等待时间，提前把 KV cache 从 L3 搬到 GPU，隐藏加载延迟。</p>
-<h3 id="Host-内存驱逐：LRU-最小堆"><a href="#Host-内存驱逐：LRU-最小堆" class="headerlink" title="Host 内存驱逐：LRU 最小堆"></a>Host 内存驱逐：LRU 最小堆</h3><p>当 host 内存不足时，<code>evict_host()</code> 使用 LRU 最小堆来决定驱逐哪些节点。</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 1. 收集候选节点</span></span><br><span class="line">leaves = <span class="built_in">list</span>(<span class="variable language_">self</span>.evictable_host_leaves)</span><br><span class="line"></span><br><span class="line"><span class="comment"># evictable_host_leaves 中的节点满足：</span></span><br><span class="line"><span class="comment"># - node.evicted = True（GPU 上的 value 已被驱逐，只剩 host_value）</span></span><br><span class="line"><span class="comment"># - node.lock_ref == 0（没有被锁定）</span></span><br><span class="line"><span class="comment"># - 没有 evicted 的子节点（是叶子）</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 2. 构建三元组堆</span></span><br><span class="line">eviction_heap = [</span><br><span class="line">    (</span><br><span class="line">        <span class="variable language_">self</span>.eviction_strategy.get_priority(node),  <span class="comment"># 第一排序：LRU 优先级</span></span><br><span class="line">        <span class="variable language_">self</span>._evict_tie_breaker(node),              <span class="comment"># 第二排序：平局打破</span></span><br><span class="line">        node,                                        <span class="comment"># 节点本身</span></span><br><span class="line">    )</span><br><span class="line">    <span class="keyword">for</span> node <span class="keyword">in</span> leaves</span><br><span class="line">]</span><br><span class="line"></span><br><span class="line"><span class="comment"># 3. 建堆 O(n)</span></span><br><span class="line">heapq.heapify(eviction_heap)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 4. 循环弹出堆顶，逐个驱逐</span></span><br><span class="line"><span class="keyword">while</span> num_evicted &lt; num_tokens <span class="keyword">and</span> <span class="built_in">len</span>(eviction_heap):</span><br><span class="line">    _priority, _tb, x = heapq.heappop(eviction_heap)</span><br><span class="line">    num_evicted += <span class="variable language_">self</span>.cache_controller.evict_host(x.host_value)</span><br><span class="line">    x.parent.children.pop(key)  <span class="comment"># 从 radix tree 彻底删除</span></span><br></pre></td></tr></table></figure>
-
-<p><strong>三元组比较</strong>：</p>
-<table>
-<thead>
-<tr>
-<th>位置</th>
-<th>内容</th>
-<th>含义</th>
-</tr>
-</thead>
-<tbody><tr>
-<td>第 1 个</td>
-<td><code>get_priority(node)</code></td>
-<td>LRU 策略下就是 <code>last_access_time</code>，值越小 &#x3D; 越久没访问 &#x3D; 越优先驱逐</td>
-</tr>
-<tr>
-<td>第 2 个</td>
-<td><code>_evict_tie_breaker(node)</code></td>
-<td>当 priority 相同时的打破平局：PP&gt;1 用内容 hash（跨 rank 一致），PP&#x3D;1 用 <code>node.id</code></td>
-</tr>
-<tr>
-<td>第 3 个</td>
-<td><code>node</code></td>
-<td>实际要驱逐的节点对象</td>
-</tr>
-</tbody></table>
-<p><strong>PP 场景下的 tie-breaker 设计</strong>：</p>
-<ul>
-<li><strong>PP&#x3D;1</strong>：用 <code>node.id</code> 作为 tie-breaker，简单高效</li>
-<li><strong>PP&gt;1</strong>：用内容 hash（<code>node.hash_value</code>）作为 tie-breaker，保证不同 rank 对相同节点计算出相同的优先级顺序，确保驱逐一致性</li>
-</ul>
-<p><strong>一句话总结</strong>：把所有可驱逐的 host 叶子节点放进 LRU 最小堆，循环弹出堆顶（最久没访问的）逐个驱逐，直到释放够 <code>num_tokens</code> 个 token 的 host 内存。tie-breaker 保证 PP 多 rank 场景下驱逐顺序一致。</p>
-<h3 id="PP-HiCache-的-Tree-Cache-同步问题（PR-22878）"><a href="#PP-HiCache-的-Tree-Cache-同步问题（PR-22878）" class="headerlink" title="PP + HiCache 的 Tree Cache 同步问题（PR #22878）"></a>PP + HiCache 的 Tree Cache 同步问题（PR #22878）</h3><p>PP + HiCache 组合使用时存在一个经典问题：各 PP rank 的 <code>writing_check()</code> 独立消费 GPU→Host 的 write-ack，由于各 rank 的 batch 内容和异步进度不同，消费数量可能不一致，导致各 rank 的 radix tree 状态出现分歧（哪些节点已备份、哪些可以驱逐不一致）。</p>
-<p><strong>解决方案</strong>：上游 rank 的消费数作为下游的预算上限，通过 piggyback 在已有的 PP 请求转发中传递。</p>
-<p><strong>1. <code>writing_check()</code> 末尾，PP rank 0 记录本轮消费数</strong></p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># hiradix_cache.py</span></span><br><span class="line"><span class="keyword">if</span> <span class="variable language_">self</span>.pp_size &gt; <span class="number">1</span> <span class="keyword">and</span> <span class="variable language_">self</span>.pp_rank &lt; <span class="variable language_">self</span>.pp_size - <span class="number">1</span>:</span><br><span class="line">    <span class="variable language_">self</span>._pp_last_write_ack_consumed += consumed_count</span><br></pre></td></tr></table></figure>
-
-<p><strong>2. 通过 recv_reqs 捎带传给下游</strong>（<code>scheduler_pp_mixin.py</code>）</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 非 last rank 发送请求时，把 ack_count 捎带上</span></span><br><span class="line"><span class="keyword">if</span> <span class="variable language_">self</span>.enable_hicache_storage:</span><br><span class="line">    ack_count = <span class="variable language_">self</span>.tree_cache.get_pp_last_write_ack_consumed()</span><br><span class="line">    <span class="keyword">if</span> ack_count &gt; <span class="number">0</span>:</span><br><span class="line">        pp_send_payload = &#123;</span><br><span class="line">            <span class="string">&quot;recv_reqs&quot;</span>: recv_reqs,          <span class="comment"># 原始请求</span></span><br><span class="line">            <span class="string">&quot;pp_write_ack_count&quot;</span>: ack_count, <span class="comment"># 捎带的 ack 消费数</span></span><br><span class="line">        &#125;</span><br><span class="line">        <span class="variable language_">self</span>.send_req_work = <span class="variable language_">self</span>._pp_send_pyobj_to_next_stage(pp_send_payload)</span><br></pre></td></tr></table></figure>
-
-<p><strong>3. 下游 rank 接收并设置预算</strong>（<code>scheduler.py</code>）</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># recv_requests() 中，PP rank &gt; 0 解包捎带的 ack_count</span></span><br><span class="line"><span class="keyword">if</span> <span class="variable language_">self</span>.pp_rank &gt; <span class="number">0</span> <span class="keyword">and</span> <span class="built_in">isinstance</span>(recv_reqs, <span class="built_in">dict</span>) <span class="keyword">and</span> <span class="string">&quot;pp_write_ack_count&quot;</span> <span class="keyword">in</span> recv_reqs:</span><br><span class="line">    pp_write_ack_count = recv_reqs[<span class="string">&quot;pp_write_ack_count&quot;</span>]</span><br><span class="line">    recv_reqs = recv_reqs[<span class="string">&quot;recv_reqs&quot;</span>]</span><br><span class="line">    <span class="variable language_">self</span>.tree_cache.set_pp_upstream_write_ack_count(pp_write_ack_count)</span><br></pre></td></tr></table></figure>
-
-<p><strong>4. 下游 rank 的 writing_check 受限于上游预算</strong></p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># writing_check() 中，下游 rank 不能消费超过上游的数量</span></span><br><span class="line"><span class="keyword">if</span> <span class="variable language_">self</span>.pp_rank &gt; <span class="number">0</span> <span class="keyword">and</span> <span class="variable language_">self</span>._pp_write_ack_budget_from_upstream <span class="keyword">is</span> <span class="keyword">not</span> <span class="literal">None</span>:</span><br><span class="line">    finish_count = <span class="built_in">min</span>(finish_count, <span class="variable language_">self</span>._pp_write_ack_budget_from_upstream)</span><br><span class="line">    <span class="variable language_">self</span>._pp_write_ack_budget_from_upstream -= finish_count</span><br></pre></td></tr></table></figure>
-
-<p><strong>数据流</strong>：</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">PP Rank 0                      PP Rank 1</span><br><span class="line">─────────                      ─────────</span><br><span class="line">writing_check()</span><br><span class="line">consumed 3 acks ──→ _pp_last_write_ack_consumed = 3</span><br><span class="line">  │</span><br><span class="line">  ├─ send_pyobj(&#123;recv_reqs: [...], pp_write_ack_count: 3&#125;)</span><br><span class="line">  │</span><br><span class="line">  └──────────→ recv_requests() 解包</span><br><span class="line">               _pp_write_ack_budget = 3</span><br><span class="line">               │</span><br><span class="line">               writing_check()</span><br><span class="line">               本地完成了 5 个</span><br><span class="line">               但 min(5, 3) = 3 ← 只消费 3 个</span><br><span class="line">               保持和 Rank 0 一致</span><br></pre></td></tr></table></figure>
-
-<p><strong>设计亮点</strong>：不新增通信通道，而是 piggyback 在已有的 <code>_pp_send_pyobj_to_next_stage</code> 上，仅 +61 行代码解决问题。</p>
-<p><strong>一句话总结</strong>：把上游 PP rank 的 write-ack 消费数量捎带在 recv_reqs 的 pyobj 通信上传给下游，下游以此为上限限制自己的消费，确保所有 PP rank 的 radix tree 状态变更保持一致，防止缓存驱逐决策不同步。</p>
-<p><strong>PP + HiCache 一致性修复进度</strong>（Issue #22607）：</p>
-<table>
-<thead>
-<tr>
-<th>任务</th>
-<th>PR 状态</th>
-</tr>
-</thead>
-<tbody><tr>
-<td>CP 同步</td>
-<td>PR #20460</td>
-</tr>
-<tr>
-<td>逻辑时钟替代 time.monotonic()</td>
-<td>PR #22759（解决出错 3）</td>
-</tr>
-<tr>
-<td>PD 模块</td>
-<td>PR #22771</td>
-</tr>
-<tr>
-<td>Mooncake CP 写控制 + PP storage key 隔离</td>
-<td>待做</td>
-</tr>
-<tr>
-<td>Channel A: Host tree event replay</td>
-<td>待做</td>
-</tr>
-<tr>
-<td>Channel B: Write-back count sync</td>
-<td>PR #22878 ✅</td>
-</tr>
-<tr>
-<td>Channel C: L3 hit delegation</td>
-<td>待做</td>
-</tr>
-<tr>
-<td>Zero-hit deferred revoke</td>
-<td>待做</td>
-</tr>
-<tr>
-<td>PP prefill 诊断工具</td>
-<td>待做</td>
-</tr>
-</tbody></table>
-<h3 id="Channel-A：Host-Tree-Event-Replay"><a href="#Channel-A：Host-Tree-Event-Replay" class="headerlink" title="Channel A：Host Tree Event Replay"></a>Channel A：Host Tree Event Replay</h3><p>Channel B（write-back count sync）只限制 PP1 不超前于 PP0，但不能保证两个 rank 在每一轮都消费相同数量。如果 PP1 的 CUDA event 本地没完成，<code>min(local_ready=0, budget=3) = 0</code>，PP1 这轮仍然消费 0。这意味着 host tree 的状态变更时机在两个 rank 之间可以有偏差，一旦偏差积累，就会导致 host tree 结构不同。</p>
-<p><strong>Channel A 的思路</strong>：不指望两个 rank 独立做出相同决策，而是让 PP0 做决策，PP1 回放 PP0 的结果。</p>
-<h4 id="具体场景：PP2-下的-host-tree-分歧"><a href="#具体场景：PP2-下的-host-tree-分歧" class="headerlink" title="具体场景：PP2 下的 host tree 分歧"></a>具体场景：PP2 下的 host tree 分歧</h4><p>假设 PP2 配置：PP0 管 layer 0-29，PP1 管 layer 30-59，两个 rank 各自独立维护一棵 radix tree。</p>
-<p><strong>第 1 步：正常运行，两个 rank 一致</strong></p>
-<p>请求 A、B、C 进来，两个 rank 收到相同请求、做相同调度。节点 X（系统提示词的 KV cache）在两个 rank 的 GPU 上都存在：</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">PP0 radix tree: root → X(value=GPU, host_value=None, hit_count=5)</span><br><span class="line">PP1 radix tree: root → X(value=GPU, host_value=None, hit_count=5)</span><br><span class="line">✅ 一致</span><br></pre></td></tr></table></figure>
-
-<p><strong>第 2 步：hit_count 达到阈值，触发 write_backup</strong></p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">PP0: write_backup(X) → CUDA 异步拷贝启动 → X 加入 ongoing_write_through</span><br><span class="line">PP1: write_backup(X) → CUDA 异步拷贝启动 → X 加入 ongoing_write_through</span><br><span class="line">✅ 一致</span><br></pre></td></tr></table></figure>
-
-<p><strong>第 3 步：writing_check 完成时间分歧（关键！）</strong></p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">PP0: CUDA event 已完成 → finish_count=1 → X.lock_ref=0</span><br><span class="line">     X.backuped=True, X.host_value 有值</span><br><span class="line">     X 进入 evictable_leaves（可被驱逐）</span><br><span class="line"></span><br><span class="line">PP1: CUDA event 未完成 → finish_count=0 → X.lock_ref=1 仍然锁定</span><br><span class="line">     X 不在 evictable_leaves 中</span><br><span class="line">⚠️ 开始分歧</span><br></pre></td></tr></table></figure>
-
-<p>Channel B 此时 PP0 把 <code>consumed_count=1</code> 传给 PP1，PP1 的 budget 变成 1。但 PP1 本地 <code>finish_count=0</code>，<code>min(0, 1)=0</code>，这轮 PP1 仍然消费 0。Channel B 只保证 PP1 不会超过 PP0，不能强迫 PP1 追上 PP0。</p>
-<p><strong>第 4 步：GPU 内存压力 → PP0 驱逐 X</strong></p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">PP0: X 在 evictable_leaves 中（lock_ref=0, backuped=True）</span><br><span class="line">     → _evict_backuped(X) → X.value=None → X.evicted=True</span><br><span class="line">     X 现在只存在于 Host 内存</span><br><span class="line"></span><br><span class="line">PP1: X 不在 evictable_leaves（lock_ref=1, 还在 ongoing_write_through）</span><br><span class="line">     → 驱逐了另一个节点 Y</span><br><span class="line">     X 仍在 GPU 上</span><br><span class="line">⚠️ 分歧加大</span><br></pre></td></tr></table></figure>
-
-<p><strong>第 5 步：PP0 的 Host 内存也满了 → evict_host 删除 X</strong></p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">PP0: write_backup(Z) → host 内存不足 → evict_host()</span><br><span class="line">     → X 是 evictable_host_leaves 中优先级最低的</span><br><span class="line">     → parent.children.pop(X) → X 从 host tree 彻底删除！</span><br><span class="line"></span><br><span class="line">PP1: host 内存没有压力（X 没被驱逐到 host）</span><br><span class="line">     → 不触发 evict_host</span><br><span class="line">     → X 仍在 radix tree 中</span><br><span class="line">❌ 两个 rank 的 tree 结构不同了</span><br></pre></td></tr></table></figure>
-
-<p><strong>第 6 步：新请求匹配前缀 → crash</strong></p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">PP0: _match_prefix_helper → 找不到 X → device_indices=[], host_hit_length=0</span><br><span class="line">PP1: _match_prefix_helper → 匹配到 X → device_indices=X.value, host_hit_length=0</span><br><span class="line"></span><br><span class="line">PP0: prefix_indices 长度 = 0 → extend_input_len = 完整长度</span><br><span class="line">PP1: prefix_indices 长度 = len(X) → extend_input_len = 更短</span><br><span class="line"></span><br><span class="line">两个 rank 对同一个请求算出不同的 extend_input_len → batch 形状不一致 → crash</span><br></pre></td></tr></table></figure>
-
-<h4 id="Channel-A-如何解决"><a href="#Channel-A-如何解决" class="headerlink" title="Channel A 如何解决"></a>Channel A 如何解决</h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">PP0 (权威源)              PP1 (回放)</span><br><span class="line">───────────────           ─────────</span><br><span class="line">writing_check: X 完成</span><br><span class="line">emit FINALIZE(hash=X_hash) ─────→ replay FINALIZE: 标记 X 为 backuped</span><br><span class="line">（不管本地 CUDA event 是否完成）</span><br><span class="line"></span><br><span class="line">evict: 驱逐 X</span><br><span class="line">emit EVICT(hash=X_hash) ─────→ replay EVICT: 也驱逐 X</span><br><span class="line"></span><br><span class="line">evict_host: 删除 X</span><br><span class="line">emit REVOKE(hash=X_hash) ─────→ replay REVOKE: 也从 host tree 删除 X</span><br><span class="line"></span><br><span class="line">PP1 的 host tree 始终和 PP0 一致 ✅</span><br></pre></td></tr></table></figure>
-
-<h4 id="三个-Channel-的分工"><a href="#三个-Channel-的分工" class="headerlink" title="三个 Channel 的分工"></a>三个 Channel 的分工</h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">问题链条：</span><br><span class="line">writing_check 时机不同 → lock_ref 不同 → evictable 集合不同</span><br><span class="line">→ 驱逐不同 → host tree 结构不同 → match_prefix 不同 → crash</span><br><span class="line"></span><br><span class="line">Channel B (count sync): ────────┐</span><br><span class="line"> 限制 PP1 不超前于 PP0          │ 减小分歧窗口，</span><br><span class="line"> 减少 lock_ref 偏差             │ 但不能消除</span><br><span class="line">                                │</span><br><span class="line">逻辑时钟 + tie-breaker: ────────┤ 保证驱逐顺序在&quot;相同输入&quot;下一致</span><br><span class="line">LRU 顺序确定性                  │ 但前提是输入（evictable 集合）相同</span><br><span class="line">                                │</span><br><span class="line">Channel A (event replay): ────────┘ 根本解决：PP1 不独立决策</span><br><span class="line">PP0 的 host tree 变更直接回放到 PP1</span><br><span class="line">host tree 结构保证一致</span><br></pre></td></tr></table></figure>
-
-<p><strong>一句话总结</strong>：Channel B + 逻辑时钟是”努力让两个 rank 独立做出相同决策”，但由于异步操作的固有非确定性，无法 100% 保证。Channel A 是”放弃独立决策，直接同步结果”，从根本上消除分歧。</p>
-<h2 id="PP-路径的调度细节"><a href="#PP-路径的调度细节" class="headerlink" title="PP 路径的调度细节"></a>PP 路径的调度细节</h2><h3 id="get-next-batch-to-run"><a href="#get-next-batch-to-run" class="headerlink" title="get_next_batch_to_run"></a>get_next_batch_to_run</h3><p>这个调度器在 PP 路径下要考虑的东西比 normal 多得多：</p>
-<ol>
-<li><strong>当前 stage 的显存</strong> - 不能 OOM</li>
-<li><strong>Microbatch 的依赖关系</strong> - 上下游 stage 的进度</li>
-<li><strong>Pipeline 的吞吐</strong> - 尽量让每个 stage 都有活干</li>
-</ol>
-<h3 id="Async-Send-Recv-的-Overlap"><a href="#Async-Send-Recv-的-Overlap" class="headerlink" title="Async Send&#x2F;Recv 的 Overlap"></a>Async Send&#x2F;Recv 的 Overlap</h3><p>第 2 步 send reqs 和 recv proxy tensors 是 async 的，理想情况下计算和通信能 overlap。但如果 recv 阻塞了，整个 loop 就卡住了。</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">Stage 0: [compute mb0] → [send hidden to S1] → [recv hidden from S1] → [compute mb1]</span><br><span class="line">Stage 1: [recv hidden from S0] → [compute mb0] → [send hidden to S0] → [recv hidden from S0]</span><br></pre></td></tr></table></figure>
-
-<p>通信和计算的重叠程度决定了 pipeline 的效率。</p>
-<h2 id="PP-路径-vs-非-PP-路径对比"><a href="#PP-路径-vs-非-PP-路径对比" class="headerlink" title="PP 路径 vs 非 PP 路径对比"></a>PP 路径 vs 非 PP 路径对比</h2><h3 id="非-PP-路径（event-loop-normal-event-loop-overlap）"><a href="#非-PP-路径（event-loop-normal-event-loop-overlap）" class="headerlink" title="非 PP 路径（event_loop_normal &#x2F; event_loop_overlap）"></a>非 PP 路径（event_loop_normal &#x2F; event_loop_overlap）</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">时间 →</span><br><span class="line">GPU: [ batch 0 forward ] → [ batch 1 forward ] → [ batch 2 forward ]</span><br></pre></td></tr></table></figure>
-
-<p>调度一个 batch，forward 一个 batch，处理结果，再调度下一个。同一时刻只有一个 batch。</p>
-<h3 id="PP-路径（event-loop-pp）"><a href="#PP-路径（event-loop-pp）" class="headerlink" title="PP 路径（event_loop_pp）"></a>PP 路径（event_loop_pp）</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">时间 →</span><br><span class="line">Stage 0: [ mb 0 ][ mb 1 ][ mb 2 ][ mb 3 ]</span><br><span class="line">Stage 1:         [ mb 0 ][ mb 1 ][ mb 2 ][ mb 3 ]</span><br></pre></td></tr></table></figure>
-
-<p>多个 microbatch 同时在不同 stage 中流转，主循环轮转处理每个 microbatch。</p>
-<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>SGLang 的 PP 实现有几个关键设计：</p>
-<ol>
-<li><strong>独立事件循环</strong> - PP 路径和 normal&#x2F;overlap 路径完全隔离，避免复杂度交叉</li>
-<li><strong>Microbatch 填充 bubble</strong> - 通过 <code>pp_loop_size = pp_size + async_depth</code> 控制 pipeline 中的并发度</li>
-<li><strong>Async 通信</strong> - send&#x2F;recv 异步化，尽量 overlap 计算和通信</li>
-<li><strong>独立状态管理</strong> - 每个 microbatch 槽位有独立的 running_batch、last_batch 等状态</li>
-</ol>
-<p>PP 的核心挑战始终是 <strong>如何减少 bubble、提升 GPU 利用率</strong>，同时控制显存开销。Microbatch 数量的调优是 PP 性能调优的关键。</p>
-<h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2><ul>
-<li>SGLang 源码：<code>scheduler_pp_mixin.py</code></li>
-<li>Pipeline Parallelism 论文：<a target="_blank" rel="noopener" href="https://arxiv.org/abs/1811.06965">GPipe: Efficient Training of Giant Neural Networks using Pipeline Parallelism</a></li>
-</ul>
 
       
     </div>
