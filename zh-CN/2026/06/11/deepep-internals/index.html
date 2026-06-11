@@ -21,15 +21,15 @@
 
 <script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
 
-    <meta name="description" content="前言 DeepSeek-V3 之所以能在 2048 H800 上跑 671B MoE 模型，很大程度上归功于 DeepEP——一个专为 Mixture-of-Experts（MoE）设计的通信库。它不只是一个「更快的 NCCL」，而是把 MoE 的领域知识 hard-code 进通信原语，从根本上改变了「all-to-all 稀疏通信」的实现方式。 本文基于 DeepEP V1（legacy）源码">
+    <meta name="description" content="前言DeepSeek-V3 之所以能在 2048 H800 上跑 671B MoE 模型，很大程度上归功于 DeepEP——一个专为 Mixture-of-Experts（MoE）设计的通信库。它不只是一个「更快的 NCCL」，而是把 MoE 的领域知识 hard-code 进通信原语，从根本上改变了「all-to-all 稀疏通信」的实现方式。 本文基于 DeepEP V1（legacy）源码，">
 <meta property="og:type" content="article">
 <meta property="og:title" content="DeepEP 源码深度解析：MoE 专有的高效通信库">
 <meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2026/06/11/deepep-internals/index.html">
 <meta property="og:site_name" content="ggaaooppeenngg">
-<meta property="og:description" content="前言 DeepSeek-V3 之所以能在 2048 H800 上跑 671B MoE 模型，很大程度上归功于 DeepEP——一个专为 Mixture-of-Experts（MoE）设计的通信库。它不只是一个「更快的 NCCL」，而是把 MoE 的领域知识 hard-code 进通信原语，从根本上改变了「all-to-all 稀疏通信」的实现方式。 本文基于 DeepEP V1（legacy）源码">
+<meta property="og:description" content="前言DeepSeek-V3 之所以能在 2048 H800 上跑 671B MoE 模型，很大程度上归功于 DeepEP——一个专为 Mixture-of-Experts（MoE）设计的通信库。它不只是一个「更快的 NCCL」，而是把 MoE 的领域知识 hard-code 进通信原语，从根本上改变了「all-to-all 稀疏通信」的实现方式。 本文基于 DeepEP V1（legacy）源码，">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2026-06-11T09:30:00.000Z">
-<meta property="article:modified_time" content="2026-06-11T09:24:14.542Z">
+<meta property="article:modified_time" content="2026-06-11T11:21:01.815Z">
 <meta property="article:author" content="ggaaooppeenngg">
 <meta property="article:tag" content="CUDA">
 <meta property="article:tag" content="DeepSeek">
@@ -218,7 +218,7 @@
       <span class="post-meta-item-text">发表于</span>
       
 
-      <time title="创建时间：2026-06-11 17:30:00 / 修改时间：17:24:14" itemprop="dateCreated datePublished" datetime="2026-06-11T17:30:00+08:00">2026-06-11</time>
+      <time title="创建时间：2026-06-11 17:30:00 / 修改时间：19:21:01" itemprop="dateCreated datePublished" datetime="2026-06-11T17:30:00+08:00">2026-06-11</time>
     </span>
     <span class="post-meta-item">
       <span class="post-meta-item-icon">
@@ -253,12 +253,10 @@
     
     
     
-    <div class="post-body" itemprop="articleBody"><h2 id="前言">前言</h2>
-<p>DeepSeek-V3 之所以能在 2048 H800 上跑 671B MoE 模型，很大程度上归功于 <strong>DeepEP</strong>——一个专为 Mixture-of-Experts（MoE）设计的通信库。它不只是一个「更快的 NCCL」，而是把 MoE 的领域知识 hard-code 进通信原语，从根本上改变了「all-to-all 稀疏通信」的实现方式。</p>
+    <div class="post-body" itemprop="articleBody"><h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>DeepSeek-V3 之所以能在 2048 H800 上跑 671B MoE 模型，很大程度上归功于 <strong>DeepEP</strong>——一个专为 Mixture-of-Experts（MoE）设计的通信库。它不只是一个「更快的 NCCL」，而是把 MoE 的领域知识 hard-code 进通信原语，从根本上改变了「all-to-all 稀疏通信」的实现方式。</p>
 <p>本文基于 DeepEP V1（legacy）源码，从 Python 接口到 CUDA kernel，逐层拆解 dispatch 和 combine 的实现原理。所有代码引用均对照 <code>csrc/kernels/legacy/internode.cu</code> 本地 clone。</p>
 <hr>
-<h2 id="一、背景：MoE-EP-的通信痛点">一、背景：MoE EP 的通信痛点</h2>
-<p>MoE 模型中，每个 token 通过 gating 网络路由到不同的 expert，expert 分布在不同的 GPU 上。这个「动态、稀疏、不定长」的路由模式，暴露了传统 NCCL All-to-All 的三个硬伤：</p>
+<h2 id="一、背景：MoE-EP-的通信痛点"><a href="#一、背景：MoE-EP-的通信痛点" class="headerlink" title="一、背景：MoE EP 的通信痛点"></a>一、背景：MoE EP 的通信痛点</h2><p>MoE 模型中，每个 token 通过 gating 网络路由到不同的 expert，expert 分布在不同的 GPU 上。这个「动态、稀疏、不定长」的路由模式，暴露了传统 NCCL All-to-All 的三个硬伤：</p>
 <ol>
 <li><strong>CPU 同步阻塞</strong>：NCCL 的 <code>input_split_sizes</code> 必须 <code>.cpu()</code>，导致 CUDA Graph 难以捕获</li>
 <li><strong>冗余流量</strong>：一个 token 选了同节点的 8 个 expert，NCCL 会发 8 份独立的 RDMA 流量</li>
@@ -266,41 +264,37 @@
 </ol>
 <p>DeepEP 的核心思路：<strong>把 MoE 的通信模式从「通用 collective」降级为「专用流水线」</strong>。</p>
 <hr>
-<h2 id="二、整体架构：V1-三阶段-Pipeline">二、整体架构：V1 三阶段 Pipeline</h2>
-<p>DeepEP V1 的 dispatch（token → expert）分三步：</p>
+<h2 id="二、整体架构：V1-三阶段-Pipeline"><a href="#二、整体架构：V1-三阶段-Pipeline" class="headerlink" title="二、整体架构：V1 三阶段 Pipeline"></a>二、整体架构：V1 三阶段 Pipeline</h2><p>DeepEP V1 的 dispatch（token → expert）分三步：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">Step 0: [x, topk_idx, topk_weights]  ← 用户输入</span><br><span class="line">    │</span><br><span class="line">    ▼</span><br><span class="line">Step 1: get_dispatch_layout()  ← 算 is_token_in_rank, num_tokens_per_rank</span><br><span class="line">    │</span><br><span class="line">    ▼</span><br><span class="line">Step 2: notify_dispatch()  ← 跨 rank 交换 metadata，算 rank_prefix_matrix</span><br><span class="line">    │</span><br><span class="line">    ▼</span><br><span class="line">Step 3: dispatch()  ← 真正搬数据，输出 recv_x, recv_topk_idx, handle</span><br></pre></td></tr></table></figure>
+
 <p>combine（expert 输出 → token）是反向回路，但不需要 Step 2（metadata 从 dispatch handle 复用）。</p>
 <hr>
-<h2 id="三、Step-1：get-dispatch-layout-——-本地路由预计算">三、Step 1：get_dispatch_layout —— 本地路由预计算</h2>
-<p>一个纯本地 CUDA kernel，~5 µs，不通信：</p>
+<h2 id="三、Step-1：get-dispatch-layout-——-本地路由预计算"><a href="#三、Step-1：get-dispatch-layout-——-本地路由预计算" class="headerlink" title="三、Step 1：get_dispatch_layout —— 本地路由预计算"></a>三、Step 1：get_dispatch_layout —— 本地路由预计算</h2><p>一个纯本地 CUDA kernel，~5 µs，不通信：</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 输入：topk_idx[4096, 8]</span></span><br><span class="line"><span class="comment">// 输出：</span></span><br><span class="line">num_tokens_per_rank [<span class="number">64</span>]          <span class="comment">// 我要给每个 rank 发多少 token</span></span><br><span class="line">num_tokens_per_rdma_rank [<span class="number">8</span>]      <span class="comment">// 去重后，我要给每个节点发多少 token</span></span><br><span class="line">num_tokens_per_expert [<span class="number">256</span>]       <span class="comment">// 我要给每个 expert 发多少 token</span></span><br><span class="line">is_token_in_rank [<span class="number">4096</span>, <span class="number">64</span>]       <span class="comment">// bool：第 i 个 token 是否要发给 rank j</span></span><br></pre></td></tr></table></figure>
+
 <p><strong>关键去重逻辑</strong>：一个 token 选 8 个 expert，可能同一 rank 上有 ≥1 个 expert，只算一次。这是 <code>is_token_in_rank</code> 是 bool 而不是 count 的原因——<strong>一个 token 去同一个 rank 上的多个 expert，dispatch 时只发一份数据</strong>。</p>
 <hr>
-<h2 id="四、Step-2：notify-dispatch-——-跨卡交换-metadata">四、Step 2：notify_dispatch —— 跨卡交换 metadata</h2>
-<p>启动 9 个 SM（1 + num_rdma_ranks），每 SM 256 线程。</p>
-<h3 id="4-1-双层通信结构">4.1 双层通信结构</h3>
-<p>DeepEP 的 RDMA 通信不是全连接，而是 <strong>「同 GPU index」配对</strong>：</p>
+<h2 id="四、Step-2：notify-dispatch-——-跨卡交换-metadata"><a href="#四、Step-2：notify-dispatch-——-跨卡交换-metadata" class="headerlink" title="四、Step 2：notify_dispatch —— 跨卡交换 metadata"></a>四、Step 2：notify_dispatch —— 跨卡交换 metadata</h2><p>启动 9 个 SM（1 + num_rdma_ranks），每 SM 256 线程。</p>
+<h3 id="4-1-双层通信结构"><a href="#4-1-双层通信结构" class="headerlink" title="4.1 双层通信结构"></a>4.1 双层通信结构</h3><p>DeepEP 的 RDMA 通信不是全连接，而是 <strong>「同 GPU index」配对</strong>：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">节点 A 的 GPU 0 ↔ 节点 B 的 GPU 0</span><br><span class="line">节点 A 的 GPU 1 ↔ 节点 B 的 GPU 1</span><br><span class="line">...</span><br><span class="line">节点 A 的 GPU 7 ↔ 节点 B 的 GPU 7</span><br></pre></td></tr></table></figure>
-<p>这样 RDMA QP 数量 = <code>num_rdma_ranks</code>（8 个节点 × 1 条/节点 = 8 条），不是 64 条。</p>
-<h3 id="4-2-元数据交换流程">4.2 元数据交换流程</h3>
-<ol>
+
+<p>这样 RDMA QP 数量 &#x3D; <code>num_rdma_ranks</code>（8 个节点 × 1 条&#x2F;节点 &#x3D; 8 条），不是 64 条。</p>
+<h3 id="4-2-元数据交换流程"><a href="#4-2-元数据交换流程" class="headerlink" title="4.2 元数据交换流程"></a>4.2 元数据交换流程</h3><ol>
 <li><strong>本节点 NVL barrier</strong>：8 张卡通过 IPC 互写 <code>per_rank_buffer</code>，交换「每张卡分别要发给谁多少 token」</li>
-<li><strong>组装 RDMA metadata</strong>：汇总到 <code>rdma_recv_num_tokens_mixed.send_buffer</code>（41 ints/dst_rdma_rank）</li>
+<li><strong>组装 RDMA metadata</strong>：汇总到 <code>rdma_recv_num_tokens_mixed.send_buffer</code>（41 ints&#x2F;dst_rdma_rank）</li>
 <li><strong>RDMA put + barrier</strong>：通过 <code>nvshmem_int_put_nbi</code> 一次性发到 8 个远端节点</li>
 <li><strong>散到本节点 8 卡</strong>：把远端元信息通过 IPC 写到本机各卡的 <code>nvl_send_num_tokens_per_rank</code></li>
 <li><strong>Channel 级前缀和</strong>：8 个 SM 各算一个 <code>dst_rdma_rank</code>，输出 <code>rdma_channel_prefix_matrix</code> 和 <code>gbl_channel_prefix_matrix</code></li>
 </ol>
-<h3 id="4-3-为什么需要两次-barrier？">4.3 为什么需要两次 barrier？</h3>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">barrier_block()           ← 节点内 8 卡 IPC barrier</span><br><span class="line">nvshmem_barrier_with_same_gpu_idx(rdma_team)  ← 跨节点 8 个同 index GPU 的 RDMA barrier</span><br></pre></td></tr></table></figure>
+<h3 id="4-3-为什么需要两次-barrier？"><a href="#4-3-为什么需要两次-barrier？" class="headerlink" title="4.3 为什么需要两次 barrier？"></a>4.3 为什么需要两次 barrier？</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">barrier_block()           ← 节点内 8 卡 IPC barrier</span><br><span class="line">nvshmem_barrier_with_same_gpu_idx(rdma_team)  ← 跨节点 8 个同 index GPU 的 RDMA barrier</span><br></pre></td></tr></table></figure>
+
 <p>第一次确保所有卡写完 <code>per_rank_buffer</code>，第二次确保所有节点的 <code>send_buffer</code> 都 put 完了。</p>
 <hr>
-<h2 id="五、Step-3：dispatch-kernel-——-20-SM-流水线">五、Step 3：dispatch kernel —— 20 SM 流水线</h2>
-<p>这是 DeepEP 最核心的部分。20 SM × 16 warp × 32 thread = 10240 个线程并发。</p>
-<h3 id="5-1-偶-SM-奇-SM-对偶模型">5.1 偶 SM / 奇 SM 对偶模型</h3>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">20 SM = 10 个 channel，每 channel 占 2 个 SM：</span><br><span class="line"></span><br><span class="line">偶 SM (is_forwarder = true):  从远端 RDMA 收 → 喂本机 8 个 NVL peer</span><br><span class="line">奇 SM (is_forwarder = false): 本机 token 写 RDMA send，并消费 NVL recv → 写 recv_x</span><br></pre></td></tr></table></figure>
+<h2 id="五、Step-3：dispatch-kernel-——-20-SM-流水线"><a href="#五、Step-3：dispatch-kernel-——-20-SM-流水线" class="headerlink" title="五、Step 3：dispatch kernel —— 20 SM 流水线"></a>五、Step 3：dispatch kernel —— 20 SM 流水线</h2><p>这是 DeepEP 最核心的部分。20 SM × 16 warp × 32 thread &#x3D; 10240 个线程并发。</p>
+<h3 id="5-1-偶-SM-奇-SM-对偶模型"><a href="#5-1-偶-SM-奇-SM-对偶模型" class="headerlink" title="5.1 偶 SM &#x2F; 奇 SM 对偶模型"></a>5.1 偶 SM &#x2F; 奇 SM 对偶模型</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">20 SM = 10 个 channel，每 channel 占 2 个 SM：</span><br><span class="line"></span><br><span class="line">偶 SM (is_forwarder = true):  从远端 RDMA 收 → 喂本机 8 个 NVL peer</span><br><span class="line">奇 SM (is_forwarder = false): 本机 token 写 RDMA send，并消费 NVL recv → 写 recv_x</span><br></pre></td></tr></table></figure>
+
 <p><strong>关键洞察</strong>：偶 SM 和奇 SM 角色完全对称但方向相反——偶 SM 是「RDMA → NVL」的 forwarder，奇 SM 是「NVL → recv_x」的 receiver。</p>
-<h3 id="5-2-四类-warp-角色">5.2 四类 warp 角色</h3>
-<table>
+<h3 id="5-2-四类-warp-角色"><a href="#5-2-四类-warp-角色" class="headerlink" title="5.2 四类 warp 角色"></a>5.2 四类 warp 角色</h3><table>
 <thead>
 <tr>
 <th>SM 类型</th>
@@ -309,8 +303,7 @@
 <th>职责</th>
 </tr>
 </thead>
-<tbody>
-<tr>
+<tbody><tr>
 <td>偶 SM</td>
 <td>kRDMAAndNVLForwarder</td>
 <td>8</td>
@@ -340,42 +333,38 @@
 <td>8</td>
 <td>从 NVL recv buffer 读，写 recv_x（按 rank 重排）</td>
 </tr>
-</tbody>
-</table>
-<h3 id="5-3-四个环形队列">5.3 四个环形队列</h3>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">[本机 token x] ──kRDMASender写──► ① rdma_send_buf ──RDMA写──► ② rdma_recv_buf ──kNVLReceivers读──► ③ nvl_recv_buf ──NVL IPC写──► [recv_x 最终落点]</span><br><span class="line">                                       ▲                                        ▲                                      ▲</span><br><span class="line">                                  tail=rdma_send_                         tail=rdma_channel_                     tail=nvl_channel_</span><br><span class="line">                                  head=rdma_channel_head                  head=rdma_channel_tail                head=nvl_channel_head</span><br></pre></td></tr></table></figure>
+</tbody></table>
+<h3 id="5-3-四个环形队列"><a href="#5-3-四个环形队列" class="headerlink" title="5.3 四个环形队列"></a>5.3 四个环形队列</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">[本机 token x] ──kRDMASender写──► ① rdma_send_buf ──RDMA写──► ② rdma_recv_buf ──kNVLReceivers读──► ③ nvl_recv_buf ──NVL IPC写──► [recv_x 最终落点]</span><br><span class="line">                                       ▲                                        ▲                                      ▲</span><br><span class="line">                                  tail=rdma_send_                         tail=rdma_channel_                     tail=nvl_channel_</span><br><span class="line">                                  head=rdma_channel_head                  head=rdma_channel_tail                head=nvl_channel_head</span><br></pre></td></tr></table></figure>
+
 <ul>
-<li><strong>① rdma_send_buf</strong>：capacity = 140，sender 侧用 <code>sequential lock</code> 保证 token 顺序</li>
-<li><strong>② rdma_recv_buf</strong>：capacity = 140，forwarder 侧用 <code>ld.acquire.sys.global</code> 轮询 tail</li>
-<li><strong>③ nvl_recv_buf</strong>：capacity = 288，receiver 侧用 <code>gbl_channel_prefix_matrix</code> 重排到 recv_x</li>
+<li><strong>① rdma_send_buf</strong>：capacity &#x3D; 140，sender 侧用 <code>sequential lock</code> 保证 token 顺序</li>
+<li><strong>② rdma_recv_buf</strong>：capacity &#x3D; 140，forwarder 侧用 <code>ld.acquire.sys.global</code> 轮询 tail</li>
+<li><strong>③ nvl_recv_buf</strong>：capacity &#x3D; 288，receiver 侧用 <code>gbl_channel_prefix_matrix</code> 重排到 recv_x</li>
 </ul>
-<h3 id="5-4-三连击-RDMA-优化">5.4 三连击 RDMA 优化</h3>
-<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">nvshmemx_int8_put_nbi_warp</span>(...);  <span class="comment">// ① 异步 RDMA write，不等</span></span><br><span class="line"><span class="built_in">nvshmem_fence</span>();                  <span class="comment">// ② memory ordering：让 ① 在 ③ 之前对远端可见</span></span><br><span class="line"><span class="built_in">nvshmemx_signal_op</span>(... ADD ...);  <span class="comment">// ③ 远端原子加 tail，触发消费</span></span><br></pre></td></tr></table></figure>
+<h3 id="5-4-三连击-RDMA-优化"><a href="#5-4-三连击-RDMA-优化" class="headerlink" title="5.4 三连击 RDMA 优化"></a>5.4 三连击 RDMA 优化</h3><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">nvshmemx_int8_put_nbi_warp</span>(...);  <span class="comment">// ① 异步 RDMA write，不等</span></span><br><span class="line"><span class="built_in">nvshmem_fence</span>();                  <span class="comment">// ② memory ordering：让 ① 在 ③ 之前对远端可见</span></span><br><span class="line"><span class="built_in">nvshmemx_signal_op</span>(... ADD ...);  <span class="comment">// ③ 远端原子加 tail，触发消费</span></span><br></pre></td></tr></table></figure>
+
 <p>为什么不直接用 <code>nvshmem_int_put + barrier</code>？因为 <code>barrier</code> 是同步阻塞调用。三连击让发送线程完全不阻塞——③ 是 fire-and-forget，远端通过 signal 自己触发消费。</p>
-<h3 id="5-5-常量来源">5.5 常量来源</h3>
-<ul>
-<li><code>num_max_rdma_chunked_send_tokens = 28</code>：28 × 7472 B ≈ 203 KB，是 InfiniBand HDR MTU 的整数倍，且 140 / 28 = 5 整除保证 wraparound 安全</li>
+<h3 id="5-5-常量来源"><a href="#5-5-常量来源" class="headerlink" title="5.5 常量来源"></a>5.5 常量来源</h3><ul>
+<li><code>num_max_rdma_chunked_send_tokens = 28</code>：28 × 7472 B ≈ 203 KB，是 InfiniBand HDR MTU 的整数倍，且 140 &#x2F; 28 &#x3D; 5 整除保证 wraparound 安全</li>
 <li><code>num_max_rdma_chunked_recv_tokens = 140</code>：必须是 28 的整数倍，让环形队列的模运算变成 <code>&amp; (capacity - 1)</code> 的位运算</li>
 <li><code>num_max_nvl_chunked_recv_tokens = 288</code>：NVL 带宽更高，需要更深的 buffer 吸收 burst</li>
 </ul>
 <hr>
-<h2 id="六、Step-4：返回-handle">六、Step 4：返回 + handle</h2>
-<p>dispatch kernel 完成后返回：</p>
+<h2 id="六、Step-4：返回-handle"><a href="#六、Step-4：返回-handle" class="headerlink" title="六、Step 4：返回 + handle"></a>六、Step 4：返回 + handle</h2><p>dispatch kernel 完成后返回：</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">recv_x                              <span class="comment"># [m, 7168] bf16 / fp8 + scale</span></span><br><span class="line">recv_topk_idx, recv_topk_weights    <span class="comment"># [m, 8]</span></span><br><span class="line">num_recv_tokens_per_expert_list     <span class="comment"># [4]，喂 DeepGEMM grouped GEMM</span></span><br><span class="line">handle                              <span class="comment"># 10-tuple，combine 用</span></span><br><span class="line">event                               <span class="comment"># CUDA event，async 时让 compute stream 等</span></span><br></pre></td></tr></table></figure>
+
 <p><code>handle</code> 里的 <code>send_nvl_head</code> 和 <code>send_rdma_head</code> 是 <strong>反向地址簿</strong>——combine 时直接读这些数组，就知道「我应该写到哪个槽位」，绕开了所有协商开销。</p>
 <hr>
-<h2 id="七、Combine：dispatch-的逆运算">七、Combine：dispatch 的逆运算</h2>
-<p>combine 是「多个 expert 输出 → 一个 token」的归约，有两个关键差异：</p>
+<h2 id="七、Combine：dispatch-的逆运算"><a href="#七、Combine：dispatch-的逆运算" class="headerlink" title="七、Combine：dispatch 的逆运算"></a>七、Combine：dispatch 的逆运算</h2><p>combine 是「多个 expert 输出 → 一个 token」的归约，有两个关键差异：</p>
 <ol>
 <li><strong>多了 reduce</strong>：用 <code>atomicAdd</code> 加权求和（权重来自 <code>topk_weights</code>）</li>
 <li><strong>没有 notify</strong>：所有 metadata 从 dispatch handle 复用</li>
 </ol>
-<h3 id="数据流（和-dispatch-反向）">数据流（和 dispatch 反向）</h3>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">[本机 x (expert 输出)]</span><br><span class="line">    ↓ kNVLSender (奇 SM)</span><br><span class="line">nvl_send_buf (NVL IPC 写)</span><br><span class="line">    ↓ 本机 8 卡 NVL 互联</span><br><span class="line">nvl_recv_buf (偶 SM 读)</span><br><span class="line">    ↓ kNVLAndRDMAForwarder (偶 SM)</span><br><span class="line">rdma_send_buf (RDMA put)</span><br><span class="line">    ↓ 跨节点 RDMA</span><br><span class="line">rdma_recv_buf (远端偶 SM 读)</span><br><span class="line">    ↓ kNVLAndRDMAForwarder (远端偶 SM)</span><br><span class="line">combined_x[orig_token_idx] (atomic add 归约)</span><br></pre></td></tr></table></figure>
+<h3 id="数据流（和-dispatch-反向）"><a href="#数据流（和-dispatch-反向）" class="headerlink" title="数据流（和 dispatch 反向）"></a>数据流（和 dispatch 反向）</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">[本机 x (expert 输出)]</span><br><span class="line">    ↓ kNVLSender (奇 SM)</span><br><span class="line">nvl_send_buf (NVL IPC 写)</span><br><span class="line">    ↓ 本机 8 卡 NVL 互联</span><br><span class="line">nvl_recv_buf (偶 SM 读)</span><br><span class="line">    ↓ kNVLAndRDMAForwarder (偶 SM)</span><br><span class="line">rdma_send_buf (RDMA put)</span><br><span class="line">    ↓ 跨节点 RDMA</span><br><span class="line">rdma_recv_buf (远端偶 SM 读)</span><br><span class="line">    ↓ kNVLAndRDMAForwarder (远端偶 SM)</span><br><span class="line">combined_x[orig_token_idx] (atomic add 归约)</span><br></pre></td></tr></table></figure>
+
 <p><strong>SM 角色反转</strong>：dispatch 偶 SM 是 forwarder（往里收），combine 奇 SM 是 forwarder（往外发）。这个对称性让 buffer 布局可以复用。</p>
 <hr>
-<h2 id="八、如果没有-DeepEP，会怎样？">八、如果没有 DeepEP，会怎样？</h2>
-<p>历史上 MoE 用 <code>torch.distributed.all_to_all_single</code> + NCCL。对比：</p>
+<h2 id="八、如果没有-DeepEP，会怎样？"><a href="#八、如果没有-DeepEP，会怎样？" class="headerlink" title="八、如果没有 DeepEP，会怎样？"></a>八、如果没有 DeepEP，会怎样？</h2><p>历史上 MoE 用 <code>torch.distributed.all_to_all_single</code> + NCCL。对比：</p>
 <table>
 <thead>
 <tr>
@@ -385,8 +374,7 @@
 <th>DeepEP low-latency</th>
 </tr>
 </thead>
-<tbody>
-<tr>
+<tbody><tr>
 <td>单次 dispatch 时延</td>
 <td>800-1200 µs</td>
 <td>250-300 µs</td>
@@ -413,7 +401,7 @@
 <tr>
 <td>CPU sync 次数</td>
 <td>≥2</td>
-<td>1（cached=0）</td>
+<td>1（cached&#x3D;0）</td>
 <td>0</td>
 </tr>
 <tr>
@@ -422,20 +410,18 @@
 <td>3</td>
 <td>1</td>
 </tr>
-</tbody>
-</table>
+</tbody></table>
 <p><strong>NCCL 的 6 个具体问题</strong>：</p>
 <ol>
 <li><strong>CPU 同步阻塞 graph</strong>：至少 2 次 <code>.cpu()</code> 同步，CUDA Graph 难做</li>
-<li><strong>多次启动 kernel</strong>：layout + permute + 4× all_to_all + unpermute = 8+ kernel</li>
-<li><strong>多余拷贝</strong>：scatter_permute + NCCL 内部 2 次 + NCCL → recv_x = 4+ 次</li>
-<li><strong>没有节点内 forward 优化</strong>：一个 token 要去节点 j 的 8 张卡 = 8 份独立 RDMA 流量</li>
+<li><strong>多次启动 kernel</strong>：layout + permute + 4× all_to_all + unpermute &#x3D; 8+ kernel</li>
+<li><strong>多余拷贝</strong>：scatter_permute + NCCL 内部 2 次 + NCCL → recv_x &#x3D; 4+ 次</li>
+<li><strong>没有节点内 forward 优化</strong>：一个 token 要去节点 j 的 8 张卡 &#x3D; 8 份独立 RDMA 流量</li>
 <li><strong>SM 占用不可控</strong>：NCCL kernel 是 collective，要和计算的 SM 抢</li>
-<li><strong>Overlap 困难</strong>：NCCL 的 group_start/group_end 同步原语脆弱</li>
+<li><strong>Overlap 困难</strong>：NCCL 的 group_start&#x2F;group_end 同步原语脆弱</li>
 </ol>
 <hr>
-<h2 id="九、DeepEP-的工程价值">九、DeepEP 的工程价值</h2>
-<p>不是「造个 NCCL 替代品」，而是把 MoE all-to-all 的领域知识 hard-code 进通信库：</p>
+<h2 id="九、DeepEP-的工程价值"><a href="#九、DeepEP-的工程价值" class="headerlink" title="九、DeepEP 的工程价值"></a>九、DeepEP 的工程价值</h2><p>不是「造个 NCCL 替代品」，而是把 MoE all-to-all 的领域知识 hard-code 进通信库：</p>
 <ol>
 <li><strong>去重投递</strong>：同节点多个 expert 只发一份 RDMA</li>
 <li><strong>FP8 + scale 同步路由</strong>：layout 一次算，三个 buffer 同步搬</li>
@@ -445,9 +431,8 @@
 </ol>
 <p>DeepEP 的成功不在于「通信库本身有多快」，而在于<strong>它把 MoE 的通信模式从「通用 collective」降级为「专用流水线」</strong>，用领域知识换掉了通用抽象的开销。</p>
 <hr>
-<h2 id="十、总结">十、总结</h2>
-<p>DeepEP V1 通过三阶段 pipeline（layout 计算 → metadata 交换 → 流水线搬数据），把 MoE 的动态稀疏通信从 NCCL 的「批量语义」改成「流式语义」。其核心创新不是某个单独的优化，而是<strong>整个通信栈的领域专用重构</strong>——从 RDMA 三连击到 NVL IPC 环形队列，从 SM 对偶模型到 handle 反向地址簿，每一层都在为 MoE 的通信模式量身定制。</p>
-<p>V2 在此基础上进一步演进，用 JIT 编译 + ElasticBuffer 取代静态 channel 映射，让 SM 调度更灵活。但底层「RDMA-symmetric + NVL-IPC + head/tail 环形队列」的思想完全继承下来了。</p>
+<h2 id="十、总结"><a href="#十、总结" class="headerlink" title="十、总结"></a>十、总结</h2><p>DeepEP V1 通过三阶段 pipeline（layout 计算 → metadata 交换 → 流水线搬数据），把 MoE 的动态稀疏通信从 NCCL 的「批量语义」改成「流式语义」。其核心创新不是某个单独的优化，而是<strong>整个通信栈的领域专用重构</strong>——从 RDMA 三连击到 NVL IPC 环形队列，从 SM 对偶模型到 handle 反向地址簿，每一层都在为 MoE 的通信模式量身定制。</p>
+<p>V2 在此基础上进一步演进，用 JIT 编译 + ElasticBuffer 取代静态 channel 映射，让 SM 调度更灵活。但底层「RDMA-symmetric + NVL-IPC + head&#x2F;tail 环形队列」的思想完全继承下来了。</p>
 <hr>
 <p><strong>参考资料</strong>：</p>
 <ul>

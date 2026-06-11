@@ -21,15 +21,15 @@
 
 <script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
 
-    <meta name="description" content="前言 DeepSeek-V4 在 MoE 架构上引入了一个新组件：Indexer。它负责在 expert 路由之前，用 FP4 量化的轻量模型快速筛选候选 expert，减少后续 GEMM 的计算量。 SGLang PR #26209 进一步给 Indexer 的 Q&#x2F;K 路径加了 NVFP4（E2M1 + UE8M0）量化，在精度损失极小（GSM8K 96.5% vs FP8 98.0%）的情况">
+    <meta name="description" content="前言DeepSeek-V4 在 MoE 架构上引入了一个新组件：Indexer。它负责在 expert 路由之前，用 FP4 量化的轻量模型快速筛选候选 expert，减少后续 GEMM 的计算量。 SGLang PR #26209 进一步给 Indexer 的 Q&#x2F;K 路径加了 NVFP4（E2M1 + UE8M0）量化，在精度损失极小（GSM8K 96.5% vs FP8 98.0%">
 <meta property="og:type" content="article">
 <meta property="og:title" content="DeepSeek-V4 Indexer 解析：FP4 量化的稀疏索引">
 <meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2026/06/11/DeepSeek-V4-Indexer/index.html">
 <meta property="og:site_name" content="ggaaooppeenngg">
-<meta property="og:description" content="前言 DeepSeek-V4 在 MoE 架构上引入了一个新组件：Indexer。它负责在 expert 路由之前，用 FP4 量化的轻量模型快速筛选候选 expert，减少后续 GEMM 的计算量。 SGLang PR #26209 进一步给 Indexer 的 Q&#x2F;K 路径加了 NVFP4（E2M1 + UE8M0）量化，在精度损失极小（GSM8K 96.5% vs FP8 98.0%）的情况">
+<meta property="og:description" content="前言DeepSeek-V4 在 MoE 架构上引入了一个新组件：Indexer。它负责在 expert 路由之前，用 FP4 量化的轻量模型快速筛选候选 expert，减少后续 GEMM 的计算量。 SGLang PR #26209 进一步给 Indexer 的 Q&#x2F;K 路径加了 NVFP4（E2M1 + UE8M0）量化，在精度损失极小（GSM8K 96.5% vs FP8 98.0%">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2026-06-11T09:30:00.000Z">
-<meta property="article:modified_time" content="2026-06-11T09:32:36.304Z">
+<meta property="article:modified_time" content="2026-06-11T11:21:19.909Z">
 <meta property="article:author" content="ggaaooppeenngg">
 <meta property="article:tag" content="MoE">
 <meta property="article:tag" content="SGLang">
@@ -220,7 +220,7 @@
       <span class="post-meta-item-text">发表于</span>
       
 
-      <time title="创建时间：2026-06-11 17:30:00 / 修改时间：17:32:36" itemprop="dateCreated datePublished" datetime="2026-06-11T17:30:00+08:00">2026-06-11</time>
+      <time title="创建时间：2026-06-11 17:30:00 / 修改时间：19:21:19" itemprop="dateCreated datePublished" datetime="2026-06-11T17:30:00+08:00">2026-06-11</time>
     </span>
     <span class="post-meta-item">
       <span class="post-meta-item-icon">
@@ -255,61 +255,54 @@
     
     
     
-    <div class="post-body" itemprop="articleBody"><h2 id="前言">前言</h2>
-<p>DeepSeek-V4 在 MoE 架构上引入了一个新组件：<strong>Indexer</strong>。它负责在 expert 路由之前，用 FP4 量化的轻量模型快速筛选候选 expert，减少后续 GEMM 的计算量。</p>
-<p>SGLang PR #26209 进一步给 Indexer 的 Q/K 路径加了 <strong>NVFP4</strong>（E2M1 + UE8M0）量化，在精度损失极小（GSM8K 96.5% vs FP8 98.0%）的情况下，提速 1.08×–1.53×，KV-cache 压缩到 68 B/token（相比 FP8 的 132 B/token 省 ~48%）。</p>
+    <div class="post-body" itemprop="articleBody"><h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>DeepSeek-V4 在 MoE 架构上引入了一个新组件：<strong>Indexer</strong>。它负责在 expert 路由之前，用 FP4 量化的轻量模型快速筛选候选 expert，减少后续 GEMM 的计算量。</p>
+<p>SGLang PR #26209 进一步给 Indexer 的 Q&#x2F;K 路径加了 <strong>NVFP4</strong>（E2M1 + UE8M0）量化，在精度损失极小（GSM8K 96.5% vs FP8 98.0%）的情况下，提速 1.08×–1.53×，KV-cache 压缩到 68 B&#x2F;token（相比 FP8 的 132 B&#x2F;token 省 ~48%）。</p>
 <p>本文基于 PR #26209 的源码，从「数据格式 → Q 路径 → K 路径 → KV-cache 布局 → 上层调度」五层拆解。</p>
 <hr>
-<h2 id="一、Indexer-的定位">一、Indexer 的定位</h2>
-<p>在 DeepSeek-V3 中，gating 网络直接输出 top-k expert 选择，计算量是 <code>O(num_tokens × num_experts)</code>。当 <code>num_experts = 256</code> 时，这个计算本身就很重。</p>
+<h2 id="一、Indexer-的定位"><a href="#一、Indexer-的定位" class="headerlink" title="一、Indexer 的定位"></a>一、Indexer 的定位</h2><p>在 DeepSeek-V3 中，gating 网络直接输出 top-k expert 选择，计算量是 <code>O(num_tokens × num_experts)</code>。当 <code>num_experts = 256</code> 时，这个计算本身就很重。</p>
 <p>Indexer 的思路：<strong>用 FP4 量化的小模型做「粗筛」，再用 BF16 做「精排」</strong>。</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[token] → Indexer (FP4) → 候选 expert 子集 → Gating (BF16) → top-k expert</span><br><span class="line">         ↑ 计算量小                  ↑ 候选集小，计算量小</span><br></pre></td></tr></table></figure>
+
 <p><strong>注意</strong>：只有 indexer 这条 sparse 路径（给 attention 选 top-k token 用的辅助打分）被换成了 FP4。主 attention 的 KV cache 完全没动，精度损失也只来自 indexer 的打分质量。</p>
 <hr>
-<h2 id="二、FP4-量化方案：NVFP4-E2M1-UE8M0">二、FP4 量化方案：NVFP4 (E2M1 + UE8M0)</h2>
-<p>PR 选用的不是普通 FP4，而是 Blackwell GenAI 推的 <strong>NVFP4</strong> 风格。</p>
-<h3 id="2-1-数据格式">2.1 数据格式</h3>
-<ul>
-<li>
-<p><strong>元素格式</strong>：E2M1（1 sign + 2 exp + 1 mantissa，共 4 bit）</p>
+<h2 id="二、FP4-量化方案：NVFP4-E2M1-UE8M0"><a href="#二、FP4-量化方案：NVFP4-E2M1-UE8M0" class="headerlink" title="二、FP4 量化方案：NVFP4 (E2M1 + UE8M0)"></a>二、FP4 量化方案：NVFP4 (E2M1 + UE8M0)</h2><p>PR 选用的不是普通 FP4，而是 Blackwell GenAI 推的 <strong>NVFP4</strong> 风格。</p>
+<h3 id="2-1-数据格式"><a href="#2-1-数据格式" class="headerlink" title="2.1 数据格式"></a>2.1 数据格式</h3><ul>
+<li><p><strong>元素格式</strong>：E2M1（1 sign + 2 exp + 1 mantissa，共 4 bit）</p>
 <ul>
 <li>表示集合（绝对值）：<code>&#123;0, 0.5, 1, 1.5, 2, 3, 4, 6&#125;</code></li>
 <li>最大正值：<code>6.0</code>，最小正规格：<code>0.25</code></li>
 </ul>
 </li>
-<li>
-<p><strong>Micro-scale</strong>：每 32 个元素共享一个 <strong>UE8M0</strong>（8 bit 纯指数，无尾数）缩放因子</p>
+<li><p><strong>Micro-scale</strong>：每 32 个元素共享一个 <strong>UE8M0</strong>（8 bit 纯指数，无尾数）缩放因子</p>
 <ul>
 <li><code>head_dim = 128</code> ⇒ 每 token 4 个 groups ⇒ <code>4 × 8bit scale = 32bit packed</code></li>
 <li>UE8M0 表示 <code>2^exp</code>，无尾数，计算高效</li>
 </ul>
 </li>
 </ul>
-<h3 id="2-2-量化实现（无分支-GPU-friendly）">2.2 量化实现（无分支 GPU-friendly）</h3>
-<p><code>_fp4_e2m1_code</code> 用 7 个阈值比较产生 4 位 magnitude index：</p>
+<h3 id="2-2-量化实现（无分支-GPU-friendly）"><a href="#2-2-量化实现（无分支-GPU-friendly）" class="headerlink" title="2.2 量化实现（无分支 GPU-friendly）"></a>2.2 量化实现（无分支 GPU-friendly）</h3><p><code>_fp4_e2m1_code</code> 用 7 个阈值比较产生 4 位 magnitude index：</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># fp4_indexer.py</span></span><br><span class="line">ax = <span class="built_in">min</span>(<span class="built_in">abs</span>(x), <span class="number">6.0</span>)</span><br><span class="line">idx = (ax &gt; <span class="number">0.25</span>) + (ax &gt; <span class="number">0.75</span>) + (ax &gt; <span class="number">1.25</span>) + (ax &gt; <span class="number">1.75</span>) + \</span><br><span class="line">      (ax &gt; <span class="number">2.5</span>) + (ax &gt; <span class="number">3.5</span>) + (ax &gt; <span class="number">5.0</span>)</span><br><span class="line">sign = (x &lt; <span class="number">0</span>) &amp; (idx != <span class="number">0</span>)</span><br><span class="line"><span class="keyword">return</span> idx | (sign &lt;&lt; <span class="number">3</span>)</span><br></pre></td></tr></table></figure>
+
 <p>阈值是 E2M1 相邻可表示值的中点，等价于 round-to-nearest-even，但实现成无分支 7-comp 并行 ALU。</p>
 <p><strong>UE8M0 scale 计算</strong>（避免 transcendentals）：</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">_ceil_ue8m0_exp</span>(<span class="params">scale_fp32</span>):</span><br><span class="line">    bits = reinterpret_cast&lt;uint32&gt;(scale_fp32)</span><br><span class="line">    exp = (bits &gt;&gt; <span class="number">23</span>) &amp; <span class="number">0xFF</span></span><br><span class="line">    exp += (mantissa != <span class="number">0</span>)  <span class="comment"># ceil，不是 floor</span></span><br><span class="line">    <span class="keyword">return</span> clamp(exp, <span class="number">1</span>, <span class="number">254</span>)</span><br></pre></td></tr></table></figure>
+
 <p>直接通过 bitcast 抽出 exponent，避免「求 log2 → ceil → exp2」的超越函数。</p>
-<h3 id="2-3-反量化">2.3 反量化</h3>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 反量化：NVFP4 → BF16</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">dequantize_nvfp4</span>(<span class="params">fp4_data, sf_tensor</span>):</span><br><span class="line">    scale = reinterpret_cast&lt;<span class="built_in">float</span>&gt;(sf_tensor &lt;&lt; <span class="number">23</span>)  <span class="comment"># UE8M0 → fp32</span></span><br><span class="line">    <span class="keyword">return</span> fp4_data * scale</span><br></pre></td></tr></table></figure>
+<h3 id="2-3-反量化"><a href="#2-3-反量化" class="headerlink" title="2.3 反量化"></a>2.3 反量化</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 反量化：NVFP4 → BF16</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">dequantize_nvfp4</span>(<span class="params">fp4_data, sf_tensor</span>):</span><br><span class="line">    scale = reinterpret_cast&lt;<span class="built_in">float</span>&gt;(sf_tensor &lt;&lt; <span class="number">23</span>)  <span class="comment"># UE8M0 → fp32</span></span><br><span class="line">    <span class="keyword">return</span> fp4_data * scale</span><br></pre></td></tr></table></figure>
+
 <hr>
-<h2 id="三、Q-路径：fused-q-indexer-rope-hadamard-fp4-quant">三、Q 路径：fused_q_indexer_rope_hadamard_fp4_quant</h2>
-<p>文件：<code>jit_kernel/csrc/deepseek_v4/main_norm_rope.cuh:658</code></p>
+<h2 id="三、Q-路径：fused-q-indexer-rope-hadamard-fp4-quant"><a href="#三、Q-路径：fused-q-indexer-rope-hadamard-fp4-quant" class="headerlink" title="三、Q 路径：fused_q_indexer_rope_hadamard_fp4_quant"></a>三、Q 路径：fused_q_indexer_rope_hadamard_fp4_quant</h2><p>文件：<code>jit_kernel/csrc/deepseek_v4/main_norm_rope.cuh:658</code></p>
 <p>一个 warp 处理一个 (token, head)，<code>head_dim=128</code>，<code>vec=4</code>（每 lane 4 个元素）。</p>
-<h3 id="3-1-流水线">3.1 流水线</h3>
-<table>
+<h3 id="3-1-流水线"><a href="#3-1-流水线" class="headerlink" title="3.1 流水线"></a>3.1 流水线</h3><table>
 <thead>
 <tr>
 <th>stage</th>
 <th>内容</th>
 </tr>
 </thead>
-<tbody>
-<tr>
+<tbody><tr>
 <td>① load</td>
-<td>每 lane 一个 <code>AlignedVector&lt;DType,4&gt;</code>，bf16/fp16 输入</td>
+<td>每 lane 一个 <code>AlignedVector&lt;DType,4&gt;</code>，bf16&#x2F;fp16 输入</td>
 </tr>
 <tr>
 <td>② RoPE</td>
@@ -327,70 +320,62 @@
 <td>⑤ store</td>
 <td>4 个 fp4 → 16 bit 写 <code>q_fp4</code>；每 8 lane 一个 byte 写 <code>q_sf</code>（packed_sf 32bit）</td>
 </tr>
-</tbody>
-</table>
-<h3 id="3-2-关键技巧">3.2 关键技巧</h3>
-<ul>
-<li><strong><code>reduce_max&lt;8&gt;</code> 而不是全 warp</strong>：group size = 32 元素 = 8 lanes，正好和 NVFP4 的 micro-scale 粒度匹配</li>
+</tbody></table>
+<h3 id="3-2-关键技巧"><a href="#3-2-关键技巧" class="headerlink" title="3.2 关键技巧"></a>3.2 关键技巧</h3><ul>
+<li><strong><code>reduce_max&lt;8&gt;</code> 而不是全 warp</strong>：group size &#x3D; 32 元素 &#x3D; 8 lanes，正好和 NVFP4 的 micro-scale 粒度匹配</li>
 <li><strong><code>inv_scale_ue8m0</code> 直接 bitcast 构造 fp32</strong>（<code>scale_exp &lt;&lt; 23</code>），避免 <code>1/scale</code></li>
 <li><strong>PDL（Programmatic Dependent Launch）</strong>：Hopper 特性，允许相邻 kernel 重叠</li>
 <li><strong>Hadamard 在量化之前</strong>：利用 Hadamard 的能量平均性，把 outlier 摊薄到 128 个元素，让 NVFP4 的窄动态范围（±6）够用</li>
 </ul>
 <hr>
-<h2 id="四、K-路径（写-cache）">四、K 路径（写 cache）</h2>
-<h3 id="4-1-融合版本-fused-norm-rope-indexer-fp4（主路径）">4.1 融合版本 <code>fused_norm_rope_indexer_fp4</code>（主路径）</h3>
-<p>文件：<code>fused_norm_rope_v2.cuh:223</code>，被 <code>compress.py:compress_norm_rope_store(use_fp4=True)</code> 调度。</p>
+<h2 id="四、K-路径（写-cache）"><a href="#四、K-路径（写-cache）" class="headerlink" title="四、K 路径（写 cache）"></a>四、K 路径（写 cache）</h2><h3 id="4-1-融合版本-fused-norm-rope-indexer-fp4（主路径）"><a href="#4-1-融合版本-fused-norm-rope-indexer-fp4（主路径）" class="headerlink" title="4.1 融合版本 fused_norm_rope_indexer_fp4（主路径）"></a>4.1 融合版本 <code>fused_norm_rope_indexer_fp4</code>（主路径）</h3><p>文件：<code>fused_norm_rope_v2.cuh:223</code>，被 <code>compress.py:compress_norm_rope_store(use_fp4=True)</code> 调度。</p>
 <p>流程：RMSNorm（rope 前）→ RoPE（rope warp）→ 4 步 in-register Hadamard → 5 步 shuffle Hadamard → <code>reduce_max&lt;8&gt;</code> → E2M1 + UE8M0 → 写 page。</p>
 <p><strong>写位置计算</strong>：</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">page = out_loc &gt;&gt; kPageBits;</span><br><span class="line">offset = out_loc &amp; ((<span class="number">1</span> &lt;&lt; kPageBits) - <span class="number">1</span>);  <span class="comment">// 位运算，要求 page_size 是 2 的幂</span></span><br></pre></td></tr></table></figure>
+
 <p><strong>Page 内 layout</strong>：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">[values: page_size × 64 B][scales: page_size × 4 B] = page_size × 68 B</span><br></pre></td></tr></table></figure>
 <p>values 区和 scales 区分段连续摆放，匹配 DeepGEMM 的访存假设。</p>
-<h3 id="4-2-Triton-兜底版本-fp4-indexer-py">4.2 Triton 兜底版本 <code>fp4_indexer.py</code></h3>
-<p>两个 <code>@triton.jit</code> kernel：<code>_quantize_fp4_indexer_kernel</code> + <code>_store_fp4_index_k_cache_kernel</code>。</p>
-<p>由 <code>memory_pool.py:set_index_fp4</code> 调用，作为 KV-pool 的兜底/通用写入路径（没经过融合的 K 输入时使用）。</p>
+<h3 id="4-2-Triton-兜底版本-fp4-indexer-py"><a href="#4-2-Triton-兜底版本-fp4-indexer-py" class="headerlink" title="4.2 Triton 兜底版本 fp4_indexer.py"></a>4.2 Triton 兜底版本 <code>fp4_indexer.py</code></h3><p>两个 <code>@triton.jit</code> kernel：<code>_quantize_fp4_indexer_kernel</code> + <code>_store_fp4_index_k_cache_kernel</code>。</p>
+<p>由 <code>memory_pool.py:set_index_fp4</code> 调用，作为 KV-pool 的兜底&#x2F;通用写入路径（没经过融合的 K 输入时使用）。</p>
 <hr>
-<h2 id="五、KV-cache-Page-Layout">五、KV-cache Page Layout</h2>
-<p>PR 修改了 indexer KV-pool 的 bytes/token（<code>deepseek_v4_memory_pool.py:278</code>）：</p>
+<h2 id="五、KV-cache-Page-Layout"><a href="#五、KV-cache-Page-Layout" class="headerlink" title="五、KV-cache Page Layout"></a>五、KV-cache Page Layout</h2><p>PR 修改了 indexer KV-pool 的 bytes&#x2F;token（<code>deepseek_v4_memory_pool.py:278</code>）：</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">get_bytes_per_token</span>(<span class="params">self</span>) -&gt; <span class="built_in">int</span>:</span><br><span class="line">    <span class="keyword">if</span> <span class="variable language_">self</span>.use_fp4_indexer:</span><br><span class="line">        <span class="keyword">return</span> <span class="variable language_">self</span>.index_head_dim // <span class="number">2</span> + <span class="number">4</span>  <span class="comment"># 64 + 4 = 68 B</span></span><br><span class="line">    <span class="keyword">return</span> <span class="variable language_">self</span>.index_head_dim + <span class="number">4</span>  <span class="comment"># 128 + 4 = 132 B (老 FP8 路径)</span></span><br></pre></td></tr></table></figure>
+
 <table>
 <thead>
 <tr>
 <th>模式</th>
-<th>bytes/token</th>
+<th>bytes&#x2F;token</th>
 <th>节省</th>
 </tr>
 </thead>
-<tbody>
-<tr>
+<tbody><tr>
 <td>FP8 indexer（老）</td>
-<td>128 (E4M3) + 4 (4×UE8M0) = 132</td>
+<td>128 (E4M3) + 4 (4×UE8M0) &#x3D; 132</td>
 <td>—</td>
 </tr>
 <tr>
 <td>FP4 indexer（新）</td>
-<td>64 (E2M1×128 packed) + 4 (4×UE8M0) = 68</td>
+<td>64 (E2M1×128 packed) + 4 (4×UE8M0) &#x3D; 68</td>
 <td>~48%</td>
 </tr>
-</tbody>
-</table>
+</tbody></table>
 <p><strong>Page 内分块布局</strong>：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">[values: page_size × 64 B][scales: page_size × 4 B]</span><br></pre></td></tr></table></figure>
-<p>避免了 paged MQA logits 读入时 scale/value stride 不一致的问题。</p>
+<p>避免了 paged MQA logits 读入时 scale&#x2F;value stride 不一致的问题。</p>
 <hr>
-<h2 id="六、上层调度：DeepGEMM-fp8-fp4-paged-mqa-logits">六、上层调度：DeepGEMM fp8_fp4_paged_mqa_logits</h2>
-<p><code>indexer.py:437-441</code>：</p>
+<h2 id="六、上层调度：DeepGEMM-fp8-fp4-paged-mqa-logits"><a href="#六、上层调度：DeepGEMM-fp8-fp4-paged-mqa-logits" class="headerlink" title="六、上层调度：DeepGEMM fp8_fp4_paged_mqa_logits"></a>六、上层调度：DeepGEMM fp8_fp4_paged_mqa_logits</h2><p><code>indexer.py:437-441</code>：</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> use_fp4_indexer:</span><br><span class="line">    weights = weights.<span class="built_in">float</span>()  <span class="comment"># FP8 路径不需要</span></span><br><span class="line">    <span class="keyword">from</span> deep_gemm <span class="keyword">import</span> fp8_fp4_paged_mqa_logits <span class="keyword">as</span> fn</span><br></pre></td></tr></table></figure>
+
 <p><strong>注意</strong>：</p>
 <ul>
 <li>函数名 <code>fp8_fp4_*</code> 里的 <code>fp8</code> 指 logits 累加链，不是 Q 端格式；Q 和 K 都是 FP4</li>
-<li>TileLang / AIter 路径不支持 FP4（显式 raise），只能用 DeepGEMM</li>
+<li>TileLang &#x2F; AIter 路径不支持 FP4（显式 raise），只能用 DeepGEMM</li>
 <li><code>weights</code> 必须升到 float32（FP8 路径不需要）</li>
 </ul>
 <hr>
-<h2 id="七、FP4-的分工：SGLang-vs-DeepGEMM">七、FP4 的分工：SGLang vs DeepGEMM</h2>
-<h3 id="7-1-哪些张量是-FP4">7.1 哪些张量是 FP4</h3>
-<table>
+<h2 id="七、FP4-的分工：SGLang-vs-DeepGEMM"><a href="#七、FP4-的分工：SGLang-vs-DeepGEMM" class="headerlink" title="七、FP4 的分工：SGLang vs DeepGEMM"></a>七、FP4 的分工：SGLang vs DeepGEMM</h2><h3 id="7-1-哪些张量是-FP4"><a href="#7-1-哪些张量是-FP4" class="headerlink" title="7.1 哪些张量是 FP4"></a>7.1 哪些张量是 FP4</h3><table>
 <thead>
 <tr>
 <th>张量</th>
@@ -399,8 +384,7 @@
 <th>由谁消费</th>
 </tr>
 </thead>
-<tbody>
-<tr>
+<tbody><tr>
 <td>Q (indexer query)</td>
 <td><code>q_fp4: [B,H,64] int8</code> + <code>q_sf: [B,H] int32</code></td>
 <td>SGLang <code>fused_q_indexer_rope_hadamard_fp4_quant</code></td>
@@ -409,22 +393,20 @@
 <tr>
 <td>K (indexer key cache)</td>
 <td><code>[npages, page_size, 68B]</code> (64B values + 4B scales)</td>
-<td>SGLang <code>fused_norm_rope_indexer_fp4</code> / Triton 兜底</td>
+<td>SGLang <code>fused_norm_rope_indexer_fp4</code> &#x2F; Triton 兜底</td>
 <td>DeepGEMM <code>fp8_fp4_paged_mqa_logits</code></td>
 </tr>
 <tr>
 <td>logits 输出</td>
-<td>bf16/fp32 (MQA scores)</td>
+<td>bf16&#x2F;fp32 (MQA scores)</td>
 <td>DeepGEMM</td>
 <td>SGLang sparse selector</td>
 </tr>
-</tbody>
-</table>
-<h3 id="7-2-主体在哪里？">7.2 主体在哪里？</h3>
-<p><strong>SGLang（本 PR ~95% 代码量）</strong>：</p>
+</tbody></table>
+<h3 id="7-2-主体在哪里？"><a href="#7-2-主体在哪里？" class="headerlink" title="7.2 主体在哪里？"></a>7.2 主体在哪里？</h3><p><strong>SGLang（本 PR ~95% 代码量）</strong>：</p>
 <ul>
-<li>造数据：把 bf16 的 Q/K 量化成 (E2M1, UE8M0) 格式（2 个新 CUDA kernel + 1 套 Triton）</li>
-<li>存数据：KV-pool 按 68B/token、values/scales 分段排好</li>
+<li>造数据：把 bf16 的 Q&#x2F;K 量化成 (E2M1, UE8M0) 格式（2 个新 CUDA kernel + 1 套 Triton）</li>
+<li>存数据：KV-pool 按 68B&#x2F;token、values&#x2F;scales 分段排好</li>
 <li>接数据：在 <code>forward_c4_indexer</code> 里把 <code>(q_fp4, q_sf)</code> 和 68B page 喂给 DeepGEMM</li>
 </ul>
 <p><strong>DeepGEMM（零代码改动）</strong>：</p>
@@ -432,28 +414,24 @@
 <li>本 PR 没有改动 DeepGEMM 仓库，只是 <code>from deep_gemm import fp8_fp4_paged_mqa_logits</code></li>
 <li>DeepGEMM 早就支持读 (FP4 Q, FP4 K) 这条接口，SGLang 这次只是把数据按照它要的 layout 凑出来</li>
 </ul>
-<p><strong>一句话总结</strong>：FP4 的「格式定义、Q/K 量化 kernel、KV cache layout、数据流改造」主体都在 SGLang；DeepGEMM 只负责消费这一对 (FP4 Q, FP4 K) 计算 paged MQA logits。</p>
+<p><strong>一句话总结</strong>：FP4 的「格式定义、Q&#x2F;K 量化 kernel、KV cache layout、数据流改造」主体都在 SGLang；DeepGEMM 只负责消费这一对 (FP4 Q, FP4 K) 计算 paged MQA logits。</p>
 <hr>
-<h2 id="八、设计亮点与潜在坑">八、设计亮点与潜在坑</h2>
-<h3 id="亮点">亮点</h3>
-<ol>
-<li><strong>NVFP4 = E2M1 + UE8M0 (group=32)</strong> 是 Blackwell tensorcore 原生支持的格式，直接为后续 SM100 路径铺路</li>
-<li><strong>Q 和 K 各自一个完全融合的 CUDA kernel</strong>：Norm/RoPE/Hadamard/量化/写 cache 全部在一个 warp 的寄存器里完成，输入读 1 次、输出写 1 次</li>
+<h2 id="八、设计亮点与潜在坑"><a href="#八、设计亮点与潜在坑" class="headerlink" title="八、设计亮点与潜在坑"></a>八、设计亮点与潜在坑</h2><h3 id="亮点"><a href="#亮点" class="headerlink" title="亮点"></a>亮点</h3><ol>
+<li><strong>NVFP4 &#x3D; E2M1 + UE8M0 (group&#x3D;32)</strong> 是 Blackwell tensorcore 原生支持的格式，直接为后续 SM100 路径铺路</li>
+<li><strong>Q 和 K 各自一个完全融合的 CUDA kernel</strong>：Norm&#x2F;RoPE&#x2F;Hadamard&#x2F;量化&#x2F;写 cache 全部在一个 warp 的寄存器里完成，输入读 1 次、输出写 1 次</li>
 <li><strong>Hadamard 在量化之前</strong>：把 outlier 摊薄到 128 个元素，让 NVFP4 的窄动态范围（±6）够用（GSM8K 只掉 1.5pt 的核心原因）</li>
-<li><strong>bitcast 构造 inv_scale</strong>（<code>exp &lt;&lt; 23</code>）避免 fdiv；<code>ceil_ue8m0</code> 直接位运算避免 log/exp</li>
+<li><strong>bitcast 构造 inv_scale</strong>（<code>exp &lt;&lt; 23</code>）避免 fdiv；<code>ceil_ue8m0</code> 直接位运算避免 log&#x2F;exp</li>
 <li><strong>Page layout 把 values 和 scales 分两段连续摆放</strong>，匹配 DeepGEMM 的访存假设</li>
 </ol>
-<h3 id="潜在限制">潜在限制</h3>
-<ol>
-<li><strong>head_dim 强约束 128</strong>（<code>assert x.shape[-1] == 128</code>），group=32 → 4 个 UE8M0 → 正好 32bit</li>
+<h3 id="潜在限制"><a href="#潜在限制" class="headerlink" title="潜在限制"></a>潜在限制</h3><ol>
+<li><strong>head_dim 强约束 128</strong>（<code>assert x.shape[-1] == 128</code>），group&#x3D;32 → 4 个 UE8M0 → 正好 32bit</li>
 <li><strong>page_size 必须是 2 的幂</strong>（K kernel 用 <code>out_loc &gt;&gt; kPageBits</code>）</li>
 <li><strong>HIP 不支持 Q 融合 fp4 路径</strong>（AMD 端目前只能跑老 FP8）</li>
-<li><strong>TileLang / AIter indexer 路径互斥</strong>，只能 DeepGEMM</li>
-<li><strong>4-bit 的低精度对长上下文/数值病态 prompt 仍可能发散</strong>，这就是它做成 opt-in flag 的原因</li>
+<li><strong>TileLang &#x2F; AIter indexer 路径互斥</strong>，只能 DeepGEMM</li>
+<li><strong>4-bit 的低精度对长上下文&#x2F;数值病态 prompt 仍可能发散</strong>，这就是它做成 opt-in flag 的原因</li>
 </ol>
 <hr>
-<h2 id="九、总结">九、总结</h2>
-<p>Indexer 是 DeepSeek-V4 在 MoE 路由上的新尝试——用 FP4 量化的轻量模型做粗筛，减少后续 gating 和 expert GEMM 的计算量。</p>
+<h2 id="九、总结"><a href="#九、总结" class="headerlink" title="九、总结"></a>九、总结</h2><p>Indexer 是 DeepSeek-V4 在 MoE 路由上的新尝试——用 FP4 量化的轻量模型做粗筛，减少后续 gating 和 expert GEMM 的计算量。</p>
 <p>SGLang PR #26209 的完整实现是一个典型的「上游做格式+内存，下游做矩阵乘」的分工：</p>
 <ul>
 <li><strong>SGLang</strong>：格式定义、量化 kernel、KV-cache 布局、数据流改造（~95% 代码量）</li>
