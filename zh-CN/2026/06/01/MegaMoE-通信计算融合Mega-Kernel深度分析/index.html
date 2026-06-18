@@ -29,7 +29,7 @@
 <meta property="og:description" content="一句话概括MegaMoE &#x3D; 把 EP（Expert Parallelism）中的 All-to-All 通信和 MoE 计算融合到一个 kernel 里，让 NVLink 传输和 Tensor Core 计算时间上完全重叠。 传统 EP 里通信和计算串行，GPU 利用率只有 50-60%；MegaMoE 通过 Symmetric Memory + 细粒度 Scheduler + 单 K">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2026-06-01T13:00:00.000Z">
-<meta property="article:modified_time" content="2026-06-01T12:49:18.331Z">
+<meta property="article:modified_time" content="2026-06-18T03:22:39.811Z">
 <meta property="article:author" content="ggaaooppeenngg">
 <meta property="article:tag" content="LLM推理">
 <meta property="article:tag" content="MoE">
@@ -128,7 +128,7 @@
       <div class="sidebar-panel-container">
         <!--noindex-->
         <div class="post-toc-wrap sidebar-panel">
-            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%80%E5%8F%A5%E8%AF%9D%E6%A6%82%E6%8B%AC"><span class="nav-number">1.</span> <span class="nav-text">一句话概括</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BC%A0%E7%BB%9F-EP-MoE-vs-MegaMoE"><span class="nav-number">2.</span> <span class="nav-text">传统 EP MoE vs MegaMoE</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BC%A0%E7%BB%9F-EP%EF%BC%88%E5%A6%82-DeepEP%EF%BC%89"><span class="nav-number">2.1.</span> <span class="nav-text">传统 EP（如 DeepEP）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#MegaMoE"><span class="nav-number">2.2.</span> <span class="nav-text">MegaMoE</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%A0%B8%E5%BF%83%E5%AE%9E%E7%8E%B0%E6%9C%BA%E5%88%B6"><span class="nav-number">3.</span> <span class="nav-text">核心实现机制</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-Symmetric-Memory%EF%BC%88%E5%AF%B9%E7%A7%B0%E5%86%85%E5%AD%98%EF%BC%89"><span class="nav-number">3.1.</span> <span class="nav-text">1. Symmetric Memory（对称内存）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-%E5%8D%95-Kernel-%E7%8A%B6%E6%80%81%E6%9C%BA"><span class="nav-number">3.2.</span> <span class="nav-text">2. 单 Kernel 状态机</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-Wave-Based-Expert-Processing"><span class="nav-number">3.3.</span> <span class="nav-text">3. Wave-Based Expert Processing</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-Arrival-Count-%E8%BD%AE%E8%AF%A2%EF%BC%88%E7%BB%86%E7%B2%92%E5%BA%A6-Overlap-%E7%9A%84%E5%85%B3%E9%94%AE%EF%BC%89"><span class="nav-number">3.4.</span> <span class="nav-text">4. Arrival Count 轮询（细粒度 Overlap 的关键）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-L1-L2-%E4%BA%A4%E9%94%99"><span class="nav-number">3.5.</span> <span class="nav-text">5. L1&#x2F;L2 交错</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#SM-Warp-%E7%BA%A7%E5%88%AB%E5%B9%B6%E8%A1%8C"><span class="nav-number">4.</span> <span class="nav-text">SM&#x2F;Warp 级别并行</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E5%BF%85%E9%A1%BB-GB200-GB300"><span class="nav-number">5.</span> <span class="nav-text">为什么必须 GB200&#x2F;GB300</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E8%AE%A1%E7%AE%97%E8%B6%B3%E5%A4%9F%E5%BF%AB%E6%89%8D%E5%80%BC%E5%BE%97-overlap"><span class="nav-number">5.1.</span> <span class="nav-text">为什么计算足够快才值得 overlap</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%92%8C-DeepEP-flashinfer-mxfp4-%E7%9A%84%E5%8C%BA%E5%88%AB"><span class="nav-number">6.</span> <span class="nav-text">和 DeepEP &#x2F; flashinfer_mxfp4 的区别</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#MegaMoE-vs-DeepEP"><span class="nav-number">6.1.</span> <span class="nav-text">MegaMoE vs DeepEP</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#MegaMoE-vs-flashinfer-mxfp4"><span class="nav-number">6.2.</span> <span class="nav-text">MegaMoE vs flashinfer_mxfp4</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Python-API-%E8%B0%83%E7%94%A8%E6%B5%81%E7%A8%8B"><span class="nav-number">7.</span> <span class="nav-text">Python API 调用流程</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93%EF%BC%9AMegaMoE-%E7%9A%84%E5%85%B3%E9%94%AE%E5%88%9B%E6%96%B0"><span class="nav-number">8.</span> <span class="nav-text">总结：MegaMoE 的关键创新</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%B1%80%E9%99%90%E6%80%A7%E4%B8%8E%E9%80%82%E7%94%A8%E8%BE%B9%E7%95%8C"><span class="nav-number">9.</span> <span class="nav-text">局限性与适用边界</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8F%82%E8%80%83"><span class="nav-number">10.</span> <span class="nav-text">参考</span></a></li></ol></div>
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%80%E5%8F%A5%E8%AF%9D%E6%A6%82%E6%8B%AC"><span class="nav-number">1.</span> <span class="nav-text">一句话概括</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BC%A0%E7%BB%9F-EP-MoE-vs-MegaMoE"><span class="nav-number">2.</span> <span class="nav-text">传统 EP MoE vs MegaMoE</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BC%A0%E7%BB%9F-EP%EF%BC%88%E5%A6%82-DeepEP%EF%BC%89"><span class="nav-number">2.1.</span> <span class="nav-text">传统 EP（如 DeepEP）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#MegaMoE"><span class="nav-number">2.2.</span> <span class="nav-text">MegaMoE</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BC%A0%E7%BB%9F-DeepEP-%E7%9A%84-Overlap-%E8%83%BD%E5%8A%9B%E5%88%86%E6%9E%90"><span class="nav-number">3.</span> <span class="nav-text">传统 DeepEP 的 Overlap 能力分析</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#DeepEP-%E7%9A%84%E4%B8%A4%E7%A7%8D%E6%A8%A1%E5%BC%8F"><span class="nav-number">3.1.</span> <span class="nav-text">DeepEP 的两种模式</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%A1%86%E6%9E%B6%E5%B1%82%E6%80%8E%E4%B9%88%E5%BC%BA%E8%A1%8C-overlap%EF%BC%88%E4%BC%A0%E7%BB%9F%E6%96%B9%E6%A1%88%EF%BC%89"><span class="nav-number">3.2.</span> <span class="nav-text">框架层怎么强行 overlap（传统方案）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E4%BC%A0%E7%BB%9F%E6%96%B9%E6%A1%88%E2%80%9D%E8%83%BD-overlap-%E4%BD%86%E4%B8%8D%E5%BD%BB%E5%BA%95%E2%80%9D"><span class="nav-number">3.3.</span> <span class="nav-text">为什么传统方案”能 overlap 但不彻底”</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%87%8D%E5%8F%A0%E7%8E%87%E5%AE%9E%E6%B5%8B"><span class="nav-number">3.4.</span> <span class="nav-text">重叠率实测</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AF%B9%E6%80%A7%E8%83%BD%E6%A0%87%E5%AE%9A%EF%BC%88profiler%EF%BC%89%E7%9A%84%E6%84%8F%E4%B9%89"><span class="nav-number">3.5.</span> <span class="nav-text">对性能标定（profiler）的意义</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%A0%B8%E5%BF%83%E5%AE%9E%E7%8E%B0%E6%9C%BA%E5%88%B6"><span class="nav-number">4.</span> <span class="nav-text">核心实现机制</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-Symmetric-Memory%EF%BC%88%E5%AF%B9%E7%A7%B0%E5%86%85%E5%AD%98%EF%BC%89"><span class="nav-number">4.1.</span> <span class="nav-text">1. Symmetric Memory（对称内存）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-%E5%8D%95-Kernel-%E7%8A%B6%E6%80%81%E6%9C%BA"><span class="nav-number">4.2.</span> <span class="nav-text">2. 单 Kernel 状态机</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-Wave-Based-Expert-Processing"><span class="nav-number">4.3.</span> <span class="nav-text">3. Wave-Based Expert Processing</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-Arrival-Count-%E8%BD%AE%E8%AF%A2%EF%BC%88%E7%BB%86%E7%B2%92%E5%BA%A6-Overlap-%E7%9A%84%E5%85%B3%E9%94%AE%EF%BC%89"><span class="nav-number">4.4.</span> <span class="nav-text">4. Arrival Count 轮询（细粒度 Overlap 的关键）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-L1-L2-%E4%BA%A4%E9%94%99"><span class="nav-number">4.5.</span> <span class="nav-text">5. L1&#x2F;L2 交错</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#SM-Warp-%E7%BA%A7%E5%88%AB%E5%B9%B6%E8%A1%8C"><span class="nav-number">5.</span> <span class="nav-text">SM&#x2F;Warp 级别并行</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E5%BF%85%E9%A1%BB-GB200-GB300"><span class="nav-number">6.</span> <span class="nav-text">为什么必须 GB200&#x2F;GB300</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E8%AE%A1%E7%AE%97%E8%B6%B3%E5%A4%9F%E5%BF%AB%E6%89%8D%E5%80%BC%E5%BE%97-overlap"><span class="nav-number">6.1.</span> <span class="nav-text">为什么计算足够快才值得 overlap</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%92%8C-DeepEP-flashinfer-mxfp4-%E7%9A%84%E5%8C%BA%E5%88%AB"><span class="nav-number">7.</span> <span class="nav-text">和 DeepEP &#x2F; flashinfer_mxfp4 的区别</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#MegaMoE-vs-DeepEP"><span class="nav-number">7.1.</span> <span class="nav-text">MegaMoE vs DeepEP</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#MegaMoE-vs-flashinfer-mxfp4"><span class="nav-number">7.2.</span> <span class="nav-text">MegaMoE vs flashinfer_mxfp4</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Python-API-%E8%B0%83%E7%94%A8%E6%B5%81%E7%A8%8B"><span class="nav-number">8.</span> <span class="nav-text">Python API 调用流程</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93%EF%BC%9AMegaMoE-%E7%9A%84%E5%85%B3%E9%94%AE%E5%88%9B%E6%96%B0"><span class="nav-number">9.</span> <span class="nav-text">总结：MegaMoE 的关键创新</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%B1%80%E9%99%90%E6%80%A7%E4%B8%8E%E9%80%82%E7%94%A8%E8%BE%B9%E7%95%8C"><span class="nav-number">10.</span> <span class="nav-text">局限性与适用边界</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8F%82%E8%80%83"><span class="nav-number">11.</span> <span class="nav-text">参考</span></a></li></ol></div>
         </div>
         <!--/noindex-->
 
@@ -219,9 +219,15 @@
         <i class="far fa-calendar"></i>
       </span>
       <span class="post-meta-item-text">发表于</span>
-      
 
-      <time title="创建时间：2026-06-01 21:00:00 / 修改时间：20:49:18" itemprop="dateCreated datePublished" datetime="2026-06-01T21:00:00+08:00">2026-06-01</time>
+      <time title="创建时间：2026-06-01 21:00:00" itemprop="dateCreated datePublished" datetime="2026-06-01T21:00:00+08:00">2026-06-01</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2026-06-18 11:22:39" itemprop="dateModified" datetime="2026-06-18T11:22:39+08:00">2026-06-18</time>
     </span>
     <span class="post-meta-item">
       <span class="post-meta-item-icon">
@@ -265,6 +271,85 @@
 <h3 id="MegaMoE"><a href="#MegaMoE" class="headerlink" title="MegaMoE"></a>MegaMoE</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">时间 →</span><br><span class="line"></span><br><span class="line">┌───────────────────── 一个 Mega Kernel ─────────────────────┐</span><br><span class="line">│  NVLink dispatch ←→ GEMM1 ←→ SwiGLU ←→ GEMM2 ←→ NVLink combine  │</span><br><span class="line">│    (通信和计算同时进行，流水线式重叠)                          │</span><br><span class="line">└──────────────────────────────────────────────────────────────┘</span><br></pre></td></tr></table></figure>
 
 <p>通信隐藏在计算背后，GPU 利用率接近 100%。</p>
+<hr>
+<h2 id="传统-DeepEP-的-Overlap-能力分析"><a href="#传统-DeepEP-的-Overlap-能力分析" class="headerlink" title="传统 DeepEP 的 Overlap 能力分析"></a>传统 DeepEP 的 Overlap 能力分析</h2><blockquote>
+<p><strong>常见误解</strong>：”传统 DeepEP dispatch&#x2F;combine 是无法和 MoE 计算 overlap 的”</p>
+<p><strong>更准确的说法</strong>：传统 DeepEP 可以通过 low-latency kernel + 多 stream + two-batch overlap 实现<strong>部分重叠</strong>，但需要框架手工编排，重叠率有限，对 decode 小 batch 几乎无效。</p>
+</blockquote>
+<h3 id="DeepEP-的两种模式"><a href="#DeepEP-的两种模式" class="headerlink" title="DeepEP 的两种模式"></a>DeepEP 的两种模式</h3><p>DeepEP 提供了两套 kernel，overlap 能力完全不同：</p>
+<table>
+<thead>
+<tr>
+<th>DeepEP 模式</th>
+<th>能否 overlap</th>
+<th>原因</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Normal kernel</strong>（高吞吐）</td>
+<td>❌ <strong>基本不能</strong></td>
+<td>dispatch&#x2F;combine 占满 SM 跑带宽，SM 被通信占住，GEMM 抢不到资源</td>
+</tr>
+<tr>
+<td><strong>Low-latency kernel</strong>（纯 RDMA）</td>
+<td>✅ <strong>可以</strong></td>
+<td>只用少量 SM 发 RDMA，大部分 SM 空着，可以留给 GEMM</td>
+</tr>
+</tbody></table>
+<p>你提到的”无法 overlapped”更接近 <strong>Normal kernel</strong> 的情况。</p>
+<h3 id="框架层怎么强行-overlap（传统方案）"><a href="#框架层怎么强行-overlap（传统方案）" class="headerlink" title="框架层怎么强行 overlap（传统方案）"></a>框架层怎么强行 overlap（传统方案）</h3><p>SGLang &#x2F; TRT-LLM 的做法是 <strong>micro-batch 切分 + 多 stream</strong>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">时间线 ──────────────────────────────────►</span><br><span class="line">stream A: [dispatch chunk0]              [combine chunk0]</span><br><span class="line">stream B:                [GEMM chunk0]   [dispatch chunk1] [combine chunk1]</span><br><span class="line">stream A:                              [GEMM chunk1]</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>chunk0 在算的时候，chunk1 在通信</li>
+<li>需要 2 条 CUDA stream + event 同步</li>
+<li><strong>代价</strong>：buffer 翻倍，GEMM tile 变小导致 Tensor Core 利用率下降</li>
+</ul>
+<p>这就是 <strong>TBO (Two-Batch Overlap)</strong>，SGLang 里有 <code>--enable-two-batch-overlap</code> 开关。</p>
+<h3 id="为什么传统方案”能-overlap-但不彻底”"><a href="#为什么传统方案”能-overlap-但不彻底”" class="headerlink" title="为什么传统方案”能 overlap 但不彻底”"></a>为什么传统方案”能 overlap 但不彻底”</h3><p>四个硬限制：</p>
+<ol>
+<li><p><strong>Kernel 边界 &#x3D; 同步点</strong><br>每次 launch 有 5–10μs 开销，小 batch 下被 launch 开销主导</p>
+</li>
+<li><p><strong>SM 资源争抢</strong><br>Normal dispatch 想跑满 NVLink 就要用很多 SM，GEMM 也想要全部 SM，互相挤压</p>
+</li>
+<li><p><strong>依赖链串行</strong>  </p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">dispatch(x) → GEMM1 → SwiGLU → GEMM2 → combine</span><br></pre></td></tr></table></figure>
+<p>单个 token 的依赖必须串行，overlap 只能靠不同 micro-batch 之间的并行</p>
+</li>
+<li><p><strong>Decode 阶段 batch 小</strong><br>再切一半更糟，GEMM 效率暴跌</p>
+</li>
+</ol>
+<h3 id="重叠率实测"><a href="#重叠率实测" class="headerlink" title="重叠率实测"></a>重叠率实测</h3><table>
+<thead>
+<tr>
+<th>方案</th>
+<th>重叠率</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>DeepEP normal</td>
+<td>0%（串行）</td>
+<td>Prefill 大 batch</td>
+</tr>
+<tr>
+<td>DeepEP low-latency + TBO</td>
+<td>30–60%</td>
+<td>Prefill 中等 batch</td>
+</tr>
+<tr>
+<td>MegaMoE</td>
+<td>接近 100%</td>
+<td>所有场景（包括 decode 小 batch）</td>
+</tr>
+</tbody></table>
+<h3 id="对性能标定（profiler）的意义"><a href="#对性能标定（profiler）的意义" class="headerlink" title="对性能标定（profiler）的意义"></a>对性能标定（profiler）的意义</h3><p>如果在 perf 数据库里标注 MoE 路径，至少分三档：</p>
+<ol>
+<li><strong>DeepEP normal</strong>：通信和计算串行（吞吐高，延迟差）</li>
+<li><strong>DeepEP low-latency + TBO</strong>：部分 overlap（需要 <code>enable_two_batch_overlap=true</code>）</li>
+<li><strong>MegaMoE</strong>：原生 overlap，不依赖切 batch</li>
+</ol>
+<p>这三档在 SLA 模型里会给出显著不同的 ITL&#x2F;TTFT，混在一起标定会让 profiler 拟合出错。</p>
 <hr>
 <h2 id="核心实现机制"><a href="#核心实现机制" class="headerlink" title="核心实现机制"></a>核心实现机制</h2><h3 id="1-Symmetric-Memory（对称内存）"><a href="#1-Symmetric-Memory（对称内存）" class="headerlink" title="1. Symmetric Memory（对称内存）"></a>1. Symmetric Memory（对称内存）</h3><p>传统 all-to-all：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">GPU_0 → cudaMemcpyAsync → GPU_1（需要显式同步，退出 kernel）</span><br></pre></td></tr></table></figure>
