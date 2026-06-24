@@ -92,7 +92,7 @@
 
 
 <nav class="site-nav">
-  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-旅行路书"><a href="/travel/" rel="section"><i class="plane fa-fw"></i>旅行路书</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">188</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">23</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">95</span></a></li>
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-旅行路书"><a href="/travel/" rel="section"><i class="plane fa-fw"></i>旅行路书</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">195</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">24</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">98</span></a></li>
   </ul>
 </nav>
 
@@ -129,18 +129,18 @@
   <nav class="site-state">
       <div class="site-state-item site-state-posts">
         <a href="/archives/">
-          <span class="site-state-item-count">95</span>
+          <span class="site-state-item-count">98</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
       <div class="site-state-item site-state-categories">
           <a href="/categories/">
-        <span class="site-state-item-count">23</span>
+        <span class="site-state-item-count">24</span>
         <span class="site-state-item-name">分类</span></a>
       </div>
       <div class="site-state-item site-state-tags">
           <a href="/tags/">
-        <span class="site-state-item-count">188</span>
+        <span class="site-state-item-count">195</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
@@ -169,6 +169,389 @@
     </div>
 
     <div class="main-inner index posts-expand">
+
+    
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2018/12/11/etcd-raft-code-walkthrough/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="undefined | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          <a href="/zh-CN/2018/12/11/etcd-raft-code-walkthrough/" class="post-title-link" itemprop="url">etcd/raft code walkthrough</a>
+        </h2>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2018-12-11 23:51:03" itemprop="dateCreated datePublished" datetime="2018-12-11T23:51:03+08:00">2018-12-11</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2025-03-14 13:50:06" itemprop="dateModified" datetime="2025-03-14T13:50:06+08:00">2025-03-14</time>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2018/12/11/etcd-raft-code-walkthrough/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2018/12/11/etcd-raft-code-walkthrough/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+          <p>我照着 raft 论文重新过了一遍 etcd&#x2F;raft 的代码，主要的文件是 etcd 下面的 <code>raft.go</code>。对照这个代码重新梳理一遍也算是深入理解一下 raft 算法。接下来会包含两个视频一个是选举相关的内容，一个是日志复制的内容，我 walktrough 的时候默认是大致读过论文的，对一些机制和字段都有了解，没有具体解析每个字段的来历，并且把一些问题按照代码的顺序重新理了一遍。</p>
+<p>第一部分是关于选举的，raft 本身是一个 quorum based 的算法，一致性要靠“大多数人”的同意，并且为了简单和不必要的竞争，raft 只有一个主节点，在收到大多数人的投票以后成为主节点。</p>
+<div class="video-container"><iframe src="https://www.youtube.com/embed/Qo45IJbSr3k" frameborder="0" loading="lazy" allowfullscreen></iframe></div>
+
+<p>第二部分是关于日志复制的，raft 需要让主节点把客户端的请求复制到大多数节点上才能算达成一致，并且 commit，下面介绍的是复制的机制，并且 ConfChange 和 Snapshot 也是走这个流程达成一致的。</p>
+<div class="video-container"><iframe src="https://www.youtube.com/embed/WjsrdYQ1SH0" frameborder="0" loading="lazy" allowfullscreen></iframe></div>
+
+<p>之后的 walkthrough 应该会慢慢补上，关于一些其他的逻辑和具体的一些函数的细节部分会在后面放出。</p>
+<h2 id="mvcc"><a href="#mvcc" class="headerlink" title="mvcc"></a>mvcc</h2><p>v2 版本的实现存在 watcher 丢失或者丢失事件的问题，导致客户端要重新获取一遍。新版本是有本地嵌入式的数据库来避免这些问题。<br>mvcc 是 etcd v3 版本的存储实现主要有两个部分，一个是 backend 的 boltDB 和内存索引 key index。</p>
+<p>BoltDB 是一个 B+ 树的嵌入式 KV store，相对于 leveldb 适用于写多读少的情况，我之前的<a href="https://ggaaooppeenngg.github.io/zh-CN/2017/03/31/%E4%BB%8E%E6%9C%B4%E7%B4%A0%E8%A7%A3%E9%87%8A%E5%87%BA%E5%8F%91%E8%A7%A3%E9%87%8Aleveldb%E7%9A%84%E8%AE%BE%E8%AE%A1/">文章</a>简单介绍了一下 leveldb 的设计，BoltDB 比较适合读多写少，或者存在大范围 scan 的情况下比较合适，还有类似 levedb 的产品 <a target="_blank" rel="noopener" href="https://blog.dgraph.io/post/badger/">badger</a>，是纯 Go 实现的，在多写的情况下 leveldb 的衍生品表现更好。</p>
+<p>BatchTx 就是收集很多的 call，然后在一个 Update 里面完成。</p>
+<p>backend 里面存的 key 是 revision ，其中 main revision 是事务编号，sub revision 是事务中操作的编号，etcd 在 boltdb 上还做了一层缓存，所以多了一些锁机制。<br>内存索引中存的是真正的 key 到 revison 的索引。</p>
+<p>key_index -&gt; tx_buffer -&gt; boltdb.tx</p>
+<p>调用路径</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">kv:</span><br><span class="line">  WriteView 是一些直接操作</span><br><span class="line">  ReadView</span><br><span class="line">  Read() TxnRead</span><br><span class="line">  Write() TxnWrite 是拿到对应的 transaction</span><br><span class="line"></span><br><span class="line">revision:</span><br><span class="line">  main</span><br><span class="line">  sub</span><br><span class="line">kvstore:</span><br><span class="line">  readView readView&#123;kv&#125; 用了 Read() Read/Write 是 kvstore 自己实现的用于拿 backend 的和自己的各种锁。(kvstore\_txn.go)</span><br><span class="line">  writeView writeView&#123;kv&#125; 用了 Write()</span><br><span class="line">treeIndex:</span><br><span class="line">  keyIndex</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">writeView:</span><br><span class="line">  拿到 kv 的 Write(storeTxnWrite):  首先查 tw.s.kvindex.Get 然后再 backend.Tx UnsageSeqPut，然后更新 keyindex，append changes，处理 lease (old detach new attach)</span><br><span class="line">readView</span><br><span class="line">   storeTxnRead: keyindex Revisons -&gt; tx.UnsafeRange</span><br><span class="line"></span><br><span class="line">lessor  lesor(重音在后面)</span><br><span class="line">   leaseBucket 在单独的一个 bucket 里面</span><br></pre></td></tr></table></figure>
+
+      
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+        <div class="post-eof"></div>
+      
+    </footer>
+  </article>
+</div>
+
+
+
+
+    
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2018/11/10/K8S-%E4%B8%AD%E7%9A%84-eBPF/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="undefined | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          <a href="/zh-CN/2018/11/10/K8S-%E4%B8%AD%E7%9A%84-eBPF/" class="post-title-link" itemprop="url">K8S 中的 eBPF</a>
+        </h2>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2018-11-10 18:36:25" itemprop="dateCreated datePublished" datetime="2018-11-10T18:36:25+08:00">2018-11-10</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2025-03-14 13:50:06" itemprop="dateModified" datetime="2025-03-14T13:50:06+08:00">2025-03-14</time>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2018/11/10/K8S-%E4%B8%AD%E7%9A%84-eBPF/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2018/11/10/K8S-中的-eBPF/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+          <h2 id="BPF"><a href="#BPF" class="headerlink" title="BPF"></a>BPF</h2><p>BPF (Berkeley Packet Filter) 最早是用在 <code>tcpdump</code> 里面的，比如 <code>tcpdump tcp and dst port 80</code>  这样的过滤规则会单独复制 tcp 协议并且目的端口是 80 的包到用户态。整个实现是基于内核中的一个虚拟机来实现的，通过翻译 BPF 规则到字节码运行到内核中的虚拟机当中。最早的论文是<a target="_blank" rel="noopener" href="https://www.tcpdump.org/papers/bpf-usenix93.pdf">这篇</a>，这篇论文我大概翻了一下，主要讲的是原本的基于栈的过滤太重了，而 BPF 是一套能充分利用 CPU 寄存器，动态注册 filter 的虚拟机实现，相对于基于内存的实现更高效，不过那个时候的内存比较小才几十兆。bpf 会从链路层复制 pakcet 并根据 filter 的规则选择抛弃或者复制，字节码是这样的，具体语法就不介绍了，一般也不会去直接写这些字节码，然后通过内核中实现的一个虚拟机翻译这些字节码，注册过滤规则，这样不修改内核的虚拟机也能实现很多功能。</p>
+<p>在 Linux 中对应的 API 是</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">socket(SOCK_RAW)</span><br><span class="line">bind(iface)</span><br><span class="line">setsockopt(SO_ATTACH_FILTER)</span><br></pre></td></tr></table></figure>
+
+<p>下面是一个低层级的 demo，首先 ethernet header 的十二个字节记录了 ip 的协议，ip 的第9个字节记录 tcp 的协议，如果协议编号不匹配都跳到最后 reject，然后在到 tcp 的第二个字节是 port 看看是不是 80，都满足的话就 accept。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;stdio.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;string.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;sys/types.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;sys/socket.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;net/if.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;net/ethernet.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;netinet/in.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;netinet/ip.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;arpa/inet.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;netpacket/packet.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;linux/filter.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> OP_LDH (BPF_LD  | BPF_H   | BPF_ABS)</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> OP_LDB (BPF_LD  | BPF_B   | BPF_ABS)</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> OP_JEQ (BPF_JMP | BPF_JEQ | BPF_K)</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> OP_RET (BPF_RET | BPF_K)</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// Filter TCP segments to port 80</span></span><br><span class="line"><span class="type">static</span> <span class="class"><span class="keyword">struct</span> <span class="title">sock_filter</span> <span class="title">bpfcode</span>[8] =</span> &#123;</span><br><span class="line">        &#123; OP_LDH, <span class="number">0</span>, <span class="number">0</span>, <span class="number">12</span>          &#125;,  <span class="comment">// ldh [12]                                                                                                                                                                                                                         </span></span><br><span class="line">        &#123; OP_JEQ, <span class="number">0</span>, <span class="number">5</span>, ETH_P_IP    &#125;,  <span class="comment">// jeq #0x800, L2, L8                                                                                                                                                                                                               </span></span><br><span class="line">        &#123; OP_LDB, <span class="number">0</span>, <span class="number">0</span>, <span class="number">23</span>          &#125;,  <span class="comment">// ldb [23]           # 14 bytes of ethernet header + 9 bytes in IP header until the protocol                                                                                                                                       </span></span><br><span class="line">        &#123; OP_JEQ, <span class="number">0</span>, <span class="number">3</span>, IPPROTO_TCP &#125;,  <span class="comment">// jeq #0x6, L4, L8                                                                                                                                                                                                                 </span></span><br><span class="line">        &#123; OP_LDH, <span class="number">0</span>, <span class="number">0</span>, <span class="number">36</span>          &#125;,  <span class="comment">// ldh [36]           # 14 bytes of ethernet header + 20 bytes of IP header (we assume no options) + 2 bytes of offset until the port                                                                                               </span></span><br><span class="line">        &#123; OP_JEQ, <span class="number">0</span>, <span class="number">1</span>, <span class="number">80</span>          &#125;,  <span class="comment">// jeq #0x50, L6, L8                                                                                                                                                                                                                </span></span><br><span class="line">        &#123; OP_RET, <span class="number">0</span>, <span class="number">0</span>, <span class="number">-1</span>,         &#125;,  <span class="comment">// ret #0xffffffff    # (accept)                                                                                                                                                                                                    </span></span><br><span class="line">        &#123; OP_RET, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>           &#125;,  <span class="comment">// ret #0x0           # (reject)                                                                                                                                                                                                    </span></span><br><span class="line"></span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="type">int</span> <span class="title function_">main</span><span class="params">(<span class="type">int</span> argc, <span class="type">char</span> **argv)</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="type">int</span> sock;</span><br><span class="line">	<span class="type">int</span> n;</span><br><span class="line">	<span class="type">char</span> buf[<span class="number">2000</span>];</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">sockaddr_ll</span> <span class="title">addr</span>;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">packet_mreq</span> <span class="title">mreq</span>;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">iphdr</span> *<span class="title">ip</span>;</span></span><br><span class="line">	<span class="type">char</span> saddr_str[INET_ADDRSTRLEN], daddr_str[INET_ADDRSTRLEN];</span><br><span class="line">	<span class="type">char</span> *proto_str;</span><br><span class="line">	<span class="type">char</span> *name;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">sock_fprog</span> <span class="title">bpf</span> =</span> &#123; <span class="number">8</span>, bpfcode &#125;;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (argc != <span class="number">2</span>) &#123;</span><br><span class="line">		<span class="built_in">printf</span>(<span class="string">&quot;Usage: %s ifname\n&quot;</span>, argv[<span class="number">0</span>]);</span><br><span class="line">		<span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	name = argv[<span class="number">1</span>];</span><br><span class="line"></span><br><span class="line">	sock = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));</span><br><span class="line">	<span class="keyword">if</span> (sock &lt; <span class="number">0</span>) &#123;</span><br><span class="line">		perror(<span class="string">&quot;socket&quot;</span>);</span><br><span class="line">		<span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="built_in">memset</span>(&amp;addr, <span class="number">0</span>, <span class="keyword">sizeof</span>(addr));</span><br><span class="line">	addr.sll_ifindex = if_nametoindex(name);</span><br><span class="line">	addr.sll_family = AF_PACKET;</span><br><span class="line">	addr.sll_protocol = htons(ETH_P_ALL);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (bind(sock, (<span class="keyword">struct</span> sockaddr *) &amp;addr, <span class="keyword">sizeof</span>(addr))) &#123;</span><br><span class="line">		perror(<span class="string">&quot;bind&quot;</span>);</span><br><span class="line">		<span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (setsockopt(sock, SOL_SOCKET, SO_ATTACH_FILTER, &amp;bpf, <span class="keyword">sizeof</span>(bpf))) &#123;</span><br><span class="line">		perror(<span class="string">&quot;setsockopt ATTACH_FILTER&quot;</span>);</span><br><span class="line">		<span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="built_in">memset</span>(&amp;mreq, <span class="number">0</span>, <span class="keyword">sizeof</span>(mreq));</span><br><span class="line">	mreq.mr_type = PACKET_MR_PROMISC;</span><br><span class="line">	mreq.mr_ifindex = if_nametoindex(name);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (setsockopt(sock, SOL_PACKET,</span><br><span class="line">				PACKET_ADD_MEMBERSHIP, (<span class="type">char</span> *)&amp;mreq, <span class="keyword">sizeof</span>(mreq))) &#123;</span><br><span class="line">		perror(<span class="string">&quot;setsockopt MR_PROMISC&quot;</span>);</span><br><span class="line">		<span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">for</span> (;;) &#123;</span><br><span class="line">		n = recv(sock, buf, <span class="keyword">sizeof</span>(buf), <span class="number">0</span>);</span><br><span class="line">		<span class="keyword">if</span> (n &lt; <span class="number">1</span>) &#123;</span><br><span class="line">			perror(<span class="string">&quot;recv&quot;</span>);</span><br><span class="line">			<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		ip = (<span class="keyword">struct</span> iphdr *)(buf + <span class="keyword">sizeof</span>(<span class="keyword">struct</span> ether_header));</span><br><span class="line"></span><br><span class="line">		inet_ntop(AF_INET, &amp;ip-&gt;saddr, saddr_str, <span class="keyword">sizeof</span>(saddr_str));</span><br><span class="line">		inet_ntop(AF_INET, &amp;ip-&gt;daddr, daddr_str, <span class="keyword">sizeof</span>(daddr_str));</span><br><span class="line"></span><br><span class="line">		<span class="keyword">switch</span> (ip-&gt;protocol) &#123;</span><br><span class="line"><span class="meta">#<span class="keyword">define</span> PTOSTR(_p,_str) \</span></span><br><span class="line"><span class="meta">			case _p: proto_str = _str; break</span></span><br><span class="line"></span><br><span class="line">		PTOSTR(IPPROTO_ICMP, <span class="string">&quot;icmp&quot;</span>);</span><br><span class="line">		PTOSTR(IPPROTO_TCP, <span class="string">&quot;tcp&quot;</span>);</span><br><span class="line">		PTOSTR(IPPROTO_UDP, <span class="string">&quot;udp&quot;</span>);</span><br><span class="line">		<span class="keyword">default</span>:</span><br><span class="line">			proto_str = <span class="string">&quot;&quot;</span>;</span><br><span class="line">			<span class="keyword">break</span>;</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		<span class="built_in">printf</span>(<span class="string">&quot;IPv%d proto=%d(%s) src=%s dst=%s\n&quot;</span>,</span><br><span class="line">				ip-&gt;version, ip-&gt;protocol, proto_str, saddr_str, daddr_str);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>执行 <code>curl &quot;http://www.baidu.com&quot;</code>，结果如下：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">sudo ./filter ens3</span><br><span class="line">IPv4 proto=6(tcp) src=172.31.3.210 dst=220.181.112.244</span><br><span class="line">IPv4 proto=6(tcp) src=172.31.3.210 dst=220.181.112.244</span><br><span class="line">IPv4 proto=6(tcp) src=172.31.3.210 dst=220.181.112.244</span><br><span class="line">IPv4 proto=6(tcp) src=172.31.3.210 dst=220.181.112.244</span><br><span class="line">IPv4 proto=6(tcp) src=172.31.3.210 dst=220.181.112.244</span><br><span class="line">IPv4 proto=6(tcp) src=172.31.3.210 dst=220.181.112.244</span><br><span class="line">IPv4 proto=6(tcp) src=172.31.3.210 dst=220.181.112.244</span><br></pre></td></tr></table></figure>
+
+<p>这些低级别的操作都封装在了 libpcap 里面，一般不太会自己这么写。</p>
+<h2 id="eBPF"><a href="#eBPF" class="headerlink" title="eBPF"></a>eBPF</h2><p>eBPF 是 extended BPF 具有更强大的功能。老的 BPF 现在叫 cBPF (classic BPF)。</p>
+<p>首先是字节码的指令集更加丰富了，并且现在有了 64 位的寄存器（相较于上古时期的 32 位的CPU），有了 JIT mapping 技术和 LLVM 的后端。JIT 指的的是 Just In Time，实时编译。</p>
+<p>一般的 ePBF 的工作流是编写一个 C 的子集（比如没有循环），通过 LLVM 编译到字节码，然成生成 ELF 文件，然后 JIT 编译进内核。</p>
+<p>eBPF 一个最重要的功能是可以做到动态跟踪（dynamic tracing），可以不修改程序直接监控一个正在运行的进程。</p>
+<h3 id="在-eBPF-之前"><a href="#在-eBPF-之前" class="headerlink" title="在 eBPF 之前"></a>在 eBPF 之前</h3><p>在 ebpf 之前，为了实现同样的功能，要在执行的指令中嵌入 hook，并且支持跳到 inspect 函数，然后再恢复执行，这个流程和 debugger 非常相似，这是用 kprobe 来实现，kprobe 是 2007 年引入内核的。比如下面的例子，把 Instruction 3 改成跳转指令，然后再执行 Instruction 3，然后再跳转回去。</p>
+<img data-src="/zh-CN/2018/11/10/K8S-%E4%B8%AD%E7%9A%84-eBPF/image-20181110153643535.png" class="">
+
+<p>使用 kprobe 需要通过编译 kernel module 注册到内核当中，非常麻烦，等于是直接动内核的代码很容易引起内核 panic，而且每个内核版本都不一样，函数符号和位移是有区别的，对每个版本的内核都要编译一个对应的版本的 module。为了解决这个问题引入了一些静态的稳定的 trace point，不会因为版本而改变的地方可以插入 kprobe，但这样就限制了 kprobe 可以探测的范围。</p>
+<h3 id="有了-eBPF"><a href="#有了-eBPF" class="headerlink" title="有了 eBPF"></a>有了 eBPF</h3><p>有了 eBPF，就可以将用户态的程序插入到内核中，不用编写内核模块了，但是问题并没有改善，内核版本带来的问题还是没有解决。</p>
+<p>eBPF 的 kprobe 一种方式时候 mapping，映射 kprobe 的数据到用户态程序，比如发包数，然后用户态程序定期检查这个映射进行统计。</p>
+<p>另一种方式是 event (perf_events)，如果 kprobe 向用户态程序发送事件来进行统计，这样不同轮询，直接异步计算就可以。</p>
+<p>低级别的 API，这个只有 Linux 有</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">bpf() 系统调用</span><br><span class="line">BPF_PROG_LOAD 加载 BPF 字节码</span><br><span class="line">  BPF_PROG_TYPE_SOCKET_FILTER</span><br><span class="line">  BPF_PROG_TYPE_KPROBE</span><br><span class="line">BPF_MAP_* map 映射到 BPF 当中</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">perf_event_open() + ioctl(PERF_EVENT_IOC_SET_BPF)</span><br></pre></td></tr></table></figure>
+
+<p>高级别的接口是 bcc（BPFcompiler collection），转换 c 到 LLVM-epbf 后端，并且前端是 python 的。可以实现动态加载 eBPF 字节码到内核中。</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/weaveworks/scope">weave scope</a> 就是用 bcc 实现的 <a target="_blank" rel="noopener" href="https://github.com/weaveworks-plugins/scope-http-statistics">HTTP stats</a> 的统计。</p>
+<p>在<a target="_blank" rel="noopener" href="https://github.com/weaveworks-plugins/scope-http-statistics/blob/master/ebpf-http-statistics.c#L25">这里</a>可以看到程序的主体，这里 hook 了内核函数 <code>skb_copy_datagram_iter</code>，这个函数有一个 tracepoint <code>trace_skb_copy_datagram_iovec</code>。在内核代码里面对应的是下面这段。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> *      skb_copy_datagram_iter - Copy a datagram to an iovec iterator.</span></span><br><span class="line"><span class="comment"> *      @skb: buffer to copy</span></span><br><span class="line"><span class="comment"> *      @offset: offset in the buffer to start copying from</span></span><br><span class="line"><span class="comment"> *      @to: iovec iterator to copy to</span></span><br><span class="line"><span class="comment"> *      @len: amount of data to copy from buffer to iovec</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="type">int</span> <span class="title function_">skb_copy_datagram_iter</span><span class="params">(<span class="type">const</span> <span class="keyword">struct</span> sk_buff *skb, <span class="type">int</span> offset,</span></span><br><span class="line"><span class="params">                           <span class="keyword">struct</span> iov_iter *to, <span class="type">int</span> len)</span></span><br><span class="line">&#123;</span><br><span class="line">        <span class="type">int</span> start = skb_headlen(skb);</span><br><span class="line">        <span class="type">int</span> i, copy = start - offset, start_off = offset, n;</span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">sk_buff</span> *<span class="title">frag_iter</span>;</span></span><br><span class="line"></span><br><span class="line">        trace_skb_copy_datagram_iovec(skb, len);</span><br></pre></td></tr></table></figure>
+
+<p>这里对这个 hook 注册了程序，具体的代码就不展示了，主要是根据协议统计这个 HTTP 的大小，方法等信息。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">/* skb_copy_datagram_iter() (Kernels &gt;= 3.19) is in charge of copying socket</span></span><br><span class="line"><span class="comment"> * buffers from kernel to userspace.</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * skb_copy_datagram_iter() has an associated tracepoint</span></span><br><span class="line"><span class="comment"> * (trace_skb_copy_datagram_iovec), which would be more stable than a kprobe but</span></span><br><span class="line"><span class="comment"> * it lacks the offset argument.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="type">int</span> <span class="title function_">kprobe__skb_copy_datagram_iter</span><span class="params">(<span class="keyword">struct</span> pt_regs *ctx, <span class="type">const</span> <span class="keyword">struct</span> sk_buff *skb, <span class="type">int</span> offset, <span class="type">void</span> *unused_iovec, <span class="type">int</span> len)</span></span><br><span class="line">&#123;</span><br></pre></td></tr></table></figure>
+
+<p>比如判断 method 是不是 DELETE 的是实现就比较蠢，是因为 eBPF 不支持循环，只能这么实现才能把 c 代码翻译成字节码。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">case</span> <span class="string">&#x27;D&#x27;</span>:</span><br><span class="line">	<span class="keyword">if</span> ((data[<span class="number">1</span>] != <span class="string">&#x27;E&#x27;</span>) || (data[<span class="number">2</span>] != <span class="string">&#x27;L&#x27;</span>) || (data[<span class="number">3</span>] != <span class="string">&#x27;E&#x27;</span>) || (data[<span class="number">4</span>] != <span class="string">&#x27;T&#x27;</span>) || (data[<span class="number">5</span>] != <span class="string">&#x27;E&#x27;</span>) || (data[<span class="number">6</span>] != <span class="string">&#x27; &#x27;</span>)) &#123;</span><br><span class="line">		<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">break</span>;</span><br></pre></td></tr></table></figure>
+
+<p>除了 bcc 之外，waeve 使用了 <a target="_blank" rel="noopener" href="https://github.com/iovisor/gobpf">gobpf</a>，一个 bpf 的 go binding，并且通过建立 tcp 连接来猜测内核的数据结构，以达到内核版本无关，这个项目 <a target="_blank" rel="noopener" href="https://github.com/weaveworks/tcptracer-bpf">tcptracer-bpf</a> 还在开发中。</p>
+<h3 id="eBPF-的其他应用"><a href="#eBPF-的其他应用" class="headerlink" title="eBPF 的其他应用"></a>eBPF 的其他应用</h3><p>还有一个比较大头的基于 eBPF 的是 <a target="_blank" rel="noopener" href="https://github.com/cilium/cilium">cilium</a>，一套比较完整的网络解决方案，用 eBPF 实现了 NAT，L3&#x2F;L4 负载均衡，连接记录等等功能。比如访问控制，一般的 iptables 都是 drop 或者 rst，要过整个协议栈，但是 eBPF 可以在 connect 的时候就拦截然后返回 EACCESS，这样就不用过协议栈了。cilium 一个优化就是通过 <a target="_blank" rel="noopener" href="https://github.com/iovisor/bpf-docs/blob/master/Express_Data_Path.pdf">XDP</a> ，利用类似 DPDK 的加速方案，hook 到驱动层中，让 eBPF 可以直接使用 DMA 的缓冲，优化负载均衡。</p>
+<blockquote>
+<p>BPF&#x2F;XDP allows for a 10x improvement in load balancing over IPVS for L3&#x2F;L4 traffic.</p>
+</blockquote>
+<p>现在 k8s 最新的 lb 方案是基于 ipvs 的，我在 <a href="https://ggaaooppeenngg.github.io/zh-CN/2018/09/10/kube-proxy-%E5%88%86%E6%9E%90/">kube-proxy 分析</a> 里面有提到过，已经比原来的 iptables 提高很多了，现在有了 eBPF 加 XDP 的硬件加速可以实现更高的提升，facebook 的 <a target="_blank" rel="noopener" href="https://github.com/facebookincubator/katran">katran</a> L4 负载均衡器的实现也是类似的。</p>
+<p>cilium 在我看来基本上是 k8s 网络的一个大方向吧，只不过包括 eBPF 和 XDP 对硬件和内核版本都要比较新，是一个要持续关注的更新。</p>
+<h4 id="性能调优"><a href="#性能调优" class="headerlink" title="性能调优"></a>性能调优</h4><p>在<a target="_blank" rel="noopener" href="https://www.youtube.com/watch?v=bj3qdEDbCD4">Velocity 2017: Performance Analysis Superpowers with Linux eBPF</a>里，<a target="_blank" rel="noopener" href="https://www.youtube.com/channel/UCxzogoHFu8-1H9u522wVQpQ">Brendan Gregg</a> (Netflix 的性能调优专家) 提到，性能调优也是 eBPF 的一个大头。用于网络监控其实只是 hook 在了协议栈的函数上，如果 hook 在别的地方可以有更多的统计维度。比如 bcc 官方的例子就是统计 IO Size 的大小的分布，更多关于基于 eBPF 的性能调优可以参考他的 <a target="_blank" rel="noopener" href="http://www.brendangregg.com/linuxperf.html">blog</a>，他给出了更详细的关于 eBPF 的解释，里面有一些列 Linux 性能调优的内容。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_"># </span><span class="language-bash">./bitehist.py</span></span><br><span class="line">Tracing... Hit Ctrl-C to end.</span><br><span class="line">^C</span><br><span class="line">     kbytes          : count     distribution</span><br><span class="line">       0 -&gt; 1        : 3        |                                      |</span><br><span class="line">       2 -&gt; 3        : 0        |                                      |</span><br><span class="line">       4 -&gt; 7        : 211      |**********                            |</span><br><span class="line">       8 -&gt; 15       : 0        |                                      |</span><br><span class="line">      16 -&gt; 31       : 0        |                                      |</span><br><span class="line">      32 -&gt; 63       : 0        |                                      |</span><br><span class="line">      64 -&gt; 127      : 1        |                                      |</span><br><span class="line">     128 -&gt; 255      : 800      |**************************************|</span><br></pre></td></tr></table></figure>
+
+<h4 id="安全"><a href="#安全" class="headerlink" title="安全"></a>安全</h4><p>在安全方面有 seccomp，可以实现限制 Linux 的系统调用，而 <a target="_blank" rel="noopener" href="https://blog.yadutaf.fr/2014/05/29/introduction-to-seccomp-bpf-linux-syscall-filter/">seccompe-bpf</a> 则是通过 bpf 支持更强大的过滤和匹配功能，k8s pod 里面的 SecurityContext 就有 seccomp 实现的部分。</p>
+<h4 id="cgroup"><a href="#cgroup" class="headerlink" title="cgroup"></a>cgroup</h4><p>在 cgroup 上有一个小原型，<a target="_blank" rel="noopener" href="https://github.com/kinvolk/cgnet">cgnet</a> 获取 cgroup 的网络统计信息到 prometheus，也是基于 eBPF 的。</p>
+<h2 id="参考"><a href="#参考" class="headerlink" title="参考:"></a>参考:</h2><ol>
+<li><p><a target="_blank" rel="noopener" href="https://www.youtube.com/watch?v=k4jqTLtdrxQ">Infrastructure 2017 - Alfonso Acosta - High-performance Linux monitoring with eBPF</a></p>
+</li>
+<li><p><a target="_blank" rel="noopener" href="https://media.ccc.de/v/ASG2017-134-using_bpf_in_kubernetes#t=355">Using bpf in kubernetes</a></p>
+</li>
+<li><p><a target="_blank" rel="noopener" href="https://opensource.googleblog.com/2016/11/cilium-networking-and-security.html">Cilium: Networking and security for containers with BPF and XDP</a></p>
+</li>
+</ol>
+
+      
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+        <div class="post-eof"></div>
+      
+    </footer>
+  </article>
+</div>
+
+
+
+
+    
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2018/10/08/K8S-%E5%85%BC%E5%AE%B9-CSI-%E5%81%9A%E7%9A%84%E5%B7%A5%E4%BD%9C/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="undefined | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          <a href="/zh-CN/2018/10/08/K8S-%E5%85%BC%E5%AE%B9-CSI-%E5%81%9A%E7%9A%84%E5%B7%A5%E4%BD%9C/" class="post-title-link" itemprop="url">K8S 兼容 CSI 做的工作</a>
+        </h2>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2018-10-08 00:41:41" itemprop="dateCreated datePublished" datetime="2018-10-08T00:41:41+08:00">2018-10-08</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2025-03-14 13:50:06" itemprop="dateModified" datetime="2025-03-14T13:50:06+08:00">2025-03-14</time>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2018/10/08/K8S-%E5%85%BC%E5%AE%B9-CSI-%E5%81%9A%E7%9A%84%E5%B7%A5%E4%BD%9C/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2018/10/08/K8S-兼容-CSI-做的工作/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+          <p>csi 是一个标准的容器存储接口，规定了如何实现一个容器的存储接口，CSI 本身的定义是基于 gRPC 的，所以有一套样例库可以使用，这里分析一下 kuberntes 实现 csi 的方式，为了兼容 CSI kubernete 其实搞得挺绕的，目前这个 CSI 还是定制中包括后期的 Snapshot 的接口怎么设计等等还在讨论中。kubernetes CSI 主要基于几个外部组件和内部功能的一些改动。</p>
+<h2 id="CSI-Driver"><a href="#CSI-Driver" class="headerlink" title="CSI-Driver"></a>CSI-Driver</h2><p><a target="_blank" rel="noopener" href="https://github.com/container-storage-interface/spec">这里</a>规定了 CSI 的标准，定义了三个 Service，也就是 RPC 的集合，但是没规定怎么写，目前看到的实现都是把这三个 service 都写在一起，比较方便，然后部署的时候有些区别将就可以。</p>
+<figure class="highlight protobuf"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">service </span><span class="title class_">Identity</span> &#123;</span><br><span class="line">  <span class="function"><span class="keyword">rpc</span> GetPluginInfo(GetPluginInfoRequest)</span></span><br><span class="line"><span class="function">    <span class="keyword">returns</span> (GetPluginInfoResponse) </span>&#123;&#125;</span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="keyword">rpc</span> GetPluginCapabilities(GetPluginCapabilitiesRequest)</span></span><br><span class="line"><span class="function">    <span class="keyword">returns</span> (GetPluginCapabilitiesResponse) </span>&#123;&#125;</span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="keyword">rpc</span> Probe (ProbeRequest)</span></span><br><span class="line"><span class="function">    <span class="keyword">returns</span> (ProbeResponse) </span>&#123;&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">service </span><span class="title class_">Controller</span> &#123;</span><br><span class="line">  <span class="function"><span class="keyword">rpc</span> CreateVolume (CreateVolumeRequest)</span></span><br><span class="line"><span class="function">    <span class="keyword">returns</span> (CreateVolumeResponse) </span>&#123;&#125;</span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="keyword">rpc</span> DeleteVolume (DeleteVolumeRequest)</span></span><br><span class="line"><span class="function">    <span class="keyword">returns</span> (DeleteVolumeResponse) </span>&#123;&#125;</span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="keyword">rpc</span> ControllerPublishVolume (ControllerPublishVolumeRequest)</span></span><br><span class="line"><span class="function">    <span class="keyword">returns</span> (ControllerPublishVolumeResponse) </span>&#123;&#125;</span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="keyword">rpc</span> ControllerUnpublishVolume (ControllerUnpublishVolumeRequest)</span></span><br><span class="line"><span class="function">    <span class="keyword">returns</span> (ControllerUnpublishVolumeResponse) </span>&#123;&#125;</span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="keyword">rpc</span> ValidateVolumeCapabilities (ValidateVolumeCapabilitiesRequest)</span></span><br><span class="line"><span class="function">    <span class="keyword">returns</span> (ValidateVolumeCapabilitiesResponse) </span>&#123;&#125;</span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="keyword">rpc</span> ListVolumes (ListVolumesRequest)</span></span><br><span class="line"><span class="function">    <span class="keyword">returns</span> (ListVolumesResponse) </span>&#123;&#125;</span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="keyword">rpc</span> GetCapacity (GetCapacityRequest)</span></span><br><span class="line"><span class="function">    <span class="keyword">returns</span> (GetCapacityResponse) </span>&#123;&#125;</span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="keyword">rpc</span> ControllerGetCapabilities (ControllerGetCapabilitiesRequest)</span></span><br><span class="line"><span class="function">    <span class="keyword">returns</span> (ControllerGetCapabilitiesResponse) </span>&#123;&#125;</span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="keyword">rpc</span> CreateSnapshot (CreateSnapshotRequest)</span></span><br><span class="line"><span class="function">    <span class="keyword">returns</span> (CreateSnapshotResponse) </span>&#123;&#125;</span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="keyword">rpc</span> DeleteSnapshot (DeleteSnapshotRequest)</span></span><br><span class="line"><span class="function">    <span class="keyword">returns</span> (DeleteSnapshotResponse) </span>&#123;&#125;</span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="keyword">rpc</span> ListSnapshots (ListSnapshotsRequest)</span></span><br><span class="line"><span class="function">    <span class="keyword">returns</span> (ListSnapshotsResponse) </span>&#123;&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">service </span><span class="title class_">Node</span> &#123;</span><br><span class="line">  <span class="function"><span class="keyword">rpc</span> NodeStageVolume (NodeStageVolumeRequest)</span></span><br><span class="line"><span class="function">    <span class="keyword">returns</span> (NodeStageVolumeResponse) </span>&#123;&#125;</span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="keyword">rpc</span> NodeUnstageVolume (NodeUnstageVolumeRequest)</span></span><br><span class="line"><span class="function">    <span class="keyword">returns</span> (NodeUnstageVolumeResponse) </span>&#123;&#125;</span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="keyword">rpc</span> NodePublishVolume (NodePublishVolumeRequest)</span></span><br><span class="line"><span class="function">    <span class="keyword">returns</span> (NodePublishVolumeResponse) </span>&#123;&#125;</span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="keyword">rpc</span> NodeUnpublishVolume (NodeUnpublishVolumeRequest)</span></span><br><span class="line"><span class="function">    <span class="keyword">returns</span> (NodeUnpublishVolumeResponse) </span>&#123;&#125;</span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="keyword">rpc</span> NodeGetVolumeStats (NodeGetVolumeStatsRequest)</span></span><br><span class="line"><span class="function">    <span class="keyword">returns</span> (NodeGetVolumeStatsResponse) </span>&#123;&#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// NodeGetId is being deprecated in favor of NodeGetInfo and will be</span></span><br><span class="line">  <span class="comment">// removed in CSI 1.0. Existing drivers, however, may depend on this</span></span><br><span class="line">  <span class="comment">// RPC call and hence this RPC call MUST be implemented by the CSI</span></span><br><span class="line">  <span class="comment">// plugin prior to v1.0.</span></span><br><span class="line">  <span class="function"><span class="keyword">rpc</span> NodeGetId (NodeGetIdRequest)</span></span><br><span class="line"><span class="function">    <span class="keyword">returns</span> (NodeGetIdResponse) </span>&#123;</span><br><span class="line">    <span class="keyword">option</span> deprecated = <span class="literal">true</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="keyword">rpc</span> NodeGetCapabilities (NodeGetCapabilitiesRequest)</span></span><br><span class="line"><span class="function">    <span class="keyword">returns</span> (NodeGetCapabilitiesResponse) </span>&#123;&#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Prior to CSI 1.0 - CSI plugins MUST implement both NodeGetId and</span></span><br><span class="line">  <span class="comment">// NodeGetInfo RPC calls.</span></span><br><span class="line">  <span class="function"><span class="keyword">rpc</span> NodeGetInfo (NodeGetInfoRequest)</span></span><br><span class="line"><span class="function">    <span class="keyword">returns</span> (NodeGetInfoResponse) </span>&#123;&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>比如说 <code>GetPluginInfo</code> 就是用来获取 driver 的 name 等信息的，<code>NodePublishVolume</code> 大部分情况下就是在节点上挂载文件系统，<code>CreateVolume</code> 这个如果对应的是 ebs 这种块存储可能就是在 API 里面建一个 ebs，如果对应的是 glusterfs 这种文件系统存储可能就是建一个 volume，然后 <code>ControllerPublishVolume</code> 对应 ebs 就是把 ebs 和 instance 绑定，然后调用节点的 <code>NodePublishVolume</code> 来挂载，如果是文件存储，可能就不需要 &#96;&#96;ControllerPublishVolume&#96; 了，因为不需要绑定快设备到机器上，直接挂到网络接口就可以，这一套标准的目的一个是为了兼容现有的存储方案，一个是为了让一些私有的 provider 能够比较容易的实现一套方案，而不需要做过多的迁移，甚至厂商都不需要开源代码，如果是要实现 in-tree 的存储代码肯定是要开源的，因为 kubernetes 是开源的。</p>
+<h2 id="device-driver-registrar"><a href="#device-driver-registrar" class="headerlink" title="device-driver-registrar"></a>device-driver-registrar</h2><p>kubernetes 实现 csi 的兼容，首先需要一个外部组件 devide-driver-registrar，初始化的时候通过 csi-sock 的 RPC 获取 driver name 和 node id。</p>
+<p>主要功能给 node 打上下面类似的 annotations，dirver 对应的是 csi driver 的名字，name 对应的是 driver 的 NodeId 基本上就是 k8s 的 node name。这样可以让 <code>ControllerPublishVolume</code> 调用能够获取 nodeid 到 storage nodeid 的映射，理论上一样的就可以感觉。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">csi.volume.kubernetes.io/nodeid: &quot;&#123; &quot;driver1&quot;: &quot;name1&quot;, &quot;driver2&quot;: &quot;name2&quot; &#125;</span><br></pre></td></tr></table></figure>
+
+<p>他有两个模式，一个模式是自己给 node 打上这个 annotation，并且在退出的时候把这个 annotation 去掉。</p>
+<p>另一个模式是交给 kubelet 的 pluginswatcher 来管理， kubelet 自己会根据 device-driver-registrar 提供的 unix domain socket 然后调用 gRPC 从 registrar 获取 NodeId 和 DriverName 自己把 annotation 打上。</p>
+<p>搜索这条路径下的 socket<code>/var/lib/kubelet/plugins/[SanitizedCSIDriverName]/csi.sock</code>，然后就可以自动连接 registrar 拿到 NodeId 和 DriverName。</p>
+<p>所以 device-driver-registar 主要是注册 Node annotation 的。</p>
+<h2 id="external-attacher"><a href="#external-attacher" class="headerlink" title="external-attacher"></a>external-attacher</h2><p>监听 VolumeAttachments 和 PersistentVolumes 两个对象，这是和 kube-controller-manager 之间的桥梁。</p>
+<p>实现中最后会调用 <code>SyncNewOrUpdatedVolumeAttachment</code> 来同步，调用 csi dirver 的 Attach 函数。</p>
+<h3 id="in-tree-的-attach-detach-controller"><a href="#in-tree-的-attach-detach-controller" class="headerlink" title="in-tree 的 attach&#x2F;detach-controller"></a>in-tree 的 attach&#x2F;detach-controller</h3><p>在 CSI 中扮演的角色是创建 VolumeAttachment，然后等待他的 VolumeAttachment 的 attached 的状态。</p>
+<p>attach-controller 会创建 <code>VolumeAttatchment.Spec.Attacher</code> 指向的是 <code>external-attacher</code></p>
+<h2 id="external-provisoner"><a href="#external-provisoner" class="headerlink" title="external-provisoner"></a>external-provisoner</h2><p><code>Static Volume</code> 和 <code>Dynamic Volume</code> 的区别是，有一个 PersistentVolumeClaim 这个会根据 claim 自动分配 PersistentVolume，不然就要自己手动创建，然后 pod 要指定这个手动创建的 volume。</p>
+<p>external-provisoner 就是提供支持 PersistentVolumeClaim 的，一般的 provisioner 要实现 Provision 和 Delete 的接口。主要是根据 PVC 创建 PV，这是 Provisioner 的接口的定义了，不是 CSI spec 里的，这里顺带介绍一下。</p>
+<p>external-provisoner 看到 pvc 调用 <code>driver</code> 的 CreateVolume，完成以后就会创建 PersistenVolume，并且绑定到 pvc。</p>
+<h2 id="kubelet-volume-manager"><a href="#kubelet-volume-manager" class="headerlink" title="kubelet volume manager"></a>kubelet volume manager</h2><p>kubelet 有一个 volume manager 来管理 volume 的 mount&#x2F;attach 操作。</p>
+<p><code>desiredStateOfWorld</code> 是从 podManager 同步的理想状态。</p>
+<p><code>actualStateOfWorld</code> 是目前 kubelet 的上运行的 pod 的状态。</p>
+<p>每次 volume manager 需要把 <code>actualStateOfWorld</code> 中 volume 的状态同步到 desired 指定的状态。</p>
+<p>volume Manager 有两个 goroutine 一个是同步状态，一个 reconciler.reconcile</p>
+<p> rc.operationExecutor.MountVolume 会执行 MountVolume 的操作。</p>
+<p>-&gt; oe.operationGenerator.GenerateMountVolumeFunc </p>
+<p>-&gt; 首先根据 og.volumePluginMgr.FindPluginBySpec 找到对应的 VolumePlugin</p>
+<p>-&gt; 然后调用 volumePlugin.NewMounter</p>
+<p>-&gt; 然后拿到  og.volumePluginMgr.FindAttachablePluginBySpec attachableplugin</p>
+<p>-&gt; volumeMounter.SetUp(fsGroup) 做 mount</p>
+<h3 id="volume-plugin"><a href="#volume-plugin" class="headerlink" title="volume plugin"></a>volume plugin</h3><p>csi volume plugin 是一个 in-tree volume，以后应该会逐步迁移到都使用 csi，而不会再有 in-tree volume plugin 了。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(c *csiMountMgr)</span></span> SetUp(fsGroup *<span class="type">int64</span>) <span class="type">error</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> c.SetUpAt(c.GetPath(), fsGroup)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>csi 的 mounter 调用了 NodePublish 函数。stagingTargetPath 和 targetPath 都是自动生成的。</p>
+<p> <code>SetUp</code>&#x2F;<code>TearDown</code> 的调用会执行 in-tree CSI plugin 的接口（这又是 in-tree volume plugin 的定义，确实挺绕的），对应的是  <code>NodePublishVolume</code> 和 <code>NodeUnpublishVolume</code> ，这个会通过 unix domain socket 直接调用 csi driver。</p>
+<h2 id="总结一个简单的具体流程"><a href="#总结一个简单的具体流程" class="headerlink" title="总结一个简单的具体流程"></a>总结一个简单的具体流程</h2><p>首先管理员创建 StorageClass 指向 external-provisioner，然后用户创建指向这个 StorageClass 的 pvc，然后 kube-controller-manager 里的 persistent volume manager 会把这个 pvc 打上 <code>volume.beta.kubernetes.io/storage-provisioner</code> 的 annotation。</p>
+<p>externla-provisioner 看到这个 pvc 带有自己的 annotation 以后，拿到 StorageClass 提供的一些参数，并且根据 StorageClass 和 pvc 调用 CSI driver 的 <code>CreateVolume</code>，创建成功以后创建 pv，并且把这个 pv 绑定到对应的 pvc。</p>
+<p>然后 kube-controller-manager 看到有 pod 含有对应的 pvc，就用调用 in-tree 的 CSI plugin 的 attach 方法。</p>
+<p>in-tree 的 CSI plugin 实际上会创建一个 VolumeAttachment 的 object，等待这个 VolumeAttachment 被完成。</p>
+<p>external-controller 看到 VolumeAttachment，开始 attach 一个 volume，实际上调用 CSI driver 的 <code>ControllerPublish</code>，成功以后更新 <code>VoluemAttachment</code> 以后就知道这个 Volume Attach 成功了，然后让 attach&#x2F;detach-controller (kube-controller-manager) 知道这个 attach 完成。</p>
+<p>接下来就到 kubelet 了，kubelet 看到 volume in pod 以后就会调用 in-tree 的 csi plugin WaitForAttach，然后等待 Attach 成功，之后就会调用 daemonset 里面的 csi driver 的 <code>NodePublishVolume</code> 做挂载操作。</p>
+<p>整体的流程是这样的，需要反复多看几遍 kubernetes-csi 的 <a target="_blank" rel="noopener" href="https://github.com/kubernetes/community/blob/master/contributors/design-proposals/storage/container-storage-interface.md">document</a>，加深理解。</p>
+
+      
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+        <div class="post-eof"></div>
+      
+    </footer>
+  </article>
+</div>
+
+
+
 
     
 
@@ -1134,331 +1517,6 @@
 <p>也可以把两步结合起来，直接创建自签名的证书，<code>openssl req -new -x509 -days 365 -key test.key -out test.crt</code>，如果不想要交互式的可以直接</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">openssl req -new -x509 -days 365 -key test.key -out test.crt \</span><br><span class="line">-subj &quot;/C=CN/L=BJ/O=HaiDian/CN=www.example.com&quot;</span><br></pre></td></tr></table></figure>
 <p>CN 只能写一个，虽然可以写泛域名，但是要支持多个域名可以通过扩展字段 SAN（Subject Alternative Name)来解决。</p>
-
-      
-    </div>
-
-    
-    
-    
-
-    <footer class="post-footer">
-        <div class="post-eof"></div>
-      
-    </footer>
-  </article>
-</div>
-
-
-
-
-    
-
-
-<div class="post-block">
-  
-  
-
-  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2018/04/21/CUDA-%E7%9A%84%E8%AE%A1%E7%AE%97%E6%A8%A1%E5%9E%8B/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="ggaaooppeenngg">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="ggaaooppeenngg">
-      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
-    </span>
-
-    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
-      <meta itemprop="name" content="undefined | ggaaooppeenngg">
-      <meta itemprop="description" content="">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          <a href="/zh-CN/2018/04/21/CUDA-%E7%9A%84%E8%AE%A1%E7%AE%97%E6%A8%A1%E5%9E%8B/" class="post-title-link" itemprop="url">CUDA 的计算模型</a>
-        </h2>
-
-        <div class="post-meta-container">
-          <div class="post-meta">
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-calendar"></i>
-      </span>
-      <span class="post-meta-item-text">发表于</span>
-
-      <time title="创建时间：2018-04-21 18:20:28" itemprop="dateCreated datePublished" datetime="2018-04-21T18:20:28+08:00">2018-04-21</time>
-    </span>
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-calendar-check"></i>
-      </span>
-      <span class="post-meta-item-text">更新于</span>
-      <time title="修改时间：2025-03-14 13:50:06" itemprop="dateModified" datetime="2025-03-14T13:50:06+08:00">2025-03-14</time>
-    </span>
-
-  
-  
-  <span class="post-meta-item">
-    
-      <span class="post-meta-item-icon">
-        <i class="far fa-comment"></i>
-      </span>
-      <span class="post-meta-item-text">Disqus：</span>
-    
-    <a title="disqus" href="/zh-CN/2018/04/21/CUDA-%E7%9A%84%E8%AE%A1%E7%AE%97%E6%A8%A1%E5%9E%8B/#disqus_thread" itemprop="discussionUrl">
-      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2018/04/21/CUDA-的计算模型/" itemprop="commentCount"></span>
-    </a>
-  </span>
-  
-  
-</div>
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-          <h2 id="我的一点观点"><a href="#我的一点观点" class="headerlink" title="我的一点观点"></a>我的一点观点</h2><p>我个人觉得 nvidia 的 CUDA 太封闭了，不是很能明白这样封闭的产品怎么能够长久生存，仅仅是因为家大业大么，如果有家公司推出了八成性能的 GPU，但是整套开发的生态非常友好，是不是会像 Android 取代诺基亚一样，还是 nvidia 就是苹果，就算封闭环境也能保证强劲体验，这我也不好说了。</p>
-<h2 id="安装"><a href="#安装" class="headerlink" title="安装"></a>安装</h2><p>CUDA+cudnn 装起来挺麻烦的，反正如果有错误的话，可以检查 CUDA samples 里面的 deviceQuery 是否成功，如果不成功可以用 strace 看一下少了什么东西，再想办法安装上去。检查 cudnn samples 是否成功也是一样的，里面有一个 mnistDNN 的例子。</p>
-<h2 id="Hello-World"><a href="#Hello-World" class="headerlink" title="Hello World!"></a>Hello World!</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">#include &lt;stdio.h&gt;</span><br><span class="line"></span><br><span class="line">__global__ void helloFromGPU (void)</span><br><span class="line">&#123;</span><br><span class="line">	printf(&quot;Hello world!\n&quot;);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">int main(void)</span><br><span class="line">&#123;</span><br><span class="line">	printf(&quot;Hello World! from CPU\n&quot;);</span><br><span class="line"></span><br><span class="line">	helloFromGPU &lt;&lt;&lt;1, 10&gt;&gt;&gt;();</span><br><span class="line">	cudaDeviceReset();</span><br><span class="line">	return 0;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>以上就是一段 GPU 的 Hello world，执行下面的代码可以看到我们在 GPU 上并行执行了十个 “Hello world!” 的打印。</p>
-<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_">$ </span><span class="language-bash">nvcc -<span class="built_in">arch</span> sm_20 hello.cu -o hello</span></span><br><span class="line"><span class="meta prompt_">$ </span><span class="language-bash">./hello</span></span><br><span class="line">Hello World! from CPU</span><br><span class="line">Hello world!</span><br><span class="line">Hello world!</span><br><span class="line">Hello world!</span><br><span class="line">Hello world!</span><br><span class="line">Hello world!</span><br><span class="line">Hello world!</span><br><span class="line">Hello world!</span><br><span class="line">Hello world!</span><br><span class="line">Hello world!</span><br><span class="line">Hello world!</span><br></pre></td></tr></table></figure>
-<h2 id="CUDA"><a href="#CUDA" class="headerlink" title="CUDA"></a>CUDA</h2><p>CUDA 全称 Compute Unified Device Architecure，用于定义 GPU 的架构标准。GPU 的工作方式主要依赖于多核心的并行计算，CUDA 提供了方便的模型进行这种模式的编程，下面就会简单介绍一下 CUDA 的架构以及基于 GPU 的编程。</p>
-<p>CUDA 一次启动的线程称为网格(grid)，网格中包含块，每个块包含新程，是一个二维的模式，这张图片就说明得很清晰，首先是由 Grid 组成，然后每个 Block 有 shared memory，同 block 的线程可以访问 shared memory，不同的 Block 的线程只能访问全局的内存，这种结构也方便设计和实现并行算法。</p>
-<p><img data-src="https://www.researchgate.net/profile/Marco_Nobile/publication/261069154/figure/fig1/AS:296718735298563@1447754667270/Schematization-of-CUDA-architecture-Schematic-representation-of-CUDA-threads-and-memory.png" alt="cuda-arch"></p>
-<p>CUDA 的编译器 nvcc 是 gcc 的一个扩展，支持编写运行在 GPU 上的函数，其中的，<code>&lt;&lt;x, y&gt;&gt;</code> 扩展就是用来指定 block 和 thread 的数量的。</p>
-<p>比如典型的俩个向量相加的例子：</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span> <span class="title function_">sumArrayOnHost</span><span class="params">(<span class="type">float</span> *A, <span class="type">float</span> *B, <span class="type">float</span> *C, <span class="type">const</span> <span class="type">int</span> N)</span> &#123;</span><br><span class="line">    <span class="keyword">for</span> (<span class="type">int</span> i = <span class="number">0</span>; i &lt; N; i++)</span><br><span class="line">        C[i] = A[i] + B[i]</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>但是 GPU 的核函数怎么写呢，是这样的。</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">__global__ <span class="type">void</span> <span class="title function_">sumArrayOnGPU</span><span class="params">(<span class="type">float</span> *A, <span class="type">float</span> *N, <span class="type">float</span> C)</span> &#123;</span><br><span class="line">    <span class="type">int</span> i = threadIdx.x</span><br><span class="line">    C[i] = A[i] + B[i]</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>然后，如果 N 是 32 的话，可以如下调用，<code>__global__</code> 表示这个函数可以在 host 调用也可以在 GPU 上调用，用个 32 个线程的 block 算这个向量和，N 隐性包含在了定义中。</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sumArrayOnGPU&lt;&lt;<span class="number">1</span>, <span class="number">32</span>&gt;&gt;(<span class="type">float</span> *A, <span class="type">float</span> *B, <span class="type">float</span> *C)</span><br></pre></td></tr></table></figure>
-
-<h2 id="线程组织"><a href="#线程组织" class="headerlink" title="线程组织"></a>线程组织</h2><p>基于 CPU 和 GPU 的异构计算平台可以优势互补，CPU 负责处理逻辑复杂的串行程序，而 GPU 重点处理数据密集型的并行计算程序，从而发挥最大功效。</p>
-<p>线程组织主要依据网格（现在网络这个词其实比较容易混淆，可以是神经网络可以是计算机网络，这里指的是线程的组织形式）模型。主要分 grid, block, thread，组织的方式就靠索引来决定，可以通过 block 索引和 thread 索引进行线程的定位。CUDA 提供了块内线程同步的方法，但是没有提供块间同步的原语。</p>
-<h3 id="线程束分化"><a href="#线程束分化" class="headerlink" title="线程束分化"></a>线程束分化</h3><p>线程束 &#x3D; warp</p>
-<p>CPU 有很强的分支预测的能力，会预加载指令，如果预测正确，执行代价就很小，但是 GPU 在这方面是很弱的，因为线程束当中如果执行分支出现不同，那出现分支的线程就会被禁止执行，这也是用 GPU 做并行编程的时候需要参考的一个很重要的因素，保证并行的线程出现线程束分化的情况尽量少。</p>
-<p>下面就是线程束分化的例子。</p>
-<p><img data-src="http://15418.courses.cs.cmu.edu/spring2013content/lectures/02_basicarch/images/slide_030.png"></p>
-<h3 id="并行归约问题"><a href="#并行归约问题" class="headerlink" title="并行归约问题"></a>并行归约问题</h3><p>并行归约是指如何对并行问题进行归约，比如说相邻配对和交错配对。</p>
-<h2 id="设备管理"><a href="#设备管理" class="headerlink" title="设备管理"></a>设备管理</h2><p>管理 GPU 主要是通过 CUDA API 或者 <code>nvidia-smi</code> 命令来获取。</p>
-<h2 id="SM（流式多处理器）"><a href="#SM（流式多处理器）" class="headerlink" title="SM（流式多处理器）"></a>SM（流式多处理器）</h2><p>上面讲的是抽象上的分层，但是实际的物理层面承载 GPU 的是 SM。最早的 GPU 架构叫 Fermi，然后是 Kepler，然后才是 Tesla。一般说的 <code>cm_20</code>, <code>sm_20</code> 就指这种计算能力和架构，新款的 GPU 计算能力要更强一点。</p>
-<h2 id="内存模型"><a href="#内存模型" class="headerlink" title="内存模型"></a>内存模型</h2><p>CUDA 的内存模型和 CPU 是类似的也是多级的结构。线程有局部内存，块之间有全局内存。GPU 和 CPU 都是主要采用 DRAM 来做主存，CPU 的一级缓存会用 SRAM 做。CPU 的多级缓存对用户来说不是很需要考虑，尽量屏蔽了其中的细节，但是 GPU 相对来说会把这种分级结构暴露给用户，这对编程来说也是一种新的挑战。</p>
-<h2 id="后面"><a href="#后面" class="headerlink" title="后面"></a>后面</h2><p>用 GPU 计算一些计算密集型的程序，速度是真快，比 CPU 块很多，所以这也是为什么大量深度学习的应用都要通过 GPU 加速的原因。</p>
-
-      
-    </div>
-
-    
-    
-    
-
-    <footer class="post-footer">
-        <div class="post-eof"></div>
-      
-    </footer>
-  </article>
-</div>
-
-
-
-
-    
-
-
-<div class="post-block">
-  
-  
-
-  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2018/01/03/%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E5%8F%8D%E5%90%91%E8%AF%AF%E5%B7%AE%E4%BC%A0%E6%92%AD/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="ggaaooppeenngg">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="ggaaooppeenngg">
-      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
-    </span>
-
-    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
-      <meta itemprop="name" content="undefined | ggaaooppeenngg">
-      <meta itemprop="description" content="">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          <a href="/zh-CN/2018/01/03/%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E5%8F%8D%E5%90%91%E8%AF%AF%E5%B7%AE%E4%BC%A0%E6%92%AD/" class="post-title-link" itemprop="url">裸写反向误差传播</a>
-        </h2>
-
-        <div class="post-meta-container">
-          <div class="post-meta">
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-calendar"></i>
-      </span>
-      <span class="post-meta-item-text">发表于</span>
-
-      <time title="创建时间：2018-01-03 20:32:04" itemprop="dateCreated datePublished" datetime="2018-01-03T20:32:04+08:00">2018-01-03</time>
-    </span>
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-calendar-check"></i>
-      </span>
-      <span class="post-meta-item-text">更新于</span>
-      <time title="修改时间：2025-03-14 13:50:06" itemprop="dateModified" datetime="2025-03-14T13:50:06+08:00">2025-03-14</time>
-    </span>
-
-  
-  
-  <span class="post-meta-item">
-    
-      <span class="post-meta-item-icon">
-        <i class="far fa-comment"></i>
-      </span>
-      <span class="post-meta-item-text">Disqus：</span>
-    
-    <a title="disqus" href="/zh-CN/2018/01/03/%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E5%8F%8D%E5%90%91%E8%AF%AF%E5%B7%AE%E4%BC%A0%E6%92%AD/#disqus_thread" itemprop="discussionUrl">
-      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2018/01/03/从零实现反向误差传播/" itemprop="commentCount"></span>
-    </a>
-  </span>
-  
-  
-</div>
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-          <p>本文通过裸写神经网络的方法，帮助理解神经网络的工作方式，直接在 <a target="_blank" rel="noopener" href="https://www.kesci.com/apps/home/project/5a4a334225c4185a1b990d7e">klab</a> 上查看就可以。</p>
-
-      
-    </div>
-
-    
-    
-    
-
-    <footer class="post-footer">
-        <div class="post-eof"></div>
-      
-    </footer>
-  </article>
-</div>
-
-
-
-
-    
-
-
-<div class="post-block">
-  
-  
-
-  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2017/12/19/kube-dns-service/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="ggaaooppeenngg">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="ggaaooppeenngg">
-      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
-    </span>
-
-    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
-      <meta itemprop="name" content="undefined | ggaaooppeenngg">
-      <meta itemprop="description" content="">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          <a href="/zh-CN/2017/12/19/kube-dns-service/" class="post-title-link" itemprop="url">kube-dns service</a>
-        </h2>
-
-        <div class="post-meta-container">
-          <div class="post-meta">
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-calendar"></i>
-      </span>
-      <span class="post-meta-item-text">发表于</span>
-
-      <time title="创建时间：2017-12-19 22:28:28" itemprop="dateCreated datePublished" datetime="2017-12-19T22:28:28+08:00">2017-12-19</time>
-    </span>
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-calendar-check"></i>
-      </span>
-      <span class="post-meta-item-text">更新于</span>
-      <time title="修改时间：2025-03-14 13:50:06" itemprop="dateModified" datetime="2025-03-14T13:50:06+08:00">2025-03-14</time>
-    </span>
-
-  
-  
-  <span class="post-meta-item">
-    
-      <span class="post-meta-item-icon">
-        <i class="far fa-comment"></i>
-      </span>
-      <span class="post-meta-item-text">Disqus：</span>
-    
-    <a title="disqus" href="/zh-CN/2017/12/19/kube-dns-service/#disqus_thread" itemprop="discussionUrl">
-      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2017/12/19/kube-dns-service/" itemprop="commentCount"></span>
-    </a>
-  </span>
-  
-  
-</div>
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-          <p>kube-dns 是 kubernetes 基于 DNS 的服务发现模块，主要由三个容器组成，分别是 dnsmasq, kube-dns, sidecar，整体的结构如图。</p>
-<img data-src="/zh-CN/2017/12/19/kube-dns-service/kube-dns-infra.png" class="">
-
-<h2 id="sidecar"><a href="#sidecar" class="headerlink" title="sidecar"></a>sidecar</h2><p>sidecar 是一个监控健康模块，同时向外暴露metrics 记录，但是为啥叫三蹦子不知道。</p>
-<p>接受的探测参数是</p>
-<p><code>--probe=&lt;label&gt;,&lt;server&gt;,&lt;dnsname&gt;[,&lt;interval_seconds&gt;][,&lt;type&gt;]</code></p>
-<p>例子如下</p>
-<p><code>--probe=dnsmasq,127.0.0.1:53,kubernetes.default.svc.cluster.local,5,A</code></p>
-<p>等于是每隔 5s 向127.0.0.1:53 进行 DNS 查询 kubernetes.default.svc.cluster.local 的 A 记录</p>
-<p>对应的结构体是</p>
-<img data-src="/zh-CN/2017/12/19/kube-dns-service/dns-probe-option.png" class="">
-
-<h2 id="dnsmasq"><a href="#dnsmasq" class="headerlink" title="dnsmasq"></a>dnsmasq</h2><p>dnsmasq-nanny 是 dnsmasq 的保姆进程，<a target="_blank" rel="noopener" href="http://www.thekelleys.org.uk/dnsmasq/doc.html">dnsmasq</a> 是一个简易的 DNS server。</p>
-<p>dnsmasq-nanny “–” 后面是 dnsmasq 的参数，比如下面这个参数表示的是把 <code>server=/cluster.local/127.0.0.1#10053</code> 当作 dnsmasq 的配置，10053 是 kube-dns 的地址，也就是把 cluster.local 的域名拦截转到 kube-dns 进行解析，剩下的通过正常的域名解析流程。</p>
-<p><code>--server=/cluster.local/127.0.0.1#10053</code></p>
-<p>dnsmasq 简单来说扮演的是集群当中的一个传统 dns server 并且把集群内部的 dns 查询拦截到 kube-dns 当中通过中心化的方法进行 dns 查询，集群的 dns 查询主要依靠 kube-dns。</p>
-<h2 id="kube-dns"><a href="#kube-dns" class="headerlink" title="kube-dns"></a>kube-dns</h2><p>kube-dns 主要基于 <a target="_blank" rel="noopener" href="https://github.com/skynetservices/skydns">skydns</a> 来实现。</p>
-<p>在 <code>k8s.io/dns/pkg/dns/dns.go</code>  的 <code>KubeDNS.Start</code> 下面有 endpoints 和 services 的 controllers，会把 service 注册到 kube-dns 的 cache 当中 (k8s.io&#x2F;dns&#x2F;pkg&#x2F;dns&#x2F;treecache)，这里有 k8s 域名命名<a target="_blank" rel="noopener" href="https://github.com/kubernetes/dns/blob/master/docs/specification.md">规范</a></p>
-<p>主要的实现方式是 skydns 接受一个后端实现。</p>
-<img data-src="/zh-CN/2017/12/19/kube-dns-service/skydns-backend.png" class="">
-
-
-
-<p><code>KubeDNS.Records</code> <code>KubeDNS.ReverseRecord</code> 基于 TreeCache 实现 DNS 记录存储的后端，从而使得 skydns 提供 DNS 服务。</p>
-<img data-src="/zh-CN/2017/12/19/kube-dns-service/kube-dns.png" class="">
-
-<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>整体来说 kube-dns 还是一个比较简单的模块，基于 kube-apiserver 的一个控制器，提供中心化的 DNS 查询。</p>
 
       
     </div>

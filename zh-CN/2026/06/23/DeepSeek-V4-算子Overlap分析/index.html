@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.3.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="_85tctgPWrqH2EPVuuD5IT6KE-tW8nH0hTISJDMnShg">
+  <meta name="baidu-site-verification" content="bb16c5b1fd3302c18e0015bef11eea42">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha256-dABdfBfUoC8vJUBOwGVdm8L9qlMWaHTIfXt+7GnZCIo=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.css" integrity="sha256-gkQVf8UKZgQ0HyuxL/VnacadJ+D2Kox2TCEBuNQg5+w=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="DeepSeek-V4 中的算子 Overlap 分析DeepSeek-V4 的架构图有一个特点：本身就是一份并行性说明书。画成并行分支的模块，基本都是在告诉系统实现者”这里有 overlap 的空间”。本文梳理 V4 中可 overlap 的算子对，对照论文承诺与 SGLang 实现现状。  一、Overlap 的三个前提 算法独立 — 两条路径无数据依赖（论文画成并行分支） 资源不冲突 — 不">
+<meta property="og:type" content="article">
+<meta property="og:title" content="DeepSeek-V4 中的算子 Overlap 分析">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2026/06/23/DeepSeek-V4-%E7%AE%97%E5%AD%90Overlap%E5%88%86%E6%9E%90/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="DeepSeek-V4 中的算子 Overlap 分析DeepSeek-V4 的架构图有一个特点：本身就是一份并行性说明书。画成并行分支的模块，基本都是在告诉系统实现者”这里有 overlap 的空间”。本文梳理 V4 中可 overlap 的算子对，对照论文承诺与 SGLang 实现现状。  一、Overlap 的三个前提 算法独立 — 两条路径无数据依赖（论文画成并行分支） 资源不冲突 — 不">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-06-23T10:00:00.000Z">
+<meta property="article:modified_time" content="2026-06-24T07:22:51.141Z">
+<meta property="article:author" content="ggaaooppeenngg">
+<meta property="article:tag" content="LLM">
+<meta property="article:tag" content="GPU">
+<meta property="article:tag" content="DeepSeek">
+<meta property="article:tag" content="Inference">
+<meta property="article:tag" content="SGLang">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2026/06/23/DeepSeek-V4-%E7%AE%97%E5%AD%90Overlap%E5%88%86%E6%9E%90/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://ggaaooppeenngg.github.io/zh-CN/2026/06/23/DeepSeek-V4-%E7%AE%97%E5%AD%90Overlap%E5%88%86%E6%9E%90/","path":"zh-CN/2026/06/23/DeepSeek-V4-算子Overlap分析/","title":"DeepSeek-V4 中的算子 Overlap 分析"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>DeepSeek-V4 中的算子 Overlap 分析 | ggaaooppeenngg</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-62096626-1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"UA-62096626-1","only_pageview":false,"measure_protocol_api_secret":null}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+  <script src="/js/third-party/analytics/baidu-analytics.js"></script>
+  <script async src="https://hm.baidu.com/hm.js?bb16c5b1fd3302c18e0015bef11eea42"></script>
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">ggaaooppeenngg</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">为什么计算机科学是无限的但生命是有限的</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-旅行路书"><a href="/travel/" rel="section"><i class="plane fa-fw"></i>旅行路书</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">195</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">24</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">98</span></a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#DeepSeek-V4-%E4%B8%AD%E7%9A%84%E7%AE%97%E5%AD%90-Overlap-%E5%88%86%E6%9E%90"><span class="nav-number">1.</span> <span class="nav-text">DeepSeek-V4 中的算子 Overlap 分析</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%80%E3%80%81Overlap-%E7%9A%84%E4%B8%89%E4%B8%AA%E5%89%8D%E6%8F%90"><span class="nav-number">1.1.</span> <span class="nav-text">一、Overlap 的三个前提</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%8C%E3%80%81Attention-%E5%88%86%E6%94%AF%E5%86%85%E7%9A%84-Overlap"><span class="nav-number">1.2.</span> <span class="nav-text">二、Attention 分支内的 Overlap</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-1-wqkv-a-%E4%B8%8E-Compressor-%E7%9A%84-Overlap"><span class="nav-number">1.2.1.</span> <span class="nav-text">2.1 wqkv_a 与 Compressor 的 Overlap</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%95%B0%E6%8D%AE%E4%BE%9D%E8%B5%96"><span class="nav-number">1.2.1.1.</span> <span class="nav-text">数据依赖</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E8%B5%84%E6%BA%90-pattern-%E4%BA%92%E8%A1%A5"><span class="nav-number">1.2.1.2.</span> <span class="nav-text">资源 pattern 互补</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#L2-Cache-%E5%85%B1%E4%BA%AB"><span class="nav-number">1.2.1.3.</span> <span class="nav-text">L2 Cache 共享</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-2-Indexer-%E7%9A%84-Overlap%EF%BC%9A%E5%8F%AA%E4%BE%9D%E8%B5%96-q-a%EF%BC%8C%E4%B8%8D%E4%BE%9D%E8%B5%96-q-b"><span class="nav-number">1.2.2.</span> <span class="nav-text">2.2 Indexer 的 Overlap：只依赖 q_a，不依赖 q_b</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#Indexer-%E4%B8%A4%E6%9D%A1%E8%B7%AF%E5%BE%84%E7%9A%84%E4%BE%9D%E8%B5%96"><span class="nav-number">1.2.2.1.</span> <span class="nav-text">Indexer 两条路径的依赖</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88-Q-side-%E7%94%A8-q-lora-%E8%80%8C%E4%B8%8D%E6%98%AF-hidden"><span class="nav-number">1.2.2.2.</span> <span class="nav-text">为什么 Q-side 用 q_lora 而不是 hidden</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-3-%E4%B8%89%E8%80%85%E5%9C%A8%E6%97%B6%E9%97%B4%E8%BD%B4%E4%B8%8A%E7%9A%84-Overlap"><span class="nav-number">1.2.3.</span> <span class="nav-text">2.3 三者在时间轴上的 Overlap</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%89%E3%80%81MoE-%E5%88%86%E6%94%AF%E5%86%85%E7%9A%84-Overlap"><span class="nav-number">1.3.</span> <span class="nav-text">三、MoE 分支内的 Overlap</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-Shared-Expert-%E4%B8%8E-Routed-Expert"><span class="nav-number">1.3.1.</span> <span class="nav-text">3.1 Shared Expert 与 Routed Expert</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-MoE-Wave-%E6%A8%A1%E5%9E%8B%EF%BC%9A%E8%AE%A1%E7%AE%97%E4%B8%8E%E9%80%9A%E4%BF%A1-Overlap"><span class="nav-number">1.3.2.</span> <span class="nav-text">3.2 MoE Wave 模型：计算与通信 Overlap</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-3-Combine-%E9%80%9A%E4%BF%A1%E4%B8%8E-Shared-Expert-%E5%B0%BE%E9%83%A8%E8%AE%A1%E7%AE%97"><span class="nav-number">1.3.3.</span> <span class="nav-text">3.3 Combine 通信与 Shared Expert 尾部计算</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9B%9B%E3%80%81%E4%B8%BA%E4%BB%80%E4%B9%88-Multi-Stream-Overlap-%E8%83%BD%E8%B5%9A%E5%88%B0%E6%97%B6%E9%97%B4"><span class="nav-number">1.4.</span> <span class="nav-text">四、为什么 Multi-Stream Overlap 能赚到时间</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%9C%BA%E5%88%B6-1%EF%BC%9A%E5%8D%95-Kernel-%E8%B5%84%E6%BA%90%E5%88%A9%E7%94%A8%E7%8E%87%E4%BD%8E%EF%BC%88%E6%9C%80%E4%B8%BB%E8%A6%81%EF%BC%89"><span class="nav-number">1.4.1.</span> <span class="nav-text">机制 1：单 Kernel 资源利用率低（最主要）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%9C%BA%E5%88%B6-2%EF%BC%9A%E5%B0%8F-Kernel-Grid-%E5%A1%AB%E4%B8%8D%E6%BB%A1-SM"><span class="nav-number">1.4.2.</span> <span class="nav-text">机制 2：小 Kernel Grid 填不满 SM</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%9C%BA%E5%88%B6-3%EF%BC%9A%E9%9A%90%E8%97%8F-CPU-Launch-Overhead"><span class="nav-number">1.4.3.</span> <span class="nav-text">机制 3：隐藏 CPU Launch Overhead</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%9C%BA%E5%88%B6-4%EF%BC%9A%E5%90%8C%E6%BA%90%E8%BE%93%E5%85%A5%E7%9A%84-L2-Cache-%E5%85%B1%E4%BA%AB"><span class="nav-number">1.4.4.</span> <span class="nav-text">机制 4：同源输入的 L2 Cache 共享</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%8F%8D%E5%90%91%E5%88%A4%E6%96%AD%EF%BC%9A%E4%BB%80%E4%B9%88%E6%83%85%E5%86%B5%E4%B8%8B%E5%A4%9A-Stream-%E4%B8%8D%E8%B5%9A"><span class="nav-number">1.4.5.</span> <span class="nav-text">反向判断：什么情况下多 Stream 不赚</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%94%E3%80%81%E5%B7%A5%E7%A8%8B%E5%AE%9E%E7%8E%B0%EF%BC%9ASGLANG-OPT-USE-MULTI-STREAM-OVERLAP"><span class="nav-number">1.5.</span> <span class="nav-text">五、工程实现：SGLANG_OPT_USE_MULTI_STREAM_OVERLAP</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AE%9E%E6%B5%8B%E6%95%88%E6%9E%9C"><span class="nav-number">1.5.1.</span> <span class="nav-text">实测效果</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%AD%E3%80%81%E5%AF%B9%E7%85%A7%E8%AE%BA%E6%96%87%E5%9B%BE%EF%BC%9A%E6%89%BF%E8%AF%BA-vs-%E7%8E%B0%E7%8A%B6"><span class="nav-number">1.6.</span> <span class="nav-text">六、对照论文图：承诺 vs 现状</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%83%E3%80%81%E6%80%BB%E7%BB%93"><span class="nav-number">1.7.</span> <span class="nav-text">七、总结</span></a></li></ol></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">98</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">24</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">195</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/ggaaooppeenngg" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;ggaaooppeenngg" rel="noopener me" target="_blank"><i class="github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:peng.gao.dut@gmail.com" title="E-Mail → mailto:peng.gao.dut@gmail.com" rel="noopener me" target="_blank"><i class="envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+        <div class="back-to-top animated" role="button" aria-label="返回顶部">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2026/06/23/DeepSeek-V4-%E7%AE%97%E5%AD%90Overlap%E5%88%86%E6%9E%90/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="DeepSeek-V4 中的算子 Overlap 分析 | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          DeepSeek-V4 中的算子 Overlap 分析
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2026-06-23 18:00:00" itemprop="dateCreated datePublished" datetime="2026-06-23T18:00:00+08:00">2026-06-23</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2026-06-24 15:22:51" itemprop="dateModified" datetime="2026-06-24T15:22:51+08:00">2026-06-24</time>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2026/06/23/DeepSeek-V4-%E7%AE%97%E5%AD%90Overlap%E5%88%86%E6%9E%90/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2026/06/23/DeepSeek-V4-算子Overlap分析/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="DeepSeek-V4-中的算子-Overlap-分析"><a href="#DeepSeek-V4-中的算子-Overlap-分析" class="headerlink" title="DeepSeek-V4 中的算子 Overlap 分析"></a>DeepSeek-V4 中的算子 Overlap 分析</h1><p>DeepSeek-V4 的架构图有一个特点：<strong>本身就是一份并行性说明书</strong>。画成并行分支的模块，基本都是在告诉系统实现者”这里有 overlap 的空间”。本文梳理 V4 中可 overlap 的算子对，对照论文承诺与 SGLang 实现现状。</p>
+<hr>
+<h2 id="一、Overlap-的三个前提"><a href="#一、Overlap-的三个前提" class="headerlink" title="一、Overlap 的三个前提"></a>一、Overlap 的三个前提</h2><ol>
+<li><strong>算法独立</strong> — 两条路径无数据依赖（论文画成并行分支）</li>
+<li><strong>资源不冲突</strong> — 不争用同一 SM 或同一 buffer</li>
+<li><strong>工程可兜住</strong> — CUDA stream &#x2F; multi-kernel launch 的硬件支持</li>
+</ol>
+<p>DeepSeek 的特殊性在于：MoE + MHC（Multi-Head Compressor）双重稀疏结构，<strong>天然产生多条独立路径</strong>。</p>
+<hr>
+<h2 id="二、Attention-分支内的-Overlap"><a href="#二、Attention-分支内的-Overlap" class="headerlink" title="二、Attention 分支内的 Overlap"></a>二、Attention 分支内的 Overlap</h2><h3 id="2-1-wqkv-a-与-Compressor-的-Overlap"><a href="#2-1-wqkv-a-与-Compressor-的-Overlap" class="headerlink" title="2.1 wqkv_a 与 Compressor 的 Overlap"></a>2.1 wqkv_a 与 Compressor 的 Overlap</h3><h4 id="数据依赖"><a href="#数据依赖" class="headerlink" title="数据依赖"></a>数据依赖</h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">wqkv_a:  输入 = hidden (x)</span><br><span class="line">              ↓</span><br><span class="line">          输出 = q_a + kv_a + k_rope</span><br><span class="line"></span><br><span class="line">compressor: 输入 = hidden (x) + past KV (来自 KV cache)</span><br><span class="line">              ↓</span><br><span class="line">          输出 = summary_K_4 + summary_K_128</span><br></pre></td></tr></table></figure>
+
+<p>两者都读 <code>hidden</code>，但 <strong><code>compressor</code> 不依赖 <code>wqkv_a</code> 的输出</strong>，可以完全并行。</p>
+<h4 id="资源-pattern-互补"><a href="#资源-pattern-互补" class="headerlink" title="资源 pattern 互补"></a>资源 pattern 互补</h4><table>
+<thead>
+<tr>
+<th>Kernel</th>
+<th>性质</th>
+<th>瓶颈资源</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>wqkv_a</code> GEMM (M&#x3D;4096, N&#x3D;2112, K&#x3D;7168)</td>
+<td>中 GEMM</td>
+<td>MFU ~30-40%，CU 大量闲置</td>
+</tr>
+<tr>
+<td><code>compressor</code> <code>flash_c4</code> &#x2F; <code>flash_c128</code></td>
+<td>memory-bound</td>
+<td>HBM 带宽吃满，MFMA 单元闲置</td>
+</tr>
+</tbody></table>
+<p>一个 compute-bound 倾向，一个 memory-bound 倾向，硬件资源不冲突。</p>
+<h4 id="L2-Cache-共享"><a href="#L2-Cache-共享" class="headerlink" title="L2 Cache 共享"></a>L2 Cache 共享</h4><p><code>hidden</code> 的大小：<code>[4096, 7168]</code> BF16 &#x3D; <strong>56 MB</strong>，接近 MI355X 的 L2 cache（32 MB）。</p>
+<ul>
+<li><strong>串行</strong>：<code>wqkv_a</code> 读完 <code>hidden</code>，<code>compressor</code> 再读——大概率已被 <code>q_b</code> 挤出 L2，又一次从 HBM 读</li>
+<li><strong>并行</strong>：两个 kernel 同时从 HBM 拉 <code>hidden</code>，第二次的 cache line 是免费的</li>
+</ul>
+<hr>
+<h3 id="2-2-Indexer-的-Overlap：只依赖-q-a，不依赖-q-b"><a href="#2-2-Indexer-的-Overlap：只依赖-q-a，不依赖-q-b" class="headerlink" title="2.2 Indexer 的 Overlap：只依赖 q_a，不依赖 q_b"></a>2.2 Indexer 的 Overlap：只依赖 q_a，不依赖 q_b</h3><p>这是 V4 论文里 “MLA Co-Design with Indexer” 的核心设计。</p>
+<h4 id="Indexer-两条路径的依赖"><a href="#Indexer-两条路径的依赖" class="headerlink" title="Indexer 两条路径的依赖"></a>Indexer 两条路径的依赖</h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">Indexer K-side:  W_K^I · x  →  RoPE  →  summary_K</span><br><span class="line">                 ↑</span><br><span class="line">              只需要 hidden (x)，不需要 wqkv_a 的输出</span><br><span class="line"></span><br><span class="line">Indexer Q-side:  W_Q^I · q_lora  →  Hadamard + RoPE</span><br><span class="line">                 ↑</span><br><span class="line">              只需要 q_lora (q_a 的输出)，不需要 q_b 的输出</span><br></pre></td></tr></table></figure>
+
+<p><code>q_b</code> 是 critical path 上最重的 GEMM（929 µs），<strong><code>indexer</code> 不等 <code>q_b</code> 完成就可以启动</strong>。</p>
+<h4 id="为什么-Q-side-用-q-lora-而不是-hidden"><a href="#为什么-Q-side-用-q-lora-而不是-hidden" class="headerlink" title="为什么 Q-side 用 q_lora 而不是 hidden"></a>为什么 Q-side 用 q_lora 而不是 hidden</h4><p>V4 论文的算法决策：</p>
+<ul>
+<li><strong>实验结论</strong>：召回率无差异</li>
+<li><strong>系统收益</strong>：每层省一次 <code>[T, 7168] → [T, ...]</code> 的大 GEMM</li>
+<li><strong>代价</strong>：Q-side 多一个 <code>q_lora_ready</code> event 依赖（K-side 完全自由）</li>
+</ul>
+<p>代码里精确实现了这个依赖：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># K-side：不依赖 q_lora，可以立刻启动</span></span><br><span class="line">stream_indexer.wait_stream(current_stream)</span><br><span class="line"><span class="comment"># Q-side：只等 q_lora_ready，不等 q_b</span></span><br><span class="line"><span class="comment"># （在 indexer 内部用 q_lora_ready 精确控制）</span></span><br></pre></td></tr></table></figure>
+
+<hr>
+<h3 id="2-3-三者在时间轴上的-Overlap"><a href="#2-3-三者在时间轴上的-Overlap" class="headerlink" title="2.3 三者在时间轴上的 Overlap"></a>2.3 三者在时间轴上的 Overlap</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">时间轴（prefill 4096 tokens，典型层）:</span><br><span class="line"></span><br><span class="line">0 µs         77 µs       83 µs              1012 µs</span><br><span class="line">│ wqkv_a │ q_a │          q_b (929 µs)          │</span><br><span class="line">│─────────┴─────┴───────────────────────────────┤</span><br><span class="line">│          │    │</span><br><span class="line">│          └──► indexer K-side + Q-side         │  ← 不等 q_b</span><br><span class="line">│             (q_lora_ready 触发)</span><br><span class="line">│          │</span><br><span class="line">│          └──► compressor (c4 + c128)          │  ← 完全独立</span><br><span class="line">│             (只等 x)</span><br><span class="line">│</span><br><span class="line">└──► kv_write (等 wqkv_a 输出切片)              │</span><br></pre></td></tr></table></figure>
+
+<p>端到端时间 &#x3D; <code>max(q_b, indexer, compressor, kv_write)</code> &#x3D; <strong>~1012 µs</strong>（由 <code>q_b</code> 主导）</p>
+<p>串行时 &#x3D; <code>wqkv_a + q_a + q_b + indexer + compressor + kv_write</code> &#x3D; <strong>~2290 µs</strong></p>
+<hr>
+<h2 id="三、MoE-分支内的-Overlap"><a href="#三、MoE-分支内的-Overlap" class="headerlink" title="三、MoE 分支内的 Overlap"></a>三、MoE 分支内的 Overlap</h2><h3 id="3-1-Shared-Expert-与-Routed-Expert"><a href="#3-1-Shared-Expert-与-Routed-Expert" class="headerlink" title="3.1 Shared Expert 与 Routed Expert"></a>3.1 Shared Expert 与 Routed Expert</h3><p>两条 expert 路径完全独立，SGLang 用 <code>alt_stream</code> 实现，是已实现的最好案例。</p>
+<h3 id="3-2-MoE-Wave-模型：计算与通信-Overlap"><a href="#3-2-MoE-Wave-模型：计算与通信-Overlap" class="headerlink" title="3.2 MoE Wave 模型：计算与通信 Overlap"></a>3.2 MoE Wave 模型：计算与通信 Overlap</h3><p>Wave 分 chunk 乒乓：<code>dispatch → compute → combine</code> 流水，掩盖全量通信延迟。V4 论文 Fig.5 的时序图明确画出了这一点。</p>
+<h3 id="3-3-Combine-通信与-Shared-Expert-尾部计算"><a href="#3-3-Combine-通信与-Shared-Expert-尾部计算" class="headerlink" title="3.3 Combine 通信与 Shared Expert 尾部计算"></a>3.3 Combine 通信与 Shared Expert 尾部计算</h3><p>Combine（NVLink all-to-all）不需要 shared expert 的完整输出，可以和 shared expert 的 <code>down_proj</code> 最后一部分 overlap。SGLang 目前串行等待，未利用。</p>
+<hr>
+<h2 id="四、为什么-Multi-Stream-Overlap-能赚到时间"><a href="#四、为什么-Multi-Stream-Overlap-能赚到时间" class="headerlink" title="四、为什么 Multi-Stream Overlap 能赚到时间"></a>四、为什么 Multi-Stream Overlap 能赚到时间</h2><blockquote>
+<p>CUDA stream 是 GPU 上的 FIFO 工作队列；stream 本身只给调度器自由度，性能要靠”互补的资源占用”赚出来。</p>
+</blockquote>
+<h3 id="机制-1：单-Kernel-资源利用率低（最主要）"><a href="#机制-1：单-Kernel-资源利用率低（最主要）" class="headerlink" title="机制 1：单 Kernel 资源利用率低（最主要）"></a>机制 1：单 Kernel 资源利用率低（最主要）</h3><p><code>q_b</code> 把计算压满但 HBM 闲；<code>swa_scatter</code> 把 HBM 压满但计算闲。不同 stream 让它们同时跑，各用各的硬件资源。</p>
+<h3 id="机制-2：小-Kernel-Grid-填不满-SM"><a href="#机制-2：小-Kernel-Grid-填不满-SM" class="headerlink" title="机制 2：小 Kernel Grid 填不满 SM"></a>机制 2：小 Kernel Grid 填不满 SM</h3><p>MI355X 有 256 个 CU，但 trace 里很多 kernel 的 grid 很小（<code>rocprim cumsum</code> 只有 1 个 CU，占用率 0.4%）。多 stream 让调度器把多个小 kernel 同时塞进 CU。</p>
+<h3 id="机制-3：隐藏-CPU-Launch-Overhead"><a href="#机制-3：隐藏-CPU-Launch-Overhead" class="headerlink" title="机制 3：隐藏 CPU Launch Overhead"></a>机制 3：隐藏 CPU Launch Overhead</h3><p>每次 <code>hipLaunchKernel</code> 在 host 端要 ~3-5 µs。Trace 里 ~30000 个 kernel × 4 µs ≈ <strong>120 ms 纯 launch 开销</strong>。多 stream 让 host 预先 enqueue，GPU 不饥饿。</p>
+<h3 id="机制-4：同源输入的-L2-Cache-共享"><a href="#机制-4：同源输入的-L2-Cache-共享" class="headerlink" title="机制 4：同源输入的 L2 Cache 共享"></a>机制 4：同源输入的 L2 Cache 共享</h3><p><code>wqkv_a</code> 和 <code>compressor</code> 都读 <code>hidden</code>，并行时第二次读直接 cache hit，省 ~20% 输入带宽。</p>
+<h3 id="反向判断：什么情况下多-Stream-不赚"><a href="#反向判断：什么情况下多-Stream-不赚" class="headerlink" title="反向判断：什么情况下多 Stream 不赚"></a>反向判断：什么情况下多 Stream 不赚</h3><table>
+<thead>
+<tr>
+<th>场景</th>
+<th>多 stream 是否有用</th>
+<th>原因</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>两个高 MFU GEMM（都跑 70%+）</td>
+<td>❌</td>
+<td>SM 都被占满，只是 timesharing</td>
+</tr>
+<tr>
+<td>两个 memory-bound op 读不同数据</td>
+<td>❌</td>
+<td>HBM 总带宽是上限</td>
+</tr>
+<tr>
+<td>两个 op 有数据依赖（A → B）</td>
+<td>❌</td>
+<td>必须串行</td>
+</tr>
+<tr>
+<td>一个 compute-bound + 一个 memory-bound</td>
+<td>✅</td>
+<td>经典 case</td>
+</tr>
+<tr>
+<td>一个大 GEMM + 一群 µs 级小 kernel</td>
+<td>✅✅</td>
+<td>赚得最多</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="五、工程实现：SGLANG-OPT-USE-MULTI-STREAM-OVERLAP"><a href="#五、工程实现：SGLANG-OPT-USE-MULTI-STREAM-OVERLAP" class="headerlink" title="五、工程实现：SGLANG_OPT_USE_MULTI_STREAM_OVERLAP"></a>五、工程实现：SGLANG_OPT_USE_MULTI_STREAM_OVERLAP</h2><p>这个关键优化靠一个<strong>环境变量</strong>控制，不在 <code>--help</code> 里：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 开启</span></span><br><span class="line">SGLANG_OPT_USE_MULTI_STREAM_OVERLAP=1 python -m sglang.launch_server ...</span><br><span class="line"></span><br><span class="line"><span class="comment"># 验证</span></span><br><span class="line">python -c <span class="string">&quot;import os; print(os.environ.get(&#x27;SGLANG_OPT_USE_MULTI_STREAM_OVERLAP&#x27;))&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>读取位置在 <code>sglang/srt/layers/deepseek_v4.py</code> 的 <code>_forward_prepare_multi_stream</code> 方法入口，通过 <code>os.environ.get()</code> 判断，默认关闭。</p>
+<h3 id="实测效果"><a href="#实测效果" class="headerlink" title="实测效果"></a>实测效果</h3><p>在 decode 阶段（batch size 中等，61 层 DeepSeek-V4），开启后整体 forward 有 <strong>~3.5% 的端到端提升</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>状态</th>
+<th>forward latency (decode)</th>
+<th>相对提升</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>关闭（串行）</td>
+<td>基准</td>
+<td>—</td>
+</tr>
+<tr>
+<td>开启（multi-stream overlap）</td>
+<td><strong>-3.5%</strong></td>
+<td>✅</td>
+</tr>
+</tbody></table>
+<p>提升主要来自：</p>
+<ul>
+<li><strong><code>q_b</code> GEMM（929 µs）与 indexer + compressor 并行</strong>：decode 时 <code>q_b</code> 仍是瓶颈，但 indexer K-side 和 compressor 可以完全隐藏在其执行期间</li>
+<li><strong>小 kernel（swa_scatter、cumsum 等）与主体 GEMM 并行</strong>：这些 µs 级 kernel 在串行时被 <code>q_b</code> 的 launch gap 放大，overlap 后基本被吸收</li>
+</ul>
+<blockquote>
+<p>注意：3.5% 是 decode 阶段的收益。prefill 阶段因为 <code>q_b</code> 的 GEMM 更大（M&#x3D;4096），overlap 的<strong>相对收益会被稀释</strong>，但绝对时间节省更显著（每层 ~1.28 ms，61 层 ~78 ms）。</p>
+</blockquote>
+<p>没开时，整个 <code>_forward_prepare_multi_stream</code> 退化成串行，论文里”sparse attention 模块在 prefill 阶段近乎 free”的 claim 直接失效。</p>
+<hr>
+<h2 id="六、对照论文图：承诺-vs-现状"><a href="#六、对照论文图：承诺-vs-现状" class="headerlink" title="六、对照论文图：承诺 vs 现状"></a>六、对照论文图：承诺 vs 现状</h2><table>
+<thead>
+<tr>
+<th>论文图中的结构</th>
+<th>论文章节</th>
+<th>承诺的并行性</th>
+<th>SGLang 状态</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Indexer ∥ wqkv_a</td>
+<td>§3.2.2</td>
+<td>双分支并行</td>
+<td>✅ 算法并行，⚠️ 需 <code>SGLANG_OPT_USE_MULTI_STREAM_OVERLAP=1</code> 开启</td>
+</tr>
+<tr>
+<td>Compressor c4 ∥ c128</td>
+<td>§3.2.1</td>
+<td>双尺度评分并行</td>
+<td>❌ 串行</td>
+</tr>
+<tr>
+<td>Shared ∥ Routed Expert</td>
+<td>§3.3</td>
+<td>双 expert 路径并行</td>
+<td>✅ 已实现</td>
+</tr>
+<tr>
+<td>Wave dispatch&#x2F;compute&#x2F;combine</td>
+<td>§3.3.3</td>
+<td>乒乓 overlap</td>
+<td>✅ 已实现</td>
+</tr>
+<tr>
+<td>KV store ∥ next layer indexer</td>
+<td>§3.2</td>
+<td>层间 pipeline</td>
+<td>❌ 未做</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="七、总结"><a href="#七、总结" class="headerlink" title="七、总结"></a>七、总结</h2><p>DeepSeek-V4 论文在算法层面为 overlap 留了很大空间，尤其是 Fig.3（MHC 结构）和 Fig.5（Wave 时序图）。当前 SGLang 实现只吃到了 Shared Expert &#x2F; Wave 的部分，仍有明显优化空间。</p>
+<p>实测数据验证了 overlap 的价值：</p>
+<ul>
+<li><strong>decode 阶段</strong>：开启 <code>SGLANG_OPT_USE_MULTI_STREAM_OVERLAP</code>，整体 forward 提升 <strong>~3.5%</strong></li>
+<li><strong>prefill 阶段</strong>：每层节省 <del>1.28 ms，61 层共 **</del>78 ms**，sparse attention 模块接近”free”的目标</li>
+</ul>
+<p>更一般的启示：<strong>算法论文画依赖图时多想一步系统实现，系统实现时多对照论文的并行性承诺。</strong></p>
+<hr>
+<p><strong>参考</strong>：DeepSeek-V4 论文（arXiv:2606.02405）§3.2 Attention Mechanism, §3.3 Expert Mixture, §3.3.3 Dynamic Expert Routing &amp; Wave Scheduling</p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/LLM/" rel="tag"># LLM</a>
+              <a href="/tags/GPU/" rel="tag"># GPU</a>
+              <a href="/tags/DeepSeek/" rel="tag"># DeepSeek</a>
+              <a href="/tags/Inference/" rel="tag"># Inference</a>
+              <a href="/tags/SGLang/" rel="tag"># SGLang</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/zh-CN/2026/06/22/DeepSeek-V4-mHC-Pre-Block%E8%9E%8D%E5%90%88Kernel%E8%AF%A6%E8%A7%A3/" rel="prev" title="DeepSeek-V4 mHC Pre-Block 融合 Kernel 详解">
+                  <i class="fa fa-angle-left"></i> DeepSeek-V4 mHC Pre-Block 融合 Kernel 详解
+                </a>
+            </div>
+            <div class="post-nav-item">
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 2014 – 
+    <span itemprop="copyrightYear">2026</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+  </div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/mist/" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.umd.js" integrity="sha256-a+H7FYzJv6oU2hfsfDGM2Ohw/cR9v+hPfxHCLdmCrE8=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lozad.js/1.16.0/lozad.min.js" integrity="sha256-mOFREFhqmHeQbXpK2lp4nA3qooVgACfh88fpJftLBbc=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/sidebar.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+  <script src="/js/third-party/fancybox.js"></script>
+
+
+
+  
+
+
+
+
+  
+
+  <script class="next-config" data-name="enableMath" type="application/json">false</script><script class="next-config" data-name="mathjax" type="application/json">{"enable":true,"tags":"none","mhchem":false,"config":{"tex":{"inlineMath":[["$","$"]],"displayMath":[["$$","$$"]]}},"js":{"url":"https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-mml-chtml.js","integrity":"sha256-MASABpB4tYktI2Oitl4t+78w/lyA+D7b/s9GEP0JOGI="}}</script>
+<script src="/js/third-party/math/mathjax.js"></script>
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"ggaaooppeenngg","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>
