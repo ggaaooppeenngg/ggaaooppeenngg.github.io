@@ -29,7 +29,7 @@
 <meta property="og:description" content="本文主要讨论 timer heap 在 Go 中的管理，以及运行时对于时间是如何获取的问题，从而引出一个结论，我们对于 timer 的准确度可以有多大的依赖。 首先我们看一下 Go 是如何获取时间的，找到time.Now, 发现最终调用的是下面这个汇编函数。 1234567891011121314151617181920212223242526272829303132&#x2F;&#x2F; func now() (">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2016-02-08T17:58:52.000Z">
-<meta property="article:modified_time" content="2025-03-14T05:50:06.556Z">
+<meta property="article:modified_time" content="2026-07-11T05:44:46.101Z">
 <meta property="article:author" content="ggaaooppeenngg">
 <meta property="article:tag" content="Go">
 <meta property="article:tag" content="go">
@@ -220,7 +220,7 @@
         <i class="far fa-calendar-check"></i>
       </span>
       <span class="post-meta-item-text">更新于</span>
-      <time title="修改时间：2025-03-14 13:50:06" itemprop="dateModified" datetime="2025-03-14T13:50:06+08:00">2025-03-14</time>
+      <time title="修改时间：2026-07-11 13:44:46" itemprop="dateModified" datetime="2026-07-11T13:44:46+08:00">2026-07-11</time>
     </span>
 
   
@@ -281,20 +281,18 @@
 <p>timeproc 的主体就是从最小堆中取出 timer 然后回调函数，如果 period 大于 0 就把 timer 的 when 修改并且存回 heap 并调整，如果小于 0 就直接删除（对应的分别是标准库的 ticker 和 timer), 进入 OS 信号量中睡眠等待下次处理，（当然可以被 waitnote 变量唤醒）, 这样一直循环，说白了就是靠信号量的超时机制来实现了运行时的 sleep[8]. 然后当完全没有 timer 剩余的时候，G 结构表示的 goroutine 进入睡眠状态，承载 goroutine 的 M 结构所代表的 OS-thread 会寻找其它可运行的 goroutine 执行. 具体关于运行时调度的细节可以参考雨痕大叔的笔记 [7].</p>
 <p>看完这一路 case, 回到<code>addtimerLocked</code>, 当加入一个新的<code>timer</code>时，会作依次检查，也就是说最新插入的<code>timer</code>是在堆顶的话，会唤醒睡眠的 timergorountine 开始从 heap 上检查过时的<code>timer</code>并执行. 这里的唤醒和之前的睡眠是两种对应的状态<code>timers.sleeping</code>是进入了 M 的 os 信号量睡眠。<br><code>timers.rescheduling</code>是进入了 G 的调度睡眠，而 M 并没有睡眠，让 G 重新进入可运行状态. 时间超时和新 timer 的加入，两者结合成为了<code>timer</code>运行时的驱动力。</p>
 <p>看完了 time 的实现，再回过头来回答文章最初的问题”timer 可以有多精确”, 其实和两个原因有关，一个是操作系统本身的时间粒度，一般是 us 级别的，时间基准更新是 ms 级别的，时间精度能到 us 级别，另外一个就是<code>timer</code>本身的 goroutine 的调度问题，如果运行时的负载过大或者操作系统本身的负载过大，会导致<code>timer</code>本身的 goroutine 响应不及时，导致 timer 触发并不及时，可能导致一个 20ms 的 timer 和一个 30ms 的 timer 之间像是并发的一样（这也是笔者碰到的问题，特别是一些被 cgroup 限制了的容器环境，cpu 时间分配很少的条件下）, 所以有时候我们不能过分相信 timer 的时序来保证程序的正常运行.<code>NewTimer</code>的注释也强调了”NewTimer creates a new Timer that will send the current time on its channel after <strong>at least</strong> duration d.”, 没有人能保证 timer 按点执行，当然如果你的间隔离谱的大的话其实就可以忽略这方面的影响了：)</p>
-<pre><code>
-参考链接：
-
-1.  Go Assembly https://golang.org/doc/asm
-2.  http://stackoverflow.com/questions/19938324/what-are-vdso-and-vsyscall
-3.  http://www.win.tue.nl/~aeb/linux/lk/lk-4.html
-4.  http://book.douban.com/subject/3652388/
-5.  http://linuxmogeb.blogspot.com/2013/10/how-does-clockgettime-work.html
-6.  时钟源 http://blog.csdn.net/droidphone/article/details/7975694
-7.  Go 源码剖析 https://github.com/qyuhen/book/blob/master
-    /Go%201.5%20%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90.pdf
-8.  带超时的信号量的实现 http://lxr.free-electrons.com/source/kernel/locking/semaphore.c#L204
-9.  内核的时钟源 http://blog.csdn.net/droidphone/article/details/7975694
-</code></pre>
+<p>参考链接：</p>
+<ol>
+<li>Go Assembly <a target="_blank" rel="noopener" href="https://golang.org/doc/asm">https://golang.org/doc/asm</a></li>
+<li><a target="_blank" rel="noopener" href="http://stackoverflow.com/questions/19938324/what-are-vdso-and-vsyscall">http://stackoverflow.com/questions/19938324/what-are-vdso-and-vsyscall</a></li>
+<li><a target="_blank" rel="noopener" href="http://www.win.tue.nl/~aeb/linux/lk/lk-4.html">http://www.win.tue.nl/~aeb/linux/lk/lk-4.html</a></li>
+<li><a target="_blank" rel="noopener" href="http://book.douban.com/subject/3652388/">http://book.douban.com/subject/3652388/</a></li>
+<li><a target="_blank" rel="noopener" href="http://linuxmogeb.blogspot.com/2013/10/how-does-clockgettime-work.html">http://linuxmogeb.blogspot.com/2013/10/how-does-clockgettime-work.html</a></li>
+<li>时钟源 <a target="_blank" rel="noopener" href="http://blog.csdn.net/droidphone/article/details/7975694">http://blog.csdn.net/droidphone/article/details/7975694</a></li>
+<li>Go 源码剖析 <a target="_blank" rel="noopener" href="https://github.com/qyuhen/book/blob/master">https://github.com/qyuhen/book/blob/master</a><br>&#x2F;Go%201.5%20%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90.pdf</li>
+<li>带超时的信号量的实现 <a target="_blank" rel="noopener" href="http://lxr.free-electrons.com/source/kernel/locking/semaphore.c#L204">http://lxr.free-electrons.com/source/kernel/locking/semaphore.c#L204</a></li>
+<li>内核的时钟源 <a target="_blank" rel="noopener" href="http://blog.csdn.net/droidphone/article/details/7975694">http://blog.csdn.net/droidphone/article/details/7975694</a></li>
+</ol>
 
     </div>
 

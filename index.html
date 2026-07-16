@@ -214,7 +214,7 @@
         <i class="far fa-calendar-check"></i>
       </span>
       <span class="post-meta-item-text">更新于</span>
-      <time title="修改时间：2026-06-24 15:22:51" itemprop="dateModified" datetime="2026-06-24T15:22:51+08:00">2026-06-24</time>
+      <time title="修改时间：2026-07-11 13:17:28" itemprop="dateModified" datetime="2026-07-11T13:17:28+08:00">2026-07-11</time>
     </span>
 
   
@@ -241,7 +241,7 @@
     
     
     <div class="post-body" itemprop="articleBody">
-          <h1 id="DeepSeek-V4-中的算子-Overlap-分析"><a href="#DeepSeek-V4-中的算子-Overlap-分析" class="headerlink" title="DeepSeek-V4 中的算子 Overlap 分析"></a>DeepSeek-V4 中的算子 Overlap 分析</h1><p>DeepSeek-V4 的架构图有一个特点：<strong>本身就是一份并行性说明书</strong>。画成并行分支的模块，基本都是在告诉系统实现者”这里有 overlap 的空间”。本文梳理 V4 中可 overlap 的算子对，对照论文承诺与 SGLang 实现现状。</p>
+          <p>DeepSeek-V4 的架构图有一个特点：<strong>本身就是一份并行性说明书</strong>。画成并行分支的模块，基本都是在告诉系统实现者”这里有 overlap 的空间”。本文梳理 V4 中可 overlap 的算子对，对照论文承诺与 SGLang 实现现状。</p>
 <hr>
 <h2 id="一、Overlap-的三个前提"><a href="#一、Overlap-的三个前提" class="headerlink" title="一、Overlap 的三个前提"></a>一、Overlap 的三个前提</h2><ol>
 <li><strong>算法独立</strong> — 两条路径无数据依赖（论文画成并行分支）</li>
@@ -805,7 +805,7 @@
         <i class="far fa-calendar-check"></i>
       </span>
       <span class="post-meta-item-text">更新于</span>
-      <time title="修改时间：2026-06-10 14:26:23" itemprop="dateModified" datetime="2026-06-10T14:26:23+08:00">2026-06-10</time>
+      <time title="修改时间：2026-07-11 12:37:04" itemprop="dateModified" datetime="2026-07-11T12:37:04+08:00">2026-07-11</time>
     </span>
     <span class="post-meta-item">
       <span class="post-meta-item-icon">
@@ -861,7 +861,7 @@
 <p>为什么不把 1 条流扩成 n 条并行流，让不同深度的信息走不同的”车道”？</p>
 </blockquote>
 <p>HC 的公式长这样：</p>
-<p>[<br>X_{l+1} &#x3D; B_l X_l + C_l F(A_l X_l)<br>]</p>
+<p>$$<br>X_{l+1} &#x3D; B_l X_l + C_l F(A_l X_l)<br>$$</p>
 <ul>
 <li><code>A_l</code>：把 n 条流压缩成 1 条，送给 Attention&#x2F;MoE</li>
 <li><code>F</code>：正常的层计算</li>
@@ -875,11 +875,27 @@
 <p>HC 里的 <code>B_l</code> 是完全可学习的，没有任何约束。当模型叠到 60 层、参数量到万亿级时，这个无约束的矩阵会出问题：</p>
 <p><strong>多层复合后，信号被无限放大或衰减。</strong></p>
 <p>数学上，HC 跨层递归展开后得到：</p>
-<div style="text-align:center">
-$x_L = (\prod B_i) x_l + \sum (\prod B_j) C_i^T F(...)$
-</div>
-
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">$Π B_i$ 是多层 $B$ 矩阵的复合。因为 $B$ 无约束，这个复合矩阵的谱范数可以远大于 1，也可以接近 0。</span><br><span class="line"></span><br><span class="line">**实测结果（DeepSeek 27B 实验）：**  </span><br><span class="line">HC 的复合映射增益（Amax Gain Magnitude）达到 **~3000**，意味着信号在前向传播中可以被放大 3000 倍。训练到第 12k 步，loss 直接 spike，梯度范数爆炸。</span><br><span class="line"></span><br><span class="line">HC 的作者（ByteDance Seed 团队）在 ICLR 2025 发表了这个想法，但没有解决稳定性问题。</span><br><span class="line"></span><br><span class="line">---</span><br><span class="line"></span><br><span class="line">## mHC：给 HC 加上&quot;安全阀&quot;</span><br><span class="line"></span><br><span class="line">DeepSeek 团队在 2025 年提出的 **mHC（Manifold-Constrained Hyper-Connections）**，只做了一件事：</span><br><span class="line"></span><br><span class="line">&gt; 把 HC 中的残差混合矩阵 `B_l` 约束在**双随机矩阵流形**上。</span><br><span class="line"></span><br><span class="line">### 什么是双随机矩阵？</span><br><span class="line"></span><br><span class="line">一个 n×n 矩阵，满足：</span><br><span class="line">- 所有元素非负</span><br><span class="line">- 每行之和等于 1</span><br><span class="line">- 每列之和等于 1</span><br><span class="line"></span><br><span class="line">这样的矩阵，谱范数 **永远 ≤ 1**。也就是说，它永远不会放大信号。</span><br><span class="line"></span><br><span class="line">而且，双随机矩阵在乘法下是**封闭**的：两个双随机矩阵相乘，结果还是双随机矩阵。这意味着叠 100 层，复合映射仍然稳定。</span><br><span class="line"></span><br><span class="line">**一句话：mHC = HC + 双随机约束，恢复了残差连接的恒等映射性质，同时保留了多流的表达能力。**</span><br><span class="line"></span><br><span class="line">---</span><br><span class="line"></span><br><span class="line">## 怎么把矩阵变成双随机？Sinkhorn-Knopp 算法</span><br><span class="line"></span><br><span class="line">mHC 的核心算法是 Sinkhorn-Knopp 迭代，操作很简单：</span><br><span class="line"></span><br><span class="line">```python</span><br><span class="line"># 输入: B_raw (4×4, 可能是负数)</span><br><span class="line">M = exp(B_raw)  # 先保证非负</span><br><span class="line"></span><br><span class="line"># 交替行列归一化 20 次</span><br><span class="line">for _ in range(20):</span><br><span class="line">    M = M / M.sum(dim=1, keepdim=True)  # 行归一化</span><br><span class="line">    M = M / M.sum(dim=0, keepdim=True)  # 列归一化</span><br><span class="line"></span><br><span class="line"># 输出: B (4×4 双随机矩阵)</span><br></pre></td></tr></table></figure>
+<p>$$<br>x_L &#x3D; (\prod B_i) x_l + \sum (\prod B_j) C_i^T F(…)<br>$$</p>
+<p>$Π B_i$ 是多层 $B$ 矩阵的复合。因为 $B$ 无约束，这个复合矩阵的谱范数可以远大于 1，也可以接近 0。</p>
+<p><strong>实测结果（DeepSeek 27B 实验）：</strong><br>HC 的复合映射增益（Amax Gain Magnitude）达到 <strong>~3000</strong>，意味着信号在前向传播中可以被放大 3000 倍。训练到第 12k 步，loss 直接 spike，梯度范数爆炸。</p>
+<p>HC 的作者（ByteDance Seed 团队）在 ICLR 2025 发表了这个想法，但没有解决稳定性问题。</p>
+<hr>
+<h2 id="mHC：给-HC-加上”安全阀”"><a href="#mHC：给-HC-加上”安全阀”" class="headerlink" title="mHC：给 HC 加上”安全阀”"></a>mHC：给 HC 加上”安全阀”</h2><p>DeepSeek 团队在 2025 年提出的 <strong>mHC（Manifold-Constrained Hyper-Connections）</strong>，只做了一件事：</p>
+<blockquote>
+<p>把 HC 中的残差混合矩阵 <code>B_l</code> 约束在<strong>双随机矩阵流形</strong>上。</p>
+</blockquote>
+<h3 id="什么是双随机矩阵？"><a href="#什么是双随机矩阵？" class="headerlink" title="什么是双随机矩阵？"></a>什么是双随机矩阵？</h3><p>一个 n×n 矩阵，满足：</p>
+<ul>
+<li>所有元素非负</li>
+<li>每行之和等于 1</li>
+<li>每列之和等于 1</li>
+</ul>
+<p>这样的矩阵，谱范数 <strong>永远 ≤ 1</strong>。也就是说，它永远不会放大信号。</p>
+<p>而且，双随机矩阵在乘法下是<strong>封闭</strong>的：两个双随机矩阵相乘，结果还是双随机矩阵。这意味着叠 100 层，复合映射仍然稳定。</p>
+<p><strong>一句话：mHC &#x3D; HC + 双随机约束，恢复了残差连接的恒等映射性质，同时保留了多流的表达能力。</strong></p>
+<hr>
+<h2 id="怎么把矩阵变成双随机？Sinkhorn-Knopp-算法"><a href="#怎么把矩阵变成双随机？Sinkhorn-Knopp-算法" class="headerlink" title="怎么把矩阵变成双随机？Sinkhorn-Knopp 算法"></a>怎么把矩阵变成双随机？Sinkhorn-Knopp 算法</h2><p>mHC 的核心算法是 Sinkhorn-Knopp 迭代，操作很简单：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 输入: B_raw (4×4, 可能是负数)</span></span><br><span class="line">M = exp(B_raw)  <span class="comment"># 先保证非负</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 交替行列归一化 20 次</span></span><br><span class="line"><span class="keyword">for</span> _ <span class="keyword">in</span> <span class="built_in">range</span>(<span class="number">20</span>):</span><br><span class="line">    M = M / M.<span class="built_in">sum</span>(dim=<span class="number">1</span>, keepdim=<span class="literal">True</span>)  <span class="comment"># 行归一化</span></span><br><span class="line">    M = M / M.<span class="built_in">sum</span>(dim=<span class="number">0</span>, keepdim=<span class="literal">True</span>)  <span class="comment"># 列归一化</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 输出: B (4×4 双随机矩阵)</span></span><br></pre></td></tr></table></figure>
 
 <p>为什么第一步用 <code>exp()</code>？因为 <code>B_raw</code> 是神经网络输出的 logit，可能有负数。直接归一化会产生负权重，违反”非负”约束。<code>exp()</code> 把任意实数映射到正数，完美解决。</p>
 <p>20 次迭代是实验得出的经验值，足够收敛，又不会太慢。</p>
@@ -902,8 +918,7 @@ $x_L = (\prod B_i) x_l + \sum (\prod B_j) C_i^T F(...)$
 <p>但 DeepSeek 做了三件事，把开销压到了 <strong>仅 +6.7%</strong>：</p>
 <h3 id="1-Kernel-Fusion（算子融合）"><a href="#1-Kernel-Fusion（算子融合）" class="headerlink" title="1. Kernel Fusion（算子融合）"></a>1. Kernel Fusion（算子融合）</h3><p>用 TileLang 把整个 mHC 计算——RMSNorm + 线性投影 + Sigmoid + Sinkhorn——融合成一个 CUDA kernel，减少内存读写。</p>
 <h3 id="2-Selective-Recomputing（选择性重计算）"><a href="#2-Selective-Recomputing（选择性重计算）" class="headerlink" title="2. Selective Recomputing（选择性重计算）"></a>2. Selective Recomputing（选择性重计算）</h3><p>前向时只保存每块的第一个层输入，反向时重新计算 mHC 的中间激活。最优块大小由公式给出：</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$L_r^* \approx \sqrt&#123;\frac&#123;nL&#125;&#123;n+2&#125;&#125;$</span><br></pre></td></tr></table></figure>
-
+<p>$L_r^* \approx \sqrt{\frac{nL}{n+2}}$</p>
 <h3 id="3-Overlapping-with-DualPipe"><a href="#3-Overlapping-with-DualPipe" class="headerlink" title="3. Overlapping with DualPipe"></a>3. Overlapping with DualPipe</h3><p>把 mHC 的计算和流水线通信重叠。在 DualPipe 调度中，<code>F_post,res</code> kernel 放到高优先级流，避免阻塞 All-to-All 通信。</p>
 <hr>
 <h2 id="实验效果：又强又稳"><a href="#实验效果：又强又稳" class="headerlink" title="实验效果：又强又稳"></a>实验效果：又强又稳</h2><p>DeepSeek 用 27B MoE 模型做了对比实验：</p>
@@ -2436,9 +2451,15 @@ $x_L = (\prod B_i) x_l + \sum (\prod B_j) C_i^T F(...)$
         <i class="far fa-calendar"></i>
       </span>
       <span class="post-meta-item-text">发表于</span>
-      
 
-      <time title="创建时间：2026-05-14 21:30:00 / 修改时间：21:35:53" itemprop="dateCreated datePublished" datetime="2026-05-14T21:30:00+08:00">2026-05-14</time>
+      <time title="创建时间：2026-05-14 21:30:00" itemprop="dateCreated datePublished" datetime="2026-05-14T21:30:00+08:00">2026-05-14</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2026-07-11 14:10:53" itemprop="dateModified" datetime="2026-07-11T14:10:53+08:00">2026-07-11</time>
     </span>
 
   
@@ -2465,7 +2486,7 @@ $x_L = (\prod B_i) x_l + \sum (\prod B_j) C_i^T F(...)$
     
     
     <div class="post-body" itemprop="articleBody">
-          <h1 id="DeepSeek-V4-KV-Cache-深度分析"><a href="#DeepSeek-V4-KV-Cache-深度分析" class="headerlink" title="DeepSeek-V4 KV Cache 深度分析"></a>DeepSeek-V4 KV Cache 深度分析</h1><blockquote>
+          <blockquote>
 <p>DeepSeek-V4 series incorporate several key upgrades: (1) hybrid attention architecture that combines Compressed Sparse Attention (CSA) and Heavily Compressed Attention (HCA); (2) Manifold-Constrained Hyper-Connections (mHC); (3) Muon optimizer.</p>
 </blockquote>
 <p>DeepSeek-V4 彻底改变了 KV Cache 的设计，从 V3 的 MLA（Multi-head Latent Attention）转向 <strong>CSA + HCA 混合注意力架构</strong>，通过<strong>序列维度压缩</strong>而非仅靠隐维度压缩来大幅降低 KV Cache 开销。</p>
@@ -2690,78 +2711,294 @@ $x_L = (\prod B_i) x_l + \sum (\prod B_j) C_i^T F(...)$
 <h3 id="结构"><a href="#结构" class="headerlink" title="结构"></a>结构</h3><ul>
 <li><strong>独立 Compressor</strong>：自己的 wkv 和 wgate 权重（head_dim&#x3D;128，不是 512）</li>
 <li><strong>FP4 量化</strong>：Hadamard 旋转 + fp4_act_quant（全 128 维）</li>
-<li><strong>计算流程</strong>：<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">  Query token t → indexer query (128 维) → 和所有压缩块的索引器 key 算分</span><br><span class="line">  → Top-k (1024) → 选出最相关的 1024 个压缩块</span><br><span class="line">  ```!</span><br><span class="line"></span><br><span class="line">### Indexer Cache 大小（1M tokens）</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-(1M&#x2F;4) × 128 dims × 0.5 byte (FP4) &#x3D; 16 MB&#x2F;层</li>
+<li><strong>计算流程</strong>：<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">Query token t → indexer query (128 维) → 和所有压缩块的索引器 key 算分</span><br><span class="line">→ Top-k (1024) → 选出最相关的 1024 个压缩块</span><br></pre></td></tr></table></figure></li>
 </ul>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">**论文 Section 5.2.1**：</span><br><span class="line">&gt; &quot;索引器中的 QK 激活被缓存、加载，并完全以 FP4 精度计算。&quot;</span><br><span class="line"></span><br><span class="line">---</span><br><span class="line"></span><br><span class="line">## 五、RoPE 的特殊处理!</span><br><span class="line"></span><br><span class="line">### 三处应用 RoPE（Section 2.3.3）</span><br><span class="line"></span><br><span class="line">1. **Query 向量** (q_t,i) → last 64 dims</span><br><span class="line">2. **KV entry 向量** (C_Comp) → last 64 dims</span><br><span class="line">3. **Core attention 输出** (o_t,i) → last 64 dims（位置 = -i）</span><br><span class="line"></span><br><span class="line">### 为什么输出也要加 RoPE？!</span><br><span class="line"></span><br><span class="line">因为 KV entry 同时作为 K 和 V，压缩后的 entry 带绝对位置信息。如果直接输出：</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-<p>o_t,i &#x3D; Σ attn_weight_j × C_Comp_j(R(j))  ← 携带绝对位置 R(j)</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">对输出施加 RoPE(position=-i)：</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-<p>R(-i) × o_t,i &#x3D; Σ attn_weight_j × C_Comp_j(R(j-i))  ← 转为相对位置</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">**论文原文**：</span><br><span class="line">&gt; &quot;注意力输出的贡献将与 query 和 KV entry 之间的距离相关。&quot;</span><br><span class="line"></span><br><span class="line">---</span><br><span class="line"></span><br><span class="line">## 六、精度配置!</span><br><span class="line"></span><br><span class="line">### 两种精度模式!</span><br><span class="line"></span><br><span class="line">| 符号 | 含义 | BF16 基准 | 混合精度部署 |</span><br><span class="line">|------|------|-----------|--------------|</span><br><span class="line">| $S_&#123;kv&#125;$ | Shared-KV 每元素字节 | $512 \times 2 = 1024$ | $448 \times 1 + 64 \times 2 = 576$ |</span><br><span class="line">| $S_&#123;idx&#125;$ | Indexer 每元素字节 | $128 \times 2 = 256$ | $128 \times 0.5 = 64$ (FP4) |</span><br><span class="line"></span><br><span class="line">### 论文依据!</span><br><span class="line"></span><br><span class="line">**Section 2.3.4**：</span><br><span class="line">&gt; &quot;RoPE 维度使用 BF16 精度，其余维度使用 FP8 精度。&quot;</span><br><span class="line"></span><br><span class="line">**Section 5.2.1**：</span><br><span class="line">&gt; &quot;索引器中的 QK 激活完全以 FP4 精度计算。&quot;</span><br><span class="line"></span><br><span class="line">---</span><br><span class="line"></span><br><span class="line">## 七、总 KV Cache 计算公式!</span><br><span class="line"></span><br><span class="line">### 通用公式!</span><br><span class="line"></span><br><span class="line">设序列长度 $N$，CSA 层数 $N_&#123;CSA&#125;=30$，HCA 层数 $N_&#123;HCA&#125;=31$：</span><br><span class="line"></span><br><span class="line">$$\text&#123;Total KV&#125; = N_&#123;CSA&#125; \times \text&#123;PerCSA&#125; + N_&#123;HCA&#125; \times \text&#123;PerHCA&#125;$$</span><br><span class="line"></span><br><span class="line">其中：</span><br><span class="line"></span><br><span class="line">$$\text&#123;PerCSA&#125; = \underbrace&#123;(\frac&#123;N&#125;&#123;4&#125; + w) \times S_&#123;kv&#125;&#125;_&#123;\text&#123;Shared-KV&#125;&#125; + \underbrace&#123;\frac&#123;N&#125;&#123;4&#125; \times S_&#123;idx&#125;&#125;_&#123;\text&#123;Indexer&#125;&#125;$$</span><br><span class="line"></span><br><span class="line">$$\text&#123;PerHCA&#125; = \underbrace&#123;(\frac&#123;N&#125;&#123;128&#125; + w) \times S_&#123;kv&#125;&#125;_&#123;\text&#123;Shared-KV only&#125;&#125;$$</span><br><span class="line"></span><br><span class="line">---</span><br><span class="line"></span><br><span class="line">## 八、数值结果（N = 1,048,576 = 1M tokens）!</span><br><span class="line"></span><br><span class="line">### BF16 基准（vLLM 博客算法）</span><br><span class="line"></span><br><span class="line">**CSA 30 层**：</span><br><span class="line"></span><br><span class="line">| 组件 | 计算 | 结果 |</span><br><span class="line">|------|------|------|</span><br><span class="line">| Shared-KV 压缩 | 262,144 × 1024 | 256.00 MiB |</span><br><span class="line">| Shared-KV 窗口 | 128 × 1024 | 0.125 MiB |</span><br><span class="line">| Indexer 压缩 | 262,144 × 256 | 64.00 MiB |</span><br><span class="line">| **CSA 单层** | | **320.13 MiB** |</span><br><span class="line">| **30 层 CSA** | 320.13 × 30 | **9,603.75 MiB** |</span><br><span class="line"></span><br><span class="line">**HCA 31 层**：</span><br><span class="line"></span><br><span class="line">| 组件 | 计算 | 结果 |</span><br><span class="line">|------|------|------|</span><br><span class="line">| Shared-KV 压缩 | 8,192 × 1024 | 8.00 MiB |</span><br><span class="line">| Shared-KV 窗口 | 128 × 1024 | 0.125 MiB |</span><br><span class="line">| **HCA 单层** | | **8.13 MiB** |</span><br><span class="line">| **31 层 HCA** | 8.13 × 31 | **251.88 MiB** |</span><br><span class="line"></span><br><span class="line">**总计（BF16）**：9,603.75 + 251.88 = **9,855.63 MiB ≈ 9.62 GiB** ✅（和 vLLM 博客完全一致）</span><br><span class="line"></span><br><span class="line">### 混合精度实际部署（FP8 + BF16 + FP4）</span><br><span class="line"></span><br><span class="line">| 组件 | bytes/entry | 30 层 CSA | 31 层 HCA |</span><br><span class="line">|------|---------------|------------|------------|</span><br><span class="line">| CSA 压缩 KV | 576 | 4.23 GiB | — |</span><br><span class="line">| CSA Indexer | 64 (FP4) | 0.47 GiB | — |</span><br><span class="line">| CSA SWA | 576 | 2.11 MiB | — |</span><br><span class="line">| HCA 压缩 KV | 576 | — | 0.14 GiB |</span><br><span class="line">| HCA SWA | 576 | — | 2.18 MiB |</span><br><span class="line">| **总计** | | **~4.84 GiB** | |</span><br><span class="line"></span><br><span class="line">**压缩比**：</span><br><span class="line">- V3.2 KV Cache (61 层) = 83.9 GiB</span><br><span class="line">- V4-Pro 混合精度 = 4.84 GiB</span><br><span class="line">- **压缩比**：83.9 / 4.84 ≈ **17.3×** ✅!</span><br><span class="line"></span><br><span class="line">---</span><br><span class="line"></span><br><span class="line">## 九、各组件占比（BF16 基准）!</span><br><span class="line"></span><br><span class="line">| 组件 | MiB | 百分比 |</span><br><span class="line">|------|-----|--------|</span><br><span class="line">| CSA Shared-KV 压缩 | 7,680.00 | 77.9% ← 绝对主体 |</span><br><span class="line">| CSA Indexer | 1,920.00 | 19.5% ← 不可忽略 |</span><br><span class="line">| HCA Shared-KV 压缩 | 248.00 | 2.5% ← 128× 压缩极高效 |</span><br><span class="line">| 滑动窗口 (全部 61 层) | 7.63 | 0.1% ← 可忽略 |</span><br><span class="line">| **总计** | **9,855.63** | **100%** |</span><br><span class="line"></span><br><span class="line">CSA 的 Indexer 占了近 20%，是不能漏算的部分。</span><br><span class="line"></span><br><span class="line">---</span><br><span class="line"></span><br><span class="line">## 十、为什么能这么小？关键洞察!</span><br><span class="line"></span><br><span class="line">1. **序列维度压缩**（V3 只压缩隐维度，V4 同时压缩序列长度）</span><br><span class="line">   - CSA: L → L/4</span><br><span class="line">   - HCA: L → L/128</span><br><span class="line"></span><br><span class="line">2. **稀疏注意力**（CSA 只访问 top-1024 个压缩块，而非全部 L/4 个）</span><br><span class="line"></span><br><span class="line">3. **分层设计**：CSA 负责精准的中程依赖，HCA 负责全局概览，互为补充</span><br><span class="line"></span><br><span class="line">4. **混合精度**：</span><br><span class="line">   - RoPE 维度：BF16（2 bytes，保证位置精度）</span><br><span class="line">   - 其余维度：FP8（1 byte，节省空间）</span><br><span class="line">   - Indexer：FP4（0.5 byte，最激进）</span><br><span class="line"></span><br><span class="line">5. **磁盘 KV Cache**：压缩后的 KV 块可以落盘存储，共享前缀的请求复用缓存*</span><br><span class="line"></span><br><span class="line">---</span><br><span class="line"></span><br><span class="line">## 十一、Forward 计算流程图（V4-Pro）!</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-<pre><code>                Hidden State [batch, seq_len, 7168]
-                          │
-          ┌───────────────┴───────────────┐
-          ▼                               ▼
-     Q Down-proj                    KV 通路
-[7168 → 1536]                  [7168 → 512] (wkv)
-          │                               │
-          ▼                               ▼
- Q Up-proj (1536→128×512)    ┌──→ 压缩 (CSA: ratio=4 / HCA: ratio=128)
-          │                    │     ├─→ RoPE (后 64 维, BF16)
-Q [batch, seq_len, 128, 512] │     ├─→ FP8 量化 (前 448 维)
-          │                    │     └─→ 写入 KV cache
-┌─→ RoPE (后 64 维)       │
-│         │                    │
-│    Q [batch, seq_len, 128, 512]  KV cache [batch, N/ratio, 512]
-│         │                    │
-│         └──→ Indexer (仅 CSA) ──→ Top-k → 1024 个选中
-│                                      │
-└──→ Attention(Q, K=selected_1024, V=selected_1024)
-          │
-          └──→ + SWA (最近 128 个 token)
-          │
-          ▼
-    Output [batch, seq_len, 7168]
-</code></pre>
-<pre><code>
----
+<h3 id="Indexer-Cache-大小（1M-tokens）"><a href="#Indexer-Cache-大小（1M-tokens）" class="headerlink" title="Indexer Cache 大小（1M tokens）"></a>Indexer Cache 大小（1M tokens）</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">(1M/4) × 128 dims × 0.5 byte (FP4) = 16 MB/层</span><br></pre></td></tr></table></figure>
 
-## 十二、和 vLLM 部署对齐!
+<p><strong>论文 Section 5.2.1</strong>：</p>
+<blockquote>
+<p>“索引器中的 QK 激活被缓存、加载，并完全以 FP4 精度计算。”</p>
+</blockquote>
+<hr>
+<h2 id="五、RoPE-的特殊处理"><a href="#五、RoPE-的特殊处理" class="headerlink" title="五、RoPE 的特殊处理!"></a>五、RoPE 的特殊处理!</h2><h3 id="三处应用-RoPE（Section-2-3-3）"><a href="#三处应用-RoPE（Section-2-3-3）" class="headerlink" title="三处应用 RoPE（Section 2.3.3）"></a>三处应用 RoPE（Section 2.3.3）</h3><ol>
+<li><strong>Query 向量</strong> (q_t,i) → last 64 dims</li>
+<li><strong>KV entry 向量</strong> (C_Comp) → last 64 dims</li>
+<li><strong>Core attention 输出</strong> (o_t,i) → last 64 dims（位置 &#x3D; -i）</li>
+</ol>
+<h3 id="为什么输出也要加-RoPE？"><a href="#为什么输出也要加-RoPE？" class="headerlink" title="为什么输出也要加 RoPE？!"></a>为什么输出也要加 RoPE？!</h3><p>因为 KV entry 同时作为 K 和 V，压缩后的 entry 带绝对位置信息。如果直接输出：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">o_t,i = Σ attn_weight_j × C_Comp_j(R(j))  ← 携带绝对位置 R(j)</span><br></pre></td></tr></table></figure>
 
-vLLM 博客明确验证了 V4 的计算：
+<p>对输出施加 RoPE(position&#x3D;-i)：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">R(-i) × o_t,i = Σ attn_weight_j × C_Comp_j(R(j-i))  ← 转为相对位置</span><br></pre></td></tr></table></figure>
 
-&gt; &quot;using fp4 indexer cache and fp8 attention cache, which further reduces the KV cache size by roughly **2×** compared to the bf16 estimate!&quot;
+<p><strong>论文原文</strong>：</p>
+<blockquote>
+<p>“注意力输出的贡献将与 query 和 KV entry 之间的距离相关。”</p>
+</blockquote>
+<hr>
+<h2 id="六、精度配置"><a href="#六、精度配置" class="headerlink" title="六、精度配置!"></a>六、精度配置!</h2><h3 id="两种精度模式"><a href="#两种精度模式" class="headerlink" title="两种精度模式!"></a>两种精度模式!</h3><table>
+<thead>
+<tr>
+<th>符号</th>
+<th>含义</th>
+<th>BF16 基准</th>
+<th>混合精度部署</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>$S_{kv}$</td>
+<td>Shared-KV 每元素字节</td>
+<td>$512 \times 2 &#x3D; 1024$</td>
+<td>$448 \times 1 + 64 \times 2 &#x3D; 576$</td>
+</tr>
+<tr>
+<td>$S_{idx}$</td>
+<td>Indexer 每元素字节</td>
+<td>$128 \times 2 &#x3D; 256$</td>
+<td>$128 \times 0.5 &#x3D; 64$ (FP4)</td>
+</tr>
+</tbody></table>
+<h3 id="论文依据"><a href="#论文依据" class="headerlink" title="论文依据!"></a>论文依据!</h3><p><strong>Section 2.3.4</strong>：</p>
+<blockquote>
+<p>“RoPE 维度使用 BF16 精度，其余维度使用 FP8 精度。”</p>
+</blockquote>
+<p><strong>Section 5.2.1</strong>：</p>
+<blockquote>
+<p>“索引器中的 QK 激活完全以 FP4 精度计算。”</p>
+</blockquote>
+<hr>
+<h2 id="七、总-KV-Cache-计算公式"><a href="#七、总-KV-Cache-计算公式" class="headerlink" title="七、总 KV Cache 计算公式!"></a>七、总 KV Cache 计算公式!</h2><h3 id="通用公式"><a href="#通用公式" class="headerlink" title="通用公式!"></a>通用公式!</h3><p>设序列长度 $N$，CSA 层数 $N_{CSA}&#x3D;30$，HCA 层数 $N_{HCA}&#x3D;31$：</p>
+<p>$$\text{Total KV} &#x3D; N_{CSA} \times \text{PerCSA} + N_{HCA} \times \text{PerHCA}$$</p>
+<p>其中：</p>
+<p>$$\text{PerCSA} &#x3D; \underbrace{(\frac{N}{4} + w) \times S_{kv}}_ {\text{Shared-KV}} + \underbrace{\frac{N}{4} \times S_ {idx}}_ {\text{Indexer}}$$</p>
+<p>$$\text{PerHCA} &#x3D; \underbrace{(\frac{N}{128} + w) \times S_{kv}}_{\text{Shared-KV only}}$$</p>
+<hr>
+<h2 id="八、数值结果（N-1-048-576-1M-tokens）"><a href="#八、数值结果（N-1-048-576-1M-tokens）" class="headerlink" title="八、数值结果（N &#x3D; 1,048,576 &#x3D; 1M tokens）!"></a>八、数值结果（N &#x3D; 1,048,576 &#x3D; 1M tokens）!</h2><h3 id="BF16-基准（vLLM-博客算法）"><a href="#BF16-基准（vLLM-博客算法）" class="headerlink" title="BF16 基准（vLLM 博客算法）"></a>BF16 基准（vLLM 博客算法）</h3><p><strong>CSA 30 层</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>组件</th>
+<th>计算</th>
+<th>结果</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Shared-KV 压缩</td>
+<td>262,144 × 1024</td>
+<td>256.00 MiB</td>
+</tr>
+<tr>
+<td>Shared-KV 窗口</td>
+<td>128 × 1024</td>
+<td>0.125 MiB</td>
+</tr>
+<tr>
+<td>Indexer 压缩</td>
+<td>262,144 × 256</td>
+<td>64.00 MiB</td>
+</tr>
+<tr>
+<td><strong>CSA 单层</strong></td>
+<td></td>
+<td><strong>320.13 MiB</strong></td>
+</tr>
+<tr>
+<td><strong>30 层 CSA</strong></td>
+<td>320.13 × 30</td>
+<td><strong>9,603.75 MiB</strong></td>
+</tr>
+</tbody></table>
+<p><strong>HCA 31 层</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>组件</th>
+<th>计算</th>
+<th>结果</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Shared-KV 压缩</td>
+<td>8,192 × 1024</td>
+<td>8.00 MiB</td>
+</tr>
+<tr>
+<td>Shared-KV 窗口</td>
+<td>128 × 1024</td>
+<td>0.125 MiB</td>
+</tr>
+<tr>
+<td><strong>HCA 单层</strong></td>
+<td></td>
+<td><strong>8.13 MiB</strong></td>
+</tr>
+<tr>
+<td><strong>31 层 HCA</strong></td>
+<td>8.13 × 31</td>
+<td><strong>251.88 MiB</strong></td>
+</tr>
+</tbody></table>
+<p><strong>总计（BF16）</strong>：9,603.75 + 251.88 &#x3D; <strong>9,855.63 MiB ≈ 9.62 GiB</strong> ✅（和 vLLM 博客完全一致）</p>
+<h3 id="混合精度实际部署（FP8-BF16-FP4）"><a href="#混合精度实际部署（FP8-BF16-FP4）" class="headerlink" title="混合精度实际部署（FP8 + BF16 + FP4）"></a>混合精度实际部署（FP8 + BF16 + FP4）</h3><table>
+<thead>
+<tr>
+<th>组件</th>
+<th>bytes&#x2F;entry</th>
+<th>30 层 CSA</th>
+<th>31 层 HCA</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>CSA 压缩 KV</td>
+<td>576</td>
+<td>4.23 GiB</td>
+<td>—</td>
+</tr>
+<tr>
+<td>CSA Indexer</td>
+<td>64 (FP4)</td>
+<td>0.47 GiB</td>
+<td>—</td>
+</tr>
+<tr>
+<td>CSA SWA</td>
+<td>576</td>
+<td>2.11 MiB</td>
+<td>—</td>
+</tr>
+<tr>
+<td>HCA 压缩 KV</td>
+<td>576</td>
+<td>—</td>
+<td>0.14 GiB</td>
+</tr>
+<tr>
+<td>HCA SWA</td>
+<td>576</td>
+<td>—</td>
+<td>2.18 MiB</td>
+</tr>
+<tr>
+<td><strong>总计</strong></td>
+<td></td>
+<td><strong>~4.84 GiB</strong></td>
+<td></td>
+</tr>
+</tbody></table>
+<p><strong>压缩比</strong>：</p>
+<ul>
+<li>V3.2 KV Cache (61 层) &#x3D; 83.9 GiB</li>
+<li>V4-Pro 混合精度 &#x3D; 4.84 GiB</li>
+<li><strong>压缩比</strong>：83.9 &#x2F; 4.84 ≈ <strong>17.3×</strong> ✅!</li>
+</ul>
+<hr>
+<h2 id="九、各组件占比（BF16-基准）"><a href="#九、各组件占比（BF16-基准）" class="headerlink" title="九、各组件占比（BF16 基准）!"></a>九、各组件占比（BF16 基准）!</h2><table>
+<thead>
+<tr>
+<th>组件</th>
+<th>MiB</th>
+<th>百分比</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>CSA Shared-KV 压缩</td>
+<td>7,680.00</td>
+<td>77.9% ← 绝对主体</td>
+</tr>
+<tr>
+<td>CSA Indexer</td>
+<td>1,920.00</td>
+<td>19.5% ← 不可忽略</td>
+</tr>
+<tr>
+<td>HCA Shared-KV 压缩</td>
+<td>248.00</td>
+<td>2.5% ← 128× 压缩极高效</td>
+</tr>
+<tr>
+<td>滑动窗口 (全部 61 层)</td>
+<td>7.63</td>
+<td>0.1% ← 可忽略</td>
+</tr>
+<tr>
+<td><strong>总计</strong></td>
+<td><strong>9,855.63</strong></td>
+<td><strong>100%</strong></td>
+</tr>
+</tbody></table>
+<p>CSA 的 Indexer 占了近 20%，是不能漏算的部分。</p>
+<hr>
+<h2 id="十、为什么能这么小？关键洞察"><a href="#十、为什么能这么小？关键洞察" class="headerlink" title="十、为什么能这么小？关键洞察!"></a>十、为什么能这么小？关键洞察!</h2><ol>
+<li><p><strong>序列维度压缩</strong>（V3 只压缩隐维度，V4 同时压缩序列长度）</p>
+<ul>
+<li>CSA: L → L&#x2F;4</li>
+<li>HCA: L → L&#x2F;128</li>
+</ul>
+</li>
+<li><p><strong>稀疏注意力</strong>（CSA 只访问 top-1024 个压缩块，而非全部 L&#x2F;4 个）</p>
+</li>
+<li><p><strong>分层设计</strong>：CSA 负责精准的中程依赖，HCA 负责全局概览，互为补充</p>
+</li>
+<li><p><strong>混合精度</strong>：</p>
+<ul>
+<li>RoPE 维度：BF16（2 bytes，保证位置精度）</li>
+<li>其余维度：FP8（1 byte，节省空间）</li>
+<li>Indexer：FP4（0.5 byte，最激进）</li>
+</ul>
+</li>
+<li><p><strong>磁盘 KV Cache</strong>：压缩后的 KV 块可以落盘存储，共享前缀的请求复用缓存*</p>
+</li>
+</ol>
+<hr>
+<h2 id="十一、Forward-计算流程图（V4-Pro）"><a href="#十一、Forward-计算流程图（V4-Pro）" class="headerlink" title="十一、Forward 计算流程图（V4-Pro）!"></a>十一、Forward 计算流程图（V4-Pro）!</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">                Hidden State [batch, seq_len, 7168]</span><br><span class="line">                          │</span><br><span class="line">          ┌───────────────┴───────────────┐</span><br><span class="line">          ▼                               ▼</span><br><span class="line">     Q Down-proj                    KV 通路</span><br><span class="line">[7168 → 1536]                  [7168 → 512] (wkv)</span><br><span class="line">          │                               │</span><br><span class="line">          ▼                               ▼</span><br><span class="line"> Q Up-proj (1536→128×512)    ┌──→ 压缩 (CSA: ratio=4 / HCA: ratio=128)</span><br><span class="line">          │                    │     ├─→ RoPE (后 64 维, BF16)</span><br><span class="line">Q [batch, seq_len, 128, 512] │     ├─→ FP8 量化 (前 448 维)</span><br><span class="line">          │                    │     └─→ 写入 KV cache</span><br><span class="line">┌─→ RoPE (后 64 维)       │</span><br><span class="line">│         │                    │</span><br><span class="line">│    Q [batch, seq_len, 128, 512]  KV cache [batch, N/ratio, 512]</span><br><span class="line">│         │                    │</span><br><span class="line">│         └──→ Indexer (仅 CSA) ──→ Top-k → 1024 个选中</span><br><span class="line">│                                      │</span><br><span class="line">└──→ Attention(Q, K=selected_1024, V=selected_1024)</span><br><span class="line">          │</span><br><span class="line">          └──→ + SWA (最近 128 个 token)</span><br><span class="line">          │</span><br><span class="line">          ▼</span><br><span class="line">    Output [batch, seq_len, 7168]</span><br></pre></td></tr></table></figure>
 
-| 来源 | KV Cache (1M tokens) | 说明 |
-|------|---------------------|------|
-| 论文 Figure 1 | 9.62 GiB (10% of V3.2) | BF16 估计 |
-| vLLM 博客 | ~4.8 GiB | FP4+FP8 混合精度 |
-| **本文计算** | **4.84 GiB** | 精确对齐 ✅ |
-
----
-
-## 十三、总结!
-
-DeepSeek-V4 通过**序列维度压缩 + 混合精度存储 + 稀疏选择**，将 1M tokens 的 KV Cache 从 V3.2 的 83.9 GiB 压缩到 **4.84 GiB**（17.3× 压缩）。
-
-核心创新：
-- **CSA**：4:1 压缩 + overlap + Indexer 稀疏选择
-- **HCA**：128:1 重度压缩，提供全局概览
-- **混合精度**：RoPE (BF16) + 内容 (FP8) + Indexer (FP4)
-
-这套架构让百万 token 上下文从&quot;不可能&quot;变成&quot;日常可用&quot; 🐾!
-
----
-
-## 参考!
-
-1. [DeepSeek-V4 论文](https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro/blob/main/DeepSeek_V4.pdf) (2026) Section 2.3
-2. [vLLM 博客：DeepSeek V4 in vLLM](https://github.com/vllm-project/vllm-project.github.io/blob/main/_posts/2026-04-24-deepseek-v4.md) (2026-04-24)
-3. [config.json](https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro/blob/main/config.json)
-4. 代码追踪: model.py, compressor.py, c4.cuh
-5. 论文 Section 2.3.3: Partial Rotary Positional Embedding
-6. 论文 Section 5.2.1: FP4 Quantization-Aware Training
-</code></pre>
+<hr>
+<h2 id="十二、和-vLLM-部署对齐"><a href="#十二、和-vLLM-部署对齐" class="headerlink" title="十二、和 vLLM 部署对齐!"></a>十二、和 vLLM 部署对齐!</h2><p>vLLM 博客明确验证了 V4 的计算：</p>
+<blockquote>
+<p>“using fp4 indexer cache and fp8 attention cache, which further reduces the KV cache size by roughly <strong>2×</strong> compared to the bf16 estimate!”</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>来源</th>
+<th>KV Cache (1M tokens)</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>论文 Figure 1</td>
+<td>9.62 GiB (10% of V3.2)</td>
+<td>BF16 估计</td>
+</tr>
+<tr>
+<td>vLLM 博客</td>
+<td>~4.8 GiB</td>
+<td>FP4+FP8 混合精度</td>
+</tr>
+<tr>
+<td><strong>本文计算</strong></td>
+<td><strong>4.84 GiB</strong></td>
+<td>精确对齐 ✅</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="十三、总结"><a href="#十三、总结" class="headerlink" title="十三、总结!"></a>十三、总结!</h2><p>DeepSeek-V4 通过<strong>序列维度压缩 + 混合精度存储 + 稀疏选择</strong>，将 1M tokens 的 KV Cache 从 V3.2 的 83.9 GiB 压缩到 <strong>4.84 GiB</strong>（17.3× 压缩）。</p>
+<p>核心创新：</p>
+<ul>
+<li><strong>CSA</strong>：4:1 压缩 + overlap + Indexer 稀疏选择</li>
+<li><strong>HCA</strong>：128:1 重度压缩，提供全局概览</li>
+<li><strong>混合精度</strong>：RoPE (BF16) + 内容 (FP8) + Indexer (FP4)</li>
+</ul>
+<p>这套架构让百万 token 上下文从”不可能”变成”日常可用” 🐾!</p>
+<hr>
+<h2 id="参考"><a href="#参考" class="headerlink" title="参考!"></a>参考!</h2><ol>
+<li><a target="_blank" rel="noopener" href="https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro/blob/main/DeepSeek_V4.pdf">DeepSeek-V4 论文</a> (2026) Section 2.3</li>
+<li><a target="_blank" rel="noopener" href="https://github.com/vllm-project/vllm-project.github.io/blob/main/_posts/2026-04-24-deepseek-v4.md">vLLM 博客：DeepSeek V4 in vLLM</a> (2026-04-24)</li>
+<li><a target="_blank" rel="noopener" href="https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro/blob/main/config.json">config.json</a></li>
+<li>代码追踪: model.py, compressor.py, c4.cuh</li>
+<li>论文 Section 2.3.3: Partial Rotary Positional Embedding</li>
+<li>论文 Section 5.2.1: FP4 Quantization-Aware Training</li>
+</ol>
 
       
     </div>
