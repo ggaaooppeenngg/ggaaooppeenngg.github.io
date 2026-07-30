@@ -21,12 +21,12 @@
 
 <script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
 
-    <meta name="description" content="DeepSeek-V4 的架构图有一个特点：本身就是一份并行性说明书。画成并行分支的模块，基本都是在告诉系统实现者”这里有 overlap 的空间”。本文梳理 V4 中可 overlap 的算子对，对照论文承诺与 SGLang 实现现状。  一、Overlap 的三个前提 算法独立 — 两条路径无数据依赖（论文画成并行分支） 资源不冲突 — 不争用同一 SM 或同一 buffer 工程可兜住 —">
+    <meta name="description" content="DeepSeek-V4 的架构图有一个特点：本身就是一份并行性说明书。画成并行分支的模块，基本都是在告诉系统实现者&quot;这里有 overlap 的空间&quot;。本文梳理 V4 中可 overlap 的算子对，对照论文承诺与 SGLang 实现现状。  一、Overlap 的三个前提  算法独立 — 两条路径无数据依赖（论文画成并行分支） 资源不冲突 — 不争用同一 SM 或同一 buff">
 <meta property="og:type" content="article">
 <meta property="og:title" content="DeepSeek-V4 中的算子 Overlap 分析">
 <meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2026/06/23/DeepSeek-V4-%E7%AE%97%E5%AD%90Overlap%E5%88%86%E6%9E%90/index.html">
 <meta property="og:site_name" content="ggaaooppeenngg">
-<meta property="og:description" content="DeepSeek-V4 的架构图有一个特点：本身就是一份并行性说明书。画成并行分支的模块，基本都是在告诉系统实现者”这里有 overlap 的空间”。本文梳理 V4 中可 overlap 的算子对，对照论文承诺与 SGLang 实现现状。  一、Overlap 的三个前提 算法独立 — 两条路径无数据依赖（论文画成并行分支） 资源不冲突 — 不争用同一 SM 或同一 buffer 工程可兜住 —">
+<meta property="og:description" content="DeepSeek-V4 的架构图有一个特点：本身就是一份并行性说明书。画成并行分支的模块，基本都是在告诉系统实现者&quot;这里有 overlap 的空间&quot;。本文梳理 V4 中可 overlap 的算子对，对照论文承诺与 SGLang 实现现状。  一、Overlap 的三个前提  算法独立 — 两条路径无数据依赖（论文画成并行分支） 资源不冲突 — 不争用同一 SM 或同一 buff">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2026-06-23T10:00:00.000Z">
 <meta property="article:modified_time" content="2026-07-11T05:17:28.560Z">
@@ -248,19 +248,23 @@
     
     
     
-    <div class="post-body" itemprop="articleBody"><p>DeepSeek-V4 的架构图有一个特点：<strong>本身就是一份并行性说明书</strong>。画成并行分支的模块，基本都是在告诉系统实现者”这里有 overlap 的空间”。本文梳理 V4 中可 overlap 的算子对，对照论文承诺与 SGLang 实现现状。</p>
+    <div class="post-body" itemprop="articleBody"><p>DeepSeek-V4 的架构图有一个特点：<strong>本身就是一份并行性说明书</strong>。画成并行分支的模块，基本都是在告诉系统实现者&quot;这里有 overlap 的空间&quot;。本文梳理 V4 中可 overlap 的算子对，对照论文承诺与 SGLang 实现现状。</p>
 <hr>
-<h2 id="一、Overlap-的三个前提"><a href="#一、Overlap-的三个前提" class="headerlink" title="一、Overlap 的三个前提"></a>一、Overlap 的三个前提</h2><ol>
+<h2 id="一、Overlap-的三个前提">一、Overlap 的三个前提</h2>
+<ol>
 <li><strong>算法独立</strong> — 两条路径无数据依赖（论文画成并行分支）</li>
 <li><strong>资源不冲突</strong> — 不争用同一 SM 或同一 buffer</li>
-<li><strong>工程可兜住</strong> — CUDA stream &#x2F; multi-kernel launch 的硬件支持</li>
+<li><strong>工程可兜住</strong> — CUDA stream / multi-kernel launch 的硬件支持</li>
 </ol>
 <p>DeepSeek 的特殊性在于：MoE + MHC（Multi-Head Compressor）双重稀疏结构，<strong>天然产生多条独立路径</strong>。</p>
 <hr>
-<h2 id="二、Attention-分支内的-Overlap"><a href="#二、Attention-分支内的-Overlap" class="headerlink" title="二、Attention 分支内的 Overlap"></a>二、Attention 分支内的 Overlap</h2><h3 id="2-1-wqkv-a-与-Compressor-的-Overlap"><a href="#2-1-wqkv-a-与-Compressor-的-Overlap" class="headerlink" title="2.1 wqkv_a 与 Compressor 的 Overlap"></a>2.1 wqkv_a 与 Compressor 的 Overlap</h3><h4 id="数据依赖"><a href="#数据依赖" class="headerlink" title="数据依赖"></a>数据依赖</h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">wqkv_a:  输入 = hidden (x)</span><br><span class="line">              ↓</span><br><span class="line">          输出 = q_a + kv_a + k_rope</span><br><span class="line"></span><br><span class="line">compressor: 输入 = hidden (x) + past KV (来自 KV cache)</span><br><span class="line">              ↓</span><br><span class="line">          输出 = summary_K_4 + summary_K_128</span><br></pre></td></tr></table></figure>
-
+<h2 id="二、Attention-分支内的-Overlap">二、Attention 分支内的 Overlap</h2>
+<h3 id="2-1-wqkv-a-与-Compressor-的-Overlap">2.1 wqkv_a 与 Compressor 的 Overlap</h3>
+<h4 id="数据依赖">数据依赖</h4>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">wqkv_a:  输入 = hidden (x)</span><br><span class="line">              ↓</span><br><span class="line">          输出 = q_a + kv_a + k_rope</span><br><span class="line"></span><br><span class="line">compressor: 输入 = hidden (x) + past KV (来自 KV cache)</span><br><span class="line">              ↓</span><br><span class="line">          输出 = summary_K_4 + summary_K_128</span><br></pre></td></tr></table></figure>
 <p>两者都读 <code>hidden</code>，但 <strong><code>compressor</code> 不依赖 <code>wqkv_a</code> 的输出</strong>，可以完全并行。</p>
-<h4 id="资源-pattern-互补"><a href="#资源-pattern-互补" class="headerlink" title="资源 pattern 互补"></a>资源 pattern 互补</h4><table>
+<h4 id="资源-pattern-互补">资源 pattern 互补</h4>
+<table>
 <thead>
 <tr>
 <th>Kernel</th>
@@ -268,29 +272,34 @@
 <th>瓶颈资源</th>
 </tr>
 </thead>
-<tbody><tr>
-<td><code>wqkv_a</code> GEMM (M&#x3D;4096, N&#x3D;2112, K&#x3D;7168)</td>
+<tbody>
+<tr>
+<td><code>wqkv_a</code> GEMM (M=4096, N=2112, K=7168)</td>
 <td>中 GEMM</td>
 <td>MFU ~30-40%，CU 大量闲置</td>
 </tr>
 <tr>
-<td><code>compressor</code> <code>flash_c4</code> &#x2F; <code>flash_c128</code></td>
+<td><code>compressor</code> <code>flash_c4</code> / <code>flash_c128</code></td>
 <td>memory-bound</td>
 <td>HBM 带宽吃满，MFMA 单元闲置</td>
 </tr>
-</tbody></table>
+</tbody>
+</table>
 <p>一个 compute-bound 倾向，一个 memory-bound 倾向，硬件资源不冲突。</p>
-<h4 id="L2-Cache-共享"><a href="#L2-Cache-共享" class="headerlink" title="L2 Cache 共享"></a>L2 Cache 共享</h4><p><code>hidden</code> 的大小：<code>[4096, 7168]</code> BF16 &#x3D; <strong>56 MB</strong>，接近 MI355X 的 L2 cache（32 MB）。</p>
+<h4 id="L2-Cache-共享">L2 Cache 共享</h4>
+<p><code>hidden</code> 的大小：<code>[4096, 7168]</code> BF16 = <strong>56 MB</strong>，接近 MI355X 的 L2 cache（32 MB）。</p>
 <ul>
 <li><strong>串行</strong>：<code>wqkv_a</code> 读完 <code>hidden</code>，<code>compressor</code> 再读——大概率已被 <code>q_b</code> 挤出 L2，又一次从 HBM 读</li>
 <li><strong>并行</strong>：两个 kernel 同时从 HBM 拉 <code>hidden</code>，第二次的 cache line 是免费的</li>
 </ul>
 <hr>
-<h3 id="2-2-Indexer-的-Overlap：只依赖-q-a，不依赖-q-b"><a href="#2-2-Indexer-的-Overlap：只依赖-q-a，不依赖-q-b" class="headerlink" title="2.2 Indexer 的 Overlap：只依赖 q_a，不依赖 q_b"></a>2.2 Indexer 的 Overlap：只依赖 q_a，不依赖 q_b</h3><p>这是 V4 论文里 “MLA Co-Design with Indexer” 的核心设计。</p>
-<h4 id="Indexer-两条路径的依赖"><a href="#Indexer-两条路径的依赖" class="headerlink" title="Indexer 两条路径的依赖"></a>Indexer 两条路径的依赖</h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">Indexer K-side:  W_K^I · x  →  RoPE  →  summary_K</span><br><span class="line">                 ↑</span><br><span class="line">              只需要 hidden (x)，不需要 wqkv_a 的输出</span><br><span class="line"></span><br><span class="line">Indexer Q-side:  W_Q^I · q_lora  →  Hadamard + RoPE</span><br><span class="line">                 ↑</span><br><span class="line">              只需要 q_lora (q_a 的输出)，不需要 q_b 的输出</span><br></pre></td></tr></table></figure>
-
+<h3 id="2-2-Indexer-的-Overlap：只依赖-q-a，不依赖-q-b">2.2 Indexer 的 Overlap：只依赖 q_a，不依赖 q_b</h3>
+<p>这是 V4 论文里 “MLA Co-Design with Indexer” 的核心设计。</p>
+<h4 id="Indexer-两条路径的依赖">Indexer 两条路径的依赖</h4>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">Indexer K-side:  W_K^I · x  →  RoPE  →  summary_K</span><br><span class="line">                 ↑</span><br><span class="line">              只需要 hidden (x)，不需要 wqkv_a 的输出</span><br><span class="line"></span><br><span class="line">Indexer Q-side:  W_Q^I · q_lora  →  Hadamard + RoPE</span><br><span class="line">                 ↑</span><br><span class="line">              只需要 q_lora (q_a 的输出)，不需要 q_b 的输出</span><br></pre></td></tr></table></figure>
 <p><code>q_b</code> 是 critical path 上最重的 GEMM（929 µs），<strong><code>indexer</code> 不等 <code>q_b</code> 完成就可以启动</strong>。</p>
-<h4 id="为什么-Q-side-用-q-lora-而不是-hidden"><a href="#为什么-Q-side-用-q-lora-而不是-hidden" class="headerlink" title="为什么 Q-side 用 q_lora 而不是 hidden"></a>为什么 Q-side 用 q_lora 而不是 hidden</h4><p>V4 论文的算法决策：</p>
+<h4 id="为什么-Q-side-用-q-lora-而不是-hidden">为什么 Q-side 用 q_lora 而不是 hidden</h4>
+<p>V4 论文的算法决策：</p>
 <ul>
 <li><strong>实验结论</strong>：召回率无差异</li>
 <li><strong>系统收益</strong>：每层省一次 <code>[T, 7168] → [T, ...]</code> 的大 GEMM</li>
@@ -298,25 +307,34 @@
 </ul>
 <p>代码里精确实现了这个依赖：</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># K-side：不依赖 q_lora，可以立刻启动</span></span><br><span class="line">stream_indexer.wait_stream(current_stream)</span><br><span class="line"><span class="comment"># Q-side：只等 q_lora_ready，不等 q_b</span></span><br><span class="line"><span class="comment"># （在 indexer 内部用 q_lora_ready 精确控制）</span></span><br></pre></td></tr></table></figure>
-
 <hr>
-<h3 id="2-3-三者在时间轴上的-Overlap"><a href="#2-3-三者在时间轴上的-Overlap" class="headerlink" title="2.3 三者在时间轴上的 Overlap"></a>2.3 三者在时间轴上的 Overlap</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">时间轴（prefill 4096 tokens，典型层）:</span><br><span class="line"></span><br><span class="line">0 µs         77 µs       83 µs              1012 µs</span><br><span class="line">│ wqkv_a │ q_a │          q_b (929 µs)          │</span><br><span class="line">│─────────┴─────┴───────────────────────────────┤</span><br><span class="line">│          │    │</span><br><span class="line">│          └──► indexer K-side + Q-side         │  ← 不等 q_b</span><br><span class="line">│             (q_lora_ready 触发)</span><br><span class="line">│          │</span><br><span class="line">│          └──► compressor (c4 + c128)          │  ← 完全独立</span><br><span class="line">│             (只等 x)</span><br><span class="line">│</span><br><span class="line">└──► kv_write (等 wqkv_a 输出切片)              │</span><br></pre></td></tr></table></figure>
-
-<p>端到端时间 &#x3D; <code>max(q_b, indexer, compressor, kv_write)</code> &#x3D; <strong>~1012 µs</strong>（由 <code>q_b</code> 主导）</p>
-<p>串行时 &#x3D; <code>wqkv_a + q_a + q_b + indexer + compressor + kv_write</code> &#x3D; <strong>~2290 µs</strong></p>
+<h3 id="2-3-三者在时间轴上的-Overlap">2.3 三者在时间轴上的 Overlap</h3>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">时间轴（prefill 4096 tokens，典型层）:</span><br><span class="line"></span><br><span class="line">0 µs         77 µs       83 µs              1012 µs</span><br><span class="line">│ wqkv_a │ q_a │          q_b (929 µs)          │</span><br><span class="line">│─────────┴─────┴───────────────────────────────┤</span><br><span class="line">│          │    │</span><br><span class="line">│          └──► indexer K-side + Q-side         │  ← 不等 q_b</span><br><span class="line">│             (q_lora_ready 触发)</span><br><span class="line">│          │</span><br><span class="line">│          └──► compressor (c4 + c128)          │  ← 完全独立</span><br><span class="line">│             (只等 x)</span><br><span class="line">│</span><br><span class="line">└──► kv_write (等 wqkv_a 输出切片)              │</span><br></pre></td></tr></table></figure>
+<p>端到端时间 = <code>max(q_b, indexer, compressor, kv_write)</code> = <strong>~1012 µs</strong>（由 <code>q_b</code> 主导）</p>
+<p>串行时 = <code>wqkv_a + q_a + q_b + indexer + compressor + kv_write</code> = <strong>~2290 µs</strong></p>
 <hr>
-<h2 id="三、MoE-分支内的-Overlap"><a href="#三、MoE-分支内的-Overlap" class="headerlink" title="三、MoE 分支内的 Overlap"></a>三、MoE 分支内的 Overlap</h2><h3 id="3-1-Shared-Expert-与-Routed-Expert"><a href="#3-1-Shared-Expert-与-Routed-Expert" class="headerlink" title="3.1 Shared Expert 与 Routed Expert"></a>3.1 Shared Expert 与 Routed Expert</h3><p>两条 expert 路径完全独立，SGLang 用 <code>alt_stream</code> 实现，是已实现的最好案例。</p>
-<h3 id="3-2-MoE-Wave-模型：计算与通信-Overlap"><a href="#3-2-MoE-Wave-模型：计算与通信-Overlap" class="headerlink" title="3.2 MoE Wave 模型：计算与通信 Overlap"></a>3.2 MoE Wave 模型：计算与通信 Overlap</h3><p>Wave 分 chunk 乒乓：<code>dispatch → compute → combine</code> 流水，掩盖全量通信延迟。V4 论文 Fig.5 的时序图明确画出了这一点。</p>
-<h3 id="3-3-Combine-通信与-Shared-Expert-尾部计算"><a href="#3-3-Combine-通信与-Shared-Expert-尾部计算" class="headerlink" title="3.3 Combine 通信与 Shared Expert 尾部计算"></a>3.3 Combine 通信与 Shared Expert 尾部计算</h3><p>Combine（NVLink all-to-all）不需要 shared expert 的完整输出，可以和 shared expert 的 <code>down_proj</code> 最后一部分 overlap。SGLang 目前串行等待，未利用。</p>
+<h2 id="三、MoE-分支内的-Overlap">三、MoE 分支内的 Overlap</h2>
+<h3 id="3-1-Shared-Expert-与-Routed-Expert">3.1 Shared Expert 与 Routed Expert</h3>
+<p>两条 expert 路径完全独立，SGLang 用 <code>alt_stream</code> 实现，是已实现的最好案例。</p>
+<h3 id="3-2-MoE-Wave-模型：计算与通信-Overlap">3.2 MoE Wave 模型：计算与通信 Overlap</h3>
+<p>Wave 分 chunk 乒乓：<code>dispatch → compute → combine</code> 流水，掩盖全量通信延迟。V4 论文 Fig.5 的时序图明确画出了这一点。</p>
+<h3 id="3-3-Combine-通信与-Shared-Expert-尾部计算">3.3 Combine 通信与 Shared Expert 尾部计算</h3>
+<p>Combine（NVLink all-to-all）不需要 shared expert 的完整输出，可以和 shared expert 的 <code>down_proj</code> 最后一部分 overlap。SGLang 目前串行等待，未利用。</p>
 <hr>
-<h2 id="四、为什么-Multi-Stream-Overlap-能赚到时间"><a href="#四、为什么-Multi-Stream-Overlap-能赚到时间" class="headerlink" title="四、为什么 Multi-Stream Overlap 能赚到时间"></a>四、为什么 Multi-Stream Overlap 能赚到时间</h2><blockquote>
-<p>CUDA stream 是 GPU 上的 FIFO 工作队列；stream 本身只给调度器自由度，性能要靠”互补的资源占用”赚出来。</p>
+<h2 id="四、为什么-Multi-Stream-Overlap-能赚到时间">四、为什么 Multi-Stream Overlap 能赚到时间</h2>
+<blockquote>
+<p>CUDA stream 是 GPU 上的 FIFO 工作队列；stream 本身只给调度器自由度，性能要靠&quot;互补的资源占用&quot;赚出来。</p>
 </blockquote>
-<h3 id="机制-1：单-Kernel-资源利用率低（最主要）"><a href="#机制-1：单-Kernel-资源利用率低（最主要）" class="headerlink" title="机制 1：单 Kernel 资源利用率低（最主要）"></a>机制 1：单 Kernel 资源利用率低（最主要）</h3><p><code>q_b</code> 把计算压满但 HBM 闲；<code>swa_scatter</code> 把 HBM 压满但计算闲。不同 stream 让它们同时跑，各用各的硬件资源。</p>
-<h3 id="机制-2：小-Kernel-Grid-填不满-SM"><a href="#机制-2：小-Kernel-Grid-填不满-SM" class="headerlink" title="机制 2：小 Kernel Grid 填不满 SM"></a>机制 2：小 Kernel Grid 填不满 SM</h3><p>MI355X 有 256 个 CU，但 trace 里很多 kernel 的 grid 很小（<code>rocprim cumsum</code> 只有 1 个 CU，占用率 0.4%）。多 stream 让调度器把多个小 kernel 同时塞进 CU。</p>
-<h3 id="机制-3：隐藏-CPU-Launch-Overhead"><a href="#机制-3：隐藏-CPU-Launch-Overhead" class="headerlink" title="机制 3：隐藏 CPU Launch Overhead"></a>机制 3：隐藏 CPU Launch Overhead</h3><p>每次 <code>hipLaunchKernel</code> 在 host 端要 ~3-5 µs。Trace 里 ~30000 个 kernel × 4 µs ≈ <strong>120 ms 纯 launch 开销</strong>。多 stream 让 host 预先 enqueue，GPU 不饥饿。</p>
-<h3 id="机制-4：同源输入的-L2-Cache-共享"><a href="#机制-4：同源输入的-L2-Cache-共享" class="headerlink" title="机制 4：同源输入的 L2 Cache 共享"></a>机制 4：同源输入的 L2 Cache 共享</h3><p><code>wqkv_a</code> 和 <code>compressor</code> 都读 <code>hidden</code>，并行时第二次读直接 cache hit，省 ~20% 输入带宽。</p>
-<h3 id="反向判断：什么情况下多-Stream-不赚"><a href="#反向判断：什么情况下多-Stream-不赚" class="headerlink" title="反向判断：什么情况下多 Stream 不赚"></a>反向判断：什么情况下多 Stream 不赚</h3><table>
+<h3 id="机制-1：单-Kernel-资源利用率低（最主要）">机制 1：单 Kernel 资源利用率低（最主要）</h3>
+<p><code>q_b</code> 把计算压满但 HBM 闲；<code>swa_scatter</code> 把 HBM 压满但计算闲。不同 stream 让它们同时跑，各用各的硬件资源。</p>
+<h3 id="机制-2：小-Kernel-Grid-填不满-SM">机制 2：小 Kernel Grid 填不满 SM</h3>
+<p>MI355X 有 256 个 CU，但 trace 里很多 kernel 的 grid 很小（<code>rocprim cumsum</code> 只有 1 个 CU，占用率 0.4%）。多 stream 让调度器把多个小 kernel 同时塞进 CU。</p>
+<h3 id="机制-3：隐藏-CPU-Launch-Overhead">机制 3：隐藏 CPU Launch Overhead</h3>
+<p>每次 <code>hipLaunchKernel</code> 在 host 端要 ~3-5 µs。Trace 里 ~30000 个 kernel × 4 µs ≈ <strong>120 ms 纯 launch 开销</strong>。多 stream 让 host 预先 enqueue，GPU 不饥饿。</p>
+<h3 id="机制-4：同源输入的-L2-Cache-共享">机制 4：同源输入的 L2 Cache 共享</h3>
+<p><code>wqkv_a</code> 和 <code>compressor</code> 都读 <code>hidden</code>，并行时第二次读直接 cache hit，省 ~20% 输入带宽。</p>
+<h3 id="反向判断：什么情况下多-Stream-不赚">反向判断：什么情况下多 Stream 不赚</h3>
+<table>
 <thead>
 <tr>
 <th>场景</th>
@@ -324,7 +342,8 @@
 <th>原因</th>
 </tr>
 </thead>
-<tbody><tr>
+<tbody>
+<tr>
 <td>两个高 MFU GEMM（都跑 70%+）</td>
 <td>❌</td>
 <td>SM 都被占满，只是 timesharing</td>
@@ -349,13 +368,15 @@
 <td>✅✅</td>
 <td>赚得最多</td>
 </tr>
-</tbody></table>
+</tbody>
+</table>
 <hr>
-<h2 id="五、工程实现：SGLANG-OPT-USE-MULTI-STREAM-OVERLAP"><a href="#五、工程实现：SGLANG-OPT-USE-MULTI-STREAM-OVERLAP" class="headerlink" title="五、工程实现：SGLANG_OPT_USE_MULTI_STREAM_OVERLAP"></a>五、工程实现：SGLANG_OPT_USE_MULTI_STREAM_OVERLAP</h2><p>这个关键优化靠一个<strong>环境变量</strong>控制，不在 <code>--help</code> 里：</p>
+<h2 id="五、工程实现：SGLANG-OPT-USE-MULTI-STREAM-OVERLAP">五、工程实现：SGLANG_OPT_USE_MULTI_STREAM_OVERLAP</h2>
+<p>这个关键优化靠一个<strong>环境变量</strong>控制，不在 <code>--help</code> 里：</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 开启</span></span><br><span class="line">SGLANG_OPT_USE_MULTI_STREAM_OVERLAP=1 python -m sglang.launch_server ...</span><br><span class="line"></span><br><span class="line"><span class="comment"># 验证</span></span><br><span class="line">python -c <span class="string">&quot;import os; print(os.environ.get(&#x27;SGLANG_OPT_USE_MULTI_STREAM_OVERLAP&#x27;))&quot;</span></span><br></pre></td></tr></table></figure>
-
 <p>读取位置在 <code>sglang/srt/layers/deepseek_v4.py</code> 的 <code>_forward_prepare_multi_stream</code> 方法入口，通过 <code>os.environ.get()</code> 判断，默认关闭。</p>
-<h3 id="实测效果"><a href="#实测效果" class="headerlink" title="实测效果"></a>实测效果</h3><p>在 decode 阶段（batch size 中等，61 层 DeepSeek-V4），开启后整体 forward 有 <strong>~3.5% 的端到端提升</strong>：</p>
+<h3 id="实测效果">实测效果</h3>
+<p>在 decode 阶段（batch size 中等，61 层 DeepSeek-V4），开启后整体 forward 有 <strong>~3.5% 的端到端提升</strong>：</p>
 <table>
 <thead>
 <tr>
@@ -364,7 +385,8 @@
 <th>相对提升</th>
 </tr>
 </thead>
-<tbody><tr>
+<tbody>
+<tr>
 <td>关闭（串行）</td>
 <td>基准</td>
 <td>—</td>
@@ -374,18 +396,20 @@
 <td><strong>-3.5%</strong></td>
 <td>✅</td>
 </tr>
-</tbody></table>
+</tbody>
+</table>
 <p>提升主要来自：</p>
 <ul>
 <li><strong><code>q_b</code> GEMM（929 µs）与 indexer + compressor 并行</strong>：decode 时 <code>q_b</code> 仍是瓶颈，但 indexer K-side 和 compressor 可以完全隐藏在其执行期间</li>
 <li><strong>小 kernel（swa_scatter、cumsum 等）与主体 GEMM 并行</strong>：这些 µs 级 kernel 在串行时被 <code>q_b</code> 的 launch gap 放大，overlap 后基本被吸收</li>
 </ul>
 <blockquote>
-<p>注意：3.5% 是 decode 阶段的收益。prefill 阶段因为 <code>q_b</code> 的 GEMM 更大（M&#x3D;4096），overlap 的<strong>相对收益会被稀释</strong>，但绝对时间节省更显著（每层 ~1.28 ms，61 层 ~78 ms）。</p>
+<p>注意：3.5% 是 decode 阶段的收益。prefill 阶段因为 <code>q_b</code> 的 GEMM 更大（M=4096），overlap 的<strong>相对收益会被稀释</strong>，但绝对时间节省更显著（每层 ~1.28 ms，61 层 ~78 ms）。</p>
 </blockquote>
-<p>没开时，整个 <code>_forward_prepare_multi_stream</code> 退化成串行，论文里”sparse attention 模块在 prefill 阶段近乎 free”的 claim 直接失效。</p>
+<p>没开时，整个 <code>_forward_prepare_multi_stream</code> 退化成串行，论文里&quot;sparse attention 模块在 prefill 阶段近乎 free&quot;的 claim 直接失效。</p>
 <hr>
-<h2 id="六、对照论文图：承诺-vs-现状"><a href="#六、对照论文图：承诺-vs-现状" class="headerlink" title="六、对照论文图：承诺 vs 现状"></a>六、对照论文图：承诺 vs 现状</h2><table>
+<h2 id="六、对照论文图：承诺-vs-现状">六、对照论文图：承诺 vs 现状</h2>
+<table>
 <thead>
 <tr>
 <th>论文图中的结构</th>
@@ -394,7 +418,8 @@
 <th>SGLang 状态</th>
 </tr>
 </thead>
-<tbody><tr>
+<tbody>
+<tr>
 <td>Indexer ∥ wqkv_a</td>
 <td>§3.2.2</td>
 <td>双分支并行</td>
@@ -413,7 +438,7 @@
 <td>✅ 已实现</td>
 </tr>
 <tr>
-<td>Wave dispatch&#x2F;compute&#x2F;combine</td>
+<td>Wave dispatch/compute/combine</td>
 <td>§3.3.3</td>
 <td>乒乓 overlap</td>
 <td>✅ 已实现</td>
@@ -424,13 +449,15 @@
 <td>层间 pipeline</td>
 <td>❌ 未做</td>
 </tr>
-</tbody></table>
+</tbody>
+</table>
 <hr>
-<h2 id="七、总结"><a href="#七、总结" class="headerlink" title="七、总结"></a>七、总结</h2><p>DeepSeek-V4 论文在算法层面为 overlap 留了很大空间，尤其是 Fig.3（MHC 结构）和 Fig.5（Wave 时序图）。当前 SGLang 实现只吃到了 Shared Expert &#x2F; Wave 的部分，仍有明显优化空间。</p>
+<h2 id="七、总结">七、总结</h2>
+<p>DeepSeek-V4 论文在算法层面为 overlap 留了很大空间，尤其是 Fig.3（MHC 结构）和 Fig.5（Wave 时序图）。当前 SGLang 实现只吃到了 Shared Expert / Wave 的部分，仍有明显优化空间。</p>
 <p>实测数据验证了 overlap 的价值：</p>
 <ul>
 <li><strong>decode 阶段</strong>：开启 <code>SGLANG_OPT_USE_MULTI_STREAM_OVERLAP</code>，整体 forward 提升 <strong>~3.5%</strong></li>
-<li><strong>prefill 阶段</strong>：每层节省 <del>1.28 ms，61 层共 **</del>78 ms**，sparse attention 模块接近”free”的目标</li>
+<li><strong>prefill 阶段</strong>：每层节省 ~1.28 ms，61 层共 <strong>~78 ms</strong>，sparse attention 模块接近&quot;free&quot;的目标</li>
 </ul>
 <p>更一般的启示：<strong>算法论文画依赖图时多想一步系统实现，系统实现时多对照论文的并行性承诺。</strong></p>
 <hr>

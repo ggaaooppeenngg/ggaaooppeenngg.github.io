@@ -255,21 +255,19 @@
 <p>另外 gossip 的协议有点像交换机的生成树协议，是通过互相传播自己的负载和位置信心来传播信息的，没有中心化的决策节点，这样的好处就是无中心化，不会依靠一个中心的节点来做负载均衡，而且整个系统就需要一个二进制文件不依赖任何的其他服务。</p>
 <p>如图是一个 range 在三节点上的三副本的一个 raft group 之间有网路通信。</p>
 <img data-src="/zh-CN/2017/04/07/MultiRaft-%E8%A7%A3%E6%9E%90/raft1.png" class="">
-
 <p>但是如果 range 变多的话，就会很复杂，如下图，是四个节点之间大概 8 个 （如果我没看错颜色的话） range 的 raft group 之间通信。</p>
 <img data-src="/zh-CN/2017/04/07/MultiRaft-%E8%A7%A3%E6%9E%90/raft2.png" class="">
-
 <p>很明显网络 RoundTrip 太多了。针对这个的优化就是 MultiRaft 了，说白了就是把网络请求 batch up，变成下面的形式。</p>
 <img data-src="/zh-CN/2017/04/07/MultiRaft-%E8%A7%A3%E6%9E%90/multiraft.png" class="">
-
-<p>这样网络压力就会小很多。针对这个的优化和应用本身的实现是耦合的，作者也尝试把这个优化加到 etcd&#x2F;raft 当中，但是最后的决定是增加 RawNode 这样的无线程安全的接口给应用层实用，方便对心跳等请求的合并，所以你会看到有个非线程安全的 RawNode 的实现。</p>
+<p>这样网络压力就会小很多。针对这个的优化和应用本身的实现是耦合的，作者也尝试把这个优化加到 etcd/raft 当中，但是最后的决定是增加 RawNode 这样的无线程安全的接口给应用层实用，方便对心跳等请求的合并，所以你会看到有个非线程安全的 RawNode 的实现。</p>
 <p>具体到 cockroach 的实现是可以找到相应的代码的，省略无关代码就如下。</p>
 <p>在发送消息的时候检查是否有可以整合的请求。</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">func (r *Replica) sendRaftMessage(ctx context.Context, msg raftpb.Message) &#123;</span><br><span class="line">    for range &#123;</span><br><span class="line">        // 迭代每个 follower 发送消息</span><br><span class="line">        // 对消息进行缓存</span><br><span class="line">        if r.maybeCoalesceHeartbeat(ctx, msg, toReplica, fromReplica, true) &#123;</span><br><span class="line">                continue</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 <p>循环取出缓存的消息，注意因为是整合了消息，所以对消息来说有延迟，这里稍微加快了频率，弥补这个延迟。</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">// Since coalesced heartbeats adds latency to heartbeat messages, it is</span><br><span class="line">// beneficial to have it run on a faster cycle than once per tick, so that</span><br><span class="line">// the delay does not impact latency-sensitive features such as quiescence.</span><br><span class="line">func (s *Store) startCoalescedHeartbeatsLoop() &#123;</span><br><span class="line">	s.stopper.RunWorker(func() &#123;</span><br><span class="line">		ticker := time.NewTicker(s.cfg.CoalescedHeartbeatsInterval)</span><br><span class="line">		defer func() &#123;</span><br><span class="line">			ticker.Stop()</span><br><span class="line">		&#125;()</span><br><span class="line"></span><br><span class="line">		for &#123;</span><br><span class="line">			select &#123;</span><br><span class="line">			case &lt;-ticker.C:</span><br><span class="line">				s.sendQueuedHeartbeats()</span><br><span class="line">			case &lt;-s.stopper.ShouldStop():</span><br><span class="line">				return</span><br><span class="line">			&#125;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;)</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>在 Store 这个层面是对每个 Replica （一个 raft group 的成员） 是有感知的，但是每个 raft group 是独立的，只是在发送是会检查对方节点是否和现在的 raft group 有交集，<br>从而尝试合并消息的发送，你可以理解为在节点之间的消息通道上对不同 raft group 之间多路复用。<br>这就是 MultiRaft 对多个 raft group 的网络吞吐做的一个优化，代价是可能造成消息的延迟，因为毕竟是被缓存到队列里了。</p>
+<p>在 Store 这个层面是对每个 Replica （一个 raft group 的成员） 是有感知的，但是每个 raft group 是独立的，只是在发送是会检查对方节点是否和现在的 raft group 有交集，<br>
+从而尝试合并消息的发送，你可以理解为在节点之间的消息通道上对不同 raft group 之间多路复用。<br>
+这就是 MultiRaft 对多个 raft group 的网络吞吐做的一个优化，代价是可能造成消息的延迟，因为毕竟是被缓存到队列里了。</p>
 
     </div>
 

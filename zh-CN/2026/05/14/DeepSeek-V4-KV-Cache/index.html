@@ -252,20 +252,20 @@
 </blockquote>
 <p>DeepSeek-V4 彻底改变了 KV Cache 的设计，从 V3 的 MLA（Multi-head Latent Attention）转向 <strong>CSA + HCA 混合注意力架构</strong>，通过<strong>序列维度压缩</strong>而非仅靠隐维度压缩来大幅降低 KV Cache 开销。</p>
 <hr>
-<h2 id="附录：Python-计算器代码"><a href="#附录：Python-计算器代码" class="headerlink" title="附录：Python 计算器代码"></a>附录：Python 计算器代码</h2><p>以下代码可直接运行，计算任意序列长度下的 KV Cache 大小：</p>
+<h2 id="附录：Python-计算器代码">附录：Python 计算器代码</h2>
+<p>以下代码可直接运行，计算任意序列长度下的 KV Cache 大小：</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># DeepSeek-V4-Pro KV Cache Size Calculator!</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 参考文献：</span></span><br><span class="line"><span class="comment"># - config.json: https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro/blob/main/config.json</span></span><br><span class="line"><span class="comment"># - model.py: https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro/blob/main/inference/model.py</span></span><br><span class="line"><span class="comment"># - paper: https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro/blob/main/DeepSeek_V4.pdf!</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># ── 模型参数（来自 config.json） ──────────────────────────────!</span></span><br><span class="line">NUM_LAYERS = <span class="number">61</span></span><br><span class="line">HEAD_DIM = <span class="number">512</span>  <span class="comment"># c: KV entry 维度（RoPE 包含在 512 内）</span></span><br><span class="line">ROPE_DIM = <span class="number">64</span>   <span class="comment"># r: 最后 64 维携带 RoPE</span></span><br><span class="line">NOPE_DIM = HEAD_DIM - ROPE_DIM  <span class="comment"># 448</span></span><br><span class="line">WINDOW = <span class="number">128</span>    <span class="comment"># w: 滑动窗口大小</span></span><br><span class="line">INDEX_DIM = <span class="number">128</span>  <span class="comment"># c_I: indexer KV 维度</span></span><br><span class="line">CSA_RATIO = <span class="number">4</span>     <span class="comment"># CSA 压缩比</span></span><br><span class="line">HCA_RATIO = <span class="number">128</span>   <span class="comment"># HCA 压缩比</span></span><br><span class="line">N_CSA = <span class="number">30</span>   <span class="comment"># CSA 层数（2,4,6,...,60）</span></span><br><span class="line">N_HCA = <span class="number">31</span>   <span class="comment"># HCA 层数（0,1,3,5,...,59）</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># ── 精度配置 ──────────────────────────────────────!</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">bf16_bytes</span>():</span><br><span class="line">    <span class="string">&quot;&quot;&quot;BF16 基准：所有元素 2 bytes。&quot;&quot;&quot;</span></span><br><span class="line">    s_kv = HEAD_DIM * <span class="number">2</span>  <span class="comment"># 512 × 2 = 1024</span></span><br><span class="line">    s_idx = INDEX_DIM * <span class="number">2</span>  <span class="comment"># 128 × 2 = 256</span></span><br><span class="line">    <span class="keyword">return</span> s_kv, s_idx</span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">mixed_bytes</span>():</span><br><span class="line">    <span class="string">&quot;&quot;&quot;混合精度部署：nope FP8 (1B) + rope BF16 (2B) + indexer FP4 (0.5B)。&quot;&quot;&quot;</span></span><br><span class="line">    s_kv = NOPE_DIM * <span class="number">1</span> + ROPE_DIM * <span class="number">2</span>  <span class="comment"># 448×1 + 64×2 = 576</span></span><br><span class="line">    s_idx = INDEX_DIM * <span class="number">0.5</span>  <span class="comment"># 128 × 0.5 = 64 (FP4)</span></span><br><span class="line">    <span class="keyword">return</span> s_kv, s_idx</span><br><span class="line"></span><br><span class="line"><span class="comment"># ── 核心计算 ──────────────────────────────────────!</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">calc_kvcache</span>(<span class="params">seq_len: <span class="built_in">int</span>, precision=<span class="string">&quot;bf16&quot;</span></span>):</span><br><span class="line">    <span class="string">&quot;&quot;&quot;</span></span><br><span class="line"><span class="string">    计算 DeepSeek-V4-Pro 的 KV Cache 大小。</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">    Args:</span></span><br><span class="line"><span class="string">        seq_len: 序列长度（token 数）</span></span><br><span class="line"><span class="string">        precision: &quot;bf16&quot; 或 &quot;mixed&quot;（FP8+BF16+FP4）</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">    Returns:</span></span><br><span class="line"><span class="string">        包含各组件和总大小的字典（字节）</span></span><br><span class="line"><span class="string">    &quot;&quot;&quot;</span></span><br><span class="line">    s_kv, s_idx = bf16_bytes() <span class="keyword">if</span> precision == <span class="string">&quot;bf16&quot;</span> <span class="keyword">else</span> mixed_bytes()</span><br><span class="line"></span><br><span class="line">    <span class="comment"># CSA 层 (ratio=4): Shared-KV + Indexer + SWA</span></span><br><span class="line">    csa_compressed = (seq_len // CSA_RATIO + WINDOW) * s_kv</span><br><span class="line">    csa_indexer = (seq_len // CSA_RATIO) * s_idx</span><br><span class="line">    csa_swa = WINDOW * s_kv</span><br><span class="line">    csa_per_layer = csa_compressed + csa_indexer + csa_swa</span><br><span class="line"></span><br><span class="line">    <span class="comment"># HCA 层 (ratio=128): Shared-KV + SWA（无 Indexer）</span></span><br><span class="line">    hca_compressed = (seq_len // HCA_RATIO + WINDOW) * s_kv</span><br><span class="line">    hca_swa = WINDOW * s_kv</span><br><span class="line">    hca_per_layer = hca_compressed + hca_swa</span><br><span class="line"></span><br><span class="line">    total = N_CSA * csa_per_layer + N_HCA * hca_per_layer</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> &#123;</span><br><span class="line">        <span class="string">&quot;csa_per_layer&quot;</span>: csa_per_layer,</span><br><span class="line">        <span class="string">&quot;hca_per_layer&quot;</span>: hca_per_layer,</span><br><span class="line">        <span class="string">&quot;csa_total&quot;</span>: N_CSA * csa_per_layer,</span><br><span class="line">        <span class="string">&quot;hca_total&quot;</span>: N_HCA * hca_per_layer,</span><br><span class="line">        <span class="string">&quot;total_bytes&quot;</span>: total,</span><br><span class="line">        <span class="string">&quot;total_gib&quot;</span>: total / (<span class="number">1024</span>**<span class="number">3</span>),</span><br><span class="line">        <span class="comment"># 组件分解</span></span><br><span class="line">        <span class="string">&quot;csa_shared_kv&quot;</span>: N_CSA * (seq_len // CSA_RATIO) * s_kv,</span><br><span class="line">        <span class="string">&quot;csa_indexer&quot;</span>: N_CSA * (seq_len // CSA_RATIO) * s_idx,</span><br><span class="line">        <span class="string">&quot;hca_shared_kv&quot;</span>: N_HCA * (seq_len // HCA_RATIO) * s_kv,</span><br><span class="line">        <span class="string">&quot;all_windows&quot;</span>: (N_CSA + N_HCA) * WINDOW * s_kv,</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">fmt</span>(<span class="params">b</span>):</span><br><span class="line">    <span class="string">&quot;&quot;&quot;格式化字节数为可读字符串。&quot;&quot;&quot;</span></span><br><span class="line">    <span class="keyword">if</span> b &gt;= <span class="number">1024</span>**<span class="number">3</span>:</span><br><span class="line">        <span class="keyword">return</span> <span class="string">f&quot;<span class="subst">&#123;b / (<span class="number">1024</span>**<span class="number">3</span>):<span class="number">.2</span>f&#125;</span> GiB&quot;</span></span><br><span class="line">    <span class="keyword">return</span> <span class="string">f&quot;<span class="subst">&#123;b / (<span class="number">1024</span>**<span class="number">2</span>):<span class="number">.2</span>f&#125;</span> MiB&quot;</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">report</span>(<span class="params">seq_len: <span class="built_in">int</span></span>):</span><br><span class="line">    <span class="built_in">print</span>(<span class="string">&quot;=&quot;</span> * <span class="number">60</span>)</span><br><span class="line">    <span class="built_in">print</span>(<span class="string">f&quot; DeepSeek-V4-Pro KV Cache | seq_len = <span class="subst">&#123;seq_len:,&#125;</span>&quot;</span>)</span><br><span class="line">    <span class="built_in">print</span>(<span class="string">&quot;=&quot;</span> * <span class="number">60</span>)</span><br><span class="line">    <span class="built_in">print</span>(<span class="string">f&quot; <span class="subst">&#123;N_CSA&#125;</span> CSA 层 (ratio=<span class="subst">&#123;CSA_RATIO&#125;</span>) + <span class="subst">&#123;N_HCA&#125;</span> HCA 层 (ratio=<span class="subst">&#123;HCA_RATIO&#125;</span>)&quot;</span>)</span><br><span class="line">    <span class="built_in">print</span>(<span class="string">f&quot; head_dim=<span class="subst">&#123;HEAD_DIM&#125;</span> (nope=<span class="subst">&#123;NOPE_DIM&#125;</span> + rope=<span class="subst">&#123;ROPE_DIM&#125;</span>)&quot;</span>)</span><br><span class="line">    <span class="built_in">print</span>(<span class="string">f&quot; index_dim=<span class="subst">&#123;INDEX_DIM&#125;</span>, window=<span class="subst">&#123;WINDOW&#125;</span>&quot;</span>)</span><br><span class="line">    <span class="built_in">print</span>()</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> prec <span class="keyword">in</span> [<span class="string">&quot;bf16&quot;</span>, <span class="string">&quot;mixed&quot;</span>]:</span><br><span class="line">        r = calc_kvcache(seq_len, prec)</span><br><span class="line">        s_kv, s_idx = bf16_bytes() <span class="keyword">if</span> prec == <span class="string">&quot;bf16&quot;</span> <span class="keyword">else</span> mixed_bytes()</span><br><span class="line">        label = <span class="string">&quot;BF16 基准&quot;</span> <span class="keyword">if</span> prec == <span class="string">&quot;bf16&quot;</span> <span class="keyword">else</span> <span class="string">&quot;FP8 kv + BF16 rope + FP4 indexer&quot;</span></span><br><span class="line">        <span class="built_in">print</span>(<span class="string">f&quot; ── <span class="subst">&#123;label&#125;</span> (S_kv=<span class="subst">&#123;s_kv&#125;</span>, S_idx=<span class="subst">&#123;s_idx&#125;</span>) ──&quot;</span>)</span><br><span class="line">        <span class="built_in">print</span>(<span class="string">f&quot;  CSA 单层: <span class="subst">&#123;fmt(r[<span class="string">&#x27;csa_per_layer&#x27;</span>]):&gt;10s&#125;</span>  HCA 单层: <span class="subst">&#123;fmt(r[<span class="string">&#x27;hca_per_layer&#x27;</span>]):&gt;10s&#125;</span>&quot;</span>)</span><br><span class="line">        <span class="built_in">print</span>(<span class="string">f&quot;  组件分解:&quot;</span>)</span><br><span class="line">        <span class="keyword">for</span> name, val <span class="keyword">in</span> [</span><br><span class="line">            (<span class="string">&quot;CSA Shared-KV 压缩&quot;</span>, r[<span class="string">&quot;csa_shared_kv&quot;</span>]),</span><br><span class="line">            (<span class="string">&quot;CSA Indexer&quot;</span>, r[<span class="string">&quot;csa_indexer&quot;</span>]),</span><br><span class="line">            (<span class="string">&quot;HCA Shared-KV 压缩&quot;</span>, r[<span class="string">&quot;hca_shared_kv&quot;</span>]),</span><br><span class="line">            (<span class="string">&quot;滑动窗口 (61 层)&quot;</span>, r[<span class="string">&quot;all_windows&quot;</span>]),</span><br><span class="line">        ]:</span><br><span class="line">            <span class="built_in">print</span>(<span class="string">f&quot;    <span class="subst">&#123;name:30s&#125;</span> <span class="subst">&#123;fmt(val):&gt;10s&#125;</span> (<span class="subst">&#123;val/r[<span class="string">&#x27;total_bytes&#x27;</span>]*<span class="number">100</span>:<span class="number">.1</span>f&#125;</span>%)&quot;</span>)</span><br><span class="line">        <span class="built_in">print</span>(<span class="string">f&quot; <span class="subst">&#123;<span class="string">&#x27;─&#x27;</span> * <span class="number">56</span>&#125;</span>&quot;</span>)</span><br><span class="line">        <span class="built_in">print</span>(<span class="string">f&quot; <span class="subst">&#123;<span class="string">&#x27;Total&#x27;</span>:30s&#125;</span> <span class="subst">&#123;fmt(r[<span class="string">&#x27;total_bytes&#x27;</span>]):&gt;10s&#125;</span>&quot;</span>)</span><br><span class="line">        <span class="built_in">print</span>()</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> __name__ == <span class="string">&quot;__main__&quot;</span>:</span><br><span class="line">    report(<span class="number">1_048_576</span>)  <span class="comment"># 1M tokens</span></span><br></pre></td></tr></table></figure>
-
 <p><strong>运行结果</strong>（Python 3.x）：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line">============================================================</span><br><span class="line"> DeepSeek-V4-Pro KV Cache | seq_len = 1,048,576</span><br><span class="line">============================================================</span><br><span class="line"> 30 CSA 层 (ratio=4) + 31 HCA 层 (ratio=128)</span><br><span class="line"> head_dim=512 (nope=448 + rope=64)</span><br><span class="line"> index_dim=128, window=128</span><br><span class="line"></span><br><span class="line"> ── BF16 基准 (S_kv=1024, S_idx=256) ──</span><br><span class="line">  CSA 单层: 320.12 MiB  HCA 单层: 8.12 MiB</span><br><span class="line">  组件分解:</span><br><span class="line">    CSA Shared-KV 压缩             7,500.00 MiB (77.9%)</span><br><span class="line">    CSA Indexer                         1,920.00 MiB (19.5%)</span><br><span class="line">    HCA Shared-KV 压缩               248.00 MiB (2.5%)</span><br><span class="line">    滑动窗口 (61 层)                       7.50 MiB (0.1%)</span><br><span class="line">─────────────────────────────────────────────────────────────</span><br><span class="line"> Total                         9,675.50 MiB (9.62 GiB)</span><br><span class="line"></span><br><span class="line">── FP8 kv + BF16 rope + FP4 indexer (S_kv=576, S_idx=64.0) ──</span><br><span class="line">  CSA 单层: 160.07 MiB  HCA 单层: 4.57 MiB</span><br><span class="line">  组件分解:</span><br><span class="line">    CSA Shared-KV 压缩             4,218.75 MiB (87.4%)</span><br><span class="line">    CSA Indexer                           480.00 MiB (9.7%)</span><br><span class="line">    HCA Shared-KV 压缩                   139.50 MiB (2.8%)</span><br><span class="line">    滑动窗口 (61 层)                               4.25 MiB (0.1%)</span><br><span class="line">─────────────────────────────────────────────────────────────</span><br><span class="line"> Total                         4,822.50 MiB (4.83 GiB)</span><br></pre></td></tr></table></figure>
-
 <p><strong>对比 V3.2</strong>（61 层，每 token 1152 bytes）：</p>
 <ul>
-<li>V3.2 BF16: 61 × 1,048,576 × 1152 &#x2F; 1024³ ≈ <strong>83.9 GiB</strong></li>
+<li>V3.2 BF16: 61 × 1,048,576 × 1152 / 1024³ ≈ <strong>83.9 GiB</strong></li>
 <li>V4-Pro BF16: <strong>9.62 GiB</strong> (8.7× 压缩)</li>
 <li>V4-Pro 混合精度: <strong>4.83 GiB</strong> (17.4× 压缩) ✅!</li>
 </ul>
 <hr>
-<h2 id="一、核心架构参数"><a href="#一、核心架构参数" class="headerlink" title="一、核心架构参数!"></a>一、核心架构参数!</h2><table>
+<h2 id="一、核心架构参数">一、核心架构参数!</h2>
+<table>
 <thead>
 <tr>
 <th>参数</th>
@@ -274,7 +274,8 @@
 <th>V4-Flash</th>
 </tr>
 </thead>
-<tbody><tr>
+<tbody>
+<tr>
 <td>总参数量</td>
 <td></td>
 <td>1600B</td>
@@ -282,7 +283,7 @@
 </tr>
 <tr>
 <td>总层数</td>
-<td>$L_{layers}$</td>
+<td><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>L</mi><mrow><mi>l</mi><mi>a</mi><mi>y</mi><mi>e</mi><mi>r</mi><mi>s</mi></mrow></msub></mrow><annotation encoding="application/x-tex">L_{layers}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.9694em;vertical-align:-0.2861em;"></span><span class="mord"><span class="mord mathnormal">L</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight" style="margin-right:0.0197em;">l</span><span class="mord mathnormal mtight">a</span><span class="mord mathnormal mtight" style="margin-right:0.0359em;">y</span><span class="mord mathnormal mtight" style="margin-right:0.0278em;">er</span><span class="mord mathnormal mtight">s</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.2861em;"><span></span></span></span></span></span></span></span></span></span></td>
 <td>61</td>
 <td>43</td>
 </tr>
@@ -300,33 +301,34 @@
 </tr>
 <tr>
 <td>压缩后 latent 维度 (c_KV)</td>
-<td>$c$</td>
+<td><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>c</mi></mrow><annotation encoding="application/x-tex">c</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.4306em;"></span><span class="mord mathnormal">c</span></span></span></span></td>
 <td>512</td>
 <td>—</td>
 </tr>
 <tr>
 <td>index_head_dim</td>
-<td>$c_I$</td>
+<td><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>c</mi><mi>I</mi></msub></mrow><annotation encoding="application/x-tex">c_I</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.5806em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal">c</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3283em;"><span style="top:-2.55em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:0.0785em;">I</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span></span></td>
 <td>128</td>
 <td>—</td>
 </tr>
 <tr>
 <td>index_topk</td>
-<td>$k$</td>
+<td><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>k</mi></mrow><annotation encoding="application/x-tex">k</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6944em;"></span><span class="mord mathnormal" style="margin-right:0.0315em;">k</span></span></span></span></td>
 <td>1024</td>
 <td>—</td>
 </tr>
 <tr>
 <td>sliding_window</td>
-<td>$w$</td>
+<td><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>w</mi></mrow><annotation encoding="application/x-tex">w</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.4306em;"></span><span class="mord mathnormal" style="margin-right:0.0269em;">w</span></span></span></span></td>
 <td>128</td>
 <td>—</td>
 </tr>
-</tbody></table>
+</tbody>
+</table>
 <p>数据来源：<a target="_blank" rel="noopener" href="https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro/blob/main/config.json">config.json</a></p>
-<h3 id="compress-ratios-数组-→-层类型"><a href="#compress-ratios-数组-→-层类型" class="headerlink" title="compress_ratios 数组 → 层类型"></a>compress_ratios 数组 → 层类型</h3><p>compress_ratios 有 62 个元素（61 层 + 1 层 MTP）：</p>
+<h3 id="compress-ratios-数组-→-层类型">compress_ratios 数组 → 层类型</h3>
+<p>compress_ratios 有 62 个元素（61 层 + 1 层 MTP）：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">索引: 0  1  2  3  4  5  ... 59 60 61</span><br><span class="line">值:   128 128 4  128 4  128 ... 128 4  0</span><br><span class="line">类型: HCA HCA CSA HCA CSA HCA ... HCA CSA MTP</span><br></pre></td></tr></table></figure>
-
 <table>
 <thead>
 <tr>
@@ -335,13 +337,14 @@
 <th>层索引</th>
 </tr>
 </thead>
-<tbody><tr>
-<td>HCA (ratio&#x3D;128)</td>
+<tbody>
+<tr>
+<td>HCA (ratio=128)</td>
 <td>31</td>
 <td>0,1,3,5,7,…,59</td>
 </tr>
 <tr>
-<td>CSA (ratio&#x3D;4)</td>
+<td>CSA (ratio=4)</td>
 <td>30</td>
 <td>2,4,6,8,…,60</td>
 </tr>
@@ -350,19 +353,23 @@
 <td><strong>61</strong></td>
 <td></td>
 </tr>
-</tbody></table>
+</tbody>
+</table>
 <hr>
-<h2 id="二、KV-Cache-结构革命"><a href="#二、KV-Cache-结构革命" class="headerlink" title="二、KV Cache 结构革命!"></a>二、KV Cache 结构革命!</h2><h3 id="V3-MLA-vs-V4-CSA-HCA"><a href="#V3-MLA-vs-V4-CSA-HCA" class="headerlink" title="V3 MLA vs V4 CSA&#x2F;HCA!"></a>V3 MLA vs V4 CSA&#x2F;HCA!</h3><table>
+<h2 id="二、KV-Cache-结构革命">二、KV Cache 结构革命!</h2>
+<h3 id="V3-MLA-vs-V4-CSA-HCA">V3 MLA vs V4 CSA/HCA!</h3>
+<table>
 <thead>
 <tr>
 <th>对比项</th>
 <th>V3 MLA</th>
-<th>V4 CSA&#x2F;HCA</th>
+<th>V4 CSA/HCA</th>
 </tr>
 </thead>
-<tbody><tr>
+<tbody>
+<tr>
 <td>KV 投影</td>
-<td>Linear(dim, 576) &#x3D; 512+64</td>
+<td>Linear(dim, 576) = 512+64</td>
 <td>Linear(dim, 512)</td>
 </tr>
 <tr>
@@ -380,21 +387,24 @@
 <td>隐维度压缩 (7168→512)</td>
 <td><strong>序列维度压缩</strong> (4:1 或 128:1)</td>
 </tr>
-</tbody></table>
-<h3 id="V4-KV-entry-构成（512-维）"><a href="#V4-KV-entry-构成（512-维）" class="headerlink" title="V4 KV entry 构成（512 维）"></a>V4 KV entry 构成（512 维）</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">KV entry (512 dims)</span><br><span class="line">┌────────────────────────────┬──────────────┐</span><br><span class="line">│ nope 维度 (448 个元素) │ rope 维度 (64)│</span><br><span class="line">│ FP8: 448 × 1 byte     │ BF16: 64 × 2  │</span><br><span class="line">│ = 448 bytes            │ = 128 bytes │</span><br><span class="line">└────────────────────────────┴──────────────┘</span><br><span class="line">合计 = 576 bytes/entry (混合精度)</span><br></pre></td></tr></table></figure>
-
+</tbody>
+</table>
+<h3 id="V4-KV-entry-构成（512-维）">V4 KV entry 构成（512 维）</h3>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">KV entry (512 dims)</span><br><span class="line">┌────────────────────────────┬──────────────┐</span><br><span class="line">│ nope 维度 (448 个元素) │ rope 维度 (64)│</span><br><span class="line">│ FP8: 448 × 1 byte     │ BF16: 64 × 2  │</span><br><span class="line">│ = 448 bytes            │ = 128 bytes │</span><br><span class="line">└────────────────────────────┴──────────────┘</span><br><span class="line">合计 = 576 bytes/entry (混合精度)</span><br></pre></td></tr></table></figure>
 <p><strong>论文原文</strong>（Section 2.3.4）：</p>
 <blockquote>
 <p>“我们采用混合存储格式：RoPE 维度使用 BF16 精度，其余维度使用 FP8 精度。”</p>
 </blockquote>
-<h3 id="代码证据"><a href="#代码证据" class="headerlink" title="代码证据!"></a>代码证据!</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># model.py, Attention.__init__</span></span><br><span class="line"><span class="variable language_">self</span>.head_dim = args.head_dim  <span class="comment"># 512</span></span><br><span class="line"><span class="variable language_">self</span>.rope_head_dim = args.rope_head_dim  <span class="comment"># 64</span></span><br><span class="line"><span class="variable language_">self</span>.nope_head_dim = <span class="variable language_">self</span>.head_dim - <span class="variable language_">self</span>.rope_head_dim  <span class="comment"># 448!</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># KV cache 分配：512 维，不是 576</span></span><br><span class="line"><span class="variable language_">self</span>.register_buffer(<span class="string">&quot;kv_cache&quot;</span>,</span><br><span class="line">    torch.zeros(args.max_batch_size, kv_cache_size, <span class="variable language_">self</span>.head_dim),</span><br><span class="line">    persistent=<span class="literal">False</span>)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 写入时：前 448 维 FP8，后 64 维 BF16</span></span><br><span class="line">kv = <span class="variable language_">self</span>.wkv(x)  <span class="comment"># Linear(7168 → 512)</span></span><br><span class="line">kv = <span class="variable language_">self</span>.kv_norm(kv)</span><br><span class="line">apply_rotary_emb(kv[..., -<span class="number">64</span>:], freqs_cis)  <span class="comment"># RoPE 对后 64 维原地施加</span></span><br><span class="line">act_quant(kv[..., :-<span class="number">64</span>], <span class="number">64</span>, scale_fmt, scale_dtype, <span class="literal">True</span>)  <span class="comment"># FP8 量化（前 448 维）</span></span><br></pre></td></tr></table></figure>
-
-<p><strong>结论</strong>：V4 的 512 维包含 RoPE（后 64 维），所以存储是 576 bytes&#x2F;entry（混合精度），相比 V3 的 640 bytes&#x2F;token 还小。</p>
+<h3 id="代码证据">代码证据!</h3>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># model.py, Attention.__init__</span></span><br><span class="line"><span class="variable language_">self</span>.head_dim = args.head_dim  <span class="comment"># 512</span></span><br><span class="line"><span class="variable language_">self</span>.rope_head_dim = args.rope_head_dim  <span class="comment"># 64</span></span><br><span class="line"><span class="variable language_">self</span>.nope_head_dim = <span class="variable language_">self</span>.head_dim - <span class="variable language_">self</span>.rope_head_dim  <span class="comment"># 448!</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># KV cache 分配：512 维，不是 576</span></span><br><span class="line"><span class="variable language_">self</span>.register_buffer(<span class="string">&quot;kv_cache&quot;</span>,</span><br><span class="line">    torch.zeros(args.max_batch_size, kv_cache_size, <span class="variable language_">self</span>.head_dim),</span><br><span class="line">    persistent=<span class="literal">False</span>)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 写入时：前 448 维 FP8，后 64 维 BF16</span></span><br><span class="line">kv = <span class="variable language_">self</span>.wkv(x)  <span class="comment"># Linear(7168 → 512)</span></span><br><span class="line">kv = <span class="variable language_">self</span>.kv_norm(kv)</span><br><span class="line">apply_rotary_emb(kv[..., -<span class="number">64</span>:], freqs_cis)  <span class="comment"># RoPE 对后 64 维原地施加</span></span><br><span class="line">act_quant(kv[..., :-<span class="number">64</span>], <span class="number">64</span>, scale_fmt, scale_dtype, <span class="literal">True</span>)  <span class="comment"># FP8 量化（前 448 维）</span></span><br></pre></td></tr></table></figure>
+<p><strong>结论</strong>：V4 的 512 维包含 RoPE（后 64 维），所以存储是 576 bytes/entry（混合精度），相比 V3 的 640 bytes/token 还小。</p>
 <hr>
-<h2 id="三、压缩机制详解"><a href="#三、压缩机制详解" class="headerlink" title="三、压缩机制详解!"></a>三、压缩机制详解!</h2><h3 id="1-HCA（Heavily-Compressed-Attention）—-重度压缩"><a href="#1-HCA（Heavily-Compressed-Attention）—-重度压缩" class="headerlink" title="1. HCA（Heavily Compressed Attention）— 重度压缩!"></a>1. HCA（Heavily Compressed Attention）— 重度压缩!</h3><ul>
+<h2 id="三、压缩机制详解">三、压缩机制详解!</h2>
+<h3 id="1-HCA（Heavily-Compressed-Attention）—-重度压缩">1. HCA（Heavily Compressed Attention）— 重度压缩!</h3>
+<ul>
 <li><strong>压缩比</strong>：128:1（每 128 个 token → 1 个压缩 KV entry）</li>
-<li><strong>无 overlap</strong>（论文明确：”does not perform overlapped compression”）</li>
-<li><strong>无稀疏选择</strong>：对所有压缩条目做全量密集注意力（提供全局”低分辨率概览”）</li>
+<li><strong>无 overlap</strong>（论文明确：“does not perform overlapped compression”）</li>
+<li><strong>无稀疏选择</strong>：对所有压缩条目做全量密集注意力（提供全局&quot;低分辨率概览&quot;）</li>
 <li><strong>滑动窗口</strong>：同样保留最近 128 个 token!</li>
 </ul>
 <p><strong>单层 KV Cache 计算</strong>（1M tokens）：</p>
@@ -403,13 +413,14 @@
 <tr>
 <th>组件</th>
 <th>entries</th>
-<th>bytes&#x2F;entry</th>
+<th>bytes/entry</th>
 <th>小计</th>
 </tr>
 </thead>
-<tbody><tr>
+<tbody>
+<tr>
 <td>压缩 KV</td>
-<td>1M&#x2F;128</td>
+<td>1M/128</td>
 <td>576</td>
 <td>4.5 MB</td>
 </tr>
@@ -423,12 +434,14 @@
 <td><strong>总计</strong></td>
 <td></td>
 <td></td>
-<td><strong>~4.6 MB&#x2F;层</strong> (无 Indexer)</td>
+<td><strong>~4.6 MB/层</strong> (无 Indexer)</td>
 </tr>
-</tbody></table>
-<h3 id="2-CSA（Compressed-Sparse-Attention）—-轻度压缩"><a href="#2-CSA（Compressed-Sparse-Attention）—-轻度压缩" class="headerlink" title="2. CSA（Compressed Sparse Attention）— 轻度压缩!"></a>2. CSA（Compressed Sparse Attention）— 轻度压缩!</h3><ul>
+</tbody>
+</table>
+<h3 id="2-CSA（Compressed-Sparse-Attention）—-轻度压缩">2. CSA（Compressed Sparse Attention）— 轻度压缩!</h3>
+<ul>
 <li><strong>压缩比</strong>：4:1（每 4 个 token → 1 个压缩 KV entry）</li>
-<li><strong>窗口大小</strong>：8 个 token（含 50% overlap，步长&#x3D;4）</li>
+<li><strong>窗口大小</strong>：8 个 token（含 50% overlap，步长=4）</li>
 <li><strong>稀疏选择</strong>：Lightning Indexer（FP4 精度）选取 top-1024 最相关的压缩块</li>
 <li><strong>滑动窗口</strong>：保留最近 128 个 token 的原始未压缩 KV!</li>
 </ul>
@@ -438,19 +451,20 @@
 <tr>
 <th>组件</th>
 <th>entries</th>
-<th>bytes&#x2F;entry</th>
+<th>bytes/entry</th>
 <th>小计</th>
 </tr>
 </thead>
-<tbody><tr>
+<tbody>
+<tr>
 <td>压缩 KV</td>
-<td>1M&#x2F;4</td>
+<td>1M/4</td>
 <td>576</td>
 <td>144 MB</td>
 </tr>
 <tr>
 <td>Indexer</td>
-<td>1M&#x2F;4</td>
+<td>1M/4</td>
 <td>64 (FP4)</td>
 <td>16 MB</td>
 </tr>
@@ -464,40 +478,47 @@
 <td><strong>总计</strong></td>
 <td></td>
 <td></td>
-<td><strong>~160 MB&#x2F;层</strong></td>
+<td><strong>~160 MB/层</strong></td>
 </tr>
-</tbody></table>
+</tbody>
+</table>
 <hr>
-<h2 id="四、索引器（Indexer）机制（CSA-独有）"><a href="#四、索引器（Indexer）机制（CSA-独有）" class="headerlink" title="四、索引器（Indexer）机制（CSA 独有）!"></a>四、索引器（Indexer）机制（CSA 独有）!</h2><p>索引器是 CSA 的”导航系统”，用来决定<strong>哪些压缩块最值得关注</strong>。</p>
-<h3 id="结构"><a href="#结构" class="headerlink" title="结构"></a>结构</h3><ul>
-<li><strong>独立 Compressor</strong>：自己的 wkv 和 wgate 权重（head_dim&#x3D;128，不是 512）</li>
+<h2 id="四、索引器（Indexer）机制（CSA-独有）">四、索引器（Indexer）机制（CSA 独有）!</h2>
+<p>索引器是 CSA 的&quot;导航系统&quot;，用来决定<strong>哪些压缩块最值得关注</strong>。</p>
+<h3 id="结构">结构</h3>
+<ul>
+<li><strong>独立 Compressor</strong>：自己的 wkv 和 wgate 权重（head_dim=128，不是 512）</li>
 <li><strong>FP4 量化</strong>：Hadamard 旋转 + fp4_act_quant（全 128 维）</li>
-<li><strong>计算流程</strong>：<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">Query token t → indexer query (128 维) → 和所有压缩块的索引器 key 算分</span><br><span class="line">→ Top-k (1024) → 选出最相关的 1024 个压缩块</span><br></pre></td></tr></table></figure></li>
+<li><strong>计算流程</strong>：<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">Query token t → indexer query (128 维) → 和所有压缩块的索引器 key 算分</span><br><span class="line">→ Top-k (1024) → 选出最相关的 1024 个压缩块</span><br></pre></td></tr></table></figure>
+</li>
 </ul>
-<h3 id="Indexer-Cache-大小（1M-tokens）"><a href="#Indexer-Cache-大小（1M-tokens）" class="headerlink" title="Indexer Cache 大小（1M tokens）"></a>Indexer Cache 大小（1M tokens）</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">(1M/4) × 128 dims × 0.5 byte (FP4) = 16 MB/层</span><br></pre></td></tr></table></figure>
-
+<h3 id="Indexer-Cache-大小（1M-tokens）">Indexer Cache 大小（1M tokens）</h3>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">(1M/4) × 128 dims × 0.5 byte (FP4) = 16 MB/层</span><br></pre></td></tr></table></figure>
 <p><strong>论文 Section 5.2.1</strong>：</p>
 <blockquote>
 <p>“索引器中的 QK 激活被缓存、加载，并完全以 FP4 精度计算。”</p>
 </blockquote>
 <hr>
-<h2 id="五、RoPE-的特殊处理"><a href="#五、RoPE-的特殊处理" class="headerlink" title="五、RoPE 的特殊处理!"></a>五、RoPE 的特殊处理!</h2><h3 id="三处应用-RoPE（Section-2-3-3）"><a href="#三处应用-RoPE（Section-2-3-3）" class="headerlink" title="三处应用 RoPE（Section 2.3.3）"></a>三处应用 RoPE（Section 2.3.3）</h3><ol>
+<h2 id="五、RoPE-的特殊处理">五、RoPE 的特殊处理!</h2>
+<h3 id="三处应用-RoPE（Section-2-3-3）">三处应用 RoPE（Section 2.3.3）</h3>
+<ol>
 <li><strong>Query 向量</strong> (q_t,i) → last 64 dims</li>
 <li><strong>KV entry 向量</strong> (C_Comp) → last 64 dims</li>
-<li><strong>Core attention 输出</strong> (o_t,i) → last 64 dims（位置 &#x3D; -i）</li>
+<li><strong>Core attention 输出</strong> (o_t,i) → last 64 dims（位置 = -i）</li>
 </ol>
-<h3 id="为什么输出也要加-RoPE？"><a href="#为什么输出也要加-RoPE？" class="headerlink" title="为什么输出也要加 RoPE？!"></a>为什么输出也要加 RoPE？!</h3><p>因为 KV entry 同时作为 K 和 V，压缩后的 entry 带绝对位置信息。如果直接输出：</p>
+<h3 id="为什么输出也要加-RoPE？">为什么输出也要加 RoPE？!</h3>
+<p>因为 KV entry 同时作为 K 和 V，压缩后的 entry 带绝对位置信息。如果直接输出：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">o_t,i = Σ attn_weight_j × C_Comp_j(R(j))  ← 携带绝对位置 R(j)</span><br></pre></td></tr></table></figure>
-
-<p>对输出施加 RoPE(position&#x3D;-i)：</p>
+<p>对输出施加 RoPE(position=-i)：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">R(-i) × o_t,i = Σ attn_weight_j × C_Comp_j(R(j-i))  ← 转为相对位置</span><br></pre></td></tr></table></figure>
-
 <p><strong>论文原文</strong>：</p>
 <blockquote>
 <p>“注意力输出的贡献将与 query 和 KV entry 之间的距离相关。”</p>
 </blockquote>
 <hr>
-<h2 id="六、精度配置"><a href="#六、精度配置" class="headerlink" title="六、精度配置!"></a>六、精度配置!</h2><h3 id="两种精度模式"><a href="#两种精度模式" class="headerlink" title="两种精度模式!"></a>两种精度模式!</h3><table>
+<h2 id="六、精度配置">六、精度配置!</h2>
+<h3 id="两种精度模式">两种精度模式!</h3>
+<table>
 <thead>
 <tr>
 <th>符号</th>
@@ -506,20 +527,23 @@
 <th>混合精度部署</th>
 </tr>
 </thead>
-<tbody><tr>
-<td>$S_{kv}$</td>
+<tbody>
+<tr>
+<td><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>S</mi><mrow><mi>k</mi><mi>v</mi></mrow></msub></mrow><annotation encoding="application/x-tex">S_{kv}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8333em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0576em;">S</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:-0.0576em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight" style="margin-right:0.0315em;">k</span><span class="mord mathnormal mtight" style="margin-right:0.0359em;">v</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span></span></td>
 <td>Shared-KV 每元素字节</td>
-<td>$512 \times 2 &#x3D; 1024$</td>
-<td>$448 \times 1 + 64 \times 2 &#x3D; 576$</td>
+<td><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>512</mn><mo>×</mo><mn>2</mn><mo>=</mo><mn>1024</mn></mrow><annotation encoding="application/x-tex">512 \times 2 = 1024</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.7278em;vertical-align:-0.0833em;"></span><span class="mord">512</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.6444em;"></span><span class="mord">2</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.6444em;"></span><span class="mord">1024</span></span></span></span></td>
+<td><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>448</mn><mo>×</mo><mn>1</mn><mo>+</mo><mn>64</mn><mo>×</mo><mn>2</mn><mo>=</mo><mn>576</mn></mrow><annotation encoding="application/x-tex">448 \times 1 + 64 \times 2 = 576</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.7278em;vertical-align:-0.0833em;"></span><span class="mord">448</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.7278em;vertical-align:-0.0833em;"></span><span class="mord">1</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.7278em;vertical-align:-0.0833em;"></span><span class="mord">64</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.6444em;"></span><span class="mord">2</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.6444em;"></span><span class="mord">576</span></span></span></span></td>
 </tr>
 <tr>
-<td>$S_{idx}$</td>
+<td><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>S</mi><mrow><mi>i</mi><mi>d</mi><mi>x</mi></mrow></msub></mrow><annotation encoding="application/x-tex">S_{idx}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8333em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0576em;">S</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:-0.0576em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight">i</span><span class="mord mathnormal mtight">d</span><span class="mord mathnormal mtight">x</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span></span></td>
 <td>Indexer 每元素字节</td>
-<td>$128 \times 2 &#x3D; 256$</td>
-<td>$128 \times 0.5 &#x3D; 64$ (FP4)</td>
+<td><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>128</mn><mo>×</mo><mn>2</mn><mo>=</mo><mn>256</mn></mrow><annotation encoding="application/x-tex">128 \times 2 = 256</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.7278em;vertical-align:-0.0833em;"></span><span class="mord">128</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.6444em;"></span><span class="mord">2</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.6444em;"></span><span class="mord">256</span></span></span></span></td>
+<td><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>128</mn><mo>×</mo><mn>0.5</mn><mo>=</mo><mn>64</mn></mrow><annotation encoding="application/x-tex">128 \times 0.5 = 64</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.7278em;vertical-align:-0.0833em;"></span><span class="mord">128</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.6444em;"></span><span class="mord">0.5</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.6444em;"></span><span class="mord">64</span></span></span></span> (FP4)</td>
 </tr>
-</tbody></table>
-<h3 id="论文依据"><a href="#论文依据" class="headerlink" title="论文依据!"></a>论文依据!</h3><p><strong>Section 2.3.4</strong>：</p>
+</tbody>
+</table>
+<h3 id="论文依据">论文依据!</h3>
+<p><strong>Section 2.3.4</strong>：</p>
 <blockquote>
 <p>“RoPE 维度使用 BF16 精度，其余维度使用 FP8 精度。”</p>
 </blockquote>
@@ -528,13 +552,47 @@
 <p>“索引器中的 QK 激活完全以 FP4 精度计算。”</p>
 </blockquote>
 <hr>
-<h2 id="七、总-KV-Cache-计算公式"><a href="#七、总-KV-Cache-计算公式" class="headerlink" title="七、总 KV Cache 计算公式!"></a>七、总 KV Cache 计算公式!</h2><h3 id="通用公式"><a href="#通用公式" class="headerlink" title="通用公式!"></a>通用公式!</h3><p>设序列长度 $N$，CSA 层数 $N_{CSA}&#x3D;30$，HCA 层数 $N_{HCA}&#x3D;31$：</p>
-<p>$$\text{Total KV} &#x3D; N_{CSA} \times \text{PerCSA} + N_{HCA} \times \text{PerHCA}$$</p>
+<h2 id="七、总-KV-Cache-计算公式">七、总 KV Cache 计算公式!</h2>
+<h3 id="通用公式">通用公式!</h3>
+<p>设序列长度 <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>N</mi></mrow><annotation encoding="application/x-tex">N</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.109em;">N</span></span></span></span>，CSA 层数 <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>N</mi><mrow><mi>C</mi><mi>S</mi><mi>A</mi></mrow></msub><mo>=</mo><mn>30</mn></mrow><annotation encoding="application/x-tex">N_{CSA}=30</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8333em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.109em;">N</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3283em;"><span style="top:-2.55em;margin-left:-0.109em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight" style="margin-right:0.0715em;">C</span><span class="mord mathnormal mtight" style="margin-right:0.0576em;">S</span><span class="mord mathnormal mtight">A</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.6444em;"></span><span class="mord">30</span></span></span></span>，HCA 层数 <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>N</mi><mrow><mi>H</mi><mi>C</mi><mi>A</mi></mrow></msub><mo>=</mo><mn>31</mn></mrow><annotation encoding="application/x-tex">N_{HCA}=31</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8333em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.109em;">N</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3283em;"><span style="top:-2.55em;margin-left:-0.109em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight" style="margin-right:0.0813em;">H</span><span class="mord mathnormal mtight" style="margin-right:0.0715em;">C</span><span class="mord mathnormal mtight">A</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.6444em;"></span><span class="mord">31</span></span></span></span>：</p>
+<p class="katex-block "><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mtext>Total KV</mtext><mo>=</mo><msub><mi>N</mi><mrow><mi>C</mi><mi>S</mi><mi>A</mi></mrow></msub><mo>×</mo><mtext>PerCSA</mtext><mo>+</mo><msub><mi>N</mi><mrow><mi>H</mi><mi>C</mi><mi>A</mi></mrow></msub><mo>×</mo><mtext>PerHCA</mtext></mrow><annotation encoding="application/x-tex">\text{Total KV} = N_{CSA} \times \text{PerCSA} + N_{HCA} \times \text{PerHCA}
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6944em;"></span><span class="mord text"><span class="mord">Total KV</span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.8333em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.109em;">N</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3283em;"><span style="top:-2.55em;margin-left:-0.109em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight" style="margin-right:0.0715em;">C</span><span class="mord mathnormal mtight" style="margin-right:0.0576em;">S</span><span class="mord mathnormal mtight">A</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.7667em;vertical-align:-0.0833em;"></span><span class="mord text"><span class="mord">PerCSA</span></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.8333em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.109em;">N</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3283em;"><span style="top:-2.55em;margin-left:-0.109em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight" style="margin-right:0.0813em;">H</span><span class="mord mathnormal mtight" style="margin-right:0.0715em;">C</span><span class="mord mathnormal mtight">A</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord text"><span class="mord">PerHCA</span></span></span></span></span></span></p>
 <p>其中：</p>
-<p>$$\text{PerCSA} &#x3D; \underbrace{(\frac{N}{4} + w) \times S_{kv}}_ {\text{Shared-KV}} + \underbrace{\frac{N}{4} \times S_ {idx}}_ {\text{Indexer}}$$</p>
-<p>$$\text{PerHCA} &#x3D; \underbrace{(\frac{N}{128} + w) \times S_{kv}}_{\text{Shared-KV only}}$$</p>
+<p class="katex-block "><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mtext>PerCSA</mtext><mo>=</mo><munder><munder><mrow><mo stretchy="false">(</mo><mfrac><mi>N</mi><mn>4</mn></mfrac><mo>+</mo><mi>w</mi><mo stretchy="false">)</mo><mo>×</mo><msub><mi>S</mi><mrow><mi>k</mi><mi>v</mi></mrow></msub></mrow><mo stretchy="true">⏟</mo></munder><mtext>Shared-KV</mtext></munder><mo>+</mo><munder><munder><mrow><mfrac><mi>N</mi><mn>4</mn></mfrac><mo>×</mo><msub><mi>S</mi><mrow><mi>i</mi><mi>d</mi><mi>x</mi></mrow></msub></mrow><mo stretchy="true">⏟</mo></munder><mtext>Indexer</mtext></munder></mrow><annotation encoding="application/x-tex">\text{PerCSA} = \underbrace{(\frac{N}{4} + w) \times S_{kv}}_ {\text{Shared-KV}} + \underbrace{\frac{N}{4} \times S_ {idx}}_ {\text{Indexer}}
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord text"><span class="mord">PerCSA</span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:3.3804em;vertical-align:-2.0201em;"></span><span class="minner munder"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.3603em;"><span style="top:-1.3402em;"><span class="pstrut" style="height:3.3603em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord text mtight"><span class="mord mtight">Shared-KV</span></span></span></span></span><span style="top:-3.3603em;"><span class="pstrut" style="height:3.3603em;"></span><span class="minner munder"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.3603em;"><span class="svg-align" style="top:-2.0263em;"><span class="pstrut" style="height:3.3603em;"></span><span class="stretchy" style="height:0.548em;min-width:1.6em;"><span class="brace-left" style="height:0.548em;"><svg xmlns="http://www.w3.org/2000/svg" width="400em" height="0.548em" viewBox="0 0 400000 548" preserveAspectRatio="xMinYMin slice"><path d="M0 6l6-6h17c12.688 0 19.313.3 20 1 4 4 7.313 8.3 10 13
+ 35.313 51.3 80.813 93.8 136.5 127.5 55.688 33.7 117.188 55.8 184.5 66.5.688
+ 0 2 .3 4 1 18.688 2.7 76 4.3 172 5h399450v120H429l-6-1c-124.688-8-235-61.7
+-331-161C60.687 138.7 32.312 99.3 7 54L0 41V6z"/></svg></span><span class="brace-center" style="height:0.548em;"><svg xmlns="http://www.w3.org/2000/svg" width="400em" height="0.548em" viewBox="0 0 400000 548" preserveAspectRatio="xMidYMin slice"><path d="M199572 214
+c100.7 8.3 195.3 44 280 108 55.3 42 101.7 93 139 153l9 14c2.7-4 5.7-8.7 9-14
+ 53.3-86.7 123.7-153 211-199 66.7-36 137.3-56.3 212-62h199568v120H200432c-178.3
+ 11.7-311.7 78.3-403 201-6 8-9.7 12-11 12-.7.7-6.7 1-18 1s-17.3-.3-18-1c-1.3 0
+-5-4-11-12-44.7-59.3-101.3-106.3-170-141s-145.3-54.3-229-60H0V214z"/></svg></span><span class="brace-right" style="height:0.548em;"><svg xmlns="http://www.w3.org/2000/svg" width="400em" height="0.548em" viewBox="0 0 400000 548" preserveAspectRatio="xMaxYMin slice"><path d="M399994 0l6 6v35l-6 11c-56 104-135.3 181.3-238 232-57.3
+ 28.7-117 45-179 50H-300V214h399897c43.3-7 81-15 113-26 100.7-33 179.7-91 237
+-174 2.7-5 6-9 10-13 .7-1 7.3-1 20-1h17z"/></svg></span></span></span><span style="top:-3.3603em;"><span class="pstrut" style="height:3.3603em;"></span><span class="mord"><span class="mopen">(</span><span class="mord"><span class="mopen nulldelimiter"></span><span class="mfrac"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.3603em;"><span style="top:-2.314em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord">4</span></span></span><span style="top:-3.23em;"><span class="pstrut" style="height:3em;"></span><span class="frac-line" style="border-bottom-width:0.04em;"></span></span><span style="top:-3.677em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.109em;">N</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.686em;"><span></span></span></span></span></span><span class="mclose nulldelimiter"></span></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mord mathnormal" style="margin-right:0.0269em;">w</span><span class="mclose">)</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0576em;">S</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:-0.0576em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight" style="margin-right:0.0315em;">k</span><span class="mord mathnormal mtight" style="margin-right:0.0359em;">v</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:1.334em;"><span></span></span></span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:2.0201em;"><span></span></span></span></span></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:3.3804em;vertical-align:-2.0201em;"></span><span class="minner munder"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.3603em;"><span style="top:-1.3402em;"><span class="pstrut" style="height:3.3603em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord text mtight"><span class="mord mtight">Indexer</span></span></span></span></span><span style="top:-3.3603em;"><span class="pstrut" style="height:3.3603em;"></span><span class="minner munder"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.3603em;"><span class="svg-align" style="top:-2.0263em;"><span class="pstrut" style="height:3.3603em;"></span><span class="stretchy" style="height:0.548em;min-width:1.6em;"><span class="brace-left" style="height:0.548em;"><svg xmlns="http://www.w3.org/2000/svg" width="400em" height="0.548em" viewBox="0 0 400000 548" preserveAspectRatio="xMinYMin slice"><path d="M0 6l6-6h17c12.688 0 19.313.3 20 1 4 4 7.313 8.3 10 13
+ 35.313 51.3 80.813 93.8 136.5 127.5 55.688 33.7 117.188 55.8 184.5 66.5.688
+ 0 2 .3 4 1 18.688 2.7 76 4.3 172 5h399450v120H429l-6-1c-124.688-8-235-61.7
+-331-161C60.687 138.7 32.312 99.3 7 54L0 41V6z"/></svg></span><span class="brace-center" style="height:0.548em;"><svg xmlns="http://www.w3.org/2000/svg" width="400em" height="0.548em" viewBox="0 0 400000 548" preserveAspectRatio="xMidYMin slice"><path d="M199572 214
+c100.7 8.3 195.3 44 280 108 55.3 42 101.7 93 139 153l9 14c2.7-4 5.7-8.7 9-14
+ 53.3-86.7 123.7-153 211-199 66.7-36 137.3-56.3 212-62h199568v120H200432c-178.3
+ 11.7-311.7 78.3-403 201-6 8-9.7 12-11 12-.7.7-6.7 1-18 1s-17.3-.3-18-1c-1.3 0
+-5-4-11-12-44.7-59.3-101.3-106.3-170-141s-145.3-54.3-229-60H0V214z"/></svg></span><span class="brace-right" style="height:0.548em;"><svg xmlns="http://www.w3.org/2000/svg" width="400em" height="0.548em" viewBox="0 0 400000 548" preserveAspectRatio="xMaxYMin slice"><path d="M399994 0l6 6v35l-6 11c-56 104-135.3 181.3-238 232-57.3
+ 28.7-117 45-179 50H-300V214h399897c43.3-7 81-15 113-26 100.7-33 179.7-91 237
+-174 2.7-5 6-9 10-13 .7-1 7.3-1 20-1h17z"/></svg></span></span></span><span style="top:-3.3603em;"><span class="pstrut" style="height:3.3603em;"></span><span class="mord"><span class="mord"><span class="mopen nulldelimiter"></span><span class="mfrac"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.3603em;"><span style="top:-2.314em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord">4</span></span></span><span style="top:-3.23em;"><span class="pstrut" style="height:3em;"></span><span class="frac-line" style="border-bottom-width:0.04em;"></span></span><span style="top:-3.677em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.109em;">N</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.686em;"><span></span></span></span></span></span><span class="mclose nulldelimiter"></span></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0576em;">S</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:-0.0576em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight">i</span><span class="mord mathnormal mtight">d</span><span class="mord mathnormal mtight">x</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:1.334em;"><span></span></span></span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:2.0201em;"><span></span></span></span></span></span></span></span></span></span></p>
+<p class="katex-block "><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mtext>PerHCA</mtext><mo>=</mo><munder><munder><mrow><mo stretchy="false">(</mo><mfrac><mi>N</mi><mn>128</mn></mfrac><mo>+</mo><mi>w</mi><mo stretchy="false">)</mo><mo>×</mo><msub><mi>S</mi><mrow><mi>k</mi><mi>v</mi></mrow></msub></mrow><mo stretchy="true">⏟</mo></munder><mtext>Shared-KV only</mtext></munder></mrow><annotation encoding="application/x-tex">\text{PerHCA} = \underbrace{(\frac{N}{128} + w) \times S_{kv}}_{\text{Shared-KV only}}
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord text"><span class="mord">PerHCA</span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:3.5165em;vertical-align:-2.1562em;"></span><span class="minner munder"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.3603em;"><span style="top:-1.3402em;"><span class="pstrut" style="height:3.3603em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord text mtight"><span class="mord mtight">Shared-KV only</span></span></span></span></span><span style="top:-3.3603em;"><span class="pstrut" style="height:3.3603em;"></span><span class="minner munder"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.3603em;"><span class="svg-align" style="top:-2.0263em;"><span class="pstrut" style="height:3.3603em;"></span><span class="stretchy" style="height:0.548em;min-width:1.6em;"><span class="brace-left" style="height:0.548em;"><svg xmlns="http://www.w3.org/2000/svg" width="400em" height="0.548em" viewBox="0 0 400000 548" preserveAspectRatio="xMinYMin slice"><path d="M0 6l6-6h17c12.688 0 19.313.3 20 1 4 4 7.313 8.3 10 13
+ 35.313 51.3 80.813 93.8 136.5 127.5 55.688 33.7 117.188 55.8 184.5 66.5.688
+ 0 2 .3 4 1 18.688 2.7 76 4.3 172 5h399450v120H429l-6-1c-124.688-8-235-61.7
+-331-161C60.687 138.7 32.312 99.3 7 54L0 41V6z"/></svg></span><span class="brace-center" style="height:0.548em;"><svg xmlns="http://www.w3.org/2000/svg" width="400em" height="0.548em" viewBox="0 0 400000 548" preserveAspectRatio="xMidYMin slice"><path d="M199572 214
+c100.7 8.3 195.3 44 280 108 55.3 42 101.7 93 139 153l9 14c2.7-4 5.7-8.7 9-14
+ 53.3-86.7 123.7-153 211-199 66.7-36 137.3-56.3 212-62h199568v120H200432c-178.3
+ 11.7-311.7 78.3-403 201-6 8-9.7 12-11 12-.7.7-6.7 1-18 1s-17.3-.3-18-1c-1.3 0
+-5-4-11-12-44.7-59.3-101.3-106.3-170-141s-145.3-54.3-229-60H0V214z"/></svg></span><span class="brace-right" style="height:0.548em;"><svg xmlns="http://www.w3.org/2000/svg" width="400em" height="0.548em" viewBox="0 0 400000 548" preserveAspectRatio="xMaxYMin slice"><path d="M399994 0l6 6v35l-6 11c-56 104-135.3 181.3-238 232-57.3
+ 28.7-117 45-179 50H-300V214h399897c43.3-7 81-15 113-26 100.7-33 179.7-91 237
+-174 2.7-5 6-9 10-13 .7-1 7.3-1 20-1h17z"/></svg></span></span></span><span style="top:-3.3603em;"><span class="pstrut" style="height:3.3603em;"></span><span class="mord"><span class="mopen">(</span><span class="mord"><span class="mopen nulldelimiter"></span><span class="mfrac"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.3603em;"><span style="top:-2.314em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord">128</span></span></span><span style="top:-3.23em;"><span class="pstrut" style="height:3em;"></span><span class="frac-line" style="border-bottom-width:0.04em;"></span></span><span style="top:-3.677em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.109em;">N</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.686em;"><span></span></span></span></span></span><span class="mclose nulldelimiter"></span></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mord mathnormal" style="margin-right:0.0269em;">w</span><span class="mclose">)</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0576em;">S</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:-0.0576em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight" style="margin-right:0.0315em;">k</span><span class="mord mathnormal mtight" style="margin-right:0.0359em;">v</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:1.334em;"><span></span></span></span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:2.1562em;"><span></span></span></span></span></span></span></span></span></span></p>
 <hr>
-<h2 id="八、数值结果（N-1-048-576-1M-tokens）"><a href="#八、数值结果（N-1-048-576-1M-tokens）" class="headerlink" title="八、数值结果（N &#x3D; 1,048,576 &#x3D; 1M tokens）!"></a>八、数值结果（N &#x3D; 1,048,576 &#x3D; 1M tokens）!</h2><h3 id="BF16-基准（vLLM-博客算法）"><a href="#BF16-基准（vLLM-博客算法）" class="headerlink" title="BF16 基准（vLLM 博客算法）"></a>BF16 基准（vLLM 博客算法）</h3><p><strong>CSA 30 层</strong>：</p>
+<h2 id="八、数值结果（N-1-048-576-1M-tokens）">八、数值结果（N = 1,048,576 = 1M tokens）!</h2>
+<h3 id="BF16-基准（vLLM-博客算法）">BF16 基准（vLLM 博客算法）</h3>
+<p><strong>CSA 30 层</strong>：</p>
 <table>
 <thead>
 <tr>
@@ -543,7 +601,8 @@
 <th>结果</th>
 </tr>
 </thead>
-<tbody><tr>
+<tbody>
+<tr>
 <td>Shared-KV 压缩</td>
 <td>262,144 × 1024</td>
 <td>256.00 MiB</td>
@@ -568,7 +627,8 @@
 <td>320.13 × 30</td>
 <td><strong>9,603.75 MiB</strong></td>
 </tr>
-</tbody></table>
+</tbody>
+</table>
 <p><strong>HCA 31 层</strong>：</p>
 <table>
 <thead>
@@ -578,7 +638,8 @@
 <th>结果</th>
 </tr>
 </thead>
-<tbody><tr>
+<tbody>
+<tr>
 <td>Shared-KV 压缩</td>
 <td>8,192 × 1024</td>
 <td>8.00 MiB</td>
@@ -598,18 +659,21 @@
 <td>8.13 × 31</td>
 <td><strong>251.88 MiB</strong></td>
 </tr>
-</tbody></table>
-<p><strong>总计（BF16）</strong>：9,603.75 + 251.88 &#x3D; <strong>9,855.63 MiB ≈ 9.62 GiB</strong> ✅（和 vLLM 博客完全一致）</p>
-<h3 id="混合精度实际部署（FP8-BF16-FP4）"><a href="#混合精度实际部署（FP8-BF16-FP4）" class="headerlink" title="混合精度实际部署（FP8 + BF16 + FP4）"></a>混合精度实际部署（FP8 + BF16 + FP4）</h3><table>
+</tbody>
+</table>
+<p><strong>总计（BF16）</strong>：9,603.75 + 251.88 = <strong>9,855.63 MiB ≈ 9.62 GiB</strong> ✅（和 vLLM 博客完全一致）</p>
+<h3 id="混合精度实际部署（FP8-BF16-FP4）">混合精度实际部署（FP8 + BF16 + FP4）</h3>
+<table>
 <thead>
 <tr>
 <th>组件</th>
-<th>bytes&#x2F;entry</th>
+<th>bytes/entry</th>
 <th>30 层 CSA</th>
 <th>31 层 HCA</th>
 </tr>
 </thead>
-<tbody><tr>
+<tbody>
+<tr>
 <td>CSA 压缩 KV</td>
 <td>576</td>
 <td>4.23 GiB</td>
@@ -645,15 +709,17 @@
 <td><strong>~4.84 GiB</strong></td>
 <td></td>
 </tr>
-</tbody></table>
+</tbody>
+</table>
 <p><strong>压缩比</strong>：</p>
 <ul>
-<li>V3.2 KV Cache (61 层) &#x3D; 83.9 GiB</li>
-<li>V4-Pro 混合精度 &#x3D; 4.84 GiB</li>
-<li><strong>压缩比</strong>：83.9 &#x2F; 4.84 ≈ <strong>17.3×</strong> ✅!</li>
+<li>V3.2 KV Cache (61 层) = 83.9 GiB</li>
+<li>V4-Pro 混合精度 = 4.84 GiB</li>
+<li><strong>压缩比</strong>：83.9 / 4.84 ≈ <strong>17.3×</strong> ✅!</li>
 </ul>
 <hr>
-<h2 id="九、各组件占比（BF16-基准）"><a href="#九、各组件占比（BF16-基准）" class="headerlink" title="九、各组件占比（BF16 基准）!"></a>九、各组件占比（BF16 基准）!</h2><table>
+<h2 id="九、各组件占比（BF16-基准）">九、各组件占比（BF16 基准）!</h2>
+<table>
 <thead>
 <tr>
 <th>组件</th>
@@ -661,7 +727,8 @@
 <th>百分比</th>
 </tr>
 </thead>
-<tbody><tr>
+<tbody>
+<tr>
 <td>CSA Shared-KV 压缩</td>
 <td>7,680.00</td>
 <td>77.9% ← 绝对主体</td>
@@ -686,35 +753,43 @@
 <td><strong>9,855.63</strong></td>
 <td><strong>100%</strong></td>
 </tr>
-</tbody></table>
+</tbody>
+</table>
 <p>CSA 的 Indexer 占了近 20%，是不能漏算的部分。</p>
 <hr>
-<h2 id="十、为什么能这么小？关键洞察"><a href="#十、为什么能这么小？关键洞察" class="headerlink" title="十、为什么能这么小？关键洞察!"></a>十、为什么能这么小？关键洞察!</h2><ol>
-<li><p><strong>序列维度压缩</strong>（V3 只压缩隐维度，V4 同时压缩序列长度）</p>
+<h2 id="十、为什么能这么小？关键洞察">十、为什么能这么小？关键洞察!</h2>
+<ol>
+<li>
+<p><strong>序列维度压缩</strong>（V3 只压缩隐维度，V4 同时压缩序列长度）</p>
 <ul>
-<li>CSA: L → L&#x2F;4</li>
-<li>HCA: L → L&#x2F;128</li>
+<li>CSA: L → L/4</li>
+<li>HCA: L → L/128</li>
 </ul>
 </li>
-<li><p><strong>稀疏注意力</strong>（CSA 只访问 top-1024 个压缩块，而非全部 L&#x2F;4 个）</p>
+<li>
+<p><strong>稀疏注意力</strong>（CSA 只访问 top-1024 个压缩块，而非全部 L/4 个）</p>
 </li>
-<li><p><strong>分层设计</strong>：CSA 负责精准的中程依赖，HCA 负责全局概览，互为补充</p>
+<li>
+<p><strong>分层设计</strong>：CSA 负责精准的中程依赖，HCA 负责全局概览，互为补充</p>
 </li>
-<li><p><strong>混合精度</strong>：</p>
+<li>
+<p><strong>混合精度</strong>：</p>
 <ul>
 <li>RoPE 维度：BF16（2 bytes，保证位置精度）</li>
 <li>其余维度：FP8（1 byte，节省空间）</li>
 <li>Indexer：FP4（0.5 byte，最激进）</li>
 </ul>
 </li>
-<li><p><strong>磁盘 KV Cache</strong>：压缩后的 KV 块可以落盘存储，共享前缀的请求复用缓存*</p>
+<li>
+<p><strong>磁盘 KV Cache</strong>：压缩后的 KV 块可以落盘存储，共享前缀的请求复用缓存*</p>
 </li>
 </ol>
 <hr>
-<h2 id="十一、Forward-计算流程图（V4-Pro）"><a href="#十一、Forward-计算流程图（V4-Pro）" class="headerlink" title="十一、Forward 计算流程图（V4-Pro）!"></a>十一、Forward 计算流程图（V4-Pro）!</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">                Hidden State [batch, seq_len, 7168]</span><br><span class="line">                          │</span><br><span class="line">          ┌───────────────┴───────────────┐</span><br><span class="line">          ▼                               ▼</span><br><span class="line">     Q Down-proj                    KV 通路</span><br><span class="line">[7168 → 1536]                  [7168 → 512] (wkv)</span><br><span class="line">          │                               │</span><br><span class="line">          ▼                               ▼</span><br><span class="line"> Q Up-proj (1536→128×512)    ┌──→ 压缩 (CSA: ratio=4 / HCA: ratio=128)</span><br><span class="line">          │                    │     ├─→ RoPE (后 64 维, BF16)</span><br><span class="line">Q [batch, seq_len, 128, 512] │     ├─→ FP8 量化 (前 448 维)</span><br><span class="line">          │                    │     └─→ 写入 KV cache</span><br><span class="line">┌─→ RoPE (后 64 维)       │</span><br><span class="line">│         │                    │</span><br><span class="line">│    Q [batch, seq_len, 128, 512]  KV cache [batch, N/ratio, 512]</span><br><span class="line">│         │                    │</span><br><span class="line">│         └──→ Indexer (仅 CSA) ──→ Top-k → 1024 个选中</span><br><span class="line">│                                      │</span><br><span class="line">└──→ Attention(Q, K=selected_1024, V=selected_1024)</span><br><span class="line">          │</span><br><span class="line">          └──→ + SWA (最近 128 个 token)</span><br><span class="line">          │</span><br><span class="line">          ▼</span><br><span class="line">    Output [batch, seq_len, 7168]</span><br></pre></td></tr></table></figure>
-
+<h2 id="十一、Forward-计算流程图（V4-Pro）">十一、Forward 计算流程图（V4-Pro）!</h2>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">                Hidden State [batch, seq_len, 7168]</span><br><span class="line">                          │</span><br><span class="line">          ┌───────────────┴───────────────┐</span><br><span class="line">          ▼                               ▼</span><br><span class="line">     Q Down-proj                    KV 通路</span><br><span class="line">[7168 → 1536]                  [7168 → 512] (wkv)</span><br><span class="line">          │                               │</span><br><span class="line">          ▼                               ▼</span><br><span class="line"> Q Up-proj (1536→128×512)    ┌──→ 压缩 (CSA: ratio=4 / HCA: ratio=128)</span><br><span class="line">          │                    │     ├─→ RoPE (后 64 维, BF16)</span><br><span class="line">Q [batch, seq_len, 128, 512] │     ├─→ FP8 量化 (前 448 维)</span><br><span class="line">          │                    │     └─→ 写入 KV cache</span><br><span class="line">┌─→ RoPE (后 64 维)       │</span><br><span class="line">│         │                    │</span><br><span class="line">│    Q [batch, seq_len, 128, 512]  KV cache [batch, N/ratio, 512]</span><br><span class="line">│         │                    │</span><br><span class="line">│         └──→ Indexer (仅 CSA) ──→ Top-k → 1024 个选中</span><br><span class="line">│                                      │</span><br><span class="line">└──→ Attention(Q, K=selected_1024, V=selected_1024)</span><br><span class="line">          │</span><br><span class="line">          └──→ + SWA (最近 128 个 token)</span><br><span class="line">          │</span><br><span class="line">          ▼</span><br><span class="line">    Output [batch, seq_len, 7168]</span><br></pre></td></tr></table></figure>
 <hr>
-<h2 id="十二、和-vLLM-部署对齐"><a href="#十二、和-vLLM-部署对齐" class="headerlink" title="十二、和 vLLM 部署对齐!"></a>十二、和 vLLM 部署对齐!</h2><p>vLLM 博客明确验证了 V4 的计算：</p>
+<h2 id="十二、和-vLLM-部署对齐">十二、和 vLLM 部署对齐!</h2>
+<p>vLLM 博客明确验证了 V4 的计算：</p>
 <blockquote>
 <p>“using fp4 indexer cache and fp8 attention cache, which further reduces the KV cache size by roughly <strong>2×</strong> compared to the bf16 estimate!”</p>
 </blockquote>
@@ -726,7 +801,8 @@
 <th>说明</th>
 </tr>
 </thead>
-<tbody><tr>
+<tbody>
+<tr>
 <td>论文 Figure 1</td>
 <td>9.62 GiB (10% of V3.2)</td>
 <td>BF16 估计</td>
@@ -741,22 +817,25 @@
 <td><strong>4.84 GiB</strong></td>
 <td>精确对齐 ✅</td>
 </tr>
-</tbody></table>
+</tbody>
+</table>
 <hr>
-<h2 id="十三、总结"><a href="#十三、总结" class="headerlink" title="十三、总结!"></a>十三、总结!</h2><p>DeepSeek-V4 通过<strong>序列维度压缩 + 混合精度存储 + 稀疏选择</strong>，将 1M tokens 的 KV Cache 从 V3.2 的 83.9 GiB 压缩到 <strong>4.84 GiB</strong>（17.3× 压缩）。</p>
+<h2 id="十三、总结">十三、总结!</h2>
+<p>DeepSeek-V4 通过<strong>序列维度压缩 + 混合精度存储 + 稀疏选择</strong>，将 1M tokens 的 KV Cache 从 V3.2 的 83.9 GiB 压缩到 <strong>4.84 GiB</strong>（17.3× 压缩）。</p>
 <p>核心创新：</p>
 <ul>
 <li><strong>CSA</strong>：4:1 压缩 + overlap + Indexer 稀疏选择</li>
 <li><strong>HCA</strong>：128:1 重度压缩，提供全局概览</li>
 <li><strong>混合精度</strong>：RoPE (BF16) + 内容 (FP8) + Indexer (FP4)</li>
 </ul>
-<p>这套架构让百万 token 上下文从”不可能”变成”日常可用” 🐾!</p>
+<p>这套架构让百万 token 上下文从&quot;不可能&quot;变成&quot;日常可用&quot; 🐾!</p>
 <hr>
-<h2 id="参考"><a href="#参考" class="headerlink" title="参考!"></a>参考!</h2><ol>
+<h2 id="参考">参考!</h2>
+<ol>
 <li><a target="_blank" rel="noopener" href="https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro/blob/main/DeepSeek_V4.pdf">DeepSeek-V4 论文</a> (2026) Section 2.3</li>
 <li><a target="_blank" rel="noopener" href="https://github.com/vllm-project/vllm-project.github.io/blob/main/_posts/2026-04-24-deepseek-v4.md">vLLM 博客：DeepSeek V4 in vLLM</a> (2026-04-24)</li>
 <li><a target="_blank" rel="noopener" href="https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro/blob/main/config.json">config.json</a></li>
-<li>代码追踪: model.py, compressor.py, c4.cuh</li>
+<li>代码追踪: <a target="_blank" rel="noopener" href="http://model.py">model.py</a>, <a target="_blank" rel="noopener" href="http://compressor.py">compressor.py</a>, c4.cuh</li>
 <li>论文 Section 2.3.3: Partial Rotary Positional Embedding</li>
 <li>论文 Section 5.2.1: FP4 Quantization-Aware Training</li>
 </ol>

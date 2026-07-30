@@ -21,20 +21,20 @@
 
 <script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
 
-    <meta name="description" content="MiMo-V2.5 推理优化解读：Hybrid SWA 的工程落地小米 MiMo 团队的《Full-Pipeline Inference Optimization for MiMo-V2.5 Series》（arXiv:2607.13095）核心论点很直白：Hybrid SWA 理论上能把 KVCache 和 attention 计算量压到 Full Attention 的 1&#x2F;7，但如">
+    <meta name="description" content="MiMo-V2.5 推理优化解读：Hybrid SWA 的工程落地 小米 MiMo 团队的《Full-Pipeline Inference Optimization for MiMo-V2.5 Series》（arXiv:2607.13095）核心论点很直白：Hybrid SWA 理论上能把 KVCache 和 attention 计算量压到 Full Attention 的 1&#x2F;7，但如果 KV">
 <meta property="og:type" content="article">
 <meta property="og:title" content="MiMo-V2.5 推理优化解读：Hybrid SWA 的工程落地">
 <meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2026/07/21/MiMo-V2.5-%E6%8E%A8%E7%90%86%E4%BC%98%E5%8C%96%E8%A7%A3%E8%AF%BB/index.html">
 <meta property="og:site_name" content="ggaaooppeenngg">
-<meta property="og:description" content="MiMo-V2.5 推理优化解读：Hybrid SWA 的工程落地小米 MiMo 团队的《Full-Pipeline Inference Optimization for MiMo-V2.5 Series》（arXiv:2607.13095）核心论点很直白：Hybrid SWA 理论上能把 KVCache 和 attention 计算量压到 Full Attention 的 1&#x2F;7，但如">
+<meta property="og:description" content="MiMo-V2.5 推理优化解读：Hybrid SWA 的工程落地 小米 MiMo 团队的《Full-Pipeline Inference Optimization for MiMo-V2.5 Series》（arXiv:2607.13095）核心论点很直白：Hybrid SWA 理论上能把 KVCache 和 attention 计算量压到 Full Attention 的 1&#x2F;7，但如果 KV">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2026-07-21T13:19:00.000Z">
 <meta property="article:modified_time" content="2026-07-21T13:22:10.999Z">
 <meta property="article:author" content="ggaaooppeenngg">
 <meta property="article:tag" content="LLM">
+<meta property="article:tag" content="Inference">
 <meta property="article:tag" content="KV Cache">
 <meta property="article:tag" content="架构分析">
-<meta property="article:tag" content="Inference">
 <meta property="article:tag" content="MiMo">
 <meta name="twitter:card" content="summary">
 
@@ -123,7 +123,7 @@
       <div class="sidebar-panel-container">
         <!--noindex-->
         <div class="post-toc-wrap sidebar-panel">
-            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#MiMo-V2-5-%E6%8E%A8%E7%90%86%E4%BC%98%E5%8C%96%E8%A7%A3%E8%AF%BB%EF%BC%9AHybrid-SWA-%E7%9A%84%E5%B7%A5%E7%A8%8B%E8%90%BD%E5%9C%B0"><span class="nav-number">1.</span> <span class="nav-text">MiMo-V2.5 推理优化解读：Hybrid SWA 的工程落地</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#1-%E8%AE%BA%E6%96%87%E9%80%9F%E8%A7%88"><span class="nav-number">1.1.</span> <span class="nav-text">1. 论文速览</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-SWA-%E7%9A%84-KV-Cache-%E6%80%8E%E4%B9%88%E5%AD%98"><span class="nav-number">1.2.</span> <span class="nav-text">2. SWA 的 KV Cache 怎么存</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%89%A9%E7%90%86%E5%B1%82%EF%BC%9A%E4%B8%A4%E4%B8%AA%E7%8B%AC%E7%AB%8B%E6%B1%A0%E5%AD%90"><span class="nav-number">1.2.1.</span> <span class="nav-text">物理层：两个独立池子</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%80%BB%E8%BE%91%E5%B1%82%EF%BC%9A%E5%8D%95%E5%BA%8F%E5%88%97%E8%A7%86%E5%9B%BE-%E5%8F%8C%E7%B4%A2%E5%BC%95%E5%89%8D%E7%BC%80%E6%A0%91"><span class="nav-number">1.2.2.</span> <span class="nav-text">逻辑层：单序列视图 + 双索引前缀树</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-SWA-Cache-%E6%80%8E%E4%B9%88-Offload-%E5%88%B0-CPU-%E5%86%85%E5%AD%98"><span class="nav-number">1.3.</span> <span class="nav-text">3. SWA Cache 怎么 Offload 到 CPU 内存</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AD%98%E4%BB%80%E4%B9%88%EF%BC%9A%E5%8F%AA%E5%AD%98%E3%80%8C%E7%AA%97%E5%8F%A3%E5%86%85%E6%9C%89%E6%95%88-slot%E3%80%8D"><span class="nav-number">1.3.1.</span> <span class="nav-text">存什么：只存「窗口内有效 slot」</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%80%8E%E4%B9%88%E5%AD%98%EF%BC%9AHost-%E4%BE%A7%E7%8B%AC%E7%AB%8B%E7%9A%84-SWA-Pool"><span class="nav-number">1.3.2.</span> <span class="nav-text">怎么存：Host 侧独立的 SWA Pool</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%80%8E%E4%B9%88%E6%90%AC%EF%BC%9A%E6%8C%89-SWA-mask-%E4%BC%A0%E8%BE%93"><span class="nav-number">1.3.3.</span> <span class="nav-text">怎么搬：按 SWA mask 传输</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#D2H-%E6%97%B6%E6%9C%BA"><span class="nav-number">1.3.4.</span> <span class="nav-text">D2H 时机</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-%E5%85%B1%E4%BA%AB%E5%89%8D%E7%BC%80%E5%91%BD%E4%B8%AD%E6%97%B6%EF%BC%8CSWA-%E8%A6%81%E4%B8%8D%E8%A6%81%E9%87%8D%E7%AE%97"><span class="nav-number">1.4.</span> <span class="nav-text">4. 共享前缀命中时，SWA 要不要重算</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%97%AE%E9%A2%98%E6%9C%AC%E8%B4%A8"><span class="nav-number">1.4.1.</span> <span class="nav-text">问题本质</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%BF%99%E5%B0%B1%E6%98%AF%E3%80%8C%E4%BC%AA%E5%91%BD%E4%B8%AD%E3%80%8D"><span class="nav-number">1.4.2.</span> <span class="nav-text">这就是「伪命中」</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%B0%8F%E7%B1%B3%E7%9A%84%E5%BA%94%E5%AF%B9%EF%BC%9ASWA-%E4%BF%9D%E7%95%99%E7%AD%96%E7%95%A5%EF%BC%88%C2%A73-1-4-%E7%AC%AC-4-%E6%9D%A1%EF%BC%89"><span class="nav-number">1.4.3.</span> <span class="nav-text">小米的应对：SWA 保留策略（§3.1.4 第 4 条）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Trade-off-%E8%B4%A6"><span class="nav-number">1.4.4.</span> <span class="nav-text">Trade-off 账</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#5-numa-balancing-%E4%B8%BA%E4%BB%80%E4%B9%88%E5%BD%B1%E5%93%8D-10"><span class="nav-number">1.5.</span> <span class="nav-text">5. numa_balancing 为什么影响 +10%</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#numa-balancing-%E6%98%AF%E5%B9%B2%E5%98%9B%E7%9A%84"><span class="nav-number">1.5.1.</span> <span class="nav-text">numa_balancing 是干嘛的</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BD%86%E5%9C%A8-GPU-%E6%8E%A8%E7%90%86%E5%9C%BA%E6%99%AF%E4%B8%8B%E5%8F%98%E6%88%90%E7%81%BE%E9%9A%BE"><span class="nav-number">1.5.2.</span> <span class="nav-text">但在 GPU 推理场景下变成灾难</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E8%BF%99%E4%B8%AA-bug-%E7%89%B9%E5%88%AB%E9%9A%BE%E7%BC%A0"><span class="nav-number">1.5.3.</span> <span class="nav-text">为什么这个 bug 特别难缠</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%BA%E5%95%A5%E5%85%B3%E6%8E%89%E7%9B%B4%E6%8E%A5-10"><span class="nav-number">1.5.4.</span> <span class="nav-text">为啥关掉直接 +10%</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#6-Prefill-%E4%B8%BA%E4%BB%80%E4%B9%88%E4%B9%9F%E8%A6%81%E5%BC%80-MTP"><span class="nav-number">1.6.</span> <span class="nav-text">6. Prefill 为什么也要开 MTP</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#MTP-%E6%98%AF%E4%BB%80%E4%B9%88"><span class="nav-number">1.6.1.</span> <span class="nav-text">MTP 是什么</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%8E%9F%E5%A7%8B%E9%97%AE%E9%A2%98%EF%BC%9APrefill-%E4%B8%8D%E8%B7%91-MTP-%E7%9A%84%E5%90%8E%E6%9E%9C"><span class="nav-number">1.6.2.</span> <span class="nav-text">原始问题：Prefill 不跑 MTP 的后果</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88-agentic-%E5%9C%BA%E6%99%AF%E7%89%B9%E5%88%AB%E6%83%A8"><span class="nav-number">1.6.3.</span> <span class="nav-text">为什么 agentic 场景特别惨</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%A7%A3%E6%B3%95%EF%BC%9APrefill-%E9%98%B6%E6%AE%B5%E4%B9%9F%E8%B7%91-MTP"><span class="nav-number">1.6.4.</span> <span class="nav-text">解法：Prefill 阶段也跑 MTP</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%B7%A5%E7%A8%8B%E9%80%82%E9%85%8D"><span class="nav-number">1.6.5.</span> <span class="nav-text">工程适配</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Trade-off-%E8%B4%A6-1"><span class="nav-number">1.6.6.</span> <span class="nav-text">Trade-off 账</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">1.7.</span> <span class="nav-text">总结</span></a></li></ol></li></ol></div>
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link"><span class="nav-number">1.</span> <span class="nav-text">MiMo-V2.5 推理优化解读：Hybrid SWA 的工程落地</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#1-%E8%AE%BA%E6%96%87%E9%80%9F%E8%A7%88"><span class="nav-number">1.1.</span> <span class="nav-text">1. 论文速览</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-SWA-%E7%9A%84-KV-Cache-%E6%80%8E%E4%B9%88%E5%AD%98"><span class="nav-number">1.2.</span> <span class="nav-text">2. SWA 的 KV Cache 怎么存</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%89%A9%E7%90%86%E5%B1%82%EF%BC%9A%E4%B8%A4%E4%B8%AA%E7%8B%AC%E7%AB%8B%E6%B1%A0%E5%AD%90"><span class="nav-number">1.2.1.</span> <span class="nav-text">物理层：两个独立池子</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%80%BB%E8%BE%91%E5%B1%82%EF%BC%9A%E5%8D%95%E5%BA%8F%E5%88%97%E8%A7%86%E5%9B%BE-%E5%8F%8C%E7%B4%A2%E5%BC%95%E5%89%8D%E7%BC%80%E6%A0%91"><span class="nav-number">1.2.2.</span> <span class="nav-text">逻辑层：单序列视图 + 双索引前缀树</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-SWA-Cache-%E6%80%8E%E4%B9%88-Offload-%E5%88%B0-CPU-%E5%86%85%E5%AD%98"><span class="nav-number">1.3.</span> <span class="nav-text">3. SWA Cache 怎么 Offload 到 CPU 内存</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AD%98%E4%BB%80%E4%B9%88%EF%BC%9A%E5%8F%AA%E5%AD%98%E3%80%8C%E7%AA%97%E5%8F%A3%E5%86%85%E6%9C%89%E6%95%88-slot%E3%80%8D"><span class="nav-number">1.3.1.</span> <span class="nav-text">存什么：只存「窗口内有效 slot」</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%80%8E%E4%B9%88%E5%AD%98%EF%BC%9AHost-%E4%BE%A7%E7%8B%AC%E7%AB%8B%E7%9A%84-SWA-Pool"><span class="nav-number">1.3.2.</span> <span class="nav-text">怎么存：Host 侧独立的 SWA Pool</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%80%8E%E4%B9%88%E6%90%AC%EF%BC%9A%E6%8C%89-SWA-mask-%E4%BC%A0%E8%BE%93"><span class="nav-number">1.3.3.</span> <span class="nav-text">怎么搬：按 SWA mask 传输</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#D2H-%E6%97%B6%E6%9C%BA"><span class="nav-number">1.3.4.</span> <span class="nav-text">D2H 时机</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-%E5%85%B1%E4%BA%AB%E5%89%8D%E7%BC%80%E5%91%BD%E4%B8%AD%E6%97%B6%EF%BC%8CSWA-%E8%A6%81%E4%B8%8D%E8%A6%81%E9%87%8D%E7%AE%97"><span class="nav-number">1.4.</span> <span class="nav-text">4. 共享前缀命中时，SWA 要不要重算</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%97%AE%E9%A2%98%E6%9C%AC%E8%B4%A8"><span class="nav-number">1.4.1.</span> <span class="nav-text">问题本质</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%BF%99%E5%B0%B1%E6%98%AF%E3%80%8C%E4%BC%AA%E5%91%BD%E4%B8%AD%E3%80%8D"><span class="nav-number">1.4.2.</span> <span class="nav-text">这就是「伪命中」</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%B0%8F%E7%B1%B3%E7%9A%84%E5%BA%94%E5%AF%B9%EF%BC%9ASWA-%E4%BF%9D%E7%95%99%E7%AD%96%E7%95%A5%EF%BC%88%C2%A73-1-4-%E7%AC%AC-4-%E6%9D%A1%EF%BC%89"><span class="nav-number">1.4.3.</span> <span class="nav-text">小米的应对：SWA 保留策略（§3.1.4 第 4 条）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Trade-off-%E8%B4%A6"><span class="nav-number">1.4.4.</span> <span class="nav-text">Trade-off 账</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#5-numa-balancing-%E4%B8%BA%E4%BB%80%E4%B9%88%E5%BD%B1%E5%93%8D-10"><span class="nav-number">1.5.</span> <span class="nav-text">5. numa_balancing 为什么影响 +10%</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#numa-balancing-%E6%98%AF%E5%B9%B2%E5%98%9B%E7%9A%84"><span class="nav-number">1.5.1.</span> <span class="nav-text">numa_balancing 是干嘛的</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BD%86%E5%9C%A8-GPU-%E6%8E%A8%E7%90%86%E5%9C%BA%E6%99%AF%E4%B8%8B%E5%8F%98%E6%88%90%E7%81%BE%E9%9A%BE"><span class="nav-number">1.5.2.</span> <span class="nav-text">但在 GPU 推理场景下变成灾难</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E8%BF%99%E4%B8%AA-bug-%E7%89%B9%E5%88%AB%E9%9A%BE%E7%BC%A0"><span class="nav-number">1.5.3.</span> <span class="nav-text">为什么这个 bug 特别难缠</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%BA%E5%95%A5%E5%85%B3%E6%8E%89%E7%9B%B4%E6%8E%A5-10"><span class="nav-number">1.5.4.</span> <span class="nav-text">为啥关掉直接 +10%</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#6-Prefill-%E4%B8%BA%E4%BB%80%E4%B9%88%E4%B9%9F%E8%A6%81%E5%BC%80-MTP"><span class="nav-number">1.6.</span> <span class="nav-text">6. Prefill 为什么也要开 MTP</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#MTP-%E6%98%AF%E4%BB%80%E4%B9%88"><span class="nav-number">1.6.1.</span> <span class="nav-text">MTP 是什么</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%8E%9F%E5%A7%8B%E9%97%AE%E9%A2%98%EF%BC%9APrefill-%E4%B8%8D%E8%B7%91-MTP-%E7%9A%84%E5%90%8E%E6%9E%9C"><span class="nav-number">1.6.2.</span> <span class="nav-text">原始问题：Prefill 不跑 MTP 的后果</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88-agentic-%E5%9C%BA%E6%99%AF%E7%89%B9%E5%88%AB%E6%83%A8"><span class="nav-number">1.6.3.</span> <span class="nav-text">为什么 agentic 场景特别惨</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%A7%A3%E6%B3%95%EF%BC%9APrefill-%E9%98%B6%E6%AE%B5%E4%B9%9F%E8%B7%91-MTP"><span class="nav-number">1.6.4.</span> <span class="nav-text">解法：Prefill 阶段也跑 MTP</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%B7%A5%E7%A8%8B%E9%80%82%E9%85%8D"><span class="nav-number">1.6.5.</span> <span class="nav-text">工程适配</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Trade-off-%E8%B4%A6-2"><span class="nav-number">1.6.6.</span> <span class="nav-text">Trade-off 账</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">1.7.</span> <span class="nav-text">总结</span></a></li></ol></li></ol></div>
         </div>
         <!--/noindex-->
 
@@ -251,19 +251,21 @@
     
     
     
-    <div class="post-body" itemprop="articleBody"><h1 id="MiMo-V2-5-推理优化解读：Hybrid-SWA-的工程落地"><a href="#MiMo-V2-5-推理优化解读：Hybrid-SWA-的工程落地" class="headerlink" title="MiMo-V2.5 推理优化解读：Hybrid SWA 的工程落地"></a>MiMo-V2.5 推理优化解读：Hybrid SWA 的工程落地</h1><p>小米 MiMo 团队的《Full-Pipeline Inference Optimization for MiMo-V2.5 Series》（arXiv:2607.13095）核心论点很直白：<strong>Hybrid SWA 理论上能把 KVCache 和 attention 计算量压到 Full Attention 的 1&#x2F;7，但如果 KVCache 系统不跟着改造，实际反而会变慢</strong>。</p>
+    <div class="post-body" itemprop="articleBody"><h1>MiMo-V2.5 推理优化解读：Hybrid SWA 的工程落地</h1>
+<p>小米 MiMo 团队的《Full-Pipeline Inference Optimization for MiMo-V2.5 Series》（arXiv:2607.13095）核心论点很直白：<strong>Hybrid SWA 理论上能把 KVCache 和 attention 计算量压到 Full Attention 的 1/7，但如果 KVCache 系统不跟着改造，实际反而会变慢</strong>。</p>
 <p>本文不写综述，重点拆解几个关键工程问题：<strong>SWA 的 KV cache 怎么存、怎么 offload、共享前缀命中时的重算问题、numa_balancing 为什么 +10%、以及 Prefill 为什么也要开 MTP</strong>。</p>
 <hr>
-<h2 id="1-论文速览"><a href="#1-论文速览" class="headerlink" title="1. 论文速览"></a>1. 论文速览</h2><p>MiMo-V2.5-Pro 的架构组合拳：</p>
+<h2 id="1-论文速览">1. 论文速览</h2>
+<p>MiMo-V2.5-Pro 的架构组合拳：</p>
 <figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">Hybrid SWA + 稀疏 MoE + 多模态编码器</span><br><span class="line">70 层 = 10 Full Attention + 60 SWA（窗口 W=128）</span><br></pre></td></tr></table></figure>
-
-<p>理论上 attention FLOPs 和 KVCache 存储都降到 1&#x2F;7，但论文的核心观点是：<strong>这些理论红利不会自动兑现</strong>。Hybrid SWA 在 KVCache 管理、前缀匹配、Full 和 SWA 层语义一致性上都引入了新问题。</p>
-<p>论文涉及的优化面很广：KVCache 分层（L1 GPU &#x2F; L2 Host &#x2F; L3 GCache）、调度（LLM-Router）、Prefill&#x2F;Decode pipeline、多模态等。其中 LLM-Router 和 GCache 属于常见的分布式缓存和调度实现，本文不展开。重点聚焦在 <strong>SWA 相关 KVCache 这条主线</strong>上。</p>
+<p>理论上 attention FLOPs 和 KVCache 存储都降到 1/7，但论文的核心观点是：<strong>这些理论红利不会自动兑现</strong>。Hybrid SWA 在 KVCache 管理、前缀匹配、Full 和 SWA 层语义一致性上都引入了新问题。</p>
+<p>论文涉及的优化面很广：KVCache 分层（L1 GPU / L2 Host / L3 GCache）、调度（LLM-Router）、Prefill/Decode pipeline、多模态等。其中 LLM-Router 和 GCache 属于常见的分布式缓存和调度实现，本文不展开。重点聚焦在 <strong>SWA 相关 KVCache 这条主线</strong>上。</p>
 <hr>
-<h2 id="2-SWA-的-KV-Cache-怎么存"><a href="#2-SWA-的-KV-Cache-怎么存" class="headerlink" title="2. SWA 的 KV Cache 怎么存"></a>2. SWA 的 KV Cache 怎么存</h2><p><strong>核心设计：物理分离 + 逻辑统一</strong>。</p>
-<h3 id="物理层：两个独立池子"><a href="#物理层：两个独立池子" class="headerlink" title="物理层：两个独立池子"></a>物理层：两个独立池子</h3><p>每层存储（L1 GPU &#x2F; L2 Host &#x2F; L3 GCache）都并排维护两个 KV Pool：</p>
+<h2 id="2-SWA-的-KV-Cache-怎么存">2. SWA 的 KV Cache 怎么存</h2>
+<p><strong>核心设计：物理分离 + 逻辑统一</strong>。</p>
+<h3 id="物理层：两个独立池子">物理层：两个独立池子</h3>
+<p>每层存储（L1 GPU / L2 Host / L3 GCache）都并排维护两个 KV Pool：</p>
 <figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">┌─────────────────────────────────────┐</span><br><span class="line">│  Full KV Pool                       │</span><br><span class="line">│  ├─ 大小: O(seq_len × 10 层)        │</span><br><span class="line">│  └─ 淘汰: 按整个序列做 LRU           │</span><br><span class="line">├─────────────────────────────────────┤</span><br><span class="line">│  SWA KV Pool                        │</span><br><span class="line">│  ├─ 大小: O(W × 60 层)  ← 严格 O(W) │</span><br><span class="line">│  └─ 淘汰: 独立按 window 做 eviction │</span><br><span class="line">└─────────────────────────────────────┘</span><br></pre></td></tr></table></figure>
-
 <p><strong>关键点</strong>：SWA pool <strong>物理上就只有 W 大小</strong>，写入新 token 时按窗口 evict 旧的。不是「存完整历史然后只用尾部 128 个」，而是<strong>存进来就已经是窗口截断后的样子</strong>。</p>
 <p>直观对比（128K token 序列）：</p>
 <table>
@@ -274,26 +276,28 @@
 <th>Hybrid SWA</th>
 </tr>
 </thead>
-<tbody><tr>
+<tbody>
+<tr>
 <td>60 个 SWA 层总量</td>
-<td>60 × 128K &#x3D; 7.68M</td>
-<td>60 × 128 &#x3D; 7.68K</td>
+<td>60 × 128K = 7.68M</td>
+<td>60 × 128 = 7.68K</td>
 </tr>
 <tr>
 <td>10 个 Full 层总量</td>
-<td>10 × 128K &#x3D; 1.28M</td>
-<td>10 × 128K &#x3D; 1.28M</td>
+<td>10 × 128K = 1.28M</td>
+<td>10 × 128K = 1.28M</td>
 </tr>
 <tr>
 <td><strong>合计</strong></td>
 <td><strong>8.96M</strong></td>
 <td><strong>≈ 1.29M（省 7×）</strong></td>
 </tr>
-</tbody></table>
+</tbody>
+</table>
 <p><strong>Hybrid SWA 存储量几乎等于只算 Full 层的量</strong>，SWA 层几乎不占空间。</p>
-<h3 id="逻辑层：单序列视图-双索引前缀树"><a href="#逻辑层：单序列视图-双索引前缀树" class="headerlink" title="逻辑层：单序列视图 + 双索引前缀树"></a>逻辑层：单序列视图 + 双索引前缀树</h3><p>上层（前缀树、调度器）<strong>只看到一个逻辑序列</strong>，底下用 Full→SWA mapping 做透明分层。每个前缀树节点存两套元数据：</p>
+<h3 id="逻辑层：单序列视图-双索引前缀树">逻辑层：单序列视图 + 双索引前缀树</h3>
+<p>上层（前缀树、调度器）<strong>只看到一个逻辑序列</strong>，底下用 Full→SWA mapping 做透明分层。每个前缀树节点存两套元数据：</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">PrefixTreeNode &#123;</span><br><span class="line">  tokens: [t0, t1, ..., tN]</span><br><span class="line">  full_seg_idx:  [Full KV pool 位置]      <span class="comment"># Full 层复用</span></span><br><span class="line">  swa_seg_map:   [SWA KV pool 位置 <span class="keyword">or</span> 空] <span class="comment"># 判断 window 安全性</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
 <p><strong>用途</strong>：</p>
 <ol>
 <li>命中判定：token 相等 + tail W 个 token 的 swa_seg_map 都非空 → 才算真命中</li>
@@ -303,61 +307,65 @@
 <p><strong>一句话总结</strong>：SWA 存的就是「每 SWA 层永远只存 W 个 token 的 KV」，SWA pool 和 Full pool 物理分离，上层用双索引前缀树抽象成单序列视图。</p>
 </blockquote>
 <hr>
-<h2 id="3-SWA-Cache-怎么-Offload-到-CPU-内存"><a href="#3-SWA-Cache-怎么-Offload-到-CPU-内存" class="headerlink" title="3. SWA Cache 怎么 Offload 到 CPU 内存"></a>3. SWA Cache 怎么 Offload 到 CPU 内存</h2><h3 id="存什么：只存「窗口内有效-slot」"><a href="#存什么：只存「窗口内有效-slot」" class="headerlink" title="存什么：只存「窗口内有效 slot」"></a>存什么：只存「窗口内有效 slot」</h3><p>对一条 100K token 的序列：</p>
+<h2 id="3-SWA-Cache-怎么-Offload-到-CPU-内存">3. SWA Cache 怎么 Offload 到 CPU 内存</h2>
+<h3 id="存什么：只存「窗口内有效-slot」">存什么：只存「窗口内有效 slot」</h3>
+<p>对一条 100K token 的序列：</p>
 <figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">Full 层 (10 层):  每层 100K 个 slot  ← 全部下沉到 CPU</span><br><span class="line">SWA 层 (60 层):  每层只有 W=128 个 slot ← 只存窗口内</span><br></pre></td></tr></table></figure>
-
 <p><strong>SWA 下沉到 CPU 的就是窗口截断后的形态</strong>，不是完整历史。</p>
-<h3 id="怎么存：Host-侧独立的-SWA-Pool"><a href="#怎么存：Host-侧独立的-SWA-Pool" class="headerlink" title="怎么存：Host 侧独立的 SWA Pool"></a>怎么存：Host 侧独立的 SWA Pool</h3><p>L2 结构完全镜像 L1：</p>
+<h3 id="怎么存：Host-侧独立的-SWA-Pool">怎么存：Host 侧独立的 SWA Pool</h3>
+<p>L2 结构完全镜像 L1：</p>
 <figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">Host DRAM (L2):</span><br><span class="line">  Full KV Pool: [10 层, seq_len, head_dim], paged + pinned memory</span><br><span class="line">  SWA KV Pool:  [60 层, W=128, head_dim], 独立 eviction</span><br></pre></td></tr></table></figure>
-
 <p>工程要点：</p>
 <ul>
-<li><strong>Pin memory</strong>：Host 池子用固定内存，D2H&#x2F;H2D 用异步 DMA</li>
+<li><strong>Pin memory</strong>：Host 池子用固定内存，D2H/H2D 用异步 DMA</li>
 <li><strong>Paged 分配</strong>：SWA pool 拆成 block，滑出窗口的 block 归还池子</li>
 <li><strong>和 Full pool 完全独立</strong>：分开的地址空间、eviction 策略</li>
 </ul>
-<h3 id="怎么搬：按-SWA-mask-传输"><a href="#怎么搬：按-SWA-mask-传输" class="headerlink" title="怎么搬：按 SWA mask 传输"></a>怎么搬：按 SWA mask 传输</h3><p>论文 §3.1.1 的关键一句：</p>
+<h3 id="怎么搬：按-SWA-mask-传输">怎么搬：按 SWA mask 传输</h3>
+<p>论文 §3.1.1 的关键一句：</p>
 <blockquote>
 <p>“Cross-tier transfers are performed <strong>based solely on the SWA mask</strong>, ensuring only valid window data is moved.”</p>
 </blockquote>
-<p>D2H &#x2F; H2D 时<strong>不搬窗口外的数据</strong>：</p>
+<p>D2H / H2D 时<strong>不搬窗口外的数据</strong>：</p>
 <figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">D2H writeback: 只把 mask=1 的 slot 打包 DMA 到 host</span><br><span class="line">H2D prefetch:  只拉窗口内的 W 个 token 的 KV</span><br><span class="line">              → 数据量小，layerwise prefetch 能 overlap 计算</span><br></pre></td></tr></table></figure>
-
 <p><strong>这里省的是带宽</strong>。按 mask 走，60 层每层就 128 个 token，总量小到可以忽略。</p>
-<h3 id="D2H-时机"><a href="#D2H-时机" class="headerlink" title="D2H 时机"></a>D2H 时机</h3><ul>
+<h3 id="D2H-时机">D2H 时机</h3>
+<ul>
 <li><strong>Eviction 前的备份</strong>：GPU SWA pool 满了，先 D2H 到 host 再释放</li>
-<li><strong>一致性修复（§3.1.4）</strong>：前缀树节点合并 &#x2F; prefill chunk 完成时，检查 device 和 host 的 SWA 占用差 → host 补齐槽位 → 异步 D2H</li>
-<li><strong>请求结束 &#x2F; 会话切换</strong>：高价值会话主动 D2H 到 host，甚至下沉到 L3</li>
+<li><strong>一致性修复（§3.1.4）</strong>：前缀树节点合并 / prefill chunk 完成时，检查 device 和 host 的 SWA 占用差 → host 补齐槽位 → 异步 D2H</li>
+<li><strong>请求结束 / 会话切换</strong>：高价值会话主动 D2H 到 host，甚至下沉到 L3</li>
 </ul>
 <blockquote>
 <p><strong>一句话总结</strong>：SWA 下沉到 CPU 的就是窗口截断后的 128 个 slot，Host 侧用独立 pool + pinned memory 存，搬运只按 SWA mask 走有效位置。</p>
 </blockquote>
 <hr>
-<h2 id="4-共享前缀命中时，SWA-要不要重算"><a href="#4-共享前缀命中时，SWA-要不要重算" class="headerlink" title="4. 共享前缀命中时，SWA 要不要重算"></a>4. 共享前缀命中时，SWA 要不要重算</h2><p>这是 Hybrid SWA 落地生产<strong>最难受的一个点</strong>。</p>
-<h3 id="问题本质"><a href="#问题本质" class="headerlink" title="问题本质"></a>问题本质</h3><p>典型场景：<strong>共享 system prompt</strong>（2000 tokens），下面挂了很多用户会话：</p>
+<h2 id="4-共享前缀命中时，SWA-要不要重算">4. 共享前缀命中时，SWA 要不要重算</h2>
+<p>这是 Hybrid SWA 落地生产<strong>最难受的一个点</strong>。</p>
+<h3 id="问题本质">问题本质</h3>
+<p>典型场景：<strong>共享 system prompt</strong>（2000 tokens），下面挂了很多用户会话：</p>
 <figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">PrefixTree:</span><br><span class="line">  system_prompt (2000 tokens) ← 非叶子节点</span><br><span class="line">    ├─ user_A_session (往下延展了 50K tokens)</span><br><span class="line">    └─ user_B_session (往下延展了 30K tokens)</span><br></pre></td></tr></table></figure>
-
 <p><strong>关键观察</strong>：user_A 会话延展了 50K tokens，当前窗口在 <code>[52000-128, 52000]</code> 附近。<strong>system_prompt 段（位置 0-2000）早就滑出窗口了</strong>，SWA KV 被 evict 掉了。</p>
-<h3 id="这就是「伪命中」"><a href="#这就是「伪命中」" class="headerlink" title="这就是「伪命中」"></a>这就是「伪命中」</h3><p>user_D 带着同一个 system prompt 进来：</p>
+<h3 id="这就是「伪命中」">这就是「伪命中」</h3>
+<p>user_D 带着同一个 system prompt 进来：</p>
 <figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">命中判定:</span><br><span class="line">  1. Token equality 检查 → 匹配到 2000 tokens ✅</span><br><span class="line">  2. Full KV 检查 → 都在 → Full 命中 2000 tokens ✅</span><br><span class="line">  3. Window-safe 检查 → tail 128 个 SWA slot 在不在？</span><br><span class="line">     └─► ❌ 已被 evict</span><br></pre></td></tr></table></figure>
-
 <p>按「window-safe length」规则，SWA 匹配长度被 clip。<strong>Full 层能复用 2000 tokens，但 SWA 层不行</strong>——SWA 层要看窗口内 KV，位置 2001 的 attention 需要 [1873, 2001] 的 KV，这段没了 → 只能重算 SWA 层的 prefill。</p>
 <p><strong>代价</strong>：</p>
 <ul>
 <li>Full 层：省了（Full pool 还留着）</li>
-<li><strong>SWA 层：60 层全部重跑一次 prefill</strong>（占 6&#x2F;7）</li>
+<li><strong>SWA 层：60 层全部重跑一次 prefill</strong>（占 6/7）</li>
 <li>60 层重算，几乎等于白干</li>
 </ul>
-<h3 id="小米的应对：SWA-保留策略（§3-1-4-第-4-条）"><a href="#小米的应对：SWA-保留策略（§3-1-4-第-4-条）" class="headerlink" title="小米的应对：SWA 保留策略（§3.1.4 第 4 条）"></a>小米的应对：SWA 保留策略（§3.1.4 第 4 条）</h3><p>论文直接点名了这个场景：</p>
+<h3 id="小米的应对：SWA-保留策略（§3-1-4-第-4-条）">小米的应对：SWA 保留策略（§3.1.4 第 4 条）</h3>
+<p>论文直接点名了这个场景：</p>
 <blockquote>
-<p>“Medium&#x2F;short sequence SWA retention strategy. <strong>Based on user request patterns, we retain relatively dense SWA KV Cache at fixed length positions</strong> for medium&#x2F;short sequences… <strong>particularly beneficial for long agent sessions, multi-user shared system prompts, and repeated tool calls to the same codebase.</strong>“</p>
+<p>“Medium/short sequence SWA retention strategy. <strong>Based on user request patterns, we retain relatively dense SWA KV Cache at fixed length positions</strong> for medium/short sequences… <strong>particularly beneficial for long agent sessions, multi-user shared system prompts, and repeated tool calls to the same codebase.</strong>”</p>
 </blockquote>
 <p>翻译：<strong>对高频复用的前缀（比如 system prompt），SWA pool 不严格 O(W)，而是在关键位置留几份 SWA 快照</strong>。</p>
 <p>推测的实现方式：</p>
 <figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">普通序列的 SWA pool:</span><br><span class="line">  只留 tail W 个 slot     ← 严格 O(W)</span><br><span class="line"></span><br><span class="line">高频前缀（如 system prompt）:</span><br><span class="line">  在几个 anchor 位置多留 W 个 slot</span><br><span class="line">  比如: [0, W], [500-W, 500], [1000-W, 1000], [2000-W, 2000]</span><br><span class="line">  ← 相当于&quot;检查点&quot;，每个都能作为 SWA 计算的起点</span><br></pre></td></tr></table></figure>
-
-<p><strong>这样 user_D 命中时</strong>：匹配到 system_prompt 末尾 tail W&#x3D;128 的 SWA slot <strong>确实存在</strong>（是保留下来的 anchor），Full + SWA 都能完整复用 → <strong>不需要重算 SWA 层</strong>。</p>
-<h3 id="Trade-off-账"><a href="#Trade-off-账" class="headerlink" title="Trade-off 账"></a>Trade-off 账</h3><table>
+<p><strong>这样 user_D 命中时</strong>：匹配到 system_prompt 末尾 tail W=128 的 SWA slot <strong>确实存在</strong>（是保留下来的 anchor），Full + SWA 都能完整复用 → <strong>不需要重算 SWA 层</strong>。</p>
+<h3 id="Trade-off-账">Trade-off 账</h3>
+<table>
 <thead>
 <tr>
 <th>项</th>
@@ -365,9 +373,10 @@
 <th>高频前缀密集保留</th>
 </tr>
 </thead>
-<tbody><tr>
+<tbody>
+<tr>
 <td>SWA 存储占比</td>
-<td>极低（1&#x2F;7）</td>
+<td>极低（1/7）</td>
 <td>略高（几倍 W）</td>
 </tr>
 <tr>
@@ -380,17 +389,20 @@
 <td><strong>差（伪命中）</strong></td>
 <td><strong>好（真命中）</strong></td>
 </tr>
-</tbody></table>
+</tbody>
+</table>
 <p><strong>核心思路</strong>：<strong>用一点点 SWA 存储换取显著提升的共享前缀命中率</strong>。因为 system prompt 被成千上万用户共享，每次省掉 60 层 SWA prefill 的收益，远远大于多存几份 128-slot 快照的代价。</p>
 <blockquote>
 <p><strong>一句话总结</strong>：非叶子共享前缀命中时，默认严格 O(W) 实现会因为 tail 被 evict 导致 SWA 层必须重算。小米的解法是<strong>对高频共享前缀主动保留多个 SWA 快照</strong>，让 Full + SWA 都能完整复用，真正兑现 Hybrid SWA 在多用户共享场景下的效率红利。</p>
 </blockquote>
 <hr>
-<h2 id="5-numa-balancing-为什么影响-10"><a href="#5-numa-balancing-为什么影响-10" class="headerlink" title="5. numa_balancing 为什么影响 +10%"></a>5. numa_balancing 为什么影响 +10%</h2><p>论文里就一句话：「关掉 numa_balancing，端到端 +10%」。背后是<strong>操作系统调度和 GPU 推理的碰撞</strong>。</p>
-<h3 id="numa-balancing-是干嘛的"><a href="#numa-balancing-是干嘛的" class="headerlink" title="numa_balancing 是干嘛的"></a>numa_balancing 是干嘛的</h3><p>现代服务器都是 <strong>NUMA 架构</strong>，CPU 访问本 NUMA 节点内存 &lt;&lt; 访问远端节点内存（延迟差 1.5-2×）。<code>kernel.numa_balancing=1</code> 是 Linux 的「自动 NUMA 均衡」特性：</p>
+<h2 id="5-numa-balancing-为什么影响-10">5. numa_balancing 为什么影响 +10%</h2>
+<p>论文里就一句话：「关掉 numa_balancing，端到端 +10%」。背后是<strong>操作系统调度和 GPU 推理的碰撞</strong>。</p>
+<h3 id="numa-balancing-是干嘛的">numa_balancing 是干嘛的</h3>
+<p>现代服务器都是 <strong>NUMA 架构</strong>，CPU 访问本 NUMA 节点内存 &lt;&lt; 访问远端节点内存（延迟差 1.5-2×）。<code>kernel.numa_balancing=1</code> 是 Linux 的「自动 NUMA 均衡」特性：</p>
 <figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">内核周期性做的事:</span><br><span class="line">  1. 扫描进程页表 → 把页面标记为 PROT_NONE</span><br><span class="line">  2. 进程下次访问 → 触发缺页异常</span><br><span class="line">  3. 内核在 fault handler 里统计 NUMA locality</span><br><span class="line">  4. 如果 CPU 和 page 不在同一 node:</span><br><span class="line">     - 迁移页面到 CPU 所在 node</span><br><span class="line">     - 或者迁移线程到 page 所在 node</span><br></pre></td></tr></table></figure>
-
-<h3 id="但在-GPU-推理场景下变成灾难"><a href="#但在-GPU-推理场景下变成灾难" class="headerlink" title="但在 GPU 推理场景下变成灾难"></a>但在 GPU 推理场景下变成灾难</h3><p>SGLang 有自己的 <code>--numa-node</code> 配置，会主动把 rank 绑到指定 NUMA node（PIN 死）。<strong>冲突来了</strong>：</p>
+<h3 id="但在-GPU-推理场景下变成灾难">但在 GPU 推理场景下变成灾难</h3>
+<p>SGLang 有自己的 <code>--numa-node</code> 配置，会主动把 rank 绑到指定 NUMA node（PIN 死）。<strong>冲突来了</strong>：</p>
 <ul>
 <li>SGLang 说：这个 rank 就吃 Node 0，别乱跑</li>
 <li>内核 numa_balancing 说：我来「优化」一下</li>
@@ -401,7 +413,8 @@
 <li><strong>Page fault 引起大 stall</strong>：GPU 计算 → 触发 page fault → 内核处理 → GPU 继续（延迟数百 μs 到 ms）</li>
 <li><strong>随机页面迁移</strong>：pinned memory 被迁移 → GPU 之前记录的 DMA 地址失效</li>
 </ol>
-<h3 id="为什么这个-bug-特别难缠"><a href="#为什么这个-bug-特别难缠" class="headerlink" title="为什么这个 bug 特别难缠"></a>为什么这个 bug 特别难缠</h3><p>论文里这句话说到点子上了：</p>
+<h3 id="为什么这个-bug-特别难缠">为什么这个 bug 特别难缠</h3>
+<p>论文里这句话说到点子上了：</p>
 <blockquote>
 <p>“In multi-node multi-GPU deployments, these gaps appear at <strong>random positions across ranks</strong>, and <strong>each inter-rank synchronization is bottlenecked by the slowest rank</strong>.”</p>
 </blockquote>
@@ -411,9 +424,9 @@
 <li><strong>全局同步放大伤害</strong>：LLM 推理每层 attention 之后都要 <code>all_reduce</code>，<strong>最慢那个 rank 拖累所有人</strong></li>
 </ul>
 <figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">所有 rank 计算 ──► 集合通信同步 ──► 下一层</span><br><span class="line">              ↑</span><br><span class="line">              最慢那个 rank 拖累所有人</span><br></pre></td></tr></table></figure>
-
 <p>如果 8 个 rank 里有 1 个刚好被 page fault 命中，那 8 个 rank 全都得等它——<strong>尾延迟灾难</strong>。对一次前向 60+ 层，只要偶尔一层有一个 rank 中招，整个 latency 就翻倍。</p>
-<h3 id="为啥关掉直接-10"><a href="#为啥关掉直接-10" class="headerlink" title="为啥关掉直接 +10%"></a>为啥关掉直接 +10%</h3><ol>
+<h3 id="为啥关掉直接-10">为啥关掉直接 +10%</h3>
+<ol>
 <li><strong>SGLang 已经手动 pin 好了 NUMA</strong>，调度器安排得明明白白</li>
 <li><strong>numa_balancing 是「帮倒忙」</strong>，它假设进程没做优化，主动帮你搬，反而破坏了原有布局</li>
 <li><strong>代价是 hard cost</strong>：page fault、TLB shootdown、页面迁移都是不可避免的 CPU 侧开销</li>
@@ -423,48 +436,50 @@
 <p><strong>一句话总结</strong>：SGLang 已经手动做了 NUMA pin，<code>numa_balancing</code> 在这基础上做二次干扰，通过 page fault + 页面迁移引入随机 stall，被 GPU 集合通信同步放大成尾延迟灾难，关掉就直接 +10%。</p>
 </blockquote>
 <hr>
-<h2 id="6-Prefill-为什么也要开-MTP"><a href="#6-Prefill-为什么也要开-MTP" class="headerlink" title="6. Prefill 为什么也要开 MTP"></a>6. Prefill 为什么也要开 MTP</h2><p>默认直觉是「MTP 是加速 decode 的，跟 prefill 有啥关系」，但正是这个直觉害惨了 agentic 场景。</p>
-<h3 id="MTP-是什么"><a href="#MTP-是什么" class="headerlink" title="MTP 是什么"></a>MTP 是什么</h3><p><strong>MTP (Multi-Token Prediction)</strong> &#x3D; 多 token 预测。MiMo-V2.5 系列<strong>原生支持 3 层 MTP</strong>：</p>
+<h2 id="6-Prefill-为什么也要开-MTP">6. Prefill 为什么也要开 MTP</h2>
+<p>默认直觉是「MTP 是加速 decode 的，跟 prefill 有啥关系」，但正是这个直觉害惨了 agentic 场景。</p>
+<h3 id="MTP-是什么">MTP 是什么</h3>
+<p><strong>MTP (Multi-Token Prediction)</strong> = 多 token 预测。MiMo-V2.5 系列<strong>原生支持 3 层 MTP</strong>：</p>
 <figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">主模型: 预测第 t+1 个 token</span><br><span class="line">MTP Layer 1: 同时预测第 t+2 个 token</span><br><span class="line">MTP Layer 2: 同时预测第 t+3 个 token  </span><br><span class="line">MTP Layer 3: 同时预测第 t+4 个 token</span><br></pre></td></tr></table></figure>
-
 <p><strong>核心思想</strong>：一次 forward 出 4 个 token，然后<strong>主模型验证</strong>，接受的部分直接输出。理想情况下 decode 速度接近 4×。</p>
 <p><strong>关键前提</strong>：MTP 层本身有参数、有 KV cache，需要**跟着上下文一起「预热」**才能预测准。</p>
-<h3 id="原始问题：Prefill-不跑-MTP-的后果"><a href="#原始问题：Prefill-不跑-MTP-的后果" class="headerlink" title="原始问题：Prefill 不跑 MTP 的后果"></a>原始问题：Prefill 不跑 MTP 的后果</h3><p><strong>默认实现</strong>：Prefill 阶段只跑主模型，跳过 MTP 层。</p>
+<h3 id="原始问题：Prefill-不跑-MTP-的后果">原始问题：Prefill 不跑 MTP 的后果</h3>
+<p><strong>默认实现</strong>：Prefill 阶段只跑主模型，跳过 MTP 层。</p>
 <p><strong>问题</strong>：MTP 层需要看历史 context 才能预测。如果 prefill 跳过 MTP：</p>
 <figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">Prefill 结束时:</span><br><span class="line">  主模型 KV cache: [完整 prompt 的 KV] ✅</span><br><span class="line">  MTP 层 KV cache: [空 / invalid] ❌</span><br><span class="line"></span><br><span class="line">Decode 第 1 个 token:</span><br><span class="line">  主模型: ✅ </span><br><span class="line">  MTP 层: context 是空的，瞎猜 → 接受率极低 ❌</span><br></pre></td></tr></table></figure>
-
 <p><strong>MTP 需要多久「热身」</strong>：论文说是 <strong>128 个 token</strong>。因为 MTP 层需要逐个 decode 的 token 慢慢累积 KV。</p>
 <p><strong>这段时间 MTP 基本白搭</strong>：主模型每步生成 1 个 token，MTP 提议的 3 个 token 因为 context 不足几乎全被拒，有效加速 ≈ 1×。</p>
-<h3 id="为什么-agentic-场景特别惨"><a href="#为什么-agentic-场景特别惨" class="headerlink" title="为什么 agentic 场景特别惨"></a>为什么 agentic 场景特别惨</h3><p>论文这句话点破了关键：</p>
+<h3 id="为什么-agentic-场景特别惨">为什么 agentic 场景特别惨</h3>
+<p>论文这句话点破了关键：</p>
 <blockquote>
 <p>“<strong>Since agentic scenarios involve mostly short output sequences</strong>, this limitation significantly limited MTP’s effective speedup.”</p>
 </blockquote>
 <p>Agentic 场景的输出特征：</p>
 <figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">一次工具调用响应: ~20-50 tokens</span><br><span class="line">一次 function call: ~30-80 tokens  </span><br><span class="line">一次思考步骤: ~50-150 tokens</span><br></pre></td></tr></table></figure>
-
 <p><strong>几乎所有输出都在 128 token 之内</strong>——这正好是 MTP 需要热身的窗口。结果：</p>
 <figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">理论加速比: 3× (3层 MTP)</span><br><span class="line">Agentic 场景实际加速比: ~1× (刚热身完就结束了)</span><br></pre></td></tr></table></figure>
-
 <p><strong>等于 MTP 层白装了</strong>。</p>
-<h3 id="解法：Prefill-阶段也跑-MTP"><a href="#解法：Prefill-阶段也跑-MTP" class="headerlink" title="解法：Prefill 阶段也跑 MTP"></a>解法：Prefill 阶段也跑 MTP</h3><p>小米的改动很直接：<strong>prefill 时也让 MTP 层参与前向</strong>。</p>
+<h3 id="解法：Prefill-阶段也跑-MTP">解法：Prefill 阶段也跑 MTP</h3>
+<p>小米的改动很直接：<strong>prefill 时也让 MTP 层参与前向</strong>。</p>
 <figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">Prefill 结束时:</span><br><span class="line">  主模型 KV cache: [完整 prompt 的 KV] ✅</span><br><span class="line">  MTP 层 KV cache: [完整 prompt 的 MTP KV] ✅  ← 新增</span><br><span class="line"></span><br><span class="line">Decode 第 1 个 token:</span><br><span class="line">  主模型: ✅</span><br><span class="line">  MTP 层: 已经用整个 prompt 预热过，接受率立即很高 ✅</span><br></pre></td></tr></table></figure>
-
 <p><strong>效果（论文数据）</strong>：</p>
 <ul>
 <li><strong>0-128 token 加速: 2.3×</strong> ← 从近 1× 提升到 2.3×，agentic 场景直接受益</li>
 <li><strong>128-256 token 加速: 1.5×</strong></li>
 </ul>
-<h3 id="工程适配"><a href="#工程适配" class="headerlink" title="工程适配"></a>工程适配</h3><p>论文说：</p>
+<h3 id="工程适配">工程适配</h3>
+<p>论文说：</p>
 <blockquote>
-<p>“By introducing MTP support during prefill <strong>with dedicated adaptations and optimizations for HiCache L2&#x2F;L3</strong>…”</p>
+<p>“By introducing MTP support during prefill <strong>with dedicated adaptations and optimizations for HiCache L2/L3</strong>…”</p>
 </blockquote>
 <p>关键点：<strong>MTP 层有自己的 KV cache</strong>，之前 HiCache 那套 offloading 系统只管主模型的 KV。要 prefill 阶段跑 MTP，就得：</p>
 <ol>
 <li><strong>MTP KV 也要进 HiCache</strong>：L1 (GPU) ↔ L2 (Host) ↔ L3 (GCache)</li>
 <li><strong>Prefix cache 得覆盖 MTP KV</strong>：前缀树节点要标 MTP 层的状态</li>
-<li><strong>传输和存储成本</strong>：MTP 有 3 层，KVCache 总量变多，L2&#x2F;L3 得扛住</li>
+<li><strong>传输和存储成本</strong>：MTP 有 3 层，KVCache 总量变多，L2/L3 得扛住</li>
 </ol>
-<h3 id="Trade-off-账-1"><a href="#Trade-off-账-1" class="headerlink" title="Trade-off 账"></a>Trade-off 账</h3><table>
+<h3 id="Trade-off-账-2">Trade-off 账</h3>
+<table>
 <thead>
 <tr>
 <th>维度</th>
@@ -472,10 +487,11 @@
 <th>开 prefill MTP</th>
 </tr>
 </thead>
-<tbody><tr>
+<tbody>
+<tr>
 <td>Prefill 计算</td>
 <td>70 层</td>
-<td>70 + 3 &#x3D; 73 层（多 4%）</td>
+<td>70 + 3 = 73 层（多 4%）</td>
 </tr>
 <tr>
 <td>Decode 0-128 tokens 加速</td>
@@ -487,18 +503,19 @@
 <td>差</td>
 <td>显著提升</td>
 </tr>
-</tbody></table>
+</tbody>
+</table>
 <p><strong>核心逻辑</strong>：<strong>用 prefill 的少量额外开销，换 decode 从第 1 个 token 就享受 MTP 加速</strong>。Agentic 场景短输出多，这笔账非常划算。</p>
 <p>具体场景：<strong>Agent 调用工具，输入 5K token，输出 60 token</strong></p>
 <figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">没开 prefill MTP: 100ms (prefill) + 1200ms (decode) = 1300ms</span><br><span class="line">开了 prefill MTP: 104ms (prefill) + 520ms (decode) = 624ms</span><br><span class="line">省 52%</span><br></pre></td></tr></table></figure>
-
 <blockquote>
 <p><strong>一句话总结</strong>：Prefill 开 MTP 是为了给 MTP 层的 KV cache 做「上下文预热」，避免 decode 初期因为 MTP 无历史导致接受率极低。Agentic 场景输出短，正好都落在这个「未热身窗口」里，所以收益特别大——0-128 token 加速直接从 ~1× 提升到 2.3×。</p>
 </blockquote>
 <hr>
-<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>这篇论文的核心贡献不是某个单点优化，而是<strong>把 Hybrid SWA + MoE + 多模态这套组合架构从理论拉到生产的完整工程实践</strong>。本文聚焦在 SWA 相关 KVCache 这条主线，拆解了几个关键问题：</p>
+<h2 id="总结">总结</h2>
+<p>这篇论文的核心贡献不是某个单点优化，而是<strong>把 Hybrid SWA + MoE + 多模态这套组合架构从理论拉到生产的完整工程实践</strong>。本文聚焦在 SWA 相关 KVCache 这条主线，拆解了几个关键问题：</p>
 <ol>
-<li><strong>SWA 存储</strong>：物理分离 Full&#x2F;SWA pool，SWA 严格 O(W)，前缀树双索引做透明分层</li>
+<li><strong>SWA 存储</strong>：物理分离 Full/SWA pool，SWA 严格 O(W)，前缀树双索引做透明分层</li>
 <li><strong>SWA offload</strong>：Host 侧独立 SWA pool + pinned memory，搬运只按 mask 走有效位置</li>
 <li><strong>共享前缀命中</strong>：默认严格 O(W) 会伪命中，小米用「SWA 快照保留」策略换真实命中率</li>
 <li><strong>numa_balancing</strong>：操作系统自动优化 vs 手动 NUMA pin 的冲突，关掉 +10%</li>
@@ -515,7 +532,7 @@
 <p><strong>参考</strong>：</p>
 <ul>
 <li>论文：MiMo Team, Xiaomi. <em>Full-Pipeline Inference Optimization for MiMo-V2.5 Series: Pushing Hybrid SWA Efficiency to the Limit</em>. arXiv:2607.13095, 2026.</li>
-<li>模型：Xiaomi MiMo Team. <em>MiMo-V2.5</em> &#x2F; <em>MiMo-V2.5-Pro</em>. HuggingFace, 2026.</li>
+<li>模型：Xiaomi MiMo Team. <em>MiMo-V2.5</em> / <em>MiMo-V2.5-Pro</em>. HuggingFace, 2026.</li>
 </ul>
 <p><em>本文基于 MiMo-V2.5 论文、个人笔记《MiMo-V2.5 SWA offload 方法》整理。</em></p>
 
@@ -528,9 +545,9 @@
     <footer class="post-footer">
           <div class="post-tags">
               <a href="/tags/LLM/" rel="tag"># LLM</a>
+              <a href="/tags/Inference/" rel="tag"># Inference</a>
               <a href="/tags/KV-Cache/" rel="tag"># KV Cache</a>
               <a href="/tags/%E6%9E%B6%E6%9E%84%E5%88%86%E6%9E%90/" rel="tag"># 架构分析</a>
-              <a href="/tags/Inference/" rel="tag"># Inference</a>
               <a href="/tags/MiMo/" rel="tag"># MiMo</a>
           </div>
 

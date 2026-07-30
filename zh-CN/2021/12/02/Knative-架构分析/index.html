@@ -250,35 +250,45 @@
 <p>sks的revision创建的时候会有两个service，一个是 public service，一个是 private service，如果用istio的话会看到一个和ingressgateway关联的有externalname的service，这个service是和ingress实现相关的。主要的实现还是public和private两个service，实现和具体的ingress的实现是独立的。</p>
 <p>Private service 对应的是真实的pod的endpoints，public service 有两种模式一个serve模式，一个是proxy模式。当public service出于proxy模式时，其endpoints指向的是activator，当处于serve模式时endpoints指向的是private service所指向的后端endpoints。</p>
 <p>在scale从0到1的过程中，会先阻塞在activator上，当有pod启动以后，还是会保持proxy模式，直到超过burst才会切换到private service的endpoints上。在从1到0的过程中会再切换回activator，直到有新的请求到来再触发pod的启动。</p>
-<h2 id="activator"><a href="#activator" class="headerlink" title="activator"></a>activator</h2><p>Throttler</p>
+<h2 id="activator">activator</h2>
+<p>Throttler</p>
 <blockquote>
 <p>Throttler is the interface that Handler calls to Try to proxy the user request</p>
 </blockquote>
 <p>Health Handler 注册用于 kubelet 做 readiness 和 health probe 的接口，返回statSink的状态，收到 signal term 的时候就开始返回500。</p>
-<p>Network probe handler<br>knative组件用来 probe 的接口，在header里面会有区分。</p>
-<p>Context handler<br>把header中的revision的name和namespace注入的context当中</p>
-<p>Metric Handler<br>收集request的qps等metrics的信息。</p>
-<p>Log Handler<br>请求日志</p>
-<p>Tracing Handler<br>Trace spans</p>
+<p>Network probe handler<br>
+knative组件用来 probe 的接口，在header里面会有区分。</p>
+<p>Context handler<br>
+把header中的revision的name和namespace注入的context当中</p>
+<p>Metric Handler<br>
+收集request的qps等metrics的信息。</p>
+<p>Log Handler<br>
+请求日志</p>
+<p>Tracing Handler<br>
+Trace spans</p>
 <p>Cocurrency report Handler</p>
 <p>记录请求信息，这些信息会被reporter上报</p>
 <p>Activator handler</p>
 <p>过一层 throttler 进行proxy，如果没受限制就会proxy request。</p>
 <p>Throttler 会根据revID创建一个throttler，revision如果存在的话就会创建throttler。（revision肯定是一直在的哪怕没有起pod）如果超过revision的并发数就会退出。</p>
 <p>Throttler 会try对应的revisionThrottler的pods然后转发过去。</p>
-<h2 id="controller"><a href="#controller" class="headerlink" title="controller"></a>controller</h2><p>Controller 主要是对用户使用的几个CRD的同步：Service、Route、Revision、Configuration。</p>
-<h2 id="net-istio"><a href="#net-istio" class="headerlink" title="net-istio"></a>net-istio</h2><p>Ingress 的一种实现</p>
+<h2 id="controller">controller</h2>
+<p>Controller 主要是对用户使用的几个CRD的同步：Service、Route、Revision、Configuration。</p>
+<h2 id="net-istio">net-istio</h2>
+<p>Ingress 的一种实现</p>
 <p>internal 的 ingress创建一个 ingress virtualservice 并且将gate指定为isito-gateway，其他的ingress实现其实类似，只是目前没有traefik的支持。knative有没有istio现在是没啥区别了。</p>
-<h2 id="domain-mappings"><a href="#domain-mappings" class="headerlink" title="domain mappings"></a>domain mappings</h2><p>一个用于扩展域名的CRD DomainClaim，会根据domainclaim创建一个ingress。</p>
-<h2 id="queue-proxy"><a href="#queue-proxy" class="headerlink" title="queue-proxy"></a>queue-proxy</h2><p>tracing metrics breaker 都是正常操作。本质是个sidecar层面的反向代理。</p>
+<h2 id="domain-mappings">domain mappings</h2>
+<p>一个用于扩展域名的CRD DomainClaim，会根据domainclaim创建一个ingress。</p>
+<h2 id="queue-proxy">queue-proxy</h2>
+<p>tracing metrics breaker 都是正常操作。本质是个sidecar层面的反向代理。</p>
 <p>Metrcis</p>
 <p>Admin</p>
 <p>有一个给cocurrency endpoint发 paused 和 resumed 的回调。</p>
 <p>Main</p>
 <p>Proxy handler 收集 request in 和 request out。</p>
-<h2 id="自定义默认域名的问题"><a href="#自定义默认域名的问题" class="headerlink" title="自定义默认域名的问题"></a>自定义默认域名的问题</h2><p>kubectl get  cm config-network -n knative-serving -o yaml 可以看到默认的模板去修改他</p>
+<h2 id="自定义默认域名的问题">自定义默认域名的问题</h2>
+<p>kubectl get  cm config-network -n knative-serving -o yaml 可以看到默认的模板去修改他</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">domain-template: &quot;&#123;&#123;.Name&#125;&#125;.&#123;&#123;.Namespace&#125;&#125;.&#123;&#123;.Domain&#125;&#125;&quot;</span><br></pre></td></tr></table></figure>
-
 
     </div>
 

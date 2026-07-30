@@ -21,12 +21,12 @@
 
 <script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
 
-    <meta name="description" content="SSA概述SSA在Go1.7中被引入，这个特性对编译器的性能有很大的提高，但是也导致编译过程有些减速。下面来结合网上的资粮和书籍，简单说明一下SSA以及SSA的应用。 SSA 代表 static single-assignment，是一种IR(中间表示代码)，要保证每个变量只被赋值一次。这个能帮助简化编译器的优化算法。 123y :&#x3D; 1y :&#x3D; 2x :&#x3D; y 比如上面这段代码，y &#x3D; 1其实是">
+    <meta name="description" content="SSA概述 SSA在Go1.7中被引入，这个特性对编译器的性能有很大的提高，但是也导致编译过程有些减速。下面来结合网上的资粮和书籍，简单说明一下SSA以及SSA的应用。 SSA 代表 static single-assignment，是一种IR(中间表示代码)，要保证每个变量只被赋值一次。这个能帮助简化编译器的优化算法。 123y :&#x3D; 1y :&#x3D; 2x :&#x3D; y 比如上面这段代码，y &#x3D; 1其实">
 <meta property="og:type" content="article">
 <meta property="og:title" content="什么是SSA以及SSA的作用">
 <meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2017/01/22/SSA%E6%98%AF%E4%BB%80%E4%B9%88/index.html">
 <meta property="og:site_name" content="ggaaooppeenngg">
-<meta property="og:description" content="SSA概述SSA在Go1.7中被引入，这个特性对编译器的性能有很大的提高，但是也导致编译过程有些减速。下面来结合网上的资粮和书籍，简单说明一下SSA以及SSA的应用。 SSA 代表 static single-assignment，是一种IR(中间表示代码)，要保证每个变量只被赋值一次。这个能帮助简化编译器的优化算法。 123y :&#x3D; 1y :&#x3D; 2x :&#x3D; y 比如上面这段代码，y &#x3D; 1其实是">
+<meta property="og:description" content="SSA概述 SSA在Go1.7中被引入，这个特性对编译器的性能有很大的提高，但是也导致编译过程有些减速。下面来结合网上的资粮和书籍，简单说明一下SSA以及SSA的应用。 SSA 代表 static single-assignment，是一种IR(中间表示代码)，要保证每个变量只被赋值一次。这个能帮助简化编译器的优化算法。 123y :&#x3D; 1y :&#x3D; 2x :&#x3D; y 比如上面这段代码，y &#x3D; 1其实">
 <meta property="og:locale" content="zh_CN">
 <meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/01/22/SSA%E6%98%AF%E4%BB%80%E4%B9%88/example_1.jpg">
 <meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/01/22/SSA%E6%98%AF%E4%BB%80%E4%B9%88/example_2.jpg">
@@ -257,7 +257,8 @@
     
     
     
-    <div class="post-body" itemprop="articleBody"><h2 id="SSA概述"><a href="#SSA概述" class="headerlink" title="SSA概述"></a>SSA概述</h2><p>SSA在Go1.7中被引入，这个特性对编译器的性能有很大的提高，但是也导致编译过程有些减速。下面来结合网上的资粮和书籍，简单说明一下SSA以及SSA的应用。</p>
+    <div class="post-body" itemprop="articleBody"><h2 id="SSA概述">SSA概述</h2>
+<p>SSA在Go1.7中被引入，这个特性对编译器的性能有很大的提高，但是也导致编译过程有些减速。下面来结合网上的资粮和书籍，简单说明一下SSA以及SSA的应用。</p>
 <p>SSA 代表 static single-assignment，是一种IR(中间表示代码)，要保证每个变量只被赋值一次。这个能帮助简化编译器的优化算法。</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">y := 1</span><br><span class="line">y := 2</span><br><span class="line">x := y</span><br></pre></td></tr></table></figure>
 <p>比如上面这段代码，<code>y = 1</code>其实是不可用的，这个要通过定义的可达分析来确定<code>y</code>是要用1还是2，而SSA有一个标识符可以称之为版本或者“代“。</p>
@@ -274,20 +275,23 @@
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">for each node b</span><br><span class="line">    if the number of immediate predecessors of b ≥ 2</span><br><span class="line">        for each p in immediate predecessors of b</span><br><span class="line">            runner := p</span><br><span class="line">            while runner ≠ idom(b)</span><br><span class="line">                add b to runner’s dominance frontier set</span><br><span class="line">                runner := idom(runner)</span><br></pre></td></tr></table></figure>
 <p>idom(b) 代表相邻的strictly dominate b的结点。这样的点只有一个，因为相邻的点有两个的话就不会是必经之路了。</p>
 <img data-src="/zh-CN/2017/01/22/SSA%E6%98%AF%E4%BB%80%E4%B9%88/example_1.jpg" class="">
-
 <p>如图是一个例子，2的前驱是1和7，7没有sd(strictly dominate) 2，所以把2加入到7的DF(dominate frontiers)当中。3是7的相邻sd，然后3不是2的sd所以2加入到3的DF当中，接着2是3相邻的sd，然后2不是2的sd所以把2加入到2的DF中，最后遍历到7，5和6不是7的sd所以把7加入到5和6的df当中。</p>
 <p>df(A)可以认为是可以通过A到达的，但不是必经之路的点的集合。</p>
 <p>有了这个定义以后就可以插入Φ函数了和重命名了。如果X中有定义a那么所有df(X)都需要a的Φ函数。并且Φ函数本身也是一个定义。</p>
 <p>比如还是同一个例子。</p>
 <img data-src="/zh-CN/2017/01/22/SSA%E6%98%AF%E4%BB%80%E4%B9%88/example_2.jpg" class="">
-
 <p>1当中有j的定义，但是df(1)是空的，5当中有j的定义，并且5的df有7所以7当中要插入一个φ(j, j)。j现在在7中定义了(通过φ函数）所以df(7)中的2也要有φ(j, j)，6也有j的定义但是7已经有了φ函数了，2的df有2，但是2已经有φ函数了。类似的方式可以应用到i和k。接着对定义重命名就可以完成SSA的转换了。</p>
-<h2 id="SSA的应用"><a href="#SSA的应用" class="headerlink" title="SSA的应用"></a>SSA的应用</h2><p>上面只是通俗的解释了一下SSA，没有给出更多详细的理论和算法以及证明，因为证明实在难看懂，下面说一下SSA的应用。</p>
-<h3 id="DEAD-CODE-消除"><a href="#DEAD-CODE-消除" class="headerlink" title="DEAD CODE 消除"></a>DEAD CODE 消除</h3><p>因为每个变量都有“代”（因为大家都只被赋值一次），所以很容易检查出没有被使用的变量并且删除对应的定义。另外如果删除v&#x3D;x这样的定义还要在x的use表中把这条语句删除。</p>
-<h3 id="简单的常量扩展"><a href="#简单的常量扩展" class="headerlink" title="简单的常量扩展"></a>简单的常量扩展</h3><p>比如<code>v = φ(c1,c2,...,cn)</code>这种格式，如果c都是相等的可以直接替换成c，或者<code>v=c</code>，如果c是常量的话也可以直接替换掉。在做这些的同时也可以做其他的优化，能够在一趟遍历中都完成，比如<code>copy propagation</code>，<code>x=y</code>或者<code>x=φ(y)</code>都可以直接用y替换掉x。比如<code>constant folding</code>，<code>x=a+b</code>如果<code>a+b</code>是常量的话，可以直接用常量赋值。</p>
+<h2 id="SSA的应用">SSA的应用</h2>
+<p>上面只是通俗的解释了一下SSA，没有给出更多详细的理论和算法以及证明，因为证明实在难看懂，下面说一下SSA的应用。</p>
+<h3 id="DEAD-CODE-消除">DEAD CODE 消除</h3>
+<p>因为每个变量都有“代”（因为大家都只被赋值一次），所以很容易检查出没有被使用的变量并且删除对应的定义。另外如果删除v=x这样的定义还要在x的use表中把这条语句删除。</p>
+<h3 id="简单的常量扩展">简单的常量扩展</h3>
+<p>比如<code>v = φ(c1,c2,...,cn)</code>这种格式，如果c都是相等的可以直接替换成c，或者<code>v=c</code>，如果c是常量的话也可以直接替换掉。在做这些的同时也可以做其他的优化，能够在一趟遍历中都完成，比如<code>copy propagation</code>，<code>x=y</code>或者<code>x=φ(y)</code>都可以直接用y替换掉x。比如<code>constant folding</code>，<code>x=a+b</code>如果<code>a+b</code>是常量的话，可以直接用常量赋值。</p>
 <p>当然还有其他的优化算法，出发点都是基于SSA的简单性。</p>
-<h2 id="从SSA转换回原始代码"><a href="#从SSA转换回原始代码" class="headerlink" title="从SSA转换回原始代码"></a>从SSA转换回原始代码</h2><p><code>y = φ(x1, x2, x3)</code>这样的形式要根据条件分支再拆分回原来的形态，比如满足1条件，使用<code>y=x1</code>这样的形式。并且可能会很自然的想把x1和x2变回使用同一个寄存器，但是通过优化过程中的一些手段(copy propagation)已经把大部分move指令给优化掉了，并且重新推回x可能会有生命周期的影响，所以还是保留了“代”。</p>
-<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>其实这个就是把def-use换成了use-def方便做代码优化呀：）害我看那么久</p>
+<h2 id="从SSA转换回原始代码">从SSA转换回原始代码</h2>
+<p><code>y = φ(x1, x2, x3)</code>这样的形式要根据条件分支再拆分回原来的形态，比如满足1条件，使用<code>y=x1</code>这样的形式。并且可能会很自然的想把x1和x2变回使用同一个寄存器，但是通过优化过程中的一些手段(copy propagation)已经把大部分move指令给优化掉了，并且重新推回x可能会有生命周期的影响，所以还是保留了“代”。</p>
+<h2 id="总结">总结</h2>
+<p>其实这个就是把def-use换成了use-def方便做代码优化呀：）害我看那么久</p>
 <p>参考文献</p>
 <ol>
 <li>虎书第十九章</li>

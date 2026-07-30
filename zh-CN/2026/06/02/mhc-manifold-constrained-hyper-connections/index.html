@@ -21,12 +21,12 @@
 
 <script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
 
-    <meta name="description" content="从残差到 mHC：一条清晰的三代演进路如果你训练过深层 Transformer，一定对残差连接（Residual Connection）不陌生。它是 ResNet 留下的最重要的遗产之一，也是今天所有大语言模型的标配。 但残差连接有个根本问题：它只有一条信息流。 DeepSeek 在 2025 年连发两篇论文，把这个问题彻底讲透了。故事的三步是：  Residual（2015）：x_&#123;l">
+    <meta name="description" content="从残差到 mHC：一条清晰的三代演进路 如果你训练过深层 Transformer，一定对残差连接（Residual Connection）不陌生。它是 ResNet 留下的最重要的遗产之一，也是今天所有大语言模型的标配。 但残差连接有个根本问题：它只有一条信息流。 DeepSeek 在 2025 年连发两篇论文，把这个问题彻底讲透了。故事的三步是：  Residual（2015）：x_&#123;">
 <meta property="og:type" content="article">
 <meta property="og:title" content="mHC：把残差连接推进到下一个时代">
 <meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2026/06/02/mhc-manifold-constrained-hyper-connections/index.html">
 <meta property="og:site_name" content="ggaaooppeenngg">
-<meta property="og:description" content="从残差到 mHC：一条清晰的三代演进路如果你训练过深层 Transformer，一定对残差连接（Residual Connection）不陌生。它是 ResNet 留下的最重要的遗产之一，也是今天所有大语言模型的标配。 但残差连接有个根本问题：它只有一条信息流。 DeepSeek 在 2025 年连发两篇论文，把这个问题彻底讲透了。故事的三步是：  Residual（2015）：x_&#123;l">
+<meta property="og:description" content="从残差到 mHC：一条清晰的三代演进路 如果你训练过深层 Transformer，一定对残差连接（Residual Connection）不陌生。它是 ResNet 留下的最重要的遗产之一，也是今天所有大语言模型的标配。 但残差连接有个根本问题：它只有一条信息流。 DeepSeek 在 2025 年连发两篇论文，把这个问题彻底讲透了。故事的三步是：  Residual（2015）：x_&#123;">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2026-06-01T16:00:00.000Z">
 <meta property="article:modified_time" content="2026-07-11T04:37:04.435Z">
@@ -124,7 +124,7 @@
       <div class="sidebar-panel-container">
         <!--noindex-->
         <div class="post-toc-wrap sidebar-panel">
-            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BB%8E%E6%AE%8B%E5%B7%AE%E5%88%B0-mHC%EF%BC%9A%E4%B8%80%E6%9D%A1%E6%B8%85%E6%99%B0%E7%9A%84%E4%B8%89%E4%BB%A3%E6%BC%94%E8%BF%9B%E8%B7%AF"><span class="nav-number">1.</span> <span class="nav-text">从残差到 mHC：一条清晰的三代演进路</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%AE%8B%E5%B7%AE%E8%BF%9E%E6%8E%A5%E7%9A%84%E7%93%B6%E9%A2%88%EF%BC%9A%E4%B8%80%E6%9D%A1%E6%B5%81%E4%B8%8D%E5%A4%9F%E7%94%A8"><span class="nav-number">2.</span> <span class="nav-text">残差连接的瓶颈：一条流不够用</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#HC-%E7%9A%84%E8%87%B4%E5%91%BD%E7%BC%BA%E9%99%B7%EF%BC%9A%E8%AE%AD%E7%BB%83%E4%BC%9A%E5%B4%A9"><span class="nav-number">3.</span> <span class="nav-text">HC 的致命缺陷：训练会崩</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#mHC%EF%BC%9A%E7%BB%99-HC-%E5%8A%A0%E4%B8%8A%E2%80%9D%E5%AE%89%E5%85%A8%E9%98%80%E2%80%9D"><span class="nav-number">4.</span> <span class="nav-text">mHC：给 HC 加上”安全阀”</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BB%80%E4%B9%88%E6%98%AF%E5%8F%8C%E9%9A%8F%E6%9C%BA%E7%9F%A9%E9%98%B5%EF%BC%9F"><span class="nav-number">4.1.</span> <span class="nav-text">什么是双随机矩阵？</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%8E%E4%B9%88%E6%8A%8A%E7%9F%A9%E9%98%B5%E5%8F%98%E6%88%90%E5%8F%8C%E9%9A%8F%E6%9C%BA%EF%BC%9FSinkhorn-Knopp-%E7%AE%97%E6%B3%95"><span class="nav-number">5.</span> <span class="nav-text">怎么把矩阵变成双随机？Sinkhorn-Knopp 算法</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-%E6%9D%A1%E6%B5%81%E5%88%B0%E5%BA%95%E8%A7%A3%E5%86%B3%E4%BA%86%E4%BB%80%E4%B9%88%E9%97%AE%E9%A2%98%EF%BC%9F"><span class="nav-number">6.</span> <span class="nav-text">4 条流到底解决了什么问题？</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-%E6%A2%AF%E5%BA%A6%E9%AB%98%E9%80%9F%E5%85%AC%E8%B7%AF"><span class="nav-number">6.1.</span> <span class="nav-text">1. 梯度高速公路</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-%E4%BF%A1%E6%81%AF%E5%88%86%E7%A6%BB%E5%AD%98%E5%82%A8"><span class="nav-number">6.2.</span> <span class="nav-text">2. 信息分离存储</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-%E5%8A%A8%E6%80%81%E5%AE%B9%E9%87%8F%E5%88%86%E9%85%8D"><span class="nav-number">6.3.</span> <span class="nav-text">3. 动态容量分配</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%B7%A5%E7%A8%8B%E4%BC%98%E5%8C%96%EF%BC%9A%E4%B8%BA%E4%BB%80%E4%B9%88%E5%8F%AA%E5%A4%9A-6-7-%E5%BC%80%E9%94%80%EF%BC%9F"><span class="nav-number">7.</span> <span class="nav-text">工程优化：为什么只多 6.7% 开销？</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-Kernel-Fusion%EF%BC%88%E7%AE%97%E5%AD%90%E8%9E%8D%E5%90%88%EF%BC%89"><span class="nav-number">7.1.</span> <span class="nav-text">1. Kernel Fusion（算子融合）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-Selective-Recomputing%EF%BC%88%E9%80%89%E6%8B%A9%E6%80%A7%E9%87%8D%E8%AE%A1%E7%AE%97%EF%BC%89"><span class="nav-number">7.2.</span> <span class="nav-text">2. Selective Recomputing（选择性重计算）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-Overlapping-with-DualPipe"><span class="nav-number">7.3.</span> <span class="nav-text">3. Overlapping with DualPipe</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AE%9E%E9%AA%8C%E6%95%88%E6%9E%9C%EF%BC%9A%E5%8F%88%E5%BC%BA%E5%8F%88%E7%A8%B3"><span class="nav-number">8.</span> <span class="nav-text">实验效果：又强又稳</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%80%E5%8F%A5%E8%AF%9D%E6%80%BB%E7%BB%93"><span class="nav-number">9.</span> <span class="nav-text">一句话总结</span></a></li></ol></div>
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BB%8E%E6%AE%8B%E5%B7%AE%E5%88%B0-mHC%EF%BC%9A%E4%B8%80%E6%9D%A1%E6%B8%85%E6%99%B0%E7%9A%84%E4%B8%89%E4%BB%A3%E6%BC%94%E8%BF%9B%E8%B7%AF"><span class="nav-number">1.</span> <span class="nav-text">从残差到 mHC：一条清晰的三代演进路</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%AE%8B%E5%B7%AE%E8%BF%9E%E6%8E%A5%E7%9A%84%E7%93%B6%E9%A2%88%EF%BC%9A%E4%B8%80%E6%9D%A1%E6%B5%81%E4%B8%8D%E5%A4%9F%E7%94%A8"><span class="nav-number">2.</span> <span class="nav-text">残差连接的瓶颈：一条流不够用</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#HC-%E7%9A%84%E8%87%B4%E5%91%BD%E7%BC%BA%E9%99%B7%EF%BC%9A%E8%AE%AD%E7%BB%83%E4%BC%9A%E5%B4%A9"><span class="nav-number">3.</span> <span class="nav-text">HC 的致命缺陷：训练会崩</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#mHC%EF%BC%9A%E7%BB%99-HC-%E5%8A%A0%E4%B8%8A-%E5%AE%89%E5%85%A8%E9%98%80"><span class="nav-number">4.</span> <span class="nav-text">mHC：给 HC 加上&quot;安全阀&quot;</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BB%80%E4%B9%88%E6%98%AF%E5%8F%8C%E9%9A%8F%E6%9C%BA%E7%9F%A9%E9%98%B5%EF%BC%9F"><span class="nav-number">4.1.</span> <span class="nav-text">什么是双随机矩阵？</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%8E%E4%B9%88%E6%8A%8A%E7%9F%A9%E9%98%B5%E5%8F%98%E6%88%90%E5%8F%8C%E9%9A%8F%E6%9C%BA%EF%BC%9FSinkhorn-Knopp-%E7%AE%97%E6%B3%95"><span class="nav-number">5.</span> <span class="nav-text">怎么把矩阵变成双随机？Sinkhorn-Knopp 算法</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-%E6%9D%A1%E6%B5%81%E5%88%B0%E5%BA%95%E8%A7%A3%E5%86%B3%E4%BA%86%E4%BB%80%E4%B9%88%E9%97%AE%E9%A2%98%EF%BC%9F"><span class="nav-number">6.</span> <span class="nav-text">4 条流到底解决了什么问题？</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-%E6%A2%AF%E5%BA%A6%E9%AB%98%E9%80%9F%E5%85%AC%E8%B7%AF"><span class="nav-number">6.1.</span> <span class="nav-text">1. 梯度高速公路</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-%E4%BF%A1%E6%81%AF%E5%88%86%E7%A6%BB%E5%AD%98%E5%82%A8"><span class="nav-number">6.2.</span> <span class="nav-text">2. 信息分离存储</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-%E5%8A%A8%E6%80%81%E5%AE%B9%E9%87%8F%E5%88%86%E9%85%8D"><span class="nav-number">6.3.</span> <span class="nav-text">3. 动态容量分配</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%B7%A5%E7%A8%8B%E4%BC%98%E5%8C%96%EF%BC%9A%E4%B8%BA%E4%BB%80%E4%B9%88%E5%8F%AA%E5%A4%9A-6-7-%E5%BC%80%E9%94%80%EF%BC%9F"><span class="nav-number">7.</span> <span class="nav-text">工程优化：为什么只多 6.7% 开销？</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-Kernel-Fusion%EF%BC%88%E7%AE%97%E5%AD%90%E8%9E%8D%E5%90%88%EF%BC%89"><span class="nav-number">7.1.</span> <span class="nav-text">1. Kernel Fusion（算子融合）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-Selective-Recomputing%EF%BC%88%E9%80%89%E6%8B%A9%E6%80%A7%E9%87%8D%E8%AE%A1%E7%AE%97%EF%BC%89"><span class="nav-number">7.2.</span> <span class="nav-text">2. Selective Recomputing（选择性重计算）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-Overlapping-with-DualPipe"><span class="nav-number">7.3.</span> <span class="nav-text">3. Overlapping with DualPipe</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AE%9E%E9%AA%8C%E6%95%88%E6%9E%9C%EF%BC%9A%E5%8F%88%E5%BC%BA%E5%8F%88%E7%A8%B3"><span class="nav-number">8.</span> <span class="nav-text">实验效果：又强又稳</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%80%E5%8F%A5%E8%AF%9D%E6%80%BB%E7%BB%93"><span class="nav-number">9.</span> <span class="nav-text">一句话总结</span></a></li></ol></div>
         </div>
         <!--/noindex-->
 
@@ -258,7 +258,8 @@
     
     
     
-    <div class="post-body" itemprop="articleBody"><h2 id="从残差到-mHC：一条清晰的三代演进路"><a href="#从残差到-mHC：一条清晰的三代演进路" class="headerlink" title="从残差到 mHC：一条清晰的三代演进路"></a>从残差到 mHC：一条清晰的三代演进路</h2><p>如果你训练过深层 Transformer，一定对残差连接（Residual Connection）不陌生。它是 ResNet 留下的最重要的遗产之一，也是今天所有大语言模型的标配。</p>
+    <div class="post-body" itemprop="articleBody"><h2 id="从残差到-mHC：一条清晰的三代演进路">从残差到 mHC：一条清晰的三代演进路</h2>
+<p>如果你训练过深层 Transformer，一定对残差连接（Residual Connection）不陌生。它是 ResNet 留下的最重要的遗产之一，也是今天所有大语言模型的标配。</p>
 <p>但残差连接有个根本问题：<strong>它只有一条信息流</strong>。</p>
 <p>DeepSeek 在 2025 年连发两篇论文，把这个问题彻底讲透了。故事的三步是：</p>
 <ol>
@@ -268,40 +269,46 @@
 </ol>
 <p>这篇文章把这三代讲清楚，重点放在 mHC 上。</p>
 <hr>
-<h2 id="残差连接的瓶颈：一条流不够用"><a href="#残差连接的瓶颈：一条流不够用" class="headerlink" title="残差连接的瓶颈：一条流不够用"></a>残差连接的瓶颈：一条流不够用</h2><p>标准 Transformer 里，每一层的计算是这样的：</p>
+<h2 id="残差连接的瓶颈：一条流不够用">残差连接的瓶颈：一条流不够用</h2>
+<p>标准 Transformer 里，每一层的计算是这样的：</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">x = x + Attention(Norm(x))  <span class="comment"># 残差连接</span></span><br><span class="line">x = x + MoE(Norm(x))        <span class="comment"># 残差连接</span></span><br></pre></td></tr></table></figure>
-
 <p>Layer 0 到 Layer 42 的所有信息，全都挤在<strong>同一个向量</strong>里做加法。</p>
 <p>浅层的语法信息、中层的语义信息、深层的推理信息，互相覆盖、互相干扰。这是残差连接的天花板。</p>
 <p><strong>HC（Hyper-Connections）</strong> 提出了一个很自然的想法：</p>
 <blockquote>
-<p>为什么不把 1 条流扩成 n 条并行流，让不同深度的信息走不同的”车道”？</p>
+<p>为什么不把 1 条流扩成 n 条并行流，让不同深度的信息走不同的&quot;车道&quot;？</p>
 </blockquote>
 <p>HC 的公式长这样：</p>
-<p>$$<br>X_{l+1} &#x3D; B_l X_l + C_l F(A_l X_l)<br>$$</p>
+<p class="katex-block "><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><msub><mi>X</mi><mrow><mi>l</mi><mo>+</mo><mn>1</mn></mrow></msub><mo>=</mo><msub><mi>B</mi><mi>l</mi></msub><msub><mi>X</mi><mi>l</mi></msub><mo>+</mo><msub><mi>C</mi><mi>l</mi></msub><mi>F</mi><mo stretchy="false">(</mo><msub><mi>A</mi><mi>l</mi></msub><msub><mi>X</mi><mi>l</mi></msub><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">X_{l+1} = B_l X_l + C_l F(A_l X_l)
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8917em;vertical-align:-0.2083em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0785em;">X</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:-0.0785em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight" style="margin-right:0.0197em;">l</span><span class="mbin mtight">+</span><span class="mord mtight">1</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.2083em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.8333em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0502em;">B</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:-0.0502em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:0.0197em;">l</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0785em;">X</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:-0.0785em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:0.0197em;">l</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0715em;">C</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:-0.0715em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:0.0197em;">l</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mord mathnormal" style="margin-right:0.1389em;">F</span><span class="mopen">(</span><span class="mord"><span class="mord mathnormal">A</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:0.0197em;">l</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0785em;">X</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:-0.0785em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:0.0197em;">l</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mclose">)</span></span></span></span></span></p>
 <ul>
-<li><code>A_l</code>：把 n 条流压缩成 1 条，送给 Attention&#x2F;MoE</li>
+<li><code>A_l</code>：把 n 条流压缩成 1 条，送给 Attention/MoE</li>
 <li><code>F</code>：正常的层计算</li>
 <li><code>C_l</code>：把 F 的输出扩回 n 条流</li>
 <li><code>B_l</code>：n×n 矩阵，控制 n 条流之间怎么混合（残差项）</li>
 </ul>
-<p>n&#x3D;4 的时候，FLOPs 几乎没增加（F 只算 1 次），但信息容量翻了 4 倍。</p>
+<p>n=4 的时候，FLOPs 几乎没增加（F 只算 1 次），但信息容量翻了 4 倍。</p>
 <p>听起来完美，对吧？</p>
 <hr>
-<h2 id="HC-的致命缺陷：训练会崩"><a href="#HC-的致命缺陷：训练会崩" class="headerlink" title="HC 的致命缺陷：训练会崩"></a>HC 的致命缺陷：训练会崩</h2><p>问题出在 <code>B_l</code> 上。</p>
+<h2 id="HC-的致命缺陷：训练会崩">HC 的致命缺陷：训练会崩</h2>
+<p>问题出在 <code>B_l</code> 上。</p>
 <p>HC 里的 <code>B_l</code> 是完全可学习的，没有任何约束。当模型叠到 60 层、参数量到万亿级时，这个无约束的矩阵会出问题：</p>
 <p><strong>多层复合后，信号被无限放大或衰减。</strong></p>
 <p>数学上，HC 跨层递归展开后得到：</p>
-<p>$$<br>x_L &#x3D; (\prod B_i) x_l + \sum (\prod B_j) C_i^T F(…)<br>$$</p>
-<p>$Π B_i$ 是多层 $B$ 矩阵的复合。因为 $B$ 无约束，这个复合矩阵的谱范数可以远大于 1，也可以接近 0。</p>
-<p><strong>实测结果（DeepSeek 27B 实验）：</strong><br>HC 的复合映射增益（Amax Gain Magnitude）达到 <strong>~3000</strong>，意味着信号在前向传播中可以被放大 3000 倍。训练到第 12k 步，loss 直接 spike，梯度范数爆炸。</p>
+<p class="katex-block "><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><msub><mi>x</mi><mi>L</mi></msub><mo>=</mo><mo stretchy="false">(</mo><mo>∏</mo><msub><mi>B</mi><mi>i</mi></msub><mo stretchy="false">)</mo><msub><mi>x</mi><mi>l</mi></msub><mo>+</mo><mo>∑</mo><mo stretchy="false">(</mo><mo>∏</mo><msub><mi>B</mi><mi>j</mi></msub><mo stretchy="false">)</mo><msubsup><mi>C</mi><mi>i</mi><mi>T</mi></msubsup><mi>F</mi><mo stretchy="false">(</mo><mi mathvariant="normal">.</mi><mi mathvariant="normal">.</mi><mi mathvariant="normal">.</mi><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">x_L = (\prod B_i) x_l + \sum (\prod B_j) C_i^T F(...)
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.5806em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal">x</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3283em;"><span style="top:-2.55em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">L</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1.6em;vertical-align:-0.55em;"></span><span class="mopen">(</span><span class="mop op-symbol large-op" style="position:relative;top:0em;">∏</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0502em;">B</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3117em;"><span style="top:-2.55em;margin-left:-0.0502em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">i</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mclose">)</span><span class="mord"><span class="mord mathnormal">x</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:0.0197em;">l</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:1.6em;vertical-align:-0.55em;"></span><span class="mop op-symbol large-op" style="position:relative;top:0em;">∑</span><span class="mopen">(</span><span class="mop op-symbol large-op" style="position:relative;top:0em;">∏</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0502em;">B</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3117em;"><span style="top:-2.55em;margin-left:-0.0502em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:0.0572em;">j</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.2861em;"><span></span></span></span></span></span></span><span class="mclose">)</span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0715em;">C</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.8913em;"><span style="top:-2.453em;margin-left:-0.0715em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">i</span></span></span><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:0.1389em;">T</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.247em;"><span></span></span></span></span></span></span><span class="mord mathnormal" style="margin-right:0.1389em;">F</span><span class="mopen">(</span><span class="mord">...</span><span class="mclose">)</span></span></span></span></span></p>
+<p><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">Π</mi><msub><mi>B</mi><mi>i</mi></msub></mrow><annotation encoding="application/x-tex">Π B_i</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8333em;vertical-align:-0.15em;"></span><span class="mord">Π</span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0502em;">B</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3117em;"><span style="top:-2.55em;margin-left:-0.0502em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">i</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span></span> 是多层 <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>B</mi></mrow><annotation encoding="application/x-tex">B</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.0502em;">B</span></span></span></span> 矩阵的复合。因为 <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>B</mi></mrow><annotation encoding="application/x-tex">B</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.0502em;">B</span></span></span></span> 无约束，这个复合矩阵的谱范数可以远大于 1，也可以接近 0。</p>
+<p><strong>实测结果（DeepSeek 27B 实验）：</strong><br>
+HC 的复合映射增益（Amax Gain Magnitude）达到 <strong>~3000</strong>，意味着信号在前向传播中可以被放大 3000 倍。训练到第 12k 步，loss 直接 spike，梯度范数爆炸。</p>
 <p>HC 的作者（ByteDance Seed 团队）在 ICLR 2025 发表了这个想法，但没有解决稳定性问题。</p>
 <hr>
-<h2 id="mHC：给-HC-加上”安全阀”"><a href="#mHC：给-HC-加上”安全阀”" class="headerlink" title="mHC：给 HC 加上”安全阀”"></a>mHC：给 HC 加上”安全阀”</h2><p>DeepSeek 团队在 2025 年提出的 <strong>mHC（Manifold-Constrained Hyper-Connections）</strong>，只做了一件事：</p>
+<h2 id="mHC：给-HC-加上-安全阀">mHC：给 HC 加上&quot;安全阀&quot;</h2>
+<p>DeepSeek 团队在 2025 年提出的 <strong>mHC（Manifold-Constrained Hyper-Connections）</strong>，只做了一件事：</p>
 <blockquote>
 <p>把 HC 中的残差混合矩阵 <code>B_l</code> 约束在<strong>双随机矩阵流形</strong>上。</p>
 </blockquote>
-<h3 id="什么是双随机矩阵？"><a href="#什么是双随机矩阵？" class="headerlink" title="什么是双随机矩阵？"></a>什么是双随机矩阵？</h3><p>一个 n×n 矩阵，满足：</p>
+<h3 id="什么是双随机矩阵？">什么是双随机矩阵？</h3>
+<p>一个 n×n 矩阵，满足：</p>
 <ul>
 <li>所有元素非负</li>
 <li>每行之和等于 1</li>
@@ -309,36 +316,55 @@
 </ul>
 <p>这样的矩阵，谱范数 <strong>永远 ≤ 1</strong>。也就是说，它永远不会放大信号。</p>
 <p>而且，双随机矩阵在乘法下是<strong>封闭</strong>的：两个双随机矩阵相乘，结果还是双随机矩阵。这意味着叠 100 层，复合映射仍然稳定。</p>
-<p><strong>一句话：mHC &#x3D; HC + 双随机约束，恢复了残差连接的恒等映射性质，同时保留了多流的表达能力。</strong></p>
+<p><strong>一句话：mHC = HC + 双随机约束，恢复了残差连接的恒等映射性质，同时保留了多流的表达能力。</strong></p>
 <hr>
-<h2 id="怎么把矩阵变成双随机？Sinkhorn-Knopp-算法"><a href="#怎么把矩阵变成双随机？Sinkhorn-Knopp-算法" class="headerlink" title="怎么把矩阵变成双随机？Sinkhorn-Knopp 算法"></a>怎么把矩阵变成双随机？Sinkhorn-Knopp 算法</h2><p>mHC 的核心算法是 Sinkhorn-Knopp 迭代，操作很简单：</p>
+<h2 id="怎么把矩阵变成双随机？Sinkhorn-Knopp-算法">怎么把矩阵变成双随机？Sinkhorn-Knopp 算法</h2>
+<p>mHC 的核心算法是 Sinkhorn-Knopp 迭代，操作很简单：</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 输入: B_raw (4×4, 可能是负数)</span></span><br><span class="line">M = exp(B_raw)  <span class="comment"># 先保证非负</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 交替行列归一化 20 次</span></span><br><span class="line"><span class="keyword">for</span> _ <span class="keyword">in</span> <span class="built_in">range</span>(<span class="number">20</span>):</span><br><span class="line">    M = M / M.<span class="built_in">sum</span>(dim=<span class="number">1</span>, keepdim=<span class="literal">True</span>)  <span class="comment"># 行归一化</span></span><br><span class="line">    M = M / M.<span class="built_in">sum</span>(dim=<span class="number">0</span>, keepdim=<span class="literal">True</span>)  <span class="comment"># 列归一化</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 输出: B (4×4 双随机矩阵)</span></span><br></pre></td></tr></table></figure>
-
-<p>为什么第一步用 <code>exp()</code>？因为 <code>B_raw</code> 是神经网络输出的 logit，可能有负数。直接归一化会产生负权重，违反”非负”约束。<code>exp()</code> 把任意实数映射到正数，完美解决。</p>
+<p>为什么第一步用 <code>exp()</code>？因为 <code>B_raw</code> 是神经网络输出的 logit，可能有负数。直接归一化会产生负权重，违反&quot;非负&quot;约束。<code>exp()</code> 把任意实数映射到正数，完美解决。</p>
 <p>20 次迭代是实验得出的经验值，足够收敛，又不会太慢。</p>
 <hr>
-<h2 id="4-条流到底解决了什么问题？"><a href="#4-条流到底解决了什么问题？" class="headerlink" title="4 条流到底解决了什么问题？"></a>4 条流到底解决了什么问题？</h2><p>很多人问：为什么是 4 条流？不是 2 条或 8 条？</p>
+<h2 id="4-条流到底解决了什么问题？">4 条流到底解决了什么问题？</h2>
+<p>很多人问：为什么是 4 条流？不是 2 条或 8 条？</p>
 <p><strong>三个核心作用：</strong></p>
-<h3 id="1-梯度高速公路"><a href="#1-梯度高速公路" class="headerlink" title="1. 梯度高速公路"></a>1. 梯度高速公路</h3><p>普通残差的梯度路径是 43 个乘法项的连乘，容易消失或爆炸。<br>4 条流提供了 <strong>4 条并行的梯度路径</strong>，一条堵了还有其他。类似 DenseNet 的思路，但高效得多（F 只算 1 次）。</p>
-<h3 id="2-信息分离存储"><a href="#2-信息分离存储" class="headerlink" title="2. 信息分离存储"></a>2. 信息分离存储</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">stream_0: 可能专注浅层信息（位置、语法）</span><br><span class="line">stream_1: 可能专注中层信息（语义、实体关系）</span><br><span class="line">stream_2: 可能专注深层信息（推理链）</span><br><span class="line">stream_3: 可能做&quot;工作记忆&quot;（当前层临时计算）</span><br></pre></td></tr></table></figure>
-
+<h3 id="1-梯度高速公路">1. 梯度高速公路</h3>
+<p>普通残差的梯度路径是 43 个乘法项的连乘，容易消失或爆炸。<br>
+4 条流提供了 <strong>4 条并行的梯度路径</strong>，一条堵了还有其他。类似 DenseNet 的思路，但高效得多（F 只算 1 次）。</p>
+<h3 id="2-信息分离存储">2. 信息分离存储</h3>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">stream_0: 可能专注浅层信息（位置、语法）</span><br><span class="line">stream_1: 可能专注中层信息（语义、实体关系）</span><br><span class="line">stream_2: 可能专注深层信息（推理链）</span><br><span class="line">stream_3: 可能做&quot;工作记忆&quot;（当前层临时计算）</span><br></pre></td></tr></table></figure>
 <p>Layer 5 学到的特征，通过 <code>B</code> 矩阵的合理混合，可以在 Layer 30 仍然清晰可用。而在 1 条流里，这个特征早就被 25 次加法淹没了。</p>
-<h3 id="3-动态容量分配"><a href="#3-动态容量分配" class="headerlink" title="3. 动态容量分配"></a>3. 动态容量分配</h3><p><code>B</code> 矩阵是<strong>输入依赖</strong>的（由当前层的 hidden state 动态生成）：</p>
+<h3 id="3-动态容量分配">3. 动态容量分配</h3>
+<p><code>B</code> 矩阵是<strong>输入依赖</strong>的（由当前层的 hidden state 动态生成）：</p>
 <ul>
-<li>简单 token（”the”, “a”）：<code>B</code> ≈ 单位矩阵，4 条流基本不混合，省计算</li>
+<li>简单 token（“the”, “a”）：<code>B</code> ≈ 单位矩阵，4 条流基本不混合，省计算</li>
 <li>复杂 token（需要深度推理）：<code>B</code> 大幅混合，让更多层的信息参与</li>
 </ul>
 <p>这是 1 条流做不到的——普通残差对所有 token 都是 <code>x + F(x)</code>。</p>
-<p><strong>为什么选 n&#x3D;4？</strong><br>论文实测：n&#x3D;4 是性价比最优的点。n&#x3D;2 效果不够，n&#x3D;8 的 Sinkhorn 开销（8×8 矩阵 × 20 次迭代）显著增加，但收益递减。</p>
+<p><strong>为什么选 n=4？</strong><br>
+论文实测：n=4 是性价比最优的点。n=2 效果不够，n=8 的 Sinkhorn 开销（8×8 矩阵 × 20 次迭代）显著增加，但收益递减。</p>
 <hr>
-<h2 id="工程优化：为什么只多-6-7-开销？"><a href="#工程优化：为什么只多-6-7-开销？" class="headerlink" title="工程优化：为什么只多 6.7% 开销？"></a>工程优化：为什么只多 6.7% 开销？</h2><p>mHC 看起来很重：每行代码都有矩阵运算、Sinkhorn 迭代、4 倍 hidden state……</p>
+<h2 id="工程优化：为什么只多-6-7-开销？">工程优化：为什么只多 6.7% 开销？</h2>
+<p>mHC 看起来很重：每行代码都有矩阵运算、Sinkhorn 迭代、4 倍 hidden state……</p>
 <p>但 DeepSeek 做了三件事，把开销压到了 <strong>仅 +6.7%</strong>：</p>
-<h3 id="1-Kernel-Fusion（算子融合）"><a href="#1-Kernel-Fusion（算子融合）" class="headerlink" title="1. Kernel Fusion（算子融合）"></a>1. Kernel Fusion（算子融合）</h3><p>用 TileLang 把整个 mHC 计算——RMSNorm + 线性投影 + Sigmoid + Sinkhorn——融合成一个 CUDA kernel，减少内存读写。</p>
-<h3 id="2-Selective-Recomputing（选择性重计算）"><a href="#2-Selective-Recomputing（选择性重计算）" class="headerlink" title="2. Selective Recomputing（选择性重计算）"></a>2. Selective Recomputing（选择性重计算）</h3><p>前向时只保存每块的第一个层输入，反向时重新计算 mHC 的中间激活。最优块大小由公式给出：</p>
-<p>$L_r^* \approx \sqrt{\frac{nL}{n+2}}$</p>
-<h3 id="3-Overlapping-with-DualPipe"><a href="#3-Overlapping-with-DualPipe" class="headerlink" title="3. Overlapping with DualPipe"></a>3. Overlapping with DualPipe</h3><p>把 mHC 的计算和流水线通信重叠。在 DualPipe 调度中，<code>F_post,res</code> kernel 放到高优先级流，避免阻塞 All-to-All 通信。</p>
+<h3 id="1-Kernel-Fusion（算子融合）">1. Kernel Fusion（算子融合）</h3>
+<p>用 TileLang 把整个 mHC 计算——RMSNorm + 线性投影 + Sigmoid + Sinkhorn——融合成一个 CUDA kernel，减少内存读写。</p>
+<h3 id="2-Selective-Recomputing（选择性重计算）">2. Selective Recomputing（选择性重计算）</h3>
+<p>前向时只保存每块的第一个层输入，反向时重新计算 mHC 的中间激活。最优块大小由公式给出：</p>
+<p><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msubsup><mi>L</mi><mi>r</mi><mo>∗</mo></msubsup><mo>≈</mo><msqrt><mfrac><mrow><mi>n</mi><mi>L</mi></mrow><mrow><mi>n</mi><mo>+</mo><mn>2</mn></mrow></mfrac></msqrt></mrow><annotation encoding="application/x-tex">L_r^* \approx \sqrt{\frac{nL}{n+2}}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.9357em;vertical-align:-0.247em;"></span><span class="mord"><span class="mord mathnormal">L</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.6887em;"><span style="top:-2.453em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:0.0278em;">r</span></span></span><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mbin mtight">∗</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.247em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">≈</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1.84em;vertical-align:-0.6205em;"></span><span class="mord sqrt"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.2195em;"><span class="svg-align" style="top:-3.8em;"><span class="pstrut" style="height:3.8em;"></span><span class="mord" style="padding-left:1em;"><span class="mord"><span class="mopen nulldelimiter"></span><span class="mfrac"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.8723em;"><span style="top:-2.655em;"><span class="pstrut" style="height:3em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight">n</span><span class="mbin mtight">+</span><span class="mord mtight">2</span></span></span></span><span style="top:-3.23em;"><span class="pstrut" style="height:3em;"></span><span class="frac-line" style="border-bottom-width:0.04em;"></span></span><span style="top:-3.394em;"><span class="pstrut" style="height:3em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight">n</span><span class="mord mathnormal mtight">L</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.4033em;"><span></span></span></span></span></span><span class="mclose nulldelimiter"></span></span></span></span><span style="top:-3.1795em;"><span class="pstrut" style="height:3.8em;"></span><span class="hide-tail" style="min-width:1.02em;height:1.88em;"><svg xmlns="http://www.w3.org/2000/svg" width="400em" height="1.88em" viewBox="0 0 400000 1944" preserveAspectRatio="xMinYMin slice"><path d="M983 90
+l0 -0
+c4,-6.7,10,-10,18,-10 H400000v40
+H1013.1s-83.4,268,-264.1,840c-180.7,572,-277,876.3,-289,913c-4.7,4.7,-12.7,7,-24,7
+s-12,0,-12,0c-1.3,-3.3,-3.7,-11.7,-7,-25c-35.3,-125.3,-106.7,-373.3,-214,-744
+c-10,12,-21,25,-33,39s-32,39,-32,39c-6,-5.3,-15,-14,-27,-26s25,-30,25,-30
+c26.7,-32.7,52,-63,76,-91s52,-60,52,-60s208,722,208,722
+c56,-175.3,126.3,-397.3,211,-666c84.7,-268.7,153.8,-488.2,207.5,-658.5
+c53.7,-170.3,84.5,-266.8,92.5,-289.5z
+M1001 80h400000v40h-400000z"/></svg></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.6205em;"><span></span></span></span></span></span></span></span></span></p>
+<h3 id="3-Overlapping-with-DualPipe">3. Overlapping with DualPipe</h3>
+<p>把 mHC 的计算和流水线通信重叠。在 DualPipe 调度中，<code>F_post,res</code> kernel 放到高优先级流，避免阻塞 All-to-All 通信。</p>
 <hr>
-<h2 id="实验效果：又强又稳"><a href="#实验效果：又强又稳" class="headerlink" title="实验效果：又强又稳"></a>实验效果：又强又稳</h2><p>DeepSeek 用 27B MoE 模型做了对比实验：</p>
+<h2 id="实验效果：又强又稳">实验效果：又强又稳</h2>
+<p>DeepSeek 用 27B MoE 模型做了对比实验：</p>
 <table>
 <thead>
 <tr>
@@ -348,7 +374,8 @@
 <th>mHC</th>
 </tr>
 </thead>
-<tbody><tr>
+<tbody>
+<tr>
 <td>训练稳定性</td>
 <td>稳定</td>
 <td><strong>loss spike @12k步</strong></td>
@@ -372,14 +399,16 @@
 <td>+?%</td>
 <td><strong>+6.7%</strong></td>
 </tr>
-</tbody></table>
-<p>下游任务（BBH &#x2F; DROP &#x2F; GSM8K 等 8 个 benchmark）上，mHC 全面超过 baseline 和 HC。</p>
+</tbody>
+</table>
+<p>下游任务（BBH / DROP / GSM8K 等 8 个 benchmark）上，mHC 全面超过 baseline 和 HC。</p>
 <p><strong>最重要的结论：</strong> mHC 让 <strong>1.6T 参数、60+ 层、MoE 模型</strong>能够稳定训练——这是普通 HC 做不到的。</p>
 <hr>
-<h2 id="一句话总结"><a href="#一句话总结" class="headerlink" title="一句话总结"></a>一句话总结</h2><blockquote>
-<p><strong>mHC &#x3D; HC + 双随机矩阵约束，是残差连接的最终进化形态，让万亿参数 MoE 能稳定训练。</strong></p>
+<h2 id="一句话总结">一句话总结</h2>
+<blockquote>
+<p><strong>mHC = HC + 双随机矩阵约束，是残差连接的最终进化形态，让万亿参数 MoE 能稳定训练。</strong></p>
 </blockquote>
-<p>如果你正在设计超大模型，mHC 是目前最值得考虑的残差连接方式。它不改 FLOPs，不改层计算，只改残差流的拓扑结构——但就是这一点，让深层训练从”可能崩”变成了”一定稳”。</p>
+<p>如果你正在设计超大模型，mHC 是目前最值得考虑的残差连接方式。它不改 FLOPs，不改层计算，只改残差流的拓扑结构——但就是这一点，让深层训练从&quot;可能崩&quot;变成了&quot;一定稳&quot;。</p>
 <hr>
 <p><strong>参考资料：</strong></p>
 <ul>
