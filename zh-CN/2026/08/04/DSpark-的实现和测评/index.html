@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.3.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="_85tctgPWrqH2EPVuuD5IT6KE-tW8nH0hTISJDMnShg">
+  <meta name="baidu-site-verification" content="bb16c5b1fd3302c18e0015bef11eea42">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha256-dABdfBfUoC8vJUBOwGVdm8L9qlMWaHTIfXt+7GnZCIo=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.css" integrity="sha256-gkQVf8UKZgQ0HyuxL/VnacadJ+D2Kox2TCEBuNQg5+w=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="DSpark 的实现和测评 DSpark &#x3D; DFlash 的并行 backbone forward（1 次）+ N 步轻量 Markov 序列修正，全部在 CUDA Graph 内。 本文结合 vLLM 源码分析 DSpark 的实现细节，并在 Qwen3-8B 上实测 deepseek-ai 官方 draft 和社区 Dogacel draft 的效果差异。  1. 背景：投机解码与并行起草">
+<meta property="og:type" content="article">
+<meta property="og:title" content="DSpark 的实现和测评">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2026/08/04/DSpark-%E7%9A%84%E5%AE%9E%E7%8E%B0%E5%92%8C%E6%B5%8B%E8%AF%84/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="DSpark 的实现和测评 DSpark &#x3D; DFlash 的并行 backbone forward（1 次）+ N 步轻量 Markov 序列修正，全部在 CUDA Graph 内。 本文结合 vLLM 源码分析 DSpark 的实现细节，并在 Qwen3-8B 上实测 deepseek-ai 官方 draft 和社区 Dogacel draft 的效果差异。  1. 背景：投机解码与并行起草">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-08-04T04:20:00.000Z">
+<meta property="article:modified_time" content="2026-08-04T04:17:30.785Z">
+<meta property="article:author" content="ggaaooppeenngg">
+<meta property="article:tag" content="vLLM">
+<meta property="article:tag" content="LLM">
+<meta property="article:tag" content="Inference">
+<meta property="article:tag" content="Speculative Decoding">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2026/08/04/DSpark-%E7%9A%84%E5%AE%9E%E7%8E%B0%E5%92%8C%E6%B5%8B%E8%AF%84/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://ggaaooppeenngg.github.io/zh-CN/2026/08/04/DSpark-%E7%9A%84%E5%AE%9E%E7%8E%B0%E5%92%8C%E6%B5%8B%E8%AF%84/","path":"zh-CN/2026/08/04/DSpark-的实现和测评/","title":"DSpark 的实现和测评"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>DSpark 的实现和测评 | ggaaooppeenngg</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-62096626-1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"UA-62096626-1","only_pageview":false,"measure_protocol_api_secret":null}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+  <script src="/js/third-party/analytics/baidu-analytics.js"></script>
+  <script async src="https://hm.baidu.com/hm.js?bb16c5b1fd3302c18e0015bef11eea42"></script>
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">ggaaooppeenngg</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">为什么计算机科学是无限的但生命是有限的</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-旅行"><a href="/travel/" rel="section"><i class="plane fa-fw"></i>旅行</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">196</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">23</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">100</span></a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link"><span class="nav-number">1.</span> <span class="nav-text">DSpark 的实现和测评</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#1-%E8%83%8C%E6%99%AF%EF%BC%9A%E6%8A%95%E6%9C%BA%E8%A7%A3%E7%A0%81%E4%B8%8E%E5%B9%B6%E8%A1%8C%E8%B5%B7%E8%8D%89"><span class="nav-number">1.1.</span> <span class="nav-text">1. 背景：投机解码与并行起草</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-DSpark-vs-DFlash%EF%BC%9A%E4%B8%A4%E4%B8%AA%E6%A0%B8%E5%BF%83%E5%B7%AE%E5%BC%82"><span class="nav-number">1.2.</span> <span class="nav-text">2. DSpark vs DFlash：两个核心差异</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-1-Anchor-as-first-prediction%EF%BC%88%E9%94%9A%E4%BD%8D%E5%8D%B3%E9%A6%96%E9%A2%84%E6%B5%8B%EF%BC%89"><span class="nav-number">1.2.1.</span> <span class="nav-text">2.1 Anchor-as-first-prediction（锚位即首预测）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-2-Sequential-Markov-Sampling%EF%BC%88%E5%BA%8F%E5%88%97%E9%A9%AC%E5%B0%94%E5%8F%AF%E5%A4%AB%E9%87%87%E6%A0%B7%EF%BC%89"><span class="nav-number">1.2.2.</span> <span class="nav-text">2.2 Sequential Markov Sampling（序列马尔可夫采样）</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-Markov-Head-%E7%BB%93%E6%9E%84"><span class="nav-number">1.3.</span> <span class="nav-text">3. Markov Head 结构</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-%E5%AE%8C%E6%95%B4%E7%9A%84-Draft-%E4%B8%80%E6%AD%A5%E6%B5%81%E7%A8%8B"><span class="nav-number">1.4.</span> <span class="nav-text">4. 完整的 Draft 一步流程</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Step-1%EF%BC%9A%E5%B9%B6%E8%A1%8C-Backbone-Forward%EF%BC%88%E7%BB%A7%E6%89%BF%E8%87%AA-DFlash%EF%BC%89"><span class="nav-number">1.4.1.</span> <span class="nav-text">Step 1：并行 Backbone Forward（继承自 DFlash）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Step-2%EF%BC%9ASequential-Markov-Sampling%EF%BC%88DSpark-%E7%8B%AC%E6%9C%89%EF%BC%89"><span class="nav-number">1.4.2.</span> <span class="nav-text">Step 2：Sequential Markov Sampling（DSpark 独有）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Context-KV-%E9%A2%84%E8%AE%A1%E7%AE%97%EF%BC%88DFlash-%E7%9A%84%E5%85%B3%E9%94%AE%E4%BC%98%E5%8C%96%EF%BC%89"><span class="nav-number">1.4.3.</span> <span class="nav-text">Context KV 预计算（DFlash 的关键优化）</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#5-Probabilistic-Rejection-Sampling-%E4%B8%8E-Reduced-Vocab"><span class="nav-number">1.5.</span> <span class="nav-text">5. Probabilistic Rejection Sampling 与 Reduced Vocab</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#6-CUDA-Graph-%E8%A6%86%E7%9B%96"><span class="nav-number">1.6.</span> <span class="nav-text">6. CUDA Graph 覆盖</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#7-%E6%A8%A1%E5%9E%8B%E5%8A%A0%E8%BD%BD%E4%B8%8E%E6%9D%83%E9%87%8D%E5%85%B1%E4%BA%AB"><span class="nav-number">1.7.</span> <span class="nav-text">7. 模型加载与权重共享</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#8-%E5%AE%9E%E9%AA%8C%E7%8E%AF%E5%A2%83"><span class="nav-number">1.8.</span> <span class="nav-text">8. 实验环境</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Draft-Model-%E9%85%8D%E7%BD%AE"><span class="nav-number">1.8.1.</span> <span class="nav-text">Draft Model 配置</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#9-%E6%80%A7%E8%83%BD%E5%AF%B9%E6%AF%94"><span class="nav-number">1.9.</span> <span class="nav-text">9. 性能对比</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#9-1-%E7%AB%AF%E5%88%B0%E7%AB%AF%E6%80%A7%E8%83%BD%EF%BC%883-prompts-%E5%90%84-64-tokens%EF%BC%89"><span class="nav-number">1.9.1.</span> <span class="nav-text">9.1 端到端性能（3 prompts, 各 64 tokens）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#9-2-%E6%8A%95%E6%9C%BA%E8%A7%A3%E7%A0%81%E6%8C%87%E6%A0%87%EF%BC%88DeepSpec-evaluator-trace%EF%BC%89"><span class="nav-number">1.9.2.</span> <span class="nav-text">9.2 投机解码指标（DeepSpec evaluator trace）</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#10-Trace-%E5%88%86%E6%9E%90"><span class="nav-number">1.10.</span> <span class="nav-text">10. Trace 分析</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#10-1-Trace-%E6%96%87%E4%BB%B6%E6%B8%85%E5%8D%95"><span class="nav-number">1.10.1.</span> <span class="nav-text">10.1 Trace 文件清单</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#10-2-CUDA-Kernel-%E7%BC%BA%E5%A4%B1%E5%8E%9F%E5%9B%A0"><span class="nav-number">1.10.2.</span> <span class="nav-text">10.2 CUDA Kernel 缺失原因</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#10-3-DeepSpec-Evaluator-Kernel-%E5%88%86%E5%B8%83"><span class="nav-number">1.10.3.</span> <span class="nav-text">10.3 DeepSpec Evaluator Kernel 分布</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#10-4-NVTX-Range-%E5%AF%B9%E6%AF%94"><span class="nav-number">1.10.4.</span> <span class="nav-text">10.4 NVTX Range 对比</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#11-Dogacel-%E6%97%A0%E6%95%88%E5%8E%9F%E5%9B%A0%EF%BC%9A%E6%9E%B6%E6%9E%84%E4%B8%8D%E5%8C%B9%E9%85%8D"><span class="nav-number">1.11.</span> <span class="nav-text">11. Dogacel 无效原因：架构不匹配</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#12-SPEED-Bench-%E6%95%B0%E6%8D%AE%E9%9B%86"><span class="nav-number">1.12.</span> <span class="nav-text">12. SPEED-Bench 数据集</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#12-1-%E6%95%B4%E4%BD%93%E7%BB%93%E6%9E%84"><span class="nav-number">1.12.1.</span> <span class="nav-text">12.1 整体结构</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#12-2-Qualitative-Split%EF%BC%88%E8%B4%A8%E9%87%8F%E8%AF%84%E6%B5%8B%EF%BC%89"><span class="nav-number">1.12.2.</span> <span class="nav-text">12.2 Qualitative Split（质量评测）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#12-3-Throughput-Split%EF%BC%88%E5%90%9E%E5%90%90%E8%AF%84%E6%B5%8B%EF%BC%89"><span class="nav-number">1.12.3.</span> <span class="nav-text">12.3 Throughput Split（吞吐评测）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#12-4-%E4%B8%BA%E4%BB%80%E4%B9%88%E9%80%89-coding-%E7%B1%BB%E5%81%9A-benchmark"><span class="nav-number">1.12.4.</span> <span class="nav-text">12.4 为什么选 coding 类做 benchmark</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#13-%E6%8E%A5%E5%8F%97%E7%8E%87%E4%B8%8E%E8%AE%AD%E7%BB%83%E6%95%88%E6%9E%9C%E7%9A%84%E5%85%B3%E7%B3%BB"><span class="nav-number">1.13.</span> <span class="nav-text">13. 接受率与训练效果的关系</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%AE%AD%E7%BB%83%E4%BE%A7%E5%86%B3%E5%AE%9A%E4%B8%8A%E9%99%90"><span class="nav-number">1.13.1.</span> <span class="nav-text">训练侧决定上限</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%B7%A5%E7%A8%8B%E4%BE%A7%E5%86%B3%E5%AE%9A%E4%B8%8B%E9%99%90"><span class="nav-number">1.13.2.</span> <span class="nav-text">工程侧决定下限</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#14-vLLM-%E6%8E%A8%E7%90%86%E5%BC%95%E6%93%8E%E4%BC%98%E5%8C%96%E5%AF%B9-Kernel-%E5%88%86%E5%B8%83%E7%9A%84%E5%BD%B1%E5%93%8D"><span class="nav-number">1.14.</span> <span class="nav-text">14. vLLM 推理引擎优化对 Kernel 分布的影响</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%97%A0-vLLM-%E4%BC%98%E5%8C%96%E7%9A%84-kernel-%E5%88%86%E5%B8%83%EF%BC%88DeepSpec-evaluator%EF%BC%89"><span class="nav-number">1.14.1.</span> <span class="nav-text">无 vLLM 优化的 kernel 分布（DeepSpec evaluator）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#vLLM-%E4%BC%98%E5%8C%96%E5%90%8E%E7%9A%84%E9%A2%84%E6%9C%9F%E5%8F%98%E5%8C%96"><span class="nav-number">1.14.2.</span> <span class="nav-text">vLLM 优化后的预期变化</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AF%B9%E6%8A%95%E6%9C%BA%E8%A7%A3%E7%A0%81%E7%9A%84%E5%90%AF%E7%A4%BA"><span class="nav-number">1.14.3.</span> <span class="nav-text">对投机解码的启示</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#15-%E6%80%BB%E7%BB%93"><span class="nav-number">1.15.</span> <span class="nav-text">15. 总结</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%8B%E4%B8%80%E6%AD%A5"><span class="nav-number">1.15.1.</span> <span class="nav-text">下一步</span></a></li></ol></li></ol></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">100</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">23</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">196</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/ggaaooppeenngg" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;ggaaooppeenngg" rel="noopener me" target="_blank"><i class="github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:peng.gao.dut@gmail.com" title="E-Mail → mailto:peng.gao.dut@gmail.com" rel="noopener me" target="_blank"><i class="envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+        <div class="back-to-top animated" role="button" aria-label="返回顶部">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2026/08/04/DSpark-%E7%9A%84%E5%AE%9E%E7%8E%B0%E5%92%8C%E6%B5%8B%E8%AF%84/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="DSpark 的实现和测评 | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          DSpark 的实现和测评
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+      
+
+      <time title="创建时间：2026-08-04 12:20:00 / 修改时间：12:17:30" itemprop="dateCreated datePublished" datetime="2026-08-04T12:20:00+08:00">2026-08-04</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/%E6%8A%80%E6%9C%AF/" itemprop="url" rel="index"><span itemprop="name">技术</span></a>
+        </span>
+    </span>
+
+  
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus：</span>
+    
+    <a title="disqus" href="/zh-CN/2026/08/04/DSpark-%E7%9A%84%E5%AE%9E%E7%8E%B0%E5%92%8C%E6%B5%8B%E8%AF%84/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2026/08/04/DSpark-的实现和测评/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1>DSpark 的实现和测评</h1>
+<p><strong>DSpark = DFlash 的并行 backbone forward（1 次）+ N 步轻量 Markov 序列修正，全部在 CUDA Graph 内。</strong> 本文结合 vLLM 源码分析 DSpark 的实现细节，并在 Qwen3-8B 上实测 deepseek-ai 官方 draft 和社区 Dogacel draft 的效果差异。</p>
+<hr>
+<h2 id="1-背景：投机解码与并行起草">1. 背景：投机解码与并行起草</h2>
+<p>投机解码（Speculative Decoding, SD）用一个小 draft 模型并行猜测 N 个 token，再由 target 模型一次 verify，通过 rejection sampling 保证输出分布不变。SD 的收益来自把 decode 阶段的 memory-bound 转为 compute-bound–bs=1 时 GPU 利用率极低，draft 的轻量 GEMM + target 的 batched verify 填充了 GPU 空闲。</p>
+<p>vLLM v1 的 SD 框架支持多种 method：<code>eagle</code>、<code>eagle3</code>、<code>dflash</code>、<code>dspark</code>、<code>medusa</code>、<code>ngram</code>、<code>mtp</code> 等。DSpark 继承自 DFlash，核心改进是<strong>序列马尔可夫采样</strong>。</p>
+<p>继承链：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">BaseSpeculator (ABC)</span><br><span class="line">  └─ DraftModelSpeculator</span><br><span class="line">      └─ DFlashSpeculator</span><br><span class="line">          └─ DSparkSpeculator   ← 本文主角</span><br></pre></td></tr></table></figure>
+<p>模型类继承链：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">Qwen3ForCausalLM</span><br><span class="line">  └─ DFlashQwen3ForCausalLM</span><br><span class="line">      └─ Qwen3DSparkForCausalLM</span><br></pre></td></tr></table></figure>
+<hr>
+<h2 id="2-DSpark-vs-DFlash：两个核心差异">2. DSpark vs DFlash：两个核心差异</h2>
+<p>DSpark 的 docstring 写得非常清楚，和 DFlash 的差异只有两点。</p>
+<h3 id="2-1-Anchor-as-first-prediction（锚位即首预测）">2.1 Anchor-as-first-prediction（锚位即首预测）</h3>
+<p><strong>DFlash</strong>：每个 request 发 <code>1 + N</code> 个 query token（1 个 anchor/bonus + N 个 mask token）。anchor 是上一步验证通过的 token，只有 N 个 mask 位置做预测：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">DFlash query layout (1+N=9, N=8):</span><br><span class="line">  [anchor] [mask] [mask] [mask] [mask] [mask] [mask] [mask] [mask]</span><br><span class="line">     ↑       ↑      ↑      ↑      ↑      ↑      ↑      ↑      ↑</span><br><span class="line">   bonus    pred   pred   pred   pred   pred   pred   pred   pred</span><br><span class="line">   (不采样)</span><br></pre></td></tr></table></figure>
+<p><strong>DSpark</strong>：anchor 本身也是预测位置，每个 request 只发 <code>N</code> 个 query token：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">DSpark query layout (N=8):</span><br><span class="line">  [anchor] [noise] [noise] [noise] [noise] [noise] [noise] [noise]</span><br><span class="line">     ↑       ↑       ↑       ↑       ↑       ↑       ↑       ↑</span><br><span class="line">   pred     pred    pred    pred    pred    pred    pred    pred</span><br><span class="line">   (采样)</span><br></pre></td></tr></table></figure>
+<p>代码（<code>DSparkSpeculator.__init__</code>）：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="variable language_">self</span>.sample_from_anchor = <span class="built_in">getattr</span>(</span><br><span class="line">    <span class="variable language_">self</span>.draft_model_config.hf_config, <span class="string">&quot;sample_from_anchor&quot;</span>, <span class="literal">True</span></span><br><span class="line">)</span><br><span class="line"><span class="keyword">if</span> <span class="variable language_">self</span>.sample_from_anchor:</span><br><span class="line">    <span class="variable language_">self</span>.num_query_per_req = <span class="variable language_">self</span>.num_speculative_steps      <span class="comment"># N</span></span><br><span class="line"><span class="keyword">else</span>:</span><br><span class="line">    <span class="variable language_">self</span>.num_query_per_req = <span class="number">1</span> + <span class="variable language_">self</span>.num_speculative_steps  <span class="comment"># 1+N (兼容旧格式)</span></span><br></pre></td></tr></table></figure>
+<p>在 Triton kernel <code>_prepare_dflash_inputs_kernel</code> 中，通过 <code>SAMPLE_FROM_ANCHOR</code> 编译常量控制采样行为：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># DSpark: 所有 N 个位置都采样，sample_pos = query_pos + 1（标准 next-token）</span></span><br><span class="line">sample_off = <span class="number">0</span> <span class="keyword">if</span> SAMPLE_FROM_ANCHOR <span class="keyword">else</span> <span class="number">1</span></span><br><span class="line">is_sample = is_query &amp; (query_off &gt;= sample_off)</span><br><span class="line">sample_pos = query_pos + <span class="number">1</span> <span class="keyword">if</span> SAMPLE_FROM_ANCHOR <span class="keyword">else</span> query_pos</span><br></pre></td></tr></table></figure>
+<h3 id="2-2-Sequential-Markov-Sampling（序列马尔可夫采样）">2.2 Sequential Markov Sampling（序列马尔可夫采样）</h3>
+<p>这是 DSpark 的核心创新。</p>
+<p><strong>DFlash</strong>：N 个 mask 位置的 hidden states 一次性并行采样，各位置之间无依赖。</p>
+<p><strong>DSpark</strong>：先并行 forward 得到所有 N 个位置的 hidden states，然后<strong>从左到右逐个采样</strong>，每步用前一个采样出的 token 注入一个 Markov bias：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">并行 backbone forward → [h₀, h₁, h₂, ..., h₇]</span><br><span class="line">                           │     │     │         │</span><br><span class="line">                           ▼     ▼     ▼         ▼</span><br><span class="line">base_logits[0]  base_logits[1]  ...    base_logits[7]</span><br><span class="line">     +                +                   +</span><br><span class="line">markov_bias(     markov_bias(        markov_bias(</span><br><span class="line">  anchor)          sample₀)            sample₆)</span><br><span class="line">     │                │                   │</span><br><span class="line">     ▼                ▼                   ▼</span><br><span class="line">  sample₀         sample₁     ...      sample₇</span><br><span class="line">     │</span><br><span class="line">     └──────────────→ 传给下一步作为 prev</span><br></pre></td></tr></table></figure>
+<p>代码在 <code>_sample_sequential</code>：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">_sample_sequential</span>(<span class="params">self, num_reqs, head_hidden</span>):</span><br><span class="line">    n_spec = <span class="variable language_">self</span>.num_speculative_steps</span><br><span class="line">    <span class="comment"># 1. 一次性算出所有 N 个位置的 base logits</span></span><br><span class="line">    base_logits = <span class="variable language_">self</span>.model.compute_draft_logits(sample_hidden)  <span class="comment"># [B, N, V]</span></span><br><span class="line"></span><br><span class="line">    <span class="comment"># 2. anchor token 作为初始 prev</span></span><br><span class="line">    prev = <span class="variable language_">self</span>.input_buffers.input_ids[<span class="variable language_">self</span>._anchor_idx[:num_reqs]]</span><br><span class="line"></span><br><span class="line">    <span class="comment"># 3. 逐位置采样</span></span><br><span class="line">    <span class="keyword">for</span> i <span class="keyword">in</span> <span class="built_in">range</span>(n_spec):</span><br><span class="line">        markov_embed = <span class="variable language_">self</span>.model.markov_embed(prev)    <span class="comment"># [B, r]</span></span><br><span class="line">        bias = <span class="variable language_">self</span>.model.markov_bias(markov_embed)     <span class="comment"># [B, V]</span></span><br><span class="line">        logits_i = base_logits[:, i] + bias             <span class="comment"># 加上 Markov 偏置</span></span><br><span class="line">        draft_sampled_i = gumbel_sample(logits_i, ...)   <span class="comment"># 采样</span></span><br><span class="line">        <span class="variable language_">self</span>.draft_tokens[:num_reqs, i] = draft_sampled_i</span><br><span class="line">        prev = draft_sampled_i                           <span class="comment"># 传给下一步</span></span><br></pre></td></tr></table></figure>
+<blockquote>
+<p><strong>一句话总结</strong>：并行 forward 拿到所有位置的 base prediction，再用 N 步轻量 Markov 修正注入序列依赖–把「N 个独立预测」变成「N 个有依赖的预测」。</p>
+</blockquote>
+<hr>
+<h2 id="3-Markov-Head-结构">3. Markov Head 结构</h2>
+<p><code>DSparkMarkovHead</code> 是一个 low-rank 转移偏置头：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">prev_token_id</span><br><span class="line">    │</span><br><span class="line">    │ markov_w1: Embedding(V, r)     ← V 是 vocab_size，r 是 markov_rank</span><br><span class="line">    ▼</span><br><span class="line">markov_embed [B, r]</span><br><span class="line">    │</span><br><span class="line">    │ markov_w2: ParallelLMHead(r, V)  ← r → V 的线性投影</span><br><span class="line">    ▼</span><br><span class="line">markov_bias [B, V]  ← 加到 base_logits 上</span><br></pre></td></tr></table></figure>
+<p>代码（<code>qwen3_dspark.py</code>）：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">DSparkMarkovHead</span>(nn.Module):</span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">__init__</span>(<span class="params">self, vocab_size, draft_vocab_size, markov_rank, ...</span>):</span><br><span class="line">        <span class="variable language_">self</span>.markov_w1 = nn.Embedding(vocab_size, markov_rank)       <span class="comment"># V×r</span></span><br><span class="line">        <span class="variable language_">self</span>.markov_w2 = ParallelLMHead(</span><br><span class="line">            draft_vocab_size, markov_rank, bias=<span class="literal">False</span>, disable_tp=<span class="literal">True</span>)  <span class="comment"># r×V</span></span><br></pre></td></tr></table></figure>
+<p>两个权重都是 <strong>replicated</strong>（<code>disable_tp=True</code>），因为 Markov head 每步都跑，分片会引入 all-reduce 和 full-vocab gather。</p>
+<p>参数量 = <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>2</mn><mo>×</mo><mi>V</mi><mo>×</mo><mi>r</mi></mrow><annotation encoding="application/x-tex">2 \times V \times r</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.7278em;vertical-align:-0.0833em;"></span><span class="mord">2</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.7667em;vertical-align:-0.0833em;"></span><span class="mord mathnormal" style="margin-right:0.2222em;">V</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.4306em;"></span><span class="mord mathnormal" style="margin-right:0.0278em;">r</span></span></span></span>。当 <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>V</mi><mo>=</mo><mn>151936</mn></mrow><annotation encoding="application/x-tex">V=151936</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.2222em;">V</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.6444em;"></span><span class="mord">151936</span></span></span></span>（Qwen3 词表）、<span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>r</mi><mo>=</mo><mn>64</mn></mrow><annotation encoding="application/x-tex">r=64</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.4306em;"></span><span class="mord mathnormal" style="margin-right:0.0278em;">r</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.6444em;"></span><span class="mord">64</span></span></span></span> 时约 19.4M 参数，相比 8B backbone 可以忽略。</p>
+<hr>
+<h2 id="4-完整的-Draft-一步流程">4. 完整的 Draft 一步流程</h2>
+<p><code>DSparkSpeculator._generate_draft</code> 只有两行：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">_generate_draft</span>(<span class="params">self, num_reqs, num_tokens_padded, ...</span>):</span><br><span class="line">    head_hidden = <span class="variable language_">self</span>._run_model(...)                    <span class="comment"># 1. 并行 backbone forward</span></span><br><span class="line">    <span class="variable language_">self</span>._sample_sequential(num_reqs, head_hidden)        <span class="comment"># 2. 序列 Markov 采样</span></span><br></pre></td></tr></table></figure>
+<h3 id="Step-1：并行-Backbone-Forward（继承自-DFlash）">Step 1：并行 Backbone Forward（继承自 DFlash）</h3>
+<ul>
+<li>输入：N 个 query token（anchor + mask/noise），position 已对齐</li>
+<li>上下文 KV 已在 <code>precompute_and_store_context_kv</code> 中预填充</li>
+<li><strong>非因果 attention</strong>：N 个 query 位置可以互相 attend</li>
+<li>整个 forward 被 <strong>CUDA Graph</strong> 捕获</li>
+</ul>
+<h3 id="Step-2：Sequential-Markov-Sampling（DSpark-独有）">Step 2：Sequential Markov Sampling（DSpark 独有）</h3>
+<ul>
+<li>取出 N 个位置的 hidden states</li>
+<li>一次性算出 base logits（<code>compute_draft_logits</code>）</li>
+<li>逐位置：<code>base_logits[i] + markov_bias(prev) -&gt; gumbel_sample</code></li>
+<li><strong>这个循环也被 CUDA Graph 捕获</strong>（所有 buffer 预分配固定地址）</li>
+</ul>
+<h3 id="Context-KV-预计算（DFlash-的关键优化）">Context KV 预计算（DFlash 的关键优化）</h3>
+<p>避免逐层跑 target 的 forward 来填充 draft KV cache，而是用 target 的中间层 hidden states 一次性投影：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">target aux hidden states [num_ctx, H_target]</span><br><span class="line">    │</span><br><span class="line">    │ fc 层投影到 draft hidden size</span><br><span class="line">    ▼</span><br><span class="line">context_states [num_ctx, H_draft]</span><br><span class="line">    │</span><br><span class="line">    │ ① Fused GEMM（所有层的 KV projection 合成一个矩阵乘法）</span><br><span class="line">    ▼</span><br><span class="line">all_kv_flat [num_ctx, L×2×kv_size]</span><br><span class="line">    │</span><br><span class="line">    │ ② Grouped RMSNorm（所有层的 K-norm 一次算完）</span><br><span class="line">    ▼</span><br><span class="line">all_k_normed [L, num_ctx, nkv, hd]</span><br><span class="line">    │</span><br><span class="line">    │ ③ Fused RoPE（所有层一次应用）</span><br><span class="line">    ▼</span><br><span class="line">all_k_final [L, num_ctx, nkv, hd]  → per-layer 写入 KV cache</span><br></pre></td></tr></table></figure>
+<p>代码核心（<code>DFlashQwen3Model.precompute_and_store_context_kv</code>）：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 融合所有层的 KV 权重做一次大 GEMM</span></span><br><span class="line">all_kv_flat = F.linear(normed_context_states, <span class="variable language_">self</span>._fused_kv_weight, <span class="variable language_">self</span>._fused_kv_bias)</span><br><span class="line"><span class="comment"># 分离 K/V，per-layer 写入 cache</span></span><br><span class="line">all_kv = all_kv_flat.view(num_ctx, L, <span class="number">2</span>, nkv, hd).permute(<span class="number">2</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">3</span>, <span class="number">4</span>).contiguous()</span><br><span class="line">all_k, all_v = all_kv[<span class="number">0</span>], all_kv[<span class="number">1</span>]</span><br></pre></td></tr></table></figure>
+<hr>
+<h2 id="5-Probabilistic-Rejection-Sampling-与-Reduced-Vocab">5. Probabilistic Rejection Sampling 与 Reduced Vocab</h2>
+<p>DSpark 支持 <code>draft_sample_method=&quot;probabilistic&quot;</code>（Gumbel-based rejection sampling）。Draft 采样时把 logits 通过 Gumbel max trick 得到 <code>draft_logits</code>，Target verify 时用相同 Gumbel seed 验证，保证输出分布不变。</p>
+<p>支持 <strong>reduced draft vocab</strong>：draft 在小词表上算 logits，然后 scatter 到 target vocab 位置：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> <span class="variable language_">self</span>._d2t_scatter_index <span class="keyword">is</span> <span class="keyword">not</span> <span class="literal">None</span>:</span><br><span class="line">    buf = <span class="variable language_">self</span>._draft_scatter_buf[:num_reqs]  <span class="comment"># [-inf, -inf, ...]</span></span><br><span class="line">    buf.index_copy_(<span class="number">1</span>, <span class="variable language_">self</span>._d2t_scatter_index, logits_i)  <span class="comment"># 只填 draft vocab 列</span></span><br><span class="line">    logits_i = buf  <span class="comment"># 变成 target vocab 大小</span></span><br></pre></td></tr></table></figure>
+<hr>
+<h2 id="6-CUDA-Graph-覆盖">6. CUDA Graph 覆盖</h2>
+<p>DFlash/DSpark 的 CUDA Graph 是 <strong>FULL mode</strong>，覆盖整个 draft step：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># DFlashSpeculator.init_cudagraph_manager</span></span><br><span class="line"><span class="keyword">if</span> wants_full <span class="keyword">and</span> supports_full:</span><br><span class="line">    cudagraph_mode = CUDAGraphMode.FULL_DECODE_ONLY</span><br></pre></td></tr></table></figure>
+<p>为了让 Markov 循环能被 CG 捕获，所有 buffer 都是预分配的固定地址：</p>
+<table>
+<thead>
+<tr>
+<th>Buffer</th>
+<th>用途</th>
+<th>CG 兼容性</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>draft_tokens</code></td>
+<td>输出 token</td>
+<td>✅ 固定地址</td>
+</tr>
+<tr>
+<td><code>draft_logits</code></td>
+<td>probabilistic 模式的 processed logits</td>
+<td>✅ 固定地址</td>
+</tr>
+<tr>
+<td><code>_draft_scatter_buf</code></td>
+<td>reduced vocab scatter buffer</td>
+<td>✅ 固定地址</td>
+</tr>
+<tr>
+<td><code>_anchor_idx</code></td>
+<td>每个 request 的 anchor 位置索引</td>
+<td>✅ 固定地址</td>
+</tr>
+<tr>
+<td><code>input_buffers.input_ids</code></td>
+<td>anchor token 读取</td>
+<td>✅ 固定地址</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="7-模型加载与权重共享">7. 模型加载与权重共享</h2>
+<p><code>load_dspark_model</code>（<code>dspark/utils.py</code>）做了几件事：</p>
+<ol>
+<li>创建 draft config，设置非因果注意力</li>
+<li>加载 draft 模型</li>
+<li><strong>Embed tokens 共享</strong>：如果 draft 没有自己的 embedding，用 target 的</li>
+<li><strong>LM head 共享</strong>：同理</li>
+</ol>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> _should_share(draft_model, <span class="string">&quot;has_own_embed_tokens&quot;</span>, draft_embed, target_embed):</span><br><span class="line">    <span class="keyword">del</span> draft_inner.embed_tokens</span><br><span class="line">    draft_inner.embed_tokens = target_embed</span><br></pre></td></tr></table></figure>
+<p>权重加载（<code>Qwen3DSparkForCausalLM.load_weights</code>）：</p>
+<ul>
+<li>跳过 <code>t2d</code>（训练用映射，推理不需要）</li>
+<li><code>d2t</code> -&gt; <code>draft_id_to_target_id</code>（推理用的 draft→target 映射）</li>
+<li>跳过 <code>mask_embedding</code>（DSpark 通过 vocab row 做 mask，不用单独参数）和 <code>confidence_head</code>（未接入推理）</li>
+<li>调用 <code>_build_fused_kv_buffers()</code> 构建 fused KV 权重</li>
+</ul>
+<hr>
+<h2 id="8-实验环境">8. 实验环境</h2>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>配置</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Target Model</td>
+<td>Qwen/Qwen3-8B</td>
+</tr>
+<tr>
+<td>推理引擎</td>
+<td>vLLM v0.26.0</td>
+</tr>
+<tr>
+<td>conda 环境</td>
+<td>dspark-vllm</td>
+</tr>
+<tr>
+<td>nsys 版本</td>
+<td>2026.1.3（vLLM traces）/ 2025.3.0（DeepSpec trace）</td>
+</tr>
+<tr>
+<td>采集参数</td>
+<td><code>-t cuda,nvtx,osrt,cudnn,cublas --python-backtrace=cuda --cudabacktrace=all</code></td>
+</tr>
+<tr>
+<td>Benchmark</td>
+<td>SPEED-Bench（qualitative split, coding category）</td>
+</tr>
+</tbody>
+</table>
+<h3 id="Draft-Model-配置">Draft Model 配置</h3>
+<table>
+<thead>
+<tr>
+<th>配置名</th>
+<th>Draft Model</th>
+<th>架构</th>
+<th>来源</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Baseline</td>
+<td>无（纯 Qwen3-8B）</td>
+<td>Qwen3</td>
+<td>-</td>
+</tr>
+<tr>
+<td>DSpark（deepseek-ai）</td>
+<td><code>deepseek-ai/dspark_qwen3_8b_block7</code></td>
+<td>Qwen3DSparkSt</td>
+<td>deepseek-ai 官方</td>
+</tr>
+<tr>
+<td>DSpark（Dogacel）</td>
+<td><code>Dogacel/Qwen3-8B-DSpark</code></td>
+<td>EAGLE3</td>
+<td>社区训练</td>
+</tr>
+</tbody>
+</table>
+<p>Dogacel 的 vLLM 启动参数：<code>speculative</code> 开启、<code>acceptance: 0.85</code>、<code>num_spec_tokens: 7</code>、<code>max_model_len: 2048</code>。</p>
+<hr>
+<h2 id="9-性能对比">9. 性能对比</h2>
+<h3 id="9-1-端到端性能（3-prompts-各-64-tokens）">9.1 端到端性能（3 prompts, 各 64 tokens）</h3>
+<table>
+<thead>
+<tr>
+<th>配置</th>
+<th>耗时</th>
+<th>vs Baseline</th>
+<th>加速比</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Baseline</td>
+<td>0.75s</td>
+<td>-</td>
+<td>1.00x</td>
+</tr>
+<tr>
+<td>DSpark（deepseek-ai）</td>
+<td>0.50s</td>
+<td>-33%</td>
+<td><strong>1.50x</strong></td>
+</tr>
+<tr>
+<td>DSpark（Dogacel）</td>
+<td>0.77s</td>
+<td>+3%</td>
+<td>0.97x</td>
+</tr>
+</tbody>
+</table>
+<h3 id="9-2-投机解码指标（DeepSpec-evaluator-trace）">9.2 投机解码指标（DeepSpec evaluator trace）</h3>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th>DSpark（deepseek-ai）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>verify_steps</td>
+<td>12</td>
+</tr>
+<tr>
+<td>mean_accept_len</td>
+<td><strong>7.1</strong></td>
+</tr>
+<tr>
+<td>推测</td>
+<td>每次提议 ~7 tokens，几乎全部被接受</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>Dogacel 的 trace 中未发现 <code>dspark_propose</code> / <code>target_verify</code> 的 NVTX range，推测 acceptance rate 极低。</p>
+</blockquote>
+<p><code>mean_accept_len=7.1</code> 意味着 N=8 时几乎全部接受–backbone 的并行预测质量极高，Markov head 的序列修正有效。<code>verify_steps=12</code> 表示 12 步验证共接受约 85 个 token（<span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>12</mn><mo>×</mo><mn>7.1</mn></mrow><annotation encoding="application/x-tex">12 \times 7.1</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.7278em;vertical-align:-0.0833em;"></span><span class="mord">12</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.6444em;"></span><span class="mord">7.1</span></span></span></span>）。</p>
+<hr>
+<h2 id="10-Trace-分析">10. Trace 分析</h2>
+<h3 id="10-1-Trace-文件清单">10.1 Trace 文件清单</h3>
+<table>
+<thead>
+<tr>
+<th>文件</th>
+<th>大小</th>
+<th>来源</th>
+<th>CUDA Kernel 数据</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>baseline_trace.nsys-rep</td>
+<td>1.5 MB</td>
+<td>vLLM profile_baseline.py</td>
+<td>❌ 无</td>
+</tr>
+<tr>
+<td>dogacel_trace.nsys-rep</td>
+<td>1.8 MB</td>
+<td>vLLM profile_dogacel.py</td>
+<td>❌ 无</td>
+</tr>
+<tr>
+<td>trace.nsys-rep（DeepSpec）</td>
+<td>3.5 MB</td>
+<td>DeepSpec evaluator</td>
+<td>✅ 有</td>
+</tr>
+</tbody>
+</table>
+<h3 id="10-2-CUDA-Kernel-缺失原因">10.2 CUDA Kernel 缺失原因</h3>
+<p>vLLM 的 EngineCore 在子进程中运行，nsys 默认只 trace 主进程。三个 vLLM trace 均无 GPU kernel 数据。</p>
+<p><strong>解决方案</strong>：重新采集时添加 <code>--trace-fork</code> 参数：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">nsys profile -t cuda,nvtx,osrt,cudnn,cublas \</span><br><span class="line">  --python-backtrace=cuda --cudabacktrace=all \</span><br><span class="line">  --trace-fork \</span><br><span class="line">  --force-overwrite=<span class="literal">true</span> \</span><br><span class="line">  -o baseline_trace_v2 \</span><br><span class="line">  bash -c <span class="string">&#x27;...&#x27;</span></span><br></pre></td></tr></table></figure>
+<h3 id="10-3-DeepSpec-Evaluator-Kernel-分布">10.3 DeepSpec Evaluator Kernel 分布</h3>
+<table>
+<thead>
+<tr>
+<th>Kernel</th>
+<th>耗时占比</th>
+<th>Instances</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CUTLASS GEMM (16×16)</td>
+<td>66.3%</td>
+<td>7,177</td>
+<td>主要 matmul（Q/K/V/O + MLP）</td>
+</tr>
+<tr>
+<td>elementwise_kernel</td>
+<td>3.9%</td>
+<td>8,522</td>
+<td>RoPE、残差等</td>
+</tr>
+<tr>
+<td>reduce_kernel (mean)</td>
+<td>2.8%</td>
+<td>4,298</td>
+<td>RMSNorm</td>
+</tr>
+<tr>
+<td>CUTLASS GEMM (32×32)</td>
+<td>2.7%</td>
+<td>382</td>
+<td>大块矩阵乘法</td>
+</tr>
+<tr>
+<td>Flash Attention</td>
+<td>1.6%</td>
+<td>864</td>
+<td>Attention 计算</td>
+</tr>
+<tr>
+<td>Softmax forward</td>
+<td>1.0%</td>
+<td>168</td>
+<td>Softmax</td>
+</tr>
+</tbody>
+</table>
+<p><strong>关键观察</strong>：GEMM 占 66.3%，但 bs=1 decode 时本质是 memory-bound（M=1 瘦矩阵乘）。kernel launch 开销显著（~20000 次 launch）。vLLM 的 CUDA Graph 会消除大部分 launch 开销，fused kernel 会压缩 elementwise/reduce 占比。预期 vLLM 路径下 GEMM 占比升至 80%+。</p>
+<h3 id="10-4-NVTX-Range-对比">10.4 NVTX Range 对比</h3>
+<table>
+<thead>
+<tr>
+<th>NVTX Range</th>
+<th>Baseline</th>
+<th>Dogacel</th>
+<th>deepseek-ai dspark</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>dspark_propose</td>
+<td>❌</td>
+<td>❌</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>target_verify</td>
+<td>❌</td>
+<td>❌</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>decode_sample</td>
+<td>❌</td>
+<td>❌</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>warmup</td>
+<td>❌</td>
+<td>❌</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>VLLM::EngineCore</td>
+<td>✅</td>
+<td>✅</td>
+<td>❌</td>
+</tr>
+</tbody>
+</table>
+<p>Dogacel 缺少 <code>dspark_propose</code>/<code>target_verify</code> 说明其 draft forward <strong>未走标准 dspark 代码路径</strong>。</p>
+<hr>
+<h2 id="11-Dogacel-无效原因：架构不匹配">11. Dogacel 无效原因：架构不匹配</h2>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>deepseek-ai（有效）</th>
+<th>Dogacel（无效）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Draft 架构</td>
+<td>Qwen3DSparkSt</td>
+<td>EAGLE3</td>
+</tr>
+<tr>
+<td>与 vLLM dspark 实现兼容</td>
+<td>✅ 完全对齐</td>
+<td>❌ 不匹配</td>
+</tr>
+<tr>
+<td>NVTX range 存在</td>
+<td>✅ propose + verify</td>
+<td>❌ 无</td>
+</tr>
+<tr>
+<td>Mean accept len</td>
+<td>7.1</td>
+<td>推测极低</td>
+</tr>
+<tr>
+<td>端到端加速</td>
+<td>1.50x</td>
+<td>0.97x（负优化）</td>
+</tr>
+</tbody>
+</table>
+<p><strong>根因</strong>：Dogacel 用 EAGLE3 架构训练 draft，中间层 hidden state 接口与 dspark 实现不兼容。即使 draft 能加载运行，acceptance rate 极低，draft 开销 &gt; SD 收益。即使模型本身学得不差，接口不对也白搭。</p>
+<hr>
+<h2 id="12-SPEED-Bench-数据集">12. SPEED-Bench 数据集</h2>
+<h3 id="12-1-整体结构">12.1 整体结构</h3>
+<p>SPEED-Bench（SPEculative Evaluation Dataset）是 NVIDIA 出的投机解码评测基准。</p>
+<table>
+<thead>
+<tr>
+<th>Split</th>
+<th>样本数</th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>qualitative</td>
+<td>880（11 类×80）</td>
+<td>测 SD 质量（acceptance rate）</td>
+</tr>
+<tr>
+<td>throughput_1k/2k/8k/16k/32k</td>
+<td>1536×5</td>
+<td>测系统吞吐（高并发）</td>
+</tr>
+</tbody>
+</table>
+<h3 id="12-2-Qualitative-Split（质量评测）">12.2 Qualitative Split（质量评测）</h3>
+<p>从 18 个公开数据源聚合，分成 11 个 category：Coding、Math、Humanities、STEM、Writing、Summarization、Roleplay、RAG、Multilingual、Reasoning、QA。每类 80 个样本，用 OpenAI <code>text-embedding-3-small</code> 做嵌入，greedy 选择 + swap 优化最大化语义多样性（平均 pairwise cosine similarity 从 SpecBench 的 0.22 降到 0.14）。</p>
+<h3 id="12-3-Throughput-Split（吞吐评测）">12.3 Throughput Split（吞吐评测）</h3>
+<p>固定输入长度桶（1K/2K/8K/16K/32K），每桶 1536 条（512×3），分 3 个难度类别：low_entropy（coding 类）、high_entropy（creative writing 类）、mixed_entropy。用 tiktoken 精确 pad/truncate，不用 random token（会扭曲 MoE routing 和 acceptance behavior）。</p>
+<h3 id="12-4-为什么选-coding-类做-benchmark">12.4 为什么选 coding 类做 benchmark</h3>
+<ol>
+<li><strong>Coding 是低熵任务</strong>–token 可预测性高，SD 的 acceptance rate 天然高，是 best-case 场景</li>
+<li><strong>语义多样性好</strong>–80 条 prompt 覆盖 Python(27)、C++(9)、Java(10)、Go(13)、JS(11)、Rust(3) 等，来自 LiveCodeBench、Code Contests、HumanEvalPack</li>
+<li><strong>固定输出长度</strong>（<code>--speed-bench-output-len 2048</code>）–隔离 prefill 影响，纯测 decode</li>
+<li><strong>两种并发对比</strong>：<code>--max-concurrency 32</code>（batched，模拟生产环境）vs <code>--max-concurrency 1</code>（单流，测纯 decode 延迟）</li>
+<li><strong><code>--disable-shuffle</code></strong> 保证可复现，<code>--temperature 1.0</code> 高温采样更反映真实使用场景</li>
+</ol>
+<hr>
+<h2 id="13-接受率与训练效果的关系">13. 接受率与训练效果的关系</h2>
+<p><strong>Acceptance rate 的天花板由 draft 训练质量决定，工程实现决定能打到多少天花板。</strong></p>
+<h3 id="训练侧决定上限">训练侧决定上限</h3>
+<ul>
+<li>Draft 的 hidden state 和 target 的中间层对齐越好，token 分布越接近，accept 越高</li>
+<li>deepseek-ai 的 block7 专门按 dspark 接口训练，hidden state 严格对齐 Qwen3-8B 第 7 层，所以 <code>mean_accept_len=7.1</code></li>
+<li>Dogacel 用 EAGLE3 方式训练，hidden state 映射方式不同，接口不对</li>
+</ul>
+<h3 id="工程侧决定下限">工程侧决定下限</h3>
+<ul>
+<li>vLLM dspark 的 propose → verify pipeline 是否正确对接 draft</li>
+<li>KV cache 的 layout、position ID 对齐、temperature sampling 一致性</li>
+<li>CUDA Graph 是否覆盖 draft forward（没覆盖的话 launch overhead 会吃掉 SD 收益）</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>deepseek-ai（训练+工程都对）</th>
+<th>Dogacel（工程接口不对）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Draft 架构</td>
+<td>Qwen3DSparkSt</td>
+<td>EAGLE3</td>
+</tr>
+<tr>
+<td>Hidden state 接口</td>
+<td>✅ 正确对接</td>
+<td>❌ 不匹配</td>
+</tr>
+<tr>
+<td>NVTX range</td>
+<td>✅ propose + verify</td>
+<td>❌ 无</td>
+</tr>
+<tr>
+<td>Mean accept len</td>
+<td>7.1</td>
+<td>推测极低</td>
+</tr>
+<tr>
+<td>端到端加速</td>
+<td>1.50x</td>
+<td>0.97x</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>一句话总结</strong>：训练决定 draft 能不能猜对，工程决定猜对的部分能不能高效用上。Dogacel 的情况是工程接口就不对，猜得再准也走不进去。</p>
+</blockquote>
+<hr>
+<h2 id="14-vLLM-推理引擎优化对-Kernel-分布的影响">14. vLLM 推理引擎优化对 Kernel 分布的影响</h2>
+<h3 id="无-vLLM-优化的-kernel-分布（DeepSpec-evaluator）">无 vLLM 优化的 kernel 分布（DeepSpec evaluator）</h3>
+<table>
+<thead>
+<tr>
+<th>Kernel</th>
+<th>占比</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CUTLASS GEMM (16×16)</td>
+<td>66.3%</td>
+<td>bs=1 时是 memory-bound</td>
+</tr>
+<tr>
+<td>elementwise</td>
+<td>3.9%</td>
+<td>RoPE、残差等，未融合</td>
+</tr>
+<tr>
+<td>reduce (mean)</td>
+<td>2.8%</td>
+<td>RMSNorm，未融合</td>
+</tr>
+<tr>
+<td>Flash Attention</td>
+<td>1.6%</td>
+<td>decode 时计算量小</td>
+</tr>
+<tr>
+<td>Softmax</td>
+<td>1.0%</td>
+<td>未融合</td>
+</tr>
+<tr>
+<td>总 kernel launch</td>
+<td>~20000 次</td>
+<td>launch 开销显著</td>
+</tr>
+</tbody>
+</table>
+<h3 id="vLLM-优化后的预期变化">vLLM 优化后的预期变化</h3>
+<ol>
+<li><strong>CUDA Graph</strong>：20000 次 kernel launch → 1 次 graph launch</li>
+<li><strong>Fused kernel</strong>：RMSNorm + residual + RoPE 融合为 1 个 kernel</li>
+<li><strong>FlashInfer/FlashAttention decode-optimized</strong>：attention kernel 更高效</li>
+<li><strong>GEMM 占比升至 80%+</strong>：其他开销被压缩后，GEMM 成为绝对瓶颈</li>
+</ol>
+<h3 id="对投机解码的启示">对投机解码的启示</h3>
+<p>Baseline 的 decode 在 vLLM 下 GEMM 占 80%+，本质是 memory-bound（M=1 瘦矩阵乘，GPU 利用率低）。SD 的价值在于用 draft 的轻量 GEMM + target 的 batched verify 填充 GPU 空闲。当 batch size 增大（高并发），decode 从 memory-bound 转向 compute-bound，SD 收益下降–这也是 SPEED-Bench throughput split 存在的意义。</p>
+<hr>
+<h2 id="15-总结">15. 总结</h2>
+<ol>
+<li><strong>DSpark = DFlash 并行 backbone forward + N 步 Markov 序列修正</strong>，全部在 CUDA Graph 内，用极小的开销把并行预测的「无依赖」缺陷补上</li>
+<li><strong>实测 deepseek-ai 官方 draft 在 Qwen3-8B 上实现 1.50x 加速</strong>，<code>mean_accept_len=7.1</code>（N=8 几乎全接受）</li>
+<li><strong>Dogacel 社区 draft 因架构不匹配（EAGLE3 vs DSpark）完全无效</strong>，0.97x 负优化</li>
+<li><strong>接受率天花板由训练决定，工程决定下限</strong>–hidden state 接口对齐是前提</li>
+<li><strong>SPEED-Bench coding 类是 SD 的 best-case 场景</strong>，低熵任务下 acceptance rate 天然高</li>
+</ol>
+<h3 id="下一步">下一步</h3>
+<ul>
+<li>重新采集 vLLM trace（加 <code>--trace-fork</code>），获取真实 kernel 数据</li>
+<li>检查 vLLM v0.26.0 是否支持 EAGLE3 method（Dogacel 应走 EAGLE3 而非 dspark）</li>
+<li>用 throughput split + <code>--max-concurrency 32</code> 测高并发下 SD 效果</li>
+<li>尝试 ngram、medusa 等 baseline 对比</li>
+</ul>
+<hr>
+<p><strong>参考</strong>：</p>
+<ul>
+<li>vLLM 源码：<code>vllm/v1/worker/gpu/spec_decode/dspark/speculator.py</code>、<code>vllm/model_executor/models/qwen3_dspark.py</code></li>
+<li>vLLM PR：<a target="_blank" rel="noopener" href="https://github.com/vllm-project/vllm/pull/50138">#50138</a>、<a target="_blank" rel="noopener" href="https://github.com/vllm-project/vllm/pull/50694">#50694</a>、<a target="_blank" rel="noopener" href="https://github.com/vllm-project/vllm/pull/50737">#50737</a></li>
+<li>模型：<code>deepseek-ai/dspark_qwen3_8b_block7</code>、<code>Dogacel/Qwen3-8B-DSpark</code></li>
+<li>数据集：<a target="_blank" rel="noopener" href="https://huggingface.co/datasets/nvidia/SPEED-Bench">nvidia/SPEED-Bench</a>，arXiv: <a target="_blank" rel="noopener" href="https://arxiv.org/abs/2604.09557">2604.09557</a></li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/vLLM/" rel="tag"># vLLM</a>
+              <a href="/tags/LLM/" rel="tag"># LLM</a>
+              <a href="/tags/Inference/" rel="tag"># Inference</a>
+              <a href="/tags/Speculative-Decoding/" rel="tag"># Speculative Decoding</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/zh-CN/2026/07/30/DSpark-%E5%8D%8A%E8%87%AA%E5%9B%9E%E5%BD%92-%E7%BD%AE%E4%BF%A1%E5%BA%A6%E8%B0%83%E5%BA%A6-Speculative-Decoding%E5%88%86%E6%9E%90/" rel="prev" title="DSpark：半自回归 + 置信度调度的 Speculative Decoding 深度分析">
+                  <i class="fa fa-angle-left"></i> DSpark：半自回归 + 置信度调度的 Speculative Decoding 深度分析
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/zh-CN/2026/08/15/KDA%E7%9A%84%E6%9D%A5%E9%BE%99%E5%8E%BB%E8%84%89-%E4%BB%8E%E7%BA%BF%E6%80%A7%E6%B3%A8%E6%84%8F%E5%8A%9B%E5%88%B0Kimi-Delta-Attention/" rel="next" title="KDA 的来龙去脉:从线性注意力到 Kimi Delta Attention">
+                  KDA 的来龙去脉:从线性注意力到 Kimi Delta Attention <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 2014 – 
+    <span itemprop="copyrightYear">2026</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+  </div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/mist/" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.umd.js" integrity="sha256-a+H7FYzJv6oU2hfsfDGM2Ohw/cR9v+hPfxHCLdmCrE8=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lozad.js/1.16.0/lozad.min.js" integrity="sha256-mOFREFhqmHeQbXpK2lp4nA3qooVgACfh88fpJftLBbc=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/sidebar.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+  <script src="/js/third-party/fancybox.js"></script>
+
+
+
+  
+
+
+
+
+  
+
+  <script class="next-config" data-name="enableMath" type="application/json">false</script><link rel="stylesheet" href="//cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"ggaaooppeenngg","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>
