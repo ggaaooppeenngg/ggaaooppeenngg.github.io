@@ -30,7 +30,7 @@
 <meta property="og:locale" content="zh_CN">
 <meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2025/03/19/Triton%E4%BD%BF%E7%94%A8%E5%92%8CSoftmax%E5%AE%9E%E7%8E%B0/gpu-architecture.svg">
 <meta property="article:published_time" content="2025-03-19T07:04:18.000Z">
-<meta property="article:modified_time" content="2025-03-19T07:09:23.148Z">
+<meta property="article:modified_time" content="2026-08-18T05:32:02.859Z">
 <meta property="article:author" content="ggaaooppeenngg">
 <meta property="article:tag" content="cuda">
 <meta property="article:tag" content="triton">
@@ -98,7 +98,7 @@
 
 
 <nav class="site-nav">
-  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-旅行"><a href="/travel/" rel="section"><i class="plane fa-fw"></i>旅行</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">197</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">23</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">101</span></a></li>
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-旅行"><a href="/travel/" rel="section"><i class="plane fa-fw"></i>旅行</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">185</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">18</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">94</span></a></li>
   </ul>
 </nav>
 
@@ -136,18 +136,18 @@
   <nav class="site-state">
       <div class="site-state-item site-state-posts">
         <a href="/archives/">
-          <span class="site-state-item-count">101</span>
+          <span class="site-state-item-count">94</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
       <div class="site-state-item site-state-categories">
           <a href="/categories/">
-        <span class="site-state-item-count">23</span>
+        <span class="site-state-item-count">18</span>
         <span class="site-state-item-name">分类</span></a>
       </div>
       <div class="site-state-item site-state-tags">
           <a href="/tags/">
-        <span class="site-state-item-count">197</span>
+        <span class="site-state-item-count">185</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
@@ -214,9 +214,15 @@
         <i class="far fa-calendar"></i>
       </span>
       <span class="post-meta-item-text">发表于</span>
-      
 
-      <time title="创建时间：2025-03-19 15:04:18 / 修改时间：15:09:23" itemprop="dateCreated datePublished" datetime="2025-03-19T15:04:18+08:00">2025-03-19</time>
+      <time title="创建时间：2025-03-19 15:04:18" itemprop="dateCreated datePublished" datetime="2025-03-19T15:04:18+08:00">2025-03-19</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2026-08-18 13:32:02" itemprop="dateModified" datetime="2026-08-18T13:32:02+08:00">2026-08-18</time>
     </span>
 
   
@@ -309,7 +315,7 @@ Triton能够帮你把矩阵乘法优化得很不错，虽然可能还比不上�
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line">BLOCK = <span class="number">512</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># This is a GPU kernel in Triton.</span></span><br><span class="line"><span class="comment"># Different instances of this</span></span><br><span class="line"><span class="comment"># function may run in parallel.</span></span><br><span class="line"><span class="meta">@jit</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">add</span>(<span class="params">X, Y, Z, N</span>):</span><br><span class="line">   <span class="comment"># In Triton, each kernel instance</span></span><br><span class="line">   <span class="comment"># executes block operations on a</span></span><br><span class="line">   <span class="comment"># single thread: there is no construct</span></span><br><span class="line">   <span class="comment"># analogous to threadIdx</span></span><br><span class="line">   pid = program_id(<span class="number">0</span>)</span><br><span class="line">   <span class="comment"># block of indices</span></span><br><span class="line">   idx = pid * BLOCK + arange(BLOCK)</span><br><span class="line">   mask = idx &lt; N</span><br><span class="line">   <span class="comment"># Triton uses pointer arithmetics  </span></span><br><span class="line">   <span class="comment"># rather than indexing operators</span></span><br><span class="line">   x = load(X + idx, mask=mask)</span><br><span class="line">   y = load(Y + idx, mask=mask)</span><br><span class="line">   store(Z + idx, x + y, mask=mask)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">...</span><br><span class="line">grid = (ceil_div(N, BLOCK),)</span><br><span class="line"><span class="comment"># no thread-block</span></span><br><span class="line">add[grid](x, y, z, x.shape[<span class="number">0</span>])</span><br></pre></td></tr></table></figure>
 <p>笔者比较疑惑，单就这两个代码他们的并行度貌似是不一样的，难道是把block那一层隐式的放在了<code>load</code>和<code>store</code>当中，他的<code>load</code>和<code>store</code>其实是隐含了并行能力的。<br>
 援引知乎的<a target="_blank" rel="noopener" href="https://zhuanlan.zhihu.com/p/671434808">文章</a>，<strong>Triton中一直是以Block为中心来计算，直到Lowering到LLVM和PTX才会转为Thread为中心的计算，而这些对于使用Block抽象进行编程的用户来说都是无感的</strong>。是符合笔者预期的，triton简化了CUDA的写法，block具体的线程数的，每个线程处理多少元素，triton自己会去帮你处理。</p>
-<p>当使用 triton 的时候,<code>x = tl.load(x_ptr + offsets, mask=mask)</code>时，我们正在加载到 L2 缓存 或者叫 SRAM 中。</p>
+<p>当使用 triton 的时候，<code>x = tl.load(x_ptr + offsets, mask=mask)</code>时，我们正在加载到 L2 缓存 或者叫 SRAM 中。</p>
 <p>根据Torch的<a target="_blank" rel="noopener" href="https://pytorch.org/blog/triton-kernel-compilation-stages/">blog</a>，以及参考 <a target="_blank" rel="noopener" href="https://superjomn.github.io/posts/triton-mlir-publish/">OpenAI/Triton MLIR 迁移工作简介</a>，Triton编译的过程是<code>@triton.jit</code>装饰器通过遍历提供的 Python 函数的抽象语法树（AST）来工作，以便使用通用的 SSA 构造算法即时生成 Triton-IR。<br>
 然后，生成的 IR 代码被我们的编译器后端简化、优化和自动并行化，最后被转换成高质量的 LLVM IR，最终是 PTX（Nvidia GPU的汇编），可以在最近的Nvidia GPU上执行。</p>
 <h2 id="矩阵乘法">矩阵乘法</h2>

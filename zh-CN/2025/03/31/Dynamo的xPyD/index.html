@@ -29,7 +29,7 @@
 <meta property="og:description" content="dynamo对于vLLM的给懂是一个patch文件，vLLM给了一个PR方便在线对比。 PD分离的背景介绍 在大模型推理中，Prefill 和 Decode 的计算特性存在显著差异：  Prefill：计算密集型，计算比例更高。 Decode：访存密集型，访存比例更高。  Decode 的计算依赖于 Prefill 生成的 KV Cache。在没有 PD 分离的情况下，较长的 Prefill 通常">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2025-03-31T09:12:07.000Z">
-<meta property="article:modified_time" content="2025-04-15T03:21:32.300Z">
+<meta property="article:modified_time" content="2026-08-18T05:33:29.787Z">
 <meta property="article:author" content="ggaaooppeenngg">
 <meta property="article:tag" content="LLM">
 <meta property="article:tag" content="Inference">
@@ -98,7 +98,7 @@
 
 
 <nav class="site-nav">
-  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-旅行"><a href="/travel/" rel="section"><i class="plane fa-fw"></i>旅行</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">197</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">23</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">101</span></a></li>
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-旅行"><a href="/travel/" rel="section"><i class="plane fa-fw"></i>旅行</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">185</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">18</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">94</span></a></li>
   </ul>
 </nav>
 
@@ -136,18 +136,18 @@
   <nav class="site-state">
       <div class="site-state-item site-state-posts">
         <a href="/archives/">
-          <span class="site-state-item-count">101</span>
+          <span class="site-state-item-count">94</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
       <div class="site-state-item site-state-categories">
           <a href="/categories/">
-        <span class="site-state-item-count">23</span>
+        <span class="site-state-item-count">18</span>
         <span class="site-state-item-name">分类</span></a>
       </div>
       <div class="site-state-item site-state-tags">
           <a href="/tags/">
-        <span class="site-state-item-count">197</span>
+        <span class="site-state-item-count">185</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
@@ -222,7 +222,7 @@
         <i class="far fa-calendar-check"></i>
       </span>
       <span class="post-meta-item-text">更新于</span>
-      <time title="修改时间：2025-04-15 11:21:32" itemprop="dateModified" datetime="2025-04-15T11:21:32+08:00">2025-04-15</time>
+      <time title="修改时间：2026-08-18 13:33:29" itemprop="dateModified" datetime="2026-08-18T13:33:29+08:00">2026-08-18</time>
     </span>
 
   
@@ -353,13 +353,13 @@ vLLM 在被请求时会告知自己是否是 Prefill 请求，或者是否需要
 <p><code>seq_group</code>中会添加<code>is_remote_decode</code>这个用于标记这个请求只在自己这里prefill，decode要在decode instance上做，这个标记是上层的worker设置的，不在vLLM层。</p>
 <p>每个sequence group会添加一个标记，<code>seq_group.remote_prefill_params.is_remote_prefill</code>，标记了就加入到<code>remote_prefilling</code>队列中<br>
 不然就走老的流程。这也是上层决定。</p>
-<!-- 这个参数会决定block的分配会多一倍，对于prefill节点需要多一倍的kv cache for staging。what is staging? -->
+<p>&lt;!—— 这个参数会决定block的分配会多一倍，对于prefill节点需要多一倍的kv cache for staging。what is staging? ——&gt;</p>
 <h3 id="EventManager">EventManager</h3>
 <p>只和 router 负载均衡有关。</p>
 <p>worker 上有 KVPublisher 负责发送 kvcache 的创建和删除事件，同时 KvMetricsPublisher 用于发送监控指标（如队列排队长度等）。<br>
 router 上则包含 KVIndexer，用于收集 kvcache 的事件并建立前缀树，同时 KvMetricsAggregator 用于收集监控指标。</p>
 <p>路由策略基于 <code>KV match rate - Load</code> 的最大值，旨在平衡负载与 kvcache 的匹配度。</p>
-<!-- `_free_block_indices`使用了heapq，这是为啥，时间复杂度从O(1)变成了O(logn)，优先使用id更小的block是为了啥。 -->
+<p>&lt;!—— <code>_free_block_indices</code>使用了heapq，这是为啥，时间复杂度从O(1)变成了O(logn)，优先使用id更小的block是为了啥。 ——&gt;</p>
 <p><code>PrefixCachingBlockAllocator</code>加入了<code>event_manager</code>。<code>KVCacheEventManager</code>实现就不细说了，就是一个事件收发器。</p>
 <p>在evict block的时候，发送删除事件<code>event_manager.enqueue_removed_event(content_hash_to_evict)</code><br>
 当block被填满变成 immutable block 的时候，发送分配事件<code>event_manager.enqueue_stored_event(block.prev_block, block)</code>。</p>
@@ -464,9 +464,11 @@ router 上则包含 KVIndexer，用于收集 kvcache 的事件并建立前缀树
 <!-- 
 `kv_producers_parallel_size`应该对应的是DP的数量？
 `local_kv_rank`是`rank%tp`
-`global_kv_rank`和`kv_rank`还不一样？ -->
-<p>第一步当然要支持xPyD的配置，比如下面的配置。</p>
-<p>P的并行规模</p>
+`global_kv_rank`和`kv_rank`还不一样？ ——>
+
+第一步当然要支持xPyD的配置，比如下面的配置。
+
+P的并行规模
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kv_producers_parallel_size: Optional[int] = None</span><br></pre></td></tr></table></figure>
 <p>P的TP</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kv_producers_tensor_parallel_size: Optional[int] = None</span><br></pre></td></tr></table></figure>
@@ -510,33 +512,32 @@ Simple Connector
 在发送的时候根据request解码出decode rank
 
 传输层用的是NIXL，这个和Mooncake的TransferEngine以及NCCL的区别还有待考量
-目前还是先把他当作传输层的引擎来看。 -->
-<p>发送的入口是<code>send_kv_caches_and_hidden_states</code></p>
-<p>这个函数的主要工作是根据TP的大小，从Prefill worker上切出Decode worker上需要的tensor<br>
-并且发送给Decode worker。</p>
-<p>在这个函数中根据自己的rank计算对应的D的rank。<br>
-PP的话比较容易，直接按层的range就行了，TP的话需要在给定层的range下做TP的切分。从代码来看dynamo只支持PP=1。</p>
-<p>笔者写了一个简易版的示例带代码方便查看对应的shape</p>
+目前还是先把他当作传输层的引擎来看。 ——>
+
+发送的入口是`send_kv_caches_and_hidden_states`
+
+这个函数的主要工作是根据TP的大小，从Prefill worker上切出Decode worker上需要的tensor
+并且发送给Decode worker。
+
+在这个函数中根据自己的rank计算对应的D的rank。
+PP的话比较容易，直接按层的range就行了，TP的话需要在给定层的range下做TP的切分。从代码来看dynamo只支持PP=1。
+
+笔者写了一个简易版的示例带代码方便查看对应的shape
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> torch</span><br><span class="line"><span class="comment"># kv_cache 是一个包含张量的列表</span></span><br><span class="line"><span class="comment"># head 数量是 8, hidden_state per head 也是8</span></span><br><span class="line"><span class="comment"># key_cache 是一个连续的空间，有slot_mapping做索引</span></span><br><span class="line">key_cache = torch.randn(<span class="number">10</span>, <span class="number">8</span>, <span class="number">8</span>)</span><br><span class="line"><span class="built_in">print</span>(<span class="string">&quot;原始 key_cache shape&quot;</span>)</span><br><span class="line"><span class="built_in">print</span>(key_cache.shape)</span><br><span class="line"><span class="comment"># output: torch.Size([10, 8, 8])</span></span><br><span class="line"><span class="comment"># 这次request使用的是第0和5条的key cache</span></span><br><span class="line">current_slot_mapping = [<span class="number">0</span>,<span class="number">5</span>]</span><br><span class="line"><span class="comment"># prefill tp=2</span></span><br><span class="line">p_tp = <span class="number">2</span></span><br><span class="line"><span class="comment"># decode tp=4</span></span><br><span class="line">d_tp = <span class="number">4</span></span><br><span class="line">tp_multiplier = d_tp // p_tp</span><br><span class="line"><span class="comment"># 考虑decode worker 的 rank 0 的情况</span></span><br><span class="line">target_rank = <span class="number">0</span></span><br><span class="line"><span class="comment"># num_heads_per_rank = 1 也就是每个decode rank分到一个head</span></span><br><span class="line">num_heads_per_rank = <span class="number">8</span> // p_tp // d_tp</span><br><span class="line"><span class="comment"># 计算head的range</span></span><br><span class="line">head_start = target_rank * num_heads_per_rank</span><br><span class="line">head_end = head_start + num_heads_per_rank</span><br><span class="line"><span class="comment"># 按 p_tp reshape</span></span><br><span class="line">key_cache = key_cache.reshape(-<span class="number">1</span>,<span class="number">8</span>//p_tp,<span class="number">8</span>)</span><br><span class="line"><span class="built_in">print</span>(<span class="string">&quot;按 prefill tp 切分&quot;</span>)</span><br><span class="line"><span class="built_in">print</span>(key_cache.shape)</span><br><span class="line"><span class="comment"># output: torch.Size([20, 4, 8])</span></span><br><span class="line"><span class="built_in">print</span>(<span class="string">&quot;decode 选择器（在第0维度）&quot;</span>, current_slot_mapping, <span class="string">&quot;,head range（在第1维度）&quot;</span>, <span class="built_in">str</span>(head_start)+<span class="string">&quot;:&quot;</span>+<span class="built_in">str</span>(head_end))</span><br><span class="line"><span class="comment"># output: decode 选择器（在第0维度） [0, 5] ,head range（在第1维度） 0:1</span></span><br><span class="line">d_key_cache = key_cache[current_slot_mapping, head_start:head_end]</span><br><span class="line"><span class="built_in">print</span>(<span class="string">&quot;获取 d key cache&quot;</span>)</span><br><span class="line"><span class="built_in">print</span>(d_key_cache.shape)</span><br><span class="line"><span class="comment"># output: torch.Size([2, 1, 8])</span></span><br></pre></td></tr></table></figure>
-<!-- 函数中对于deepseek就直接传了没有依据tp切分，可能又特殊的处理。 -->
-<p>相对应的接收函数的入口<code>recv_kv_caches_and_hidden_states</code> 没啥特殊处理，直接已经切好，收到以后直接cache住就行。</p>
-<!-- 根据层的range填到对应的slots当中。里面有个`key_scale`是啥？`reshape_and_cache_flash`干了啥。 -->
-<!-- ## KV Cache 的 rearrange
-
-TP实现的[教程](https://uvadlc-notebooks.readthedocs.io/en/latest/tutorial_notebooks/scaling/JAX/tensor_parallel_simple.html)
-
-`rearrange_tensors`
-
-
-kvcache的形状应该是 `[batch_size, sequence_length, number_of_layers, head, n_head]`
-需要提一下的是，如果是GHA，`head * g * n_head = d_model`，如果分四组的话`head*n_head=d_model`
-
-dynamo里面这几个值代表什么呢。H和C应该是head和`n_head`，函数参数应该是分母，表示切分的份数。
+<p>&lt;!—— 函数中对于deepseek就直接传了没有依据tp切分，可能又特殊的处理。 ——&gt;</p>
+<p>相对应的接收函数的入口<code>recv_kv_caches_and_hidden_states</code> 没啥特殊处理，直接已经切好，收到以后直接cache住就行。<br>
+&lt;!—— 根据层的range填到对应的slots当中。里面有个<code>key_scale</code>是啥？<code>reshape_and_cache_flash</code>干了啥。 ——&gt;</p>
+<p>&lt;!—— ## KV Cache 的 rearrange</p>
+<p>TP实现的<a target="_blank" rel="noopener" href="https://uvadlc-notebooks.readthedocs.io/en/latest/tutorial_notebooks/scaling/JAX/tensor_parallel_simple.html">教程</a></p>
+<p><code>rearrange_tensors</code></p>
+<p>kvcache的形状应该是 <code>[batch_size, sequence_length, number_of_layers, head, n_head]</code><br>
+需要提一下的是，如果是GHA，<code>head * g * n_head = d_model</code>，如果分四组的话<code>head*n_head=d_model</code></p>
+<p>dynamo里面这几个值代表什么呢。H和C应该是head和<code>n_head</code>，函数参数应该是分母，表示切分的份数。</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">def rearrange_tensors(t1: torch.Tensor, t2: torch.Tensor, d: int, direction: str):</span><br><span class="line">    N, B, H, C = t1.shape</span><br></pre></td></tr></table></figure>
 <p>Attention 的 TP 实现是把头做切分。<br>
 从 <code>register_kv_caches</code> 可以看出 <code>kv_caches</code> 的 shape 是 <code>[num_layers, k_or_v, num_blocks, block_size, num_heads, head_dmi]</code></p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">def register_kv_caches(self, kv_caches: List[torch.Tensor]):</span><br><span class="line">    _, num_blocks, block_size, num_heads, head_dim = kv_caches[0].shape</span><br></pre></td></tr></table></figure>
-<p>这么来看 N 代表 <code>num_blocks</code>，B 代表 <code>block_size</code> H 代表 <code>num_heads</code> C 代表 <code>head_dim</code>, d 代表 <code>tp_multiplier</code><br>
+<p>这么来看 N 代表 <code>num_blocks</code>，B 代表 <code>block_size</code> H 代表 <code>num_heads</code> C 代表 <code>head_dim</code>，d 代表 <code>tp_multiplier</code><br>
 所以  <code>block_size = B * H * C</code><br>
 <code>token_size</code> 是 <code>H*C</code> 这里还是要注意如果是GHA，他会比<code>d_model</code>小g倍。<br>
 <code>tensor_subset_size = tensor_size // d</code>，tp以后的切分的tensor size<br>

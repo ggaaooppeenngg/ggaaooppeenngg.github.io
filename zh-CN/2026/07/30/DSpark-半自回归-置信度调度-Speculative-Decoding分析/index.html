@@ -29,7 +29,7 @@
 <meta property="og:description" content="Speculative decoding 的 drafter 架构正在经历一次范式转移。DFlash 用 block diffusion 把 drafting 从串行变并行，实现了 6× 加速；DSpark 在此基础上补了两刀——半自回归解决并行生成的后缀衰减，置信度调度解决高并发下的验证浪费。本文围绕这两篇论文，结合源码逐行分析，澄清训练注意力结构中的常见困惑，并讨论其架构设计、核心 trade">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2026-07-30T09:20:00.000Z">
-<meta property="article:modified_time" content="2026-08-01T05:36:45.060Z">
+<meta property="article:modified_time" content="2026-08-18T05:32:02.726Z">
 <meta property="article:author" content="ggaaooppeenngg">
 <meta property="article:tag" content="LLM">
 <meta property="article:tag" content="DeepSeek">
@@ -98,7 +98,7 @@
 
 
 <nav class="site-nav">
-  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-旅行"><a href="/travel/" rel="section"><i class="plane fa-fw"></i>旅行</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">197</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">23</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">101</span></a></li>
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-旅行"><a href="/travel/" rel="section"><i class="plane fa-fw"></i>旅行</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">185</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">18</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">94</span></a></li>
   </ul>
 </nav>
 
@@ -136,18 +136,18 @@
   <nav class="site-state">
       <div class="site-state-item site-state-posts">
         <a href="/archives/">
-          <span class="site-state-item-count">101</span>
+          <span class="site-state-item-count">94</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
       <div class="site-state-item site-state-categories">
           <a href="/categories/">
-        <span class="site-state-item-count">23</span>
+        <span class="site-state-item-count">18</span>
         <span class="site-state-item-name">分类</span></a>
       </div>
       <div class="site-state-item site-state-tags">
           <a href="/tags/">
-        <span class="site-state-item-count">197</span>
+        <span class="site-state-item-count">185</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
@@ -222,7 +222,7 @@
         <i class="far fa-calendar-check"></i>
       </span>
       <span class="post-meta-item-text">更新于</span>
-      <time title="修改时间：2026-08-01 13:36:45" itemprop="dateModified" datetime="2026-08-01T13:36:45+08:00">2026-08-01</time>
+      <time title="修改时间：2026-08-18 13:32:02" itemprop="dateModified" datetime="2026-08-18T13:32:02+08:00">2026-08-18</time>
     </span>
     <span class="post-meta-item">
       <span class="post-meta-item-icon">
@@ -595,9 +595,9 @@
 </tr>
 </tbody>
 </table>
-<p>核心矛盾：验证更多 token 能提高单个请求的 <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>τ</mi></mrow><annotation encoding="application/x-tex">\tau</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.4306em;"></span><span class="mord mathnormal" style="margin-right:0.1132em;">τ</span></span></span></span>，但增大 batch <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>B</mi></mrow><annotation encoding="application/x-tex">B</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.0502em;">B</span></span></span></span> 会拉低所有人的 SPS。调度器在两者之间找全局最优–低负载时 SPS “便宜”，多验证划算；高负载时 SPS “贵”，省着用 batch 容量更重要。这和日常生活中的资源分配同理：空闲时精雕细琢，繁忙时抓大放小。</p>
+<p>核心矛盾：验证更多 token 能提高单个请求的 <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>τ</mi></mrow><annotation encoding="application/x-tex">\tau</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.4306em;"></span><span class="mord mathnormal" style="margin-right:0.1132em;">τ</span></span></span></span>，但增大 batch <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>B</mi></mrow><annotation encoding="application/x-tex">B</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.0502em;">B</span></span></span></span> 会拉低所有人的 SPS。调度器在两者之间找全局最优——低负载时 SPS “便宜”，多验证划算；高负载时 SPS “贵”，省着用 batch 容量更重要。这和日常生活中的资源分配同理：空闲时精雕细琢，繁忙时抓大放小。</p>
 <blockquote>
-<p><strong>一句话总结</strong>：置信度调度把&quot;验证多少&quot;从静态配置变成动态优化问题–根据每个请求的 draft 质量和当前系统负载，全局分配验证算力。</p>
+<p><strong>一句话总结</strong>：置信度调度把&quot;验证多少&quot;从静态配置变成动态优化问题——根据每个请求的 draft 质量和当前系统负载，全局分配验证算力。</p>
 </blockquote>
 <h3 id="3-5-训练目标">3.5 训练目标</h3>
 <p>DSpark 的 loss 三项加权和：</p>
