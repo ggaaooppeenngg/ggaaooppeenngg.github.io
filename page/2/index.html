@@ -206,9 +206,15 @@
         <i class="far fa-calendar"></i>
       </span>
       <span class="post-meta-item-text">发表于</span>
-      
 
-      <time title="创建时间：2026-05-21 15:12:00 / 修改时间：15:13:20" itemprop="dateCreated datePublished" datetime="2026-05-21T15:12:00+08:00">2026-05-21</time>
+      <time title="创建时间：2026-05-21 15:12:00" itemprop="dateCreated datePublished" datetime="2026-05-21T15:12:00+08:00">2026-05-21</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2026-08-21 09:23:50" itemprop="dateModified" datetime="2026-08-21T09:23:50+08:00">2026-08-21</time>
     </span>
     <span class="post-meta-item">
       <span class="post-meta-item-icon">
@@ -494,6 +500,7 @@
 <hr>
 <p><strong>参考文档：</strong></p>
 <ul>
+<li>想自己跑一遍这些配置：WideEP 的完整形态需要多机多卡，单机 8 卡就能验证 <code>ep-size</code> / <code>moe-a2a-backend</code> 的行为差异。<a target="_blank" rel="noopener" href="https://runpod.io?ref=ux221dem">RunPod</a> 提供 8 卡 H100/H200 实例和多节点集群，跑 DeepEP 这类需要 RDMA 的实验也能按小时租。</li>
 <li><a target="_blank" rel="noopener" href="https://sgl-project-sglang-93.mintlify.app/distributed/expert-parallelism">SGLang Expert Parallelism 官方文档</a></li>
 <li><a target="_blank" rel="noopener" href="https://lmsys.org/blog/2025-05-05-large-scale-ep/">Large-Scale EP Blog - LMSYS</a></li>
 <li><a target="_blank" rel="noopener" href="https://github.com/deepseek-ai/DeepEP">DeepEP GitHub</a></li>
@@ -3923,7 +3930,7 @@ SM100 需要更多 buffer 因为 TMA Gather4 的 pipeline 更深：</p>
 </ul>
 <hr>
 <h3 id="GB200-SM100-实测结果">GB200 (SM100) 实测结果</h3>
-<p>以下是实际在 NVIDIA GB200 (SM100/Blackwell) 上运行的 benchmark 结果：</p>
+<p>以下是实际在 NVIDIA GB200 (SM100/Blackwell) 上运行的 benchmark 结果（GB200 实例不好找，这组数据是在 <a target="_blank" rel="noopener" href="https://runpod.io?ref=ux221dem">RunPod</a> 上租的 B200/GB200 实例里跑的，想验证 SM100 kernel 支持矩阵的可以直接开一台试）：</p>
 <h4 id="SM100-Kernel-支持情况">SM100 Kernel 支持情况</h4>
 <table>
 <thead>
@@ -4698,6 +4705,9 @@ M834 80h400000v40h-400000z"/></svg></span></span></span><span class="vlist-s">�
 <h2 id="参考资料-2">参考资料</h2>
 <p><em>最后更新：2026-04-10</em></p>
 <p><em>作者注：本文基于 FlashMLA 开源代码和 DeepSeek 技术报告整理，部分实现细节可能随版本更新而变化。</em></p>
+<blockquote>
+<p><strong>实验环境</strong>：验证 FP8 KV Cache / DSA 稀疏注意力这类 kernel 行为必须有对应架构的卡（SM90 / SM100）。没有硬件的话，<a target="_blank" rel="noopener" href="https://runpod.io?ref=ux221dem">RunPod</a> 能按小时租到 H100/H200/B200，跑完本文的测试矩阵成本很低。</p>
+</blockquote>
 
       
     </div>
@@ -4760,7 +4770,7 @@ M834 80h400000v40h-400000z"/></svg></span></span></span><span class="vlist-s">�
         <i class="far fa-calendar-check"></i>
       </span>
       <span class="post-meta-item-text">更新于</span>
-      <time title="修改时间：2026-08-18 13:32:02" itemprop="dateModified" datetime="2026-08-18T13:32:02+08:00">2026-08-18</time>
+      <time title="修改时间：2026-08-21 09:24:03" itemprop="dateModified" datetime="2026-08-21T09:24:03+08:00">2026-08-21</time>
     </span>
     <span class="post-meta-item">
       <span class="post-meta-item-icon">
@@ -5147,6 +5157,7 @@ M834 80h400000v40h-400000z"/></svg></span></span></span><span class="vlist-s">�
 <hr>
 <h2 id="💰-六、经济性分析">💰 六、经济性分析</h2>
 <h3 id="6-1-自建-vs-云租赁">6.1 自建 vs 云租赁</h3>
+<p>不过对大多数人来说，真正的选项不是「买一台 NVL72」而是「租几小时 B200/GB200 把代码跑通」。<a target="_blank" rel="noopener" href="https://runpod.io?ref=ux221dem">RunPod</a> 这类平台按小时计费，验证 FP4 量化、Transformer Engine v2 这些 Blackwell 特有能力不需要买机器。</p>
 <table>
 <thead>
 <tr>

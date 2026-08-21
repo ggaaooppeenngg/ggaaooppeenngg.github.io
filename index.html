@@ -2294,7 +2294,7 @@ c100.7 8.3 195.3 44 280 108 55.3 42 101.7 93 139 153l9 14c2.7-4 5.7-8.7 9-14
         <i class="far fa-calendar-check"></i>
       </span>
       <span class="post-meta-item-text">更新于</span>
-      <time title="修改时间：2026-08-18 13:32:02" itemprop="dateModified" datetime="2026-08-18T13:32:02+08:00">2026-08-18</time>
+      <time title="修改时间：2026-08-21 09:28:07" itemprop="dateModified" datetime="2026-08-21T09:28:07+08:00">2026-08-21</time>
     </span>
     <span class="post-meta-item">
       <span class="post-meta-item-icon">
@@ -2492,6 +2492,7 @@ c100.7 8.3 195.3 44 280 108 55.3 42 101.7 93 139 153l9 14c2.7-4 5.7-8.7 9-14
 </tr>
 </tbody>
 </table>
+<p>本文的实验都跑在单卡上，8B 级别的 target model + draft model 一张 80GB 卡就够。想复现这套投机解码对比的话，不必自己攒机器——<a target="_blank" rel="noopener" href="https://runpod.io?ref=ux221dem">RunPod</a> 上按小时租一张 H100/H200 即可，nsys 采集需要的 <code>--cap-add=SYS_ADMIN</code> 权限它的容器实例也放开了。</p>
 <h3 id="Draft-Model-配置">Draft Model 配置</h3>
 <table>
 <thead>
@@ -2907,13 +2908,6 @@ c100.7 8.3 195.3 44 280 108 55.3 42 101.7 93 139 153l9 14c2.7-4 5.7-8.7 9-14
 <li><strong>接受率天花板由训练决定，工程决定下限</strong>——hidden state 接口对齐是前提</li>
 <li><strong>SPEED-Bench coding 类是 SD 的 best-case 场景</strong>，低熵任务下 acceptance rate 天然高</li>
 </ol>
-<h3 id="下一步">下一步</h3>
-<ul>
-<li>重新采集 vLLM trace（加 <code>--trace-fork</code>），获取真实 kernel 数据</li>
-<li>检查 vLLM v0.26.0 是否支持 EAGLE3 method（Dogacel 应走 EAGLE3 而非 dspark）</li>
-<li>用 throughput split + <code>--max-concurrency 32</code> 测高并发下 SD 效果</li>
-<li>尝试 ngram、medusa 等 baseline 对比</li>
-</ul>
 <hr>
 <p><strong>参考</strong>：</p>
 <ul>
@@ -2921,6 +2915,7 @@ c100.7 8.3 195.3 44 280 108 55.3 42 101.7 93 139 153l9 14c2.7-4 5.7-8.7 9-14
 <li>vLLM PR：<a target="_blank" rel="noopener" href="https://github.com/vllm-project/vllm/pull/50138">#50138</a>、<a target="_blank" rel="noopener" href="https://github.com/vllm-project/vllm/pull/50694">#50694</a>、<a target="_blank" rel="noopener" href="https://github.com/vllm-project/vllm/pull/50737">#50737</a></li>
 <li>模型：<code>deepseek-ai/dspark_qwen3_8b_block7</code>、<code>Dogacel/Qwen3-8B-DSpark</code></li>
 <li>数据集：<a target="_blank" rel="noopener" href="https://huggingface.co/datasets/nvidia/SPEED-Bench">nvidia/SPEED-Bench</a>，arXiv: <a target="_blank" rel="noopener" href="https://arxiv.org/abs/2604.09557">2604.09557</a></li>
+<li>复现环境：<a target="_blank" rel="noopener" href="https://runpod.io?ref=ux221dem">RunPod</a> 单卡实例（按小时计费，适合这类短时评测）</li>
 </ul>
 
       
