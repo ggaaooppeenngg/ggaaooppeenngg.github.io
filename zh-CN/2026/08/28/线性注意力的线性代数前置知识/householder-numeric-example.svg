@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1010 1190" font-family="'Times New Roman', 'STIX Two Text', serif">
+ <title>Householder 反射:从几何到矩阵的数字算例(u = e1, x = [3,2]⊤)</title>
+  <defs>
+    <pattern id="hatchA" patternUnits="userSpaceOnUse" width="7" height="7" patternTransform="rotate(45)">
+      <line x1="0" y1="0" x2="0" y2="7" stroke="#c9c9c9" stroke-width="1"/>
+    </pattern>
+    <marker id="arr" viewBox="0 0 12 9" refX="10" refY="4.5" markerWidth="12" markerHeight="9" markerUnits="userSpaceOnUse" orient="auto">
+      <path d="M0,0 L12,4.5 L0,9 L3,4.5 z" fill="#111"/>
+    </marker>
+    <marker id="arrm" viewBox="0 0 12 9" refX="10" refY="4.5" markerWidth="11" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto">
+      <path d="M0,0 L12,4.5 L0,9 L3,4.5 z" fill="#555"/>
+    </marker>
+    <marker id="arrg" viewBox="0 0 12 9" refX="10" refY="4.5" markerWidth="11" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto">
+      <path d="M0,0 L12,4.5 L0,9 L3,4.5 z" fill="#999"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1010" height="1190" fill="#ffffff"/>
+
+  <!-- ================= 总标题 ================= -->
+  <text x="505" y="38" text-anchor="middle" font-family="SimSun, Songti SC, serif" font-size="19" fill="#111">Householder 反射:从几何到矩阵(数字算例,自上而下)</text>
+
+  <!-- ================= (a) 几何 ================= -->
+  <text x="60" y="72" font-family="SimSun, Songti SC, serif" font-size="16" fill="#111">(a) 几何:<tspan font-family="'Times New Roman', Times, serif" font-style="italic">u</tspan><tspan font-family="'Times New Roman', Times, serif"> = </tspan><tspan font-family="'Times New Roman', Times, serif" font-style="italic">e</tspan><tspan font-family="'Times New Roman', Times, serif" font-size="11" dy="4">1</tspan><tspan dy="-4" font-family="SimSun, Songti SC, serif"> 时,镜像恰为 </tspan><tspan font-family="'Times New Roman', Times, serif" font-style="italic">x</tspan><tspan font-family="'Times New Roman', Times, serif" font-size="11" dy="4">2</tspan><tspan dy="-4" font-family="SimSun, Songti SC, serif"> 轴</tspan></text>
+
+  <!-- 坐标轴 -->
+  <line x1="70" y1="385" x2="930" y2="385" stroke="#444" stroke-width="1.4" marker-end="url(#arr)"/>
+  <line x1="480" y1="480" x2="480" y2="95" stroke="#444" stroke-width="1.4" marker-end="url(#arr)"/>
+  <text x="908" y="412" font-family="'Times New Roman', Times, serif" font-style="italic" font-size="16" fill="#444">x<tspan dy="4" font-size="11">1</tspan></text>
+  <text x="492" y="114" font-family="'Times New Roman', Times, serif" font-style="italic" font-size="16" fill="#444">x<tspan dy="4" font-size="11">2</tspan></text>
+
+  <!-- 镜像带(沿 x2 轴) -->
+  <rect x="470" y="105" width="20" height="360" fill="url(#hatchA)" stroke="none"/>
+  <text x="497" y="142" font-family="SimSun, Songti SC, serif" font-size="13.5" fill="#444">镜像超平面:<tspan font-family="'Times New Roman', Times, serif" font-style="italic">x</tspan><tspan font-family="'Times New Roman', Times, serif" font-size="10" dy="3.5">1</tspan><tspan dy="-3.5" font-family="SimSun, Songti SC, serif"> = 0(</tspan><tspan font-family="'Times New Roman', Times, serif" font-style="italic">u</tspan><tspan font-family="'Times New Roman', Times, serif"> ⊥ 镜像)</tspan></text>
+  <text x="95" y="135" font-family="'Times New Roman', Times, serif" font-style="italic" font-size="16" fill="#111">‖u‖<tspan dy="4" font-size="11" font-style="normal">2</tspan><tspan dy="-4" font-size="16"> = 1</tspan></text>
+
+  <!-- 虚线连接:x' <- F -> x -->
+  <line x1="480" y1="285" x2="348" y2="285" stroke="#555" stroke-width="1.3" stroke-dasharray="5,4" marker-end="url(#arrm)"/>
+  <line x1="612" y1="285" x2="490" y2="285" stroke="#555" stroke-width="1.3" stroke-dasharray="5,4" marker-end="url(#arrm)"/>
+
+  <!-- 向量 x' 与 x -->
+  <line x1="480" y1="385" x2="330" y2="285" stroke="#111" stroke-width="2.2" marker-end="url(#arr)"/>
+  <line x1="480" y1="385" x2="630" y2="285" stroke="#111" stroke-width="2.2" marker-end="url(#arr)"/>
+  <!-- 单位向量 u(沿 x1 轴) -->
+  <line x1="480" y1="385" x2="530" y2="385" stroke="#111" stroke-width="3" marker-end="url(#arr)"/>
+
+  <!-- 垂足直角符号与等距刻度 -->
+  <polyline points="480,277 488,277 488,285" fill="none" stroke="#555" stroke-width="1.2"/>
+
+  <!-- 两段 −(u^T x)u 范围标注 -->
+  <path d="M 492,275 L 492,270 L 549,270 L 553,265 L 557,270 L 614,270 L 614,275" fill="none" stroke="#555" stroke-width="1.1"/>
+  <text x="553" y="259" text-anchor="middle" font-family="'Times New Roman', Times, serif" font-style="italic" font-size="13.5" fill="#444">−(u<tspan dy="-5" font-size="9.5" font-style="normal">⊤</tspan><tspan dy="5" font-size="13.5">x)u</tspan></text>
+  <path d="M 346,275 L 346,270 L 403,270 L 407,265 L 411,270 L 468,270 L 468,275" fill="none" stroke="#555" stroke-width="1.1"/>
+  <text x="407" y="259" text-anchor="middle" font-family="'Times New Roman', Times, serif" font-style="italic" font-size="13.5" fill="#444">−(u<tspan dy="-5" font-size="9.5" font-style="normal">⊤</tspan><tspan dy="5" font-size="13.5">x)u</tspan></text>
+  <text x="90" y="458" font-family="SimSun, Songti SC, serif" font-size="13.5" fill="#666">从 <tspan font-family="'Times New Roman', Times, serif" font-style="italic">x</tspan><tspan font-family="SimSun, Songti SC, serif"> 出发:走一步 −(</tspan><tspan font-family="'Times New Roman', Times, serif" font-style="italic">u</tspan><tspan font-family="'Times New Roman', Times, serif" font-size="9.5" dy="-5" font-style="normal">⊤</tspan><tspan dy="5" font-size="13.5" font-family="'Times New Roman', Times, serif" font-style="italic">x</tspan><tspan font-family="SimSun, Songti SC, serif">)u 到镜面,再走一步 −(</tspan><tspan font-family="'Times New Roman', Times, serif" font-style="italic">u</tspan><tspan font-family="'Times New Roman', Times, serif" font-size="9.5" dy="-5" font-style="normal">⊤</tspan><tspan dy="5" font-size="13.5" font-family="'Times New Roman', Times, serif" font-style="italic">x</tspan><tspan font-family="SimSun, Songti SC, serif">)u 到 </tspan><tspan font-family="'Times New Roman', Times, serif" font-style="italic">x</tspan><tspan font-family="'Times New Roman', Times, serif">′</tspan></text>
+  <line x1="410" y1="290" x2="418" y2="280" stroke="#888" stroke-width="1.3"/>
+  <line x1="542" y1="290" x2="550" y2="280" stroke="#888" stroke-width="1.3"/>
+
+  <circle cx="480" cy="385" r="2.6" fill="#111"/>
+
+  <!-- 向量标注 -->
+  <text x="642" y="272" font-family="'Times New Roman', Times, serif" font-style="italic" font-size="17" fill="#111">x<tspan> = [3, 2]</tspan><tspan dy="-6" font-size="11" font-style="normal">⊤</tspan></text>
+  <text x="318" y="270" text-anchor="end" font-family="'Times New Roman', Times, serif" font-style="italic" font-size="17" fill="#111">x′<tspan> = [−3, 2]</tspan><tspan dy="-6" font-size="11" font-style="normal">⊤</tspan></text>
+  <text x="545" y="410" font-family="'Times New Roman', Times, serif" font-style="italic" font-size="16" fill="#111">u<tspan> = </tspan><tspan font-style="italic">e</tspan><tspan dy="4" font-size="11">1</tspan><tspan dy="-4" font-size="16"> = [1, 0]</tspan><tspan dy="-6" font-size="11" font-style="normal">⊤</tspan></text>
+  <text x="463" y="404" font-family="'Times New Roman', Times, serif" font-style="italic" font-size="14" fill="#555">O</text>
+
+  <!-- 箭头1 -->
+  <line x1="500" y1="482" x2="500" y2="514" stroke="#888" stroke-width="1.4" marker-end="url(#arrg)"/>
+  <text x="516" y="503" font-family="SimSun, Songti SC, serif" font-size="14" fill="#555">代入数字</text>
+
+  <!-- ================= (b) 数字验证 ================= -->
+  <text x="60" y="545" font-family="SimSun, Songti SC, serif" font-size="16" fill="#111">(b) 数字验证:两条路,同一个 <tspan font-family="'Times New Roman', Times, serif" font-style="italic">x</tspan><tspan font-family="'Times New Roman', Times, serif">′</tspan></text>
+
+  <!-- L1: u^T x -->
+  <text x="80" y="590" font-family="'Times New Roman', Times, serif" font-style="italic" font-size="17" fill="#111">u<tspan dy="-6" font-size="11" font-style="normal">⊤</tspan><tspan dy="6" font-size="17">x = </tspan></text>
+  <polyline points="139,572 132,572 132,604 139,604" fill="none" stroke="#111" stroke-width="1.4"/>
+  <polyline points="189,572 196,572 196,604 189,604" fill="none" stroke="#111" stroke-width="1.4"/>
+  <text x="152" y="593" text-anchor="middle" font-family="'Times New Roman', Times, serif" font-size="16" fill="#111">1</text>
+  <text x="175" y="593" text-anchor="middle" font-family="'Times New Roman', Times, serif" font-size="16" fill="#111">0</text>
+  <polyline points="222,564 215,564 215,612 222,612" fill="none" stroke="#111" stroke-width="1.4"/>
+  <polyline points="240,564 247,564 247,612 240,612" fill="none" stroke="#111" stroke-width="1.4"/>
+  <text x="231" y="585" text-anchor="middle" font-family="'Times New Roman', Times, serif" font-size="16" fill="#111">3</text>
+  <text x="231" y="607" text-anchor="middle" font-family="'Times New Roman', Times, serif" font-size="16" fill="#111">2</text>
+  <text x="262" y="590" font-family="'Times New Roman', Times, serif" font-size="17" fill="#111">= 1·3 + 0·2 = 3</text>
+  <rect x="425" y="566" width="270" height="40" rx="6" fill="#f5f5f5" stroke="#c9c9c9" stroke-width="1"/>
+  <text x="440" y="592" font-family="'Times New Roman', Times, serif" font-style="italic" font-size="14" fill="#333">u<tspan dy="-5" font-size="10" font-style="normal">⊤</tspan><tspan dy="5" font-size="14">x</tspan><tspan font-family="SimSun, Songti SC, serif"> 是标量:只是一个数,可任意移动</tspan></text>
+
+  <!-- L2: x - 2(u^T x)u -->
+  <text x="80" y="655" font-family="'Times New Roman', Times, serif" font-style="italic" font-size="17" fill="#111">x<tspan> − 2(</tspan><tspan>u</tspan><tspan dy="-6" font-size="11" font-style="normal">⊤</tspan><tspan dy="6" font-size="17">x)u = </tspan></text>
+  <polyline points="205,629 198,629 198,677 205,677" fill="none" stroke="#111" stroke-width="1.4"/>
+  <polyline points="223,629 230,629 230,677 223,677" fill="none" stroke="#111" stroke-width="1.4"/>
+  <text x="214" y="650" text-anchor="middle" font-family="'Times New Roman', Times, serif" font-size="16" fill="#111">3</text>
+  <text x="214" y="672" text-anchor="middle" font-family="'Times New Roman', Times, serif" font-size="16" fill="#111">2</text>
+  <text x="245" y="655" font-family="'Times New Roman', Times, serif" font-size="17" fill="#111">− 2·3·</text>
+  <polyline points="304,629 297,629 297,677 304,677" fill="none" stroke="#111" stroke-width="1.4"/>
+  <polyline points="322,629 329,629 329,677 322,677" fill="none" stroke="#111" stroke-width="1.4"/>
+  <text x="313" y="650" text-anchor="middle" font-family="'Times New Roman', Times, serif" font-size="16" fill="#111">1</text>
+  <text x="313" y="672" text-anchor="middle" font-family="'Times New Roman', Times, serif" font-size="16" fill="#111">0</text>
+  <text x="344" y="655" font-family="'Times New Roman', Times, serif" font-size="17" fill="#111">=</text>
+  <polyline points="375,629 368,629 368,677 375,677" fill="none" stroke="#111" stroke-width="1.4"/>
+  <polyline points="393,629 400,629 400,677 393,677" fill="none" stroke="#111" stroke-width="1.4"/>
+  <text x="384" y="650" text-anchor="middle" font-family="'Times New Roman', Times, serif" font-size="16" fill="#111">3</text>
+  <text x="384" y="672" text-anchor="middle" font-family="'Times New Roman', Times, serif" font-size="16" fill="#111">2</text>
+  <text x="415" y="655" font-family="'Times New Roman', Times, serif" font-size="17" fill="#111">−</text>
+  <polyline points="444,629 437,629 437,677 444,677" fill="none" stroke="#111" stroke-width="1.4"/>
+  <polyline points="462,629 469,629 469,677 462,677" fill="none" stroke="#111" stroke-width="1.4"/>
+  <text x="453" y="650" text-anchor="middle" font-family="'Times New Roman', Times, serif" font-size="16" fill="#111">6</text>
+  <text x="453" y="672" text-anchor="middle" font-family="'Times New Roman', Times, serif" font-size="16" fill="#111">0</text>
+  <text x="484" y="655" font-family="'Times New Roman', Times, serif" font-size="17" fill="#111">=</text>
+  <polyline points="515,629 508,629 508,677 515,677" fill="none" stroke="#111" stroke-width="1.4"/>
+  <polyline points="544,629 551,629 551,677 544,677" fill="none" stroke="#111" stroke-width="1.4"/>
+  <text x="530" y="650" text-anchor="middle" font-family="'Times New Roman', Times, serif" font-size="16" fill="#111">−3</text>
+  <text x="530" y="672" text-anchor="middle" font-family="'Times New Roman', Times, serif" font-size="16" fill="#111">2</text>
+  <text x="572" y="661" font-family="SimSun, Songti SC, serif" font-size="13.5" fill="#555">(= 图 (a) 中左上方的 <tspan font-family="'Times New Roman', Times, serif" font-style="italic">x</tspan><tspan font-family="'Times New Roman', Times, serif">′)</tspan></text>
+
+  <!-- L3: H = I - 2 u u^T -->
+  <text x="80" y="722" font-family="'Times New Roman', Times, serif" font-style="italic" font-size="17" fill="#111">H<tspan> = I − 2</tspan></text>
+  <polyline points="172,696 165,696 165,744 172,744" fill="none" stroke="#111" stroke-width="1.4"/>
+  <polyline points="220,696 227,696 227,744 220,744" fill="none" stroke="#111" stroke-width="1.4"/>
+  <text x="186" y="710" text-anchor="middle" font-family="'Times New Roman', Times, serif" font-size="16" fill="#111">1</text>
+  <text x="207" y="710" text-anchor="middle" font-family="'Times New Roman', Times, serif" font-size="16" fill="#111">0</text>
+  <text x="186" y="732" text-anchor="middle" font-family="'Times New Roman', Times, serif" font-size="16" fill="#111">0</text>
+  <text x="207" y="732" text-anchor="middle" font-family="'Times New Roman', Times, serif" font-size="16" fill="#111">1</text>
+  <text x="242" y="722" font-family="'Times New Roman', Times, serif" font-size="17" fill="#111">− 2</text>
+  <polyline points="279,696 272,696 272,744 279,744" fill="none" stroke="#111" stroke-width="1.4"/>
+  <polyline points="327,696 334,696 334,744 327,744" fill="none" stroke="#111" stroke-width="1.4"/>
+  <text x="293" y="710" text-anchor="middle" font-family="'Times New Roman', Times, serif" font-size="16" fill="#111">1</text>
+  <text x="314" y="710" text-anchor="middle" font-family="'Times New Roman', Times, serif" font-size="16" fill="#111">0</text>
+  <text x="293" y="732" text-anchor="middle" font-family="'Times New Roman', Times, serif" font-size="16" fill="#111">0</text>
+  <text x="314" y="732" text-anchor="middle" font-family="'Times New Roman', Times, serif" font-size="16" fill="#111">0</text>
+  <text x="349" y="722" font-family="'Times New Roman', Times, serif" font-size="17" fill="#111">=</text>
+  <polyline points="380,696 373,696 373,744 380,744" fill="none" stroke="#111" stroke-width="1.4"/>
+  <polyline points="432,696 439,696 439,744 432,744" fill="none" stroke="#111" stroke-width="1.4"/>
+  <text x="399" y="710" text-anchor="middle" font-family="'Times New Roman', Times, serif" font-size="16" fill="#111">−1</text>
+  <text x="422" y="710" text-anchor="middle" font-family="'Times New Roman', Times, serif" font-size="16" fill="#111">0</text>
+  <text x="399" y="732" text-anchor="middle" font-family="'Times New Roman', Times, serif" font-size="16" fill="#111">0</text>
+  <text x="422" y="732" text-anchor="middle" font-family="'Times New Roman', Times, serif" font-size="16" fill="#111">1</text>
+  <text x="455" y="728" font-family="SimSun, Songti SC, serif" font-size="13.5" fill="#555">= diag(−1, 1):第一坐标翻转,第二不动</text>
+
+  <!-- L4: x' = H x -->
+  <text x="80" y="790" font-family="'Times New Roman', Times, serif" font-style="italic" font-size="17" fill="#111">x′<tspan> = </tspan><tspan font-style="italic">H</tspan><tspan font-style="italic">x</tspan><tspan> = </tspan></text>
+  <polyline points="177,764 170,764 170,812 177,812" fill="none" stroke="#111" stroke-width="1.4"/>
+  <polyline points="229,764 236,764 236,812 229,812" fill="none" stroke="#111" stroke-width="1.4"/>
+  <text x="196" y="778" text-anchor="middle" font-family="'Times New Roman', Times, serif" font-size="16" fill="#111">−1</text>
+  <text x="219" y="778" text-anchor="middle" font-family="'Times New Roman', Times, serif" font-size="16" fill="#111">0</text>
+  <text x="196" y="800" text-anchor="middle" font-family="'Times New Roman', Times, serif" font-size="16" fill="#111">0</text>
+  <text x="219" y="800" text-anchor="middle" font-family="'Times New Roman', Times, serif" font-size="16" fill="#111">1</text>
+  <polyline points="259,756 252,756 252,804 259,804" fill="none" stroke="#111" stroke-width="1.4"/>
+  <polyline points="277,756 284,756 284,804 277,804" fill="none" stroke="#111" stroke-width="1.4"/>
+  <text x="268" y="777" text-anchor="middle" font-family="'Times New Roman', Times, serif" font-size="16" fill="#111">3</text>
+  <text x="268" y="799" text-anchor="middle" font-family="'Times New Roman', Times, serif" font-size="16" fill="#111">2</text>
+  <text x="299" y="790" font-family="'Times New Roman', Times, serif" font-size="17" fill="#111">=</text>
+  <polyline points="330,756 323,756 323,804 330,804" fill="none" stroke="#111" stroke-width="1.4"/>
+  <polyline points="359,756 366,756 366,804 359,804" fill="none" stroke="#111" stroke-width="1.4"/>
+  <text x="345" y="777" text-anchor="middle" font-family="'Times New Roman', Times, serif" font-size="16" fill="#111">−3</text>
+  <text x="345" y="799" text-anchor="middle" font-family="'Times New Roman', Times, serif" font-size="16" fill="#111">2</text>
+  <text x="392" y="796" font-family="SimSun, Songti SC, serif" font-size="14" fill="#444">✓ 两条路一致 —— 正是图 (a) 的镜像</text>
+
+  <!-- 箭头2 -->
+  <line x1="500" y1="828" x2="500" y2="862" stroke="#888" stroke-width="1.4" marker-end="url(#arrg)"/>
+  <text x="516" y="850" font-family="SimSun, Songti SC, serif" font-size="14" fill="#555"><tspan font-family="'Times New Roman', Times, serif" font-style="italic">u</tspan><tspan font-family="'Times New Roman', Times, serif" font-size="10" dy="-5" font-style="normal">⊤</tspan><tspan dy="5" font-size="14" font-family="SimSun, Songti SC, serif" font-style="italic">x</tspan><tspan font-family="SimSun, Songti SC, serif"> 是标量 ⇒ 可换位 ⇒ 提出公因子</tspan></text>
+
+  <!-- ================= (c) 推导 ================= -->
+  <text x="60" y="895" font-family="SimSun, Songti SC, serif" font-size="16" fill="#111">(c) 推导:从「标量可交换」到矩阵形式</text>
+
+  <text x="80" y="930" font-family="SimSun, Songti SC, serif" font-size="14" fill="#444">唯一需要的一步:<tspan font-family="'Times New Roman', Times, serif" font-style="italic">u</tspan><tspan font-family="'Times New Roman', Times, serif" font-size="10" dy="-5" font-style="normal">⊤</tspan><tspan dy="5" font-size="14" font-family="'Times New Roman', Times, serif" font-style="italic">x</tspan><tspan font-family="SimSun, Songti SC, serif"> 是标量,而数与向量的乘法可交换次序:</tspan></text>
+
+  <text x="80" y="975" font-family="'Times New Roman', Times, serif" font-size="18" fill="#111">(u<tspan dy="-6" font-size="12" font-style="normal">⊤</tspan><tspan dy="6" font-size="18">x) · u = u · (u</tspan><tspan dy="-6" font-size="12" font-style="normal">⊤</tspan><tspan dy="6" font-size="18">x)</tspan></text>
+  <text x="330" y="980" font-family="SimSun, Songti SC, serif" font-size="13.5" fill="#555">同一个数,两种结合顺序</text>
+
+  <text x="80" y="1022" font-family="'Times New Roman', Times, serif" font-style="italic" font-size="18" fill="#111">x′<tspan> = </tspan><tspan font-style="italic">x</tspan><tspan> − 2(u</tspan><tspan dy="-6" font-size="12" font-style="normal">⊤</tspan><tspan dy="6" font-size="18">x)u = x − 2 u (u</tspan><tspan dy="-6" font-size="12" font-style="normal">⊤</tspan><tspan dy="6" font-size="18">x)</tspan></text>
+
+  <text x="110" y="1066" font-family="'Times New Roman', Times, serif" font-size="18" fill="#111">= (</text>
+  <text x="140" y="1066" font-family="'Times New Roman', Times, serif" font-size="18" fill="#111">I − 2 u u<tspan dy="-6" font-size="12" font-style="normal">⊤</tspan></text>
+  <text x="222" y="1066" font-family="'Times New Roman', Times, serif" font-size="18" fill="#111">) x</text>
+  <line x1="138" y1="1071" x2="218" y2="1071" stroke="#111" stroke-width="1.2"/>
+  <line x1="138" y1="1075" x2="218" y2="1075" stroke="#111" stroke-width="1.2"/>
+  <text x="300" y="1071" font-family="SimSun, Songti SC, serif" font-size="13.5" fill="#555">提出公因子 <tspan font-family="'Times New Roman', Times, serif" font-style="italic">x</tspan><tspan font-family="SimSun, Songti SC, serif">(分配律反着用)</tspan></text>
+
+  <!-- 结果框 -->
+  <rect x="80" y="1100" width="700" height="74" rx="8" fill="#fafafa" stroke="#111" stroke-width="1.6"/>
+  <text x="110" y="1130" font-family="'Times New Roman', Times, serif" font-style="italic" font-size="19" fill="#111">x′<tspan> = </tspan><tspan font-style="italic">H</tspan><tspan font-style="italic">x</tspan><tspan font-style="normal">,   </tspan><tspan font-style="italic">H</tspan><tspan font-style="normal"> ≡ I − 2 </tspan><tspan font-style="italic">u</tspan><tspan font-style="normal"> </tspan><tspan font-style="italic">u</tspan><tspan dy="-7" font-size="12" font-style="normal">⊤</tspan></text>
+  <text x="110" y="1160" font-family="SimSun, Songti SC, serif" font-size="15" fill="#111">对称:<tspan font-family="'Times New Roman', Times, serif" font-style="italic">H</tspan><tspan font-family="'Times New Roman', Times, serif" font-size="10.5" dy="-5" font-style="normal">⊤</tspan><tspan dy="5" font-size="15" font-family="'Times New Roman', Times, serif"> = H</tspan><tspan font-family="SimSun, Songti SC, serif">   正交:</tspan><tspan font-family="'Times New Roman', Times, serif" font-style="italic">H</tspan><tspan font-family="'Times New Roman', Times, serif" font-size="10.5" dy="-5" font-style="normal">⊤</tspan><tspan dy="5" font-size="15" font-family="'Times New Roman', Times, serif">H = I</tspan><tspan font-family="SimSun, Songti SC, serif">   det </tspan><tspan font-family="'Times New Roman', Times, serif" font-style="italic">H</tspan><tspan font-family="SimSun, Songti SC, serif"> = −1  tr </tspan><tspan font-family="'Times New Roman', Times, serif" font-style="italic">H</tspan><tspan font-family="SimSun, Songti SC, serif"> = 0 = </tspan><tspan font-family="'Times New Roman', Times, serif" font-style="italic">n</tspan><tspan font-family="SimSun, Songti SC, serif"> − 2</tspan></text>
+</svg>
