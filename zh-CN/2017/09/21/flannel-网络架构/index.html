@@ -19,7 +19,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha256-dABdfBfUoC8vJUBOwGVdm8L9qlMWaHTIfXt+7GnZCIo=" crossorigin="anonymous">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.css" integrity="sha256-gkQVf8UKZgQ0HyuxL/VnacadJ+D2Kox2TCEBuNQg5+w=" crossorigin="anonymous">
 
-<script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+<script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":"giscus","storage":true,"lazyload":false,"nav":null,"activeClass":"giscus"},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
 
     <meta name="description" content="flannel 是一个中心化的 overlay 容器网络，设计简单，容易理解，对于 k8s 来说，有一个假设：所有容器都可以和集群里任意其他容器或者节点通信，并且通信双方看到的对方的 IP 地址就是实际的地址，主要的好处就是不需要任何的端口映射和地址转换，拥有一张扁平的网络更容易管理，而且由于是基于 Etcd 的中心化的管理，所以对于一些 IP 变化异常频繁的场景来说，比一些去中心化的方案能够较及">
 <meta property="og:type" content="article">
@@ -226,20 +226,6 @@
     </span>
 
   
-  
-  <span class="post-meta-item">
-    
-      <span class="post-meta-item-icon">
-        <i class="far fa-comment"></i>
-      </span>
-      <span class="post-meta-item-text">Disqus：</span>
-    
-    <a title="disqus" href="/zh-CN/2017/09/21/flannel-%E7%BD%91%E7%BB%9C%E6%9E%B6%E6%9E%84/#disqus_thread" itemprop="discussionUrl">
-      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zh-CN/2017/09/21/flannel-网络架构/" itemprop="commentCount"></span>
-    </a>
-  </span>
-  
-  
 </div>
 
         </div>
@@ -308,11 +294,7 @@
 
 
 
-    
-  <div class="comments" id="disqus_thread">
-    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
-  </div>
-  
+    <div class="comments giscus-container"></div>
 </div>
   </main>
 
@@ -371,8 +353,34 @@
   <script class="next-config" data-name="enableMath" type="application/json">false</script><link rel="stylesheet" href="//cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
 
 
-<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"ggaaooppeenngg","count":true,"i18n":{"disqus":"disqus"}}</script>
-<script src="/js/third-party/comments/disqus.js"></script>
-
+<script>
+(function () {
+  function mountGiscus() {
+    var box = document.querySelector('.giscus-container');
+    if (!box || box.dataset.mounted) return;
+    box.dataset.mounted = '1';
+    var s = document.createElement('script');
+    s.setAttribute('src', "https://giscus.app/client.js");
+    s.setAttribute('data-repo', "ggaaooppeenngg/ggaaooppeenngg.github.io");
+    s.setAttribute('data-repo-id', "MDEwOlJlcG9zaXRvcnkzMzI0MzY4Mw==");
+    s.setAttribute('data-category', "Q&A");
+    s.setAttribute('data-category-id', "DIC_kwDOAftCI84DEmO7");
+    s.setAttribute('data-mapping', "pathname");
+    s.setAttribute('data-strict', "0");
+    s.setAttribute('data-reactions-enabled', "1");
+    s.setAttribute('data-emit-metadata', "0");
+    s.setAttribute('data-input-position', "top");
+    s.setAttribute('data-theme', "preferred_color_scheme");
+    s.setAttribute('data-lang', "zh-CN");
+    s.setAttribute('data-loading', "lazy");
+    s.setAttribute('crossorigin', "anonymous");
+    s.async = true;
+    box.appendChild(s);
+  }
+  if (document.readyState !== 'loading') mountGiscus();
+  else document.addEventListener('DOMContentLoaded', mountGiscus);
+  document.addEventListener('page:loaded', mountGiscus);
+})();
+</script>
 </body>
 </html>
