@@ -21,18 +21,18 @@
 
 <script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":"giscus","storage":true,"lazyload":false,"nav":null,"activeClass":"giscus"},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
 
-    <meta name="description" content="援引自 cockroach 博客 的解释 cockroach 的底层 scaling 存储本身可以认为是一张无限大的有序 KV map，上层封装了一层 SQL。他 sharding 的方式是通过 range 实现的。对一组 64M 大小数据的范围内的 key 做冗余，用二级 metadata range 可以理论上存储 4EB 的数据。 举个例子，五节点打散三副本的一个 range 做冗余，是成本">
+    <meta name="description" content="援引自 cockroach 博客 的解释 cockroach 的底层 scaling 存储本身可以认为是一张无限大的有序 KV map，上层封装了一层 SQL。他 sharding 的方式是通过 range 实现的。对一组 64M 大小数据的范围内的 key 做冗余，用二级 metadata range 可以理论上存储 4EB 的数据。">
 <meta property="og:type" content="article">
 <meta property="og:title" content="MultiRaft 解析">
 <meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2017/04/07/MultiRaft-%E8%A7%A3%E6%9E%90/index.html">
 <meta property="og:site_name" content="ggaaooppeenngg">
-<meta property="og:description" content="援引自 cockroach 博客 的解释 cockroach 的底层 scaling 存储本身可以认为是一张无限大的有序 KV map，上层封装了一层 SQL。他 sharding 的方式是通过 range 实现的。对一组 64M 大小数据的范围内的 key 做冗余，用二级 metadata range 可以理论上存储 4EB 的数据。 举个例子，五节点打散三副本的一个 range 做冗余，是成本">
+<meta property="og:description" content="援引自 cockroach 博客 的解释 cockroach 的底层 scaling 存储本身可以认为是一张无限大的有序 KV map，上层封装了一层 SQL。他 sharding 的方式是通过 range 实现的。对一组 64M 大小数据的范围内的 key 做冗余，用二级 metadata range 可以理论上存储 4EB 的数据。">
 <meta property="og:locale" content="zh_CN">
 <meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/04/07/MultiRaft-%E8%A7%A3%E6%9E%90/raft1.png">
 <meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/04/07/MultiRaft-%E8%A7%A3%E6%9E%90/raft2.png">
 <meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/04/07/MultiRaft-%E8%A7%A3%E6%9E%90/multiraft.png">
 <meta property="article:published_time" content="2017-04-07T12:13:11.000Z">
-<meta property="article:modified_time" content="2026-08-31T19:01:01.194Z">
+<meta property="article:modified_time" content="2026-09-03T15:56:01.795Z">
 <meta property="article:author" content="ggaaooppeenngg">
 <meta property="article:tag" content="raft">
 <meta property="article:tag" content="分布式">
@@ -222,7 +222,7 @@
         <i class="far fa-calendar-check"></i>
       </span>
       <span class="post-meta-item-text">更新于</span>
-      <time title="修改时间：2026-09-01 03:01:01" itemprop="dateModified" datetime="2026-09-01T03:01:01+08:00">2026-09-01</time>
+      <time title="修改时间：2026-09-03 23:56:01" itemprop="dateModified" datetime="2026-09-03T23:56:01+08:00">2026-09-03</time>
     </span>
 
   
@@ -236,6 +236,7 @@
     
     <div class="post-body" itemprop="articleBody"><p>援引自 cockroach <a target="_blank" rel="noopener" href="https://www.cockroachlabs.com/blog/scaling-raft/">博客</a> 的解释</p>
 <p>cockroach 的底层 scaling 存储本身可以认为是一张无限大的有序 KV map，上层封装了一层 SQL。他 sharding 的方式是通过 range 实现的。对一组 64M 大小数据的范围内的 key 做冗余，用二级 metadata range 可以理论上存储 4EB 的数据。</p>
+<span id="more"></span>
 <p>举个例子，五节点打散三副本的一个 range 做冗余，是成本性能和效率上比较典型的一个折衷。像你说的 leader 集中的情况是比较少的，因为三副本是打散分布到不同节点上的，所以三副本的交集不会太集中，单点的压力还是很少的。</p>
 <p>另外租约的存在（不知道算不算在 multi raft 算法内），也可以缓解集中化的压力，通过获得授权的租约旁路一些“可以本地化”的请求（比如只对一个 replica 的操作以及一些能保证数据不变的一段时间的读请求），来缓解主的压力，这个最早我记得在 GFS 里面看到过是这么设计的。</p>
 <p>另外 gossip 的协议有点像交换机的生成树协议，是通过互相传播自己的负载和位置信心来传播信息的，没有中心化的决策节点，这样的好处就是无中心化，不会依靠一个中心的节点来做负载均衡，而且整个系统就需要一个二进制文件不依赖任何的其他服务。</p>
