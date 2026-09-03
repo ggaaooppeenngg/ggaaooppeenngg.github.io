@@ -1,0 +1,286 @@
+<html style="margin:0;padding:0;">
+<div style="background-color:transparent;box-sizing:border-box;font-family:'Roboto','PingFang SC','Segoe UI',Arial,sans-serif;color:#1A1B1C;max-width:820px;">
+
+  <div style="padding:14px 16px;border:1px solid rgba(0,0,0,0.08);border-radius:14px;background:rgba(0,0,0,0.025);margin:16px 0;box-sizing:border-box;">
+    <div style="font-size:15px;font-weight:600;">广义 Householder 变换：H = I − β·u·u<sup>T</sup></div>
+    <div style="font-size:13px;color:#6B7280;margin-top:4px;">拖动<b style="color:#b45309;">琥珀色</b>手柄<b>旋转 u</b>（长度锁定，β 不变，镜面随之转动）；<b>黑色</b>手柄可拖 x。β 只由滑块/按钮改变。变换只影响沿 u 的分量：<b>法向缩放 (1 − β‖u‖²) 倍</b>，镜面内分量不变。</div>
+  </div>
+
+  <div style="padding:10px;border:1px solid rgba(0,0,0,0.08);border-radius:14px;background:#FFFFFF;margin:16px 0;box-sizing:border-box;">
+    <svg id="hh" viewBox="0 0 760 580" style="width:100%;height:auto;display:block;touch-action:none;box-sizing:border-box;"></svg>
+  </div>
+
+  <div style="padding:14px 16px;border:1px solid rgba(0,0,0,0.08);border-radius:14px;background:#FFFFFF;margin:16px 0;box-sizing:border-box;">
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      <div style="font-size:13px;font-weight:600;min-width:118px;">β（Householder 系数）</div>
+      <input id="beta" type="range" style="flex:1 1 180px;min-width:0;height:44px;margin:0;accent-color:#5B7BD5;box-sizing:border-box;"/>
+      <div id="betaVal" style="font-size:13px;font-weight:600;min-width:128px;text-align:right;box-sizing:border-box;"></div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px;">
+      <span id="kVal" style="font-size:12px;color:#6B7280;"></span>
+      <span id="effect" style="font-size:12px;font-weight:600;padding:3px 10px;border-radius:6px;background:rgba(0,0,0,0.05);"></span>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
+      <button id="k0" style="flex:1 1 90px;height:44px;border:1px solid rgba(0,0,0,0.12);border-radius:10px;background:#FFFFFF;color:#1A1B1C;font-size:13px;cursor:pointer;box-sizing:border-box;">恒等 k=0</button>
+      <button id="k1" style="flex:1 1 90px;height:44px;border:1px solid rgba(0,0,0,0.12);border-radius:10px;background:#FFFFFF;color:#1A1B1C;font-size:13px;cursor:pointer;box-sizing:border-box;">投影 k=1</button>
+      <button id="k2" style="flex:1 1 90px;height:44px;border:1px solid rgba(0,0,0,0.12);border-radius:10px;background:#FFFFFF;color:#1A1B1C;font-size:13px;cursor:pointer;box-sizing:border-box;">反射 k=2</button>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
+      <div style="flex:1 1 45%;min-width:0;padding:8px 10px;background:rgba(0,0,0,0.03);border-radius:8px;font-size:12px;color:#6B7280;box-sizing:border-box;">x <span id="xVal" style="color:#1A1B1C;font-weight:600;"></span></div>
+      <div style="flex:1 1 45%;min-width:0;padding:8px 10px;background:rgba(0,0,0,0.03);border-radius:8px;font-size:12px;color:#6B7280;box-sizing:border-box;">u <span id="uVal" style="color:#1A1B1C;font-weight:600;"></span></div>
+      <div style="flex:1 1 45%;min-width:0;padding:8px 10px;background:rgba(0,0,0,0.03);border-radius:8px;font-size:12px;color:#6B7280;box-sizing:border-box;">Hx <span id="hVal" style="color:#0f766e;font-weight:600;"></span></div>
+      <div style="flex:1 1 45%;min-width:0;padding:8px 10px;background:rgba(0,0,0,0.03);border-radius:8px;font-size:12px;color:#6B7280;box-sizing:border-box;">垂足 <span id="pVal" style="color:#111827;font-weight:600;"></span></div>
+    </div>
+  </div>
+
+  <script>
+  (function(){
+    try {
+      var svg = document.getElementById('hh');
+      var betaSlider = document.getElementById('beta');
+      var betaVal = document.getElementById('betaVal');
+      var kVal = document.getElementById('kVal');
+      var effectEl = document.getElementById('effect');
+      var xVal = document.getElementById('xVal');
+      var uVal = document.getElementById('uVal');
+      var hVal = document.getElementById('hVal');
+      var pVal = document.getElementById('pVal');
+      var b0 = document.getElementById('k0');
+      var b1 = document.getElementById('k1');
+      var b2 = document.getElementById('k2');
+      if (!svg || !betaSlider || !betaVal || !kVal || !effectEl || !xVal || !uVal || !hVal || !pVal || !b0 || !b1 || !b2) return;
+
+      var ox = 330, oy = 350, s = 36;
+      var u = [8, 4], x = [3, 4], beta = 0.025;
+      var drag = null;
+      var presetBtns = [b0, b1, b2];
+
+      function r(v){ return Math.round(v * 10) / 10; }
+      function f2(v){ return (Math.round(v * 100) / 100).toFixed(2); }
+      function toMath(cx, cy){
+        var m = svg.getScreenCTM();
+        if (!m) return null;
+        var pt = svg.createSVGPoint();
+        pt.x = cx; pt.y = cy;
+        var p = pt.matrixTransform(m.inverse());
+        return { mx: (p.x - ox) / s, my: (oy - p.y) / s };
+      }
+      function getEffect(k){
+        if (Math.abs(k) < 0.01) return { t: '恒等变换 (k≈0, H=I)', c: '#6B7280' };
+        if (Math.abs(k - 1) < 0.01) return { t: '正交投影 (k≈1, Hx=垂足)', c: '#0f766e' };
+        if (Math.abs(k - 2) < 0.01) return { t: 'Householder 反射 (k≈2, 镜像)', c: '#1d4ed8' };
+        if (k < 0) return { t: '法向同向放大 ' + (1 - k).toFixed(2) + '×', c: '#b45309' };
+        if (k < 1) return { t: '法向压缩 ' + (1 - k).toFixed(2) + '×', c: '#0f766e' };
+        if (k < 2) return { t: '法向反向缩小 ' + (k - 1).toFixed(2) + '×', c: '#0f766e' };
+        return { t: '法向反向放大 ' + (k - 1).toFixed(2) + '×', c: '#b45309' };
+      }
+      function setPresetStyles(){
+        var n2 = u[0] * u[0] + u[1] * u[1];
+        var k = beta * n2;
+        var sel = -1;
+        if (Math.abs(k) < 0.01) sel = 0;
+        else if (Math.abs(k - 1) < 0.01) sel = 1;
+        else if (Math.abs(k - 2) < 0.01) sel = 2;
+        for (var i = 0; i < 3; i++) {
+          var on = (i === sel);
+          var b = presetBtns[i];
+          b.style.background = on ? '#5B7BD5' : '#FFFFFF';
+          b.style.color = on ? '#FFFFFF' : '#1A1B1C';
+          b.style.border = on ? '1px solid #3F5FBF' : '1px solid rgba(0,0,0,0.12)';
+          b.style.fontWeight = on ? '600' : '400';
+        }
+      }
+      function attachPress(btn){
+        btn.addEventListener('pointerdown', function(e){
+          btn.style.transform = 'translateY(1px) scale(0.98)';
+          btn.style.boxShadow = 'inset 0 2px 4px rgba(0,0,0,0.18)';
+          btn.style.background = (btn.style.background === 'rgb(91, 123, 213)') ? '#4A66C0' : '#E7EAF2';
+          try { btn.setPointerCapture(e.pointerId); } catch (err) {}
+        });
+        function release(){
+          btn.style.transform = 'none';
+          btn.style.boxShadow = 'none';
+          setPresetStyles();
+        }
+        btn.addEventListener('pointerup', release);
+        btn.addEventListener('pointercancel', release);
+      }
+      attachPress(b0); attachPress(b1); attachPress(b2);
+
+      function render(){
+        var u1 = u[0], u2 = u[1], x1 = x[0], x2 = x[1];
+        var n2 = u1 * u1 + u2 * u2;
+        var un = Math.sqrt(n2) || 1;
+        var dot = x1 * u1 + x2 * u2;
+        var alpha = dot / n2;
+        var p1 = x1 - alpha * u1, p2 = x2 - alpha * u2;
+        var h1 = x1 - beta * dot * u1, h2 = x2 - beta * dot * u2;
+        var k = beta * n2;
+
+        var xs = ox + x1 * s, ys = oy - x2 * s;
+        var hs = ox + h1 * s, hy = oy - h2 * s;
+        var us = ox + u1 * s, uy = oy - u2 * s;
+        var px0 = ox + p1 * s, py0 = oy - p2 * s;
+
+        var dux = u1 / un, duy = u2 / un;
+        var dmx = duy, dmy = -dux;
+        var e1x = ox + dmx * 300, e1y = oy - dmy * 300;
+        var e2x = ox - dmx * 300, e2y = oy + dmy * 300;
+
+        var H = '';
+        H += '<defs>'
+          + '<marker id="aD" markerWidth="10" markerHeight="10" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#111827"/></marker>'
+          + '<marker id="aT" markerWidth="10" markerHeight="10" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#0f766e"/></marker>'
+          + '<marker id="aA" markerWidth="10" markerHeight="10" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#b45309"/></marker>'
+          + '</defs>';
+        for (var g = -6; g <= 8; g += 2) {
+          H += '<line x1="' + (ox + g * s) + '" y1="100" x2="' + (ox + g * s) + '" y2="540" stroke="#f1f2f4" stroke-width="1"/>';
+        }
+        for (var g2 = -4; g2 <= 5; g2 += 2) {
+          H += '<line x1="70" y1="' + (oy - g2 * s) + '" x2="690" y2="' + (oy - g2 * s) + '" stroke="#f1f2f4" stroke-width="1"/>';
+        }
+        // 轨道圆（u 旋转锁定长度的轨迹）
+        H += '<circle cx="330" cy="350" r="' + r(un * s) + '" fill="none" stroke="rgba(180,83,9,0.18)" stroke-width="1.2" stroke-dasharray="5,5"/>';
+        H += '<line x1="60" y1="350" x2="700" y2="350" stroke="#d1d5db" stroke-width="1.2"/>';
+        H += '<line x1="330" y1="90" x2="330" y2="530" stroke="#d1d5db" stroke-width="1.2"/>';
+        H += '<text x="706" y="355" font-size="12" fill="#9ca3af">x₁</text>';
+        H += '<text x="324" y="82" font-size="12" fill="#9ca3af">x₂</text>';
+        H += '<circle cx="330" cy="350" r="2.5" fill="#111827"/>';
+        H += '<text x="316" y="367" font-size="11" fill="#9ca3af">O</text>';
+        H += '<line x1="' + r(e1x) + '" y1="' + r(e1y) + '" x2="' + r(e2x) + '" y2="' + r(e2y) + '" stroke="#2563eb" stroke-width="2"/>';
+        var mxx = (e1y < e2y) ? e1x : e2x;
+        var mlx = Math.max(80, Math.min(650, mxx));
+        var mly = Math.max(104, Math.min(520, Math.min(e1y, e2y) - 8));
+        H += '<text x="' + mlx + '" y="' + mly + '" font-size="12.5" font-weight="bold" fill="#2563eb">镜面 ⊥ u</text>';
+        H += '<path d="M' + r(xs) + ',' + r(ys) + ' L' + r(px0) + ',' + r(py0) + ' L' + r(hs) + ',' + r(hy) + '" fill="none" stroke="#9ca3af" stroke-width="1.6" stroke-dasharray="6,4"/>';
+        if (Math.abs(alpha) > 1e-9) {
+          var sg = alpha > 0 ? 1 : -1;
+          var nxx = sg * dux * 8, nyy = -sg * duy * 8;
+          var txx = dmx * 8, tyy = dmy * 8;
+          H += '<polyline points="' + r(px0) + ',' + r(py0) + ' ' + r(px0 + nxx) + ',' + r(py0 + nyy) + ' ' + r(px0 + nxx + txx) + ',' + r(py0 + nyy + tyy) + ' ' + r(px0 + txx) + ',' + r(py0 + tyy) + '" fill="none" stroke="#9ca3af" stroke-width="1.2"/>';
+        }
+        var m1x = (xs + px0) / 2, m1y = (ys + py0) / 2;
+        var m2x = (px0 + hs) / 2, m2y = (py0 + hy) / 2;
+        var dL1 = Math.abs(alpha) * un;
+        var dL2 = Math.abs(dot) * Math.abs(1 - k) / un;
+        if (Math.abs(k - 2) < 0.02) {
+          var vx1 = -(py0 - ys), vy1 = (px0 - xs), L1n = Math.hypot(vx1, vy1) || 1;
+          var ux1 = vx1 / L1n, uy1 = vy1 / L1n;
+          var vx2 = -(hy - py0), vy2 = (hs - px0), L2n = Math.hypot(vx2, vy2) || 1;
+          var ux2 = vx2 / L2n, uy2 = vy2 / L2n;
+          H += '<line x1="' + r(m1x - 4 * ux1) + '" y1="' + r(m1y - 4 * uy1) + '" x2="' + r(m1x + 4 * ux1) + '" y2="' + r(m1y + 4 * uy1) + '" stroke="#111827" stroke-width="1.4"/>';
+          H += '<line x1="' + r(m1x - 4 * ux1 + 3 * uy1) + '" y1="' + r(m1y - 4 * uy1 - 3 * ux1) + '" x2="' + r(m1x + 4 * ux1 + 3 * uy1) + '" y2="' + r(m1y + 4 * uy1 - 3 * ux1) + '" stroke="#111827" stroke-width="1.4"/>';
+          H += '<line x1="' + r(m2x - 4 * ux2) + '" y1="' + r(m2y - 4 * uy2) + '" x2="' + r(m2x + 4 * ux2) + '" y2="' + r(m2y + 4 * uy2) + '" stroke="#111827" stroke-width="1.4"/>';
+          H += '<line x1="' + r(m2x - 4 * ux2 + 3 * uy2) + '" y1="' + r(m2y - 4 * uy2 - 3 * ux2) + '" x2="' + r(m2x + 4 * ux2 + 3 * uy2) + '" y2="' + r(m2y + 4 * uy2 - 3 * ux2) + '" stroke="#111827" stroke-width="1.4"/>';
+        } else {
+          H += '<text x="' + r(m1x + 6) + '" y="' + r(m1y - 6) + '" font-size="11" fill="#6B7280">' + dL1.toFixed(2) + '</text>';
+          H += '<text x="' + r(m2x + 6) + '" y="' + r(m2y - 6) + '" font-size="11" fill="#6B7280">' + dL2.toFixed(2) + '</text>';
+        }
+        H += '<line x1="330" y1="350" x2="' + r(xs) + '" y2="' + r(ys) + '" stroke="#111827" stroke-width="2.4" marker-end="url(#aD)"/>';
+        H += '<text x="' + (xs + 12) + '" y="' + (ys - 8) + '" font-size="13.5" font-weight="bold" fill="#111827">x = (' + f2(x1) + ', ' + f2(x2) + ')</text>';
+        H += '<line x1="330" y1="350" x2="' + r(hs) + '" y2="' + r(hy) + '" stroke="#0f766e" stroke-width="2.4" marker-end="url(#aT)"/>';
+        var hAnchor = hs < 340 ? ' text-anchor="end"' : '';
+        H += '<text x="' + (hs < 340 ? hs - 10 : hs + 12) + '" y="' + (hy - 8) + '"' + hAnchor + ' font-size="13.5" font-weight="bold" fill="#0f766e">Hx = (' + f2(h1) + ', ' + f2(h2) + ')</text>';
+        H += '<line x1="330" y1="350" x2="' + r(us) + '" y2="' + r(uy) + '" stroke="#b45309" stroke-width="2.2" marker-end="url(#aA)"/>';
+        H += '<text x="' + (us + 12) + '" y="' + (uy - 6) + '" font-size="13" font-weight="bold" fill="#b45309">u = (' + f2(u1) + ', ' + f2(u2) + ')</text>';
+        H += '<circle cx="' + r(px0) + '" cy="' + r(py0) + '" r="3.2" fill="#6b7280"/>';
+        H += '<text x="' + (px0 - 24) + '" y="' + (py0 - 8) + '" font-size="11.5" fill="#6B7280">垂足</text>';
+        H += '<g style="cursor:grab">'
+          + '<circle cx="' + r(us) + '" cy="' + r(uy) + '" r="26" fill="transparent" data-h="u"/>'
+          + '<circle cx="' + r(us) + '" cy="' + r(uy) + '" r="13" fill="rgba(180,83,9,0.18)" stroke="#b45309" stroke-width="2.5"/>'
+          + '<circle cx="' + r(us) + '" cy="' + r(uy) + '" r="7.5" fill="#b45309" stroke="#FFFFFF" stroke-width="2"/>'
+          + '</g>';
+        H += '<g style="cursor:grab">'
+          + '<circle cx="' + r(xs) + '" cy="' + r(ys) + '" r="26" fill="transparent" data-h="x"/>'
+          + '<circle cx="' + r(xs) + '" cy="' + r(ys) + '" r="12" fill="rgba(17,24,39,0.15)" stroke="#111827" stroke-width="2.5"/>'
+          + '<circle cx="' + r(xs) + '" cy="' + r(ys) + '" r="7" fill="#111827" stroke="#FFFFFF" stroke-width="2"/>'
+          + '</g>';
+        svg.innerHTML = H;
+      }
+
+      function updateReadout(){
+        var u1 = u[0], u2 = u[1], x1 = x[0], x2 = x[1];
+        var n2 = u1 * u1 + u2 * u2;
+        var k = beta * n2;
+        betaVal.textContent = 'β = ' + beta.toFixed(5);
+        kVal.textContent = 'k = β‖u‖² = ' + k.toFixed(3) + '，法向缩放 ' + (1 - k).toFixed(3);
+        var ef = getEffect(k);
+        effectEl.textContent = ef.t;
+        effectEl.style.color = ef.c;
+        xVal.textContent = '(' + f2(x1) + ', ' + f2(x2) + ')';
+        uVal.textContent = '(' + f2(u1) + ', ' + f2(u2) + ')';
+        var dot = x1 * u1 + x2 * u2;
+        var h1 = x1 - beta * dot * u1, h2 = x2 - beta * dot * u2;
+        var alpha = dot / n2;
+        var p1 = x1 - alpha * u1, p2 = x2 - alpha * u2;
+        hVal.textContent = '(' + f2(h1) + ', ' + f2(h2) + ')';
+        pVal.textContent = '(' + f2(p1) + ', ' + f2(p2) + ')';
+        setPresetStyles();
+      }
+
+      function syncControls(){
+        var n2 = u[0] * u[0] + u[1] * u[1];
+        var lo = -1 / n2, hi = 3 / n2;
+        betaSlider.min = lo; betaSlider.max = hi;
+        betaSlider.step = Math.max(0.0001, (hi - lo) / 2000);
+        if (beta < lo) beta = lo;
+        if (beta > hi) beta = hi;
+        betaSlider.value = beta;
+      }
+
+      function moveTo(cx, cy){
+        var p = toMath(cx, cy);
+        if (!p) return;
+        if (drag === 'u') {
+          var len2 = Math.hypot(p.mx, p.my);
+          if (len2 < 0.05) return;
+          var curLen = Math.max(0.3, Math.hypot(u[0], u[1]));
+          u[0] = p.mx / len2 * curLen;
+          u[1] = p.my / len2 * curLen;
+        } else if (drag === 'x') {
+          x[0] = p.mx; x[1] = p.my;
+        }
+        syncControls();
+        updateReadout();
+        render();
+      }
+
+      svg.addEventListener('pointerdown', function(e){
+        var t = e.target;
+        var h = t && t.getAttribute ? t.getAttribute('data-h') : null;
+        if (!h && t && t.closest) {
+          var g = t.closest('[data-h]');
+          if (g) h = g.getAttribute('data-h');
+        }
+        if (!h) return;
+        drag = h;
+        try { svg.setPointerCapture(e.pointerId); } catch (err) {}
+        moveTo(e.clientX, e.clientY);
+        e.preventDefault();
+      });
+      svg.addEventListener('pointermove', function(e){
+        if (!drag) return;
+        moveTo(e.clientX, e.clientY);
+      });
+      function endDrag(){ drag = null; }
+      svg.addEventListener('pointerup', endDrag);
+      svg.addEventListener('pointercancel', endDrag);
+
+      betaSlider.addEventListener('input', function(){
+        beta = parseFloat(this.value);
+        updateReadout();
+        render();
+      });
+
+      b0.addEventListener('click', function(){ beta = 0; syncControls(); updateReadout(); render(); });
+      b1.addEventListener('click', function(){ beta = 1 / (u[0]*u[0] + u[1]*u[1]); syncControls(); updateReadout(); render(); });
+      b2.addEventListener('click', function(){ beta = 2 / (u[0]*u[0] + u[1]*u[1]); syncControls(); updateReadout(); render(); });
+
+      syncControls();
+      updateReadout();
+      render();
+    } catch (e) { console.error(e); }
+  })();
+  </script>
+</div>
+</html>
