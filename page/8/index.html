@@ -612,7 +612,7 @@
         <i class="far fa-calendar-check"></i>
       </span>
       <span class="post-meta-item-text">更新于</span>
-      <time title="修改时间：2026-09-01 03:01:01" itemprop="dateModified" datetime="2026-09-01T03:01:01+08:00">2026-09-01</time>
+      <time title="修改时间：2026-09-01 11:11:34" itemprop="dateModified" datetime="2026-09-01T11:11:34+08:00">2026-09-01</time>
     </span>
 
   
@@ -665,21 +665,21 @@
 <h3 id="filters">filters</h3>
 <p>首先通过 <code>./staging/src/k8s.io/apiserver/pkg/server/config.go  </code> 下的 <code>DefaultBuildHandlerChain</code>  构建 filters。</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">func DefaultBuildHandlerChain(apiHandler http.Handler, c *Config) http.Handler &#123;</span><br><span class="line">	handler := genericapifilters.WithAuthorization(apiHandler, c.RequestContextMapper, c.Authorizer, c.Serializer)</span><br><span class="line">	handler = genericfilters.WithMaxInFlightLimit(handler, c.MaxRequestsInFlight, c.MaxMutatingRequestsInFlight, c.RequestContextMapper, c.LongRunningFunc)</span><br><span class="line">	handler = genericapifilters.WithImpersonation(handler, c.RequestContextMapper, c.Authorizer, c.Serializer)</span><br><span class="line">	if utilfeature.DefaultFeatureGate.Enabled(features.AdvancedAuditing) &#123;</span><br><span class="line">		handler = genericapifilters.WithAudit(handler, c.RequestContextMapper, c.AuditBackend, c.AuditPolicyChecker, c.LongRunningFunc)</span><br><span class="line">	&#125; else &#123;</span><br><span class="line">		handler = genericapifilters.WithLegacyAudit(handler, c.RequestContextMapper, c.LegacyAuditWriter)</span><br><span class="line">	&#125;</span><br><span class="line">	failedHandler := genericapifilters.Unauthorized(c.RequestContextMapper, c.Serializer, c.SupportsBasicAuth)</span><br><span class="line">	if utilfeature.DefaultFeatureGate.Enabled(features.AdvancedAuditing) &#123;</span><br><span class="line">		failedHandler = genericapifilters.WithFailedAuthenticationAudit(failedHandler, c.RequestContextMapper, c.AuditBackend, c.AuditPolicyChecker)</span><br><span class="line">	&#125;</span><br><span class="line">	handler = genericapifilters.WithAuthentication(handler, c.RequestContextMapper, c.Authenticator, failedHandler)</span><br><span class="line">	handler = genericfilters.WithCORS(handler, c.CorsAllowedOriginList, nil, nil, nil, &quot;true&quot;)</span><br><span class="line">	handler = genericfilters.WithTimeoutForNonLongRunningRequests(handler, c.RequestContextMapper, c.LongRunningFunc, c.RequestTimeout)</span><br><span class="line">	handler = genericapifilters.WithRequestInfo(handler, c.RequestInfoResolver, c.RequestContextMapper)</span><br><span class="line">	handler = apirequest.WithRequestContext(handler, c.RequestContextMapper)</span><br><span class="line">	handler = genericfilters.WithPanicRecovery(handler)</span><br><span class="line">	return handler</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<h5 id="panic-recover">panic recover</h5>
+<h4 id="panic-recover">panic recover</h4>
 <p><code>genericfilters.WithPanicRecovery</code> 在 handler 的最外层对出现的 panic 恢复，并且打印每次请求的 log，所以你想观察 API 请求的情况可以 <code>grep wrap.go</code> 就能看到。</p>
-<h5 id="request-context">request context</h5>
+<h4 id="request-context">request context</h4>
 <p><code>apirequest.WithRequestContext</code> 给 request 绑定一个 Context</p>
-<h5 id="RequestInfo">RequestInfo</h5>
+<h4 id="RequestInfo">RequestInfo</h4>
 <p>跟路 url 提取后续请求需要的 group, version, namespace, verb, resource 等信息。</p>
-<h5 id="WithTimeoutForNonLongRunningRequests">WithTimeoutForNonLongRunningRequests</h5>
+<h4 id="WithTimeoutForNonLongRunningRequests">WithTimeoutForNonLongRunningRequests</h4>
 <p>限制 API 调用时间，超时处理提前终止 write。</p>
-<h5 id="WithCORS">WithCORS</h5>
+<h4 id="WithCORS">WithCORS</h4>
 <p>允许跨域访问。</p>
-<h5 id="authentication">authentication</h5>
+<h4 id="authentication">authentication</h4>
 <p>在 <code>k8s.io/apiserver/pkg/endpoints/filters/authentication.go</code> 下。<code>WithAuthentication</code> 插入鉴权信息，例如证书鉴权，token 鉴权等，并且从鉴权信息当中获取 user 信息（可能是 service account 也可能是外部用户）user 身份是由<a target="_blank" rel="noopener" href="https://kubernetes.io/docs/admin/authentication/">这</a> 里面的几种方式确认的</p>
-<h5 id="authorization">authorization</h5>
+<h4 id="authorization">authorization</h4>
 <p>检查是否有权限进行对应资源的操作。一种是 RBAC 一种是 Node。具体这两种方式可以看这个<a target="_blank" rel="noopener" href="https://kubernetes.io/docs/admin/authorization/">介绍</a>，RBAC 主要是针对服务的，而 Node 模式主要是针对 kubelet 的。</p>
-<h5 id="impersonation">impersonation</h5>
+<h4 id="impersonation">impersonation</h4>
 <p>让用户伪装成其他用户，比如 admin 可以用普通用户的身份创建资源。</p>
 <h3 id="路由">路由</h3>
 <p>通过 genericapiserver 的 <code>InstallLegacyAPIGroup</code> 就注册到路由当中。具体的做法就是根据 version, resource, sub resource, verb 等信息构造路由，然后用 <code>go-restful </code> 注册处理函数。比如说 GET</p>
