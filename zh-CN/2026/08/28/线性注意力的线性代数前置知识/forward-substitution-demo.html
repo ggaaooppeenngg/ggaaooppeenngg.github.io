@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>按列前代求单位下三角矩阵的逆</title>
+<style>
+  html,body{margin:0;padding:0;background:transparent;}
+  body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Segoe UI",Roboto,Arial,sans-serif;color:#1A1B1C;}
+  .wrap{max-width:700px;margin:0 auto;padding:4px 8px 12px;box-sizing:border-box;}
+  .card{padding:12px 14px;border:1px solid rgba(0,0,0,.08);border-radius:12px;background:#fff;margin:10px 0;box-sizing:border-box;}
+  .hd{background:rgba(0,0,0,.025);}
+  .t1{font-size:15px;font-weight:600;}
+  .t2{font-size:12.5px;color:#6B7280;margin-top:4px;line-height:1.6;}
+  .grid{display:flex;justify-content:center;}
+  .rowlab{display:flex;flex-direction:column;margin-right:8px;padding-top:24px;}
+  .rowlab div{height:44px;display:flex;align-items:center;justify-content:flex-end;font-size:11.5px;color:#6B7280;padding-right:6px;}
+  .collab{display:flex;gap:6px;margin-bottom:6px;}
+  .collab div{width:44px;text-align:center;font-size:11.5px;color:#6B7280;}
+  #mat{display:flex;flex-direction:column;gap:6px;}
+  .cell{width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:8px;font-size:15px;font-weight:600;box-sizing:border-box;}
+  #infoTitle{font-size:13.5px;font-weight:600;}
+  #infoDesc{font-size:13px;line-height:1.75;margin-top:8px;}
+  .ctl{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;margin:10px 0 2px;}
+  button.nav{height:40px;min-width:84px;padding:0 14px;border-radius:9px;font-size:13.5px;cursor:pointer;box-sizing:border-box;}
+  #prev{border:1px solid rgba(0,0,0,.12);background:#fff;color:#1A1B1C;}
+  #next{border:none;background:#5B7BD5;color:#fff;font-weight:600;}
+  button.nav:disabled{opacity:.4;cursor:default;}
+  #dots{display:flex;gap:7px;align-items:center;}
+  #dots button{width:12px;height:12px;border-radius:50%;border:none;padding:0;cursor:pointer;background:#D5D9E0;}
+  code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;background:rgba(0,0,0,.04);padding:1px 4px;border-radius:4px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card hd">
+    <div class="t1">逐步演示：解 L·X = I，按列前代求 L⁻¹</div>
+    <div class="t2">示例 L = [[1,0,0],[2,1,0],[3,4,1]]（即 a=2, b=3, c=4）。蓝底格 = 当前正在计算的元素，浅蓝 = 已求出，灰色 ? = 未知；带蓝边框的列 = 正在回代的列。</div>
+  </div>
+
+  <div class="card">
+    <div class="grid">
+      <div class="rowlab"><div>第 1 行</div><div>第 2 行</div><div>第 3 行</div></div>
+      <div>
+        <div class="collab"><div>x<sub>·1</sub></div><div>x<sub>·2</sub></div><div>x<sub>·3</sub></div></div>
+        <div id="mat"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div id="infoTitle"></div>
+    <div id="infoDesc"></div>
+  </div>
+
+  <div class="ctl">
+    <button id="prev" class="nav">上一步</button>
+    <div id="dots"></div>
+    <button id="next" class="nav">下一步</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  var N = null;
+  var steps = [
+    { title:'0 / 7 · 目标：解 L·X = I',
+      desc:'把 X 按列分块 X = [x<sub>1</sub>, x<sub>2</sub>, x<sub>3</sub>]、I = [e<sub>1</sub>, e<sub>2</sub>, e<sub>3</sub>]，矩阵方程裂成三个互不相干的方程组 L·x<sub>j</sub> = e<sub>j</sub>。因为 L 是下三角，每列都能从第 1 行往下逐行解出——每行只剩一个新未知量，全程不需要消元。',
+      known:[[N,N,N],[N,N,N],[N,N,N]], cur:null, col:null },
+    { title:'1 / 7 · 第 1 列，对角起点：x<sub>11</sub> = 1',
+      desc:'第 1 行方程为 1·x<sub>11</sub> = 1，直接得 x<sub>11</sub> = 1。对角系数 l<sub>11</sub> = 1、e<sub>1</sub> 第 1 分量为 1，所以每列都从 x<sub>jj</sub> = 1 起步。',
+      known:[[1,N,N],[N,N,N],[N,N,N]], cur:[0,0], col:0 },
+    { title:'2 / 7 · 第 1 列回代：x<sub>21</sub> = −a = −2',
+      desc:'第 2 行：a·x<sub>11</sub> + 1·x<sub>21</sub> = 0（右端为 0，因为 e<sub>1</sub> 第 2 分量是 0）。代入 x<sub>11</sub> = 1 得 x<sub>21</sub> = −a = −2。已知项移项取负即可。',
+      known:[[1,N,N],[-2,N,N],[N,N,N]], cur:[1,0], col:0 },
+    { title:'3 / 7 · 第 1 列回代：x<sub>31</sub> = ac − b = 5',
+      desc:'第 3 行：b·x<sub>11</sub> + c·x<sub>21</sub> + 1·x<sub>31</sub> = 0，即 x<sub>31</sub> = −(b + c·x<sub>21</sub>) = −(3 + 4×(−2)) = 5。它用到本列刚求出的 x<sub>21</sub>——这就是「列内必须自上而下」的原因。',
+      known:[[1,N,N],[-2,N,N],[5,N,N]], cur:[2,0], col:0 },
+    { title:'4 / 7 · 第 2 列：x<sub>12</sub> = 0，x<sub>22</sub> = 1',
+      desc:'e<sub>2</sub> = [0,1,0]<sup>T</sup>。第 1 行 1·x<sub>12</sub> = 0 → x<sub>12</sub> = 0，这就是 i &lt; j 处恒为 0（逆仍是下三角）；第 2 行 a·0 + 1·x<sub>22</sub> = 1 → x<sub>22</sub> = 1，又一个对角起点。',
+      known:[[1,0,N],[-2,1,N],[5,N,N]], cur:[1,1], col:1 },
+    { title:'5 / 7 · 第 2 列回代：x<sub>32</sub> = −c = −4',
+      desc:'第 3 行：b·x<sub>12</sub> + c·x<sub>22</sub> + 1·x<sub>32</sub> = 0 → 0 + 4×1 + x<sub>32</sub> = 0 → x<sub>32</sub> = −4。只用到 L 的第 3 行与本列已求的 x<sub>22</sub>，完全不碰第 1 列——所以列间天然可并行。',
+      known:[[1,0,N],[-2,1,N],[5,-4,N]], cur:[2,1], col:1 },
+    { title:'6 / 7 · 第 3 列：x<sub>13</sub> = x<sub>23</sub> = 0，x<sub>33</sub> = 1',
+      desc:'e<sub>3</sub> = [0,0,1]<sup>T</sup>。前两行右端全为 0 且对角上方无数据 → x<sub>13</sub> = x<sub>23</sub> = 0；第 3 行 1·x<sub>33</sub> = 1 → x<sub>33</sub> = 1。最后一列无需回代。',
+      known:[[1,0,0],[-2,1,0],[5,-4,1]], cur:[2,2], col:2 },
+    { title:'7 / 7 · 完成：L⁻¹ = [[1,0,0],[−2,1,0],[5,−4,1]]',
+      desc:'验证 L·L⁻¹ = I 的第 3 行：3×1 + 4×(−2) + 1×5 = 0、3×0 + 4×1 + 1×(−4) = 0、1×1 = 1。非对角全 0、对角全 1 ✓。全部计算量都在 i &gt; j 的递推 x<sub>ij</sub> = −(l<sub>ij</sub> + Σ<sub>k=j+1..i−1</sub> l<sub>ik</sub>x<sub>kj</sub>) 上，n 列合计约 n³/6 次乘加，且不需要选主元。',
+      known:[[1,0,0],[-2,1,0],[5,-4,1]], cur:null, col:null }
+  ];
+
+  var step = 0;
+  var mat = document.getElementById('mat');
+  var infoTitle = document.getElementById('infoTitle');
+  var infoDesc = document.getElementById('infoDesc');
+  var dots = document.getElementById('dots');
+  var prev = document.getElementById('prev');
+  var next = document.getElementById('next');
+
+  for (var i = 0; i < steps.length; i++) {
+    (function(s){
+      var d = document.createElement('button');
+      d.setAttribute('aria-label', '第 ' + (s + 1) + ' 步');
+      d.addEventListener('click', function(){ step = s; render(); });
+      dots.appendChild(d);
+    })(i);
+  }
+
+  function render(){
+    var st = steps[step], ds = dots.children, s, r, c;
+    for (s = 0; s < ds.length; s++) ds[s].style.background = (s === step) ? '#5B7BD5' : '#D5D9E0';
+
+    var html = '';
+    for (r = 0; r < 3; r++) {
+      html += '<div style="display:flex;gap:6px;">';
+      for (c = 0; c < 3; c++) {
+        var v = st.known[r][c];
+        var isCur = st.cur && st.cur[0] === r && st.cur[1] === c;
+        var bg = '#F4F3EE', tx = '#B0B4BB', disp = '?', bd = '1px solid rgba(0,0,0,.06)', extra = '';
+        if (isCur) { bg = '#5B7BD5'; tx = '#fff'; disp = v; bd = '2px solid #3F5FBF'; }
+        else if (v !== null) { bg = '#E1E9FB'; tx = '#1A1B1C'; disp = v; }
+        if (st.col === c && !isCur) extra = 'box-shadow:inset 0 0 0 2px rgba(91,123,213,.35);';
+        html += '<div class="cell" style="background:' + bg + ';color:' + tx + ';border:' + bd + ';' + extra + '">' + disp + '</div>';
+      }
+      html += '</div>';
+    }
+    mat.innerHTML = html;
+    infoTitle.innerHTML = st.title;
+    infoDesc.innerHTML = st.desc;
+    prev.disabled = (step === 0);
+    next.disabled = (step === steps.length - 1);
+  }
+
+  prev.addEventListener('click', function(){ if (step > 0) { step--; render(); } });
+  next.addEventListener('click', function(){ if (step < steps.length - 1) { step++; render(); } });
+  render();
+})();
+</script>
+</body>
+</html>
