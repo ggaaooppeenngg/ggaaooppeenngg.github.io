@@ -21,17 +21,17 @@
 
 <script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":"giscus","storage":true,"lazyload":false,"nav":null,"activeClass":"giscus"},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
 
-    <meta name="description" content="SSA概述 SSA在Go1.7中被引入，这个特性对编译器的性能有很大的提高，但是也导致编译过程有些减速。下面来结合网上的资粮和书籍，简单说明一下SSA以及SSA的应用。 SSA 代表 static single-assignment，是一种IR(中间表示代码)，要保证每个变量只被赋值一次。这个能帮助简化编译器的优化算法。 123y :&#x3D; 1y :&#x3D; 2x :&#x3D; y 比如上面这段代码，y &#x3D; 1其实">
+    <meta name="description" content="SSA概述 SSA在Go1.7中被引入，这个特性对编译器的性能有很大的提高，但是也导致编译过程有些减速。下面来结合网上的资粮和书籍，简单说明一下SSA以及SSA的应用。">
 <meta property="og:type" content="article">
 <meta property="og:title" content="什么是SSA以及SSA的作用">
 <meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2017/01/22/SSA%E6%98%AF%E4%BB%80%E4%B9%88/index.html">
 <meta property="og:site_name" content="ggaaooppeenngg">
-<meta property="og:description" content="SSA概述 SSA在Go1.7中被引入，这个特性对编译器的性能有很大的提高，但是也导致编译过程有些减速。下面来结合网上的资粮和书籍，简单说明一下SSA以及SSA的应用。 SSA 代表 static single-assignment，是一种IR(中间表示代码)，要保证每个变量只被赋值一次。这个能帮助简化编译器的优化算法。 123y :&#x3D; 1y :&#x3D; 2x :&#x3D; y 比如上面这段代码，y &#x3D; 1其实">
+<meta property="og:description" content="SSA概述 SSA在Go1.7中被引入，这个特性对编译器的性能有很大的提高，但是也导致编译过程有些减速。下面来结合网上的资粮和书籍，简单说明一下SSA以及SSA的应用。">
 <meta property="og:locale" content="zh_CN">
 <meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/01/22/SSA%E6%98%AF%E4%BB%80%E4%B9%88/example_1.jpg">
 <meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2017/01/22/SSA%E6%98%AF%E4%BB%80%E4%B9%88/example_2.jpg">
 <meta property="article:published_time" content="2017-01-21T17:14:50.000Z">
-<meta property="article:modified_time" content="2026-08-31T19:01:01.191Z">
+<meta property="article:modified_time" content="2026-09-03T15:50:47.263Z">
 <meta property="article:author" content="ggaaooppeenngg">
 <meta property="article:tag" content="Go">
 <meta property="article:tag" content="编译">
@@ -222,7 +222,7 @@
         <i class="far fa-calendar-check"></i>
       </span>
       <span class="post-meta-item-text">更新于</span>
-      <time title="修改时间：2026-09-01 03:01:01" itemprop="dateModified" datetime="2026-09-01T03:01:01+08:00">2026-09-01</time>
+      <time title="修改时间：2026-09-03 23:50:47" itemprop="dateModified" datetime="2026-09-03T23:50:47+08:00">2026-09-03</time>
     </span>
     <span class="post-meta-item">
       <span class="post-meta-item-icon">
@@ -245,6 +245,7 @@
     
     <div class="post-body" itemprop="articleBody"><h2 id="SSA概述">SSA概述</h2>
 <p>SSA在Go1.7中被引入，这个特性对编译器的性能有很大的提高，但是也导致编译过程有些减速。下面来结合网上的资粮和书籍，简单说明一下SSA以及SSA的应用。</p>
+<span id="more"></span>
 <p>SSA 代表 static single-assignment，是一种IR(中间表示代码)，要保证每个变量只被赋值一次。这个能帮助简化编译器的优化算法。</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">y := 1</span><br><span class="line">y := 2</span><br><span class="line">x := y</span><br></pre></td></tr></table></figure>
 <p>比如上面这段代码，<code>y = 1</code>其实是不可用的，这个要通过定义的可达分析来确定<code>y</code>是要用1还是2，而SSA有一个标识符可以称之为版本或者“代“。</p>

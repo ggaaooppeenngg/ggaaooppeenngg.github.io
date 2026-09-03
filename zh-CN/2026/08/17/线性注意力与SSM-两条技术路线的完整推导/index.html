@@ -29,7 +29,7 @@
 <meta property="og:description" content="0. 为什么要固定大小的记忆状态 标准 softmax 注意力解码时必须缓存全部历史的 Key&#x2F;Value，显存和单步延迟都是 O(n⋅d)O(n \cdot d)O(n⋅d)，上下文翻倍就一起翻倍。把历史压缩成一个固定大小的状态 S∈Rd×dS \in \mathbb{R}^{d \times d}S∈Rd×d，显存和单步开销变成 O(d2)O(d^2)O(d2)，与 nnn 无关。 代价是这个">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2026-08-17T06:40:00.000Z">
-<meta property="article:modified_time" content="2026-09-01T03:13:23.654Z">
+<meta property="article:modified_time" content="2026-09-03T15:47:57.458Z">
 <meta property="article:author" content="ggaaooppeenngg">
 <meta property="article:tag" content="Mamba">
 <meta property="article:tag" content="SSM">
@@ -222,7 +222,7 @@
         <i class="far fa-calendar-check"></i>
       </span>
       <span class="post-meta-item-text">更新于</span>
-      <time title="修改时间：2026-09-01 11:13:23" itemprop="dateModified" datetime="2026-09-01T11:13:23+08:00">2026-09-01</time>
+      <time title="修改时间：2026-09-03 23:47:57" itemprop="dateModified" datetime="2026-09-03T23:47:57+08:00">2026-09-03</time>
     </span>
     <span class="post-meta-item">
       <span class="post-meta-item-icon">
@@ -246,6 +246,7 @@
     <div class="post-body" itemprop="articleBody"><h2 id="0-为什么要固定大小的记忆状态">0. 为什么要固定大小的记忆状态</h2>
 <p>标准 softmax 注意力解码时必须缓存全部历史的 Key/Value，显存和单步延迟都是 <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>O</mi><mo stretchy="false">(</mo><mi>n</mi><mo>⋅</mo><mi>d</mi><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">O(n \cdot d)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal" style="margin-right:0.0278em;">O</span><span class="mopen">(</span><span class="mord mathnormal">n</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">⋅</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal">d</span><span class="mclose">)</span></span></span></span>，上下文翻倍就一起翻倍。把历史压缩成一个固定大小的状态 <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>S</mi><mo>∈</mo><msup><mi mathvariant="double-struck">R</mi><mrow><mi>d</mi><mo>×</mo><mi>d</mi></mrow></msup></mrow><annotation encoding="application/x-tex">S \in \mathbb{R}^{d \times d}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.7224em;vertical-align:-0.0391em;"></span><span class="mord mathnormal" style="margin-right:0.0576em;">S</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">∈</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.8491em;"></span><span class="mord"><span class="mord mathbb">R</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8491em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight">d</span><span class="mbin mtight">×</span><span class="mord mathnormal mtight">d</span></span></span></span></span></span></span></span></span></span></span></span>，显存和单步开销变成 <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>O</mi><mo stretchy="false">(</mo><msup><mi>d</mi><mn>2</mn></msup><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">O(d^2)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1.0641em;vertical-align:-0.25em;"></span><span class="mord mathnormal" style="margin-right:0.0278em;">O</span><span class="mopen">(</span><span class="mord"><span class="mord mathnormal">d</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8141em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span></span></span></span></span><span class="mclose">)</span></span></span></span>，与 <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>n</mi></mrow><annotation encoding="application/x-tex">n</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.4306em;"></span><span class="mord mathnormal">n</span></span></span></span> 无关。</p>
 <p>代价是这个状态必须会写、会改、会忘。两条路线各给出一半答案：线性注意力造出固定状态，SSM 教它怎么遗忘。</p>
+<span id="more"></span>
 <hr>
 <h2 id="1-路线一：线性注意力">1. 路线一：线性注意力</h2>
 <h3 id="1-1-去掉-softmax，结合律才可用">1.1 去掉 softmax，结合律才可用</h3>

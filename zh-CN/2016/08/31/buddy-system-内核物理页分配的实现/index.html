@@ -21,12 +21,12 @@
 
 <script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":"giscus","storage":true,"lazyload":false,"nav":null,"activeClass":"giscus"},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
 
-    <meta name="description" content="很多人看内核物理页的分配都喜欢从__alloc_pages开始看，喜欢从程序的执行流程去看问题，其实可换个思路，从开发或者说实现的角度去理解物理页的分配效果可能更好，所以这篇博客，反其道而行之，基于4.7.2的内核代码, 由内向外解释物理页的分配过程的细节. binary buddy system allocation 算法 伙伴分配器算法的流程如下:  如果内存被分配  寻找一个合适大小的内存(">
+    <meta name="description" content="很多人看内核物理页的分配都喜欢从__alloc_pages开始看，喜欢从程序的执行流程去看问题，其实可换个思路，从开发或者说实现的角度去理解物理页的分配效果可能更好，所以这篇博客，反其道而行之，基于4.7.2的内核代码, 由内向外解释物理页的分配过程的细节.">
 <meta property="og:type" content="article">
 <meta property="og:title" content="buddy-system-内核物理页管理的实现">
 <meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2016/08/31/buddy-system-%E5%86%85%E6%A0%B8%E7%89%A9%E7%90%86%E9%A1%B5%E5%88%86%E9%85%8D%E7%9A%84%E5%AE%9E%E7%8E%B0/index.html">
 <meta property="og:site_name" content="ggaaooppeenngg">
-<meta property="og:description" content="很多人看内核物理页的分配都喜欢从__alloc_pages开始看，喜欢从程序的执行流程去看问题，其实可换个思路，从开发或者说实现的角度去理解物理页的分配效果可能更好，所以这篇博客，反其道而行之，基于4.7.2的内核代码, 由内向外解释物理页的分配过程的细节. binary buddy system allocation 算法 伙伴分配器算法的流程如下:  如果内存被分配  寻找一个合适大小的内存(">
+<meta property="og:description" content="很多人看内核物理页的分配都喜欢从__alloc_pages开始看，喜欢从程序的执行流程去看问题，其实可换个思路，从开发或者说实现的角度去理解物理页的分配效果可能更好，所以这篇博客，反其道而行之，基于4.7.2的内核代码, 由内向外解释物理页的分配过程的细节.">
 <meta property="og:locale" content="zh_CN">
 <meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2016/08/31/buddy-system-%E5%86%85%E6%A0%B8%E7%89%A9%E7%90%86%E9%A1%B5%E5%88%86%E9%85%8D%E7%9A%84%E5%AE%9E%E7%8E%B0/buddy-system-free.png">
 <meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2016/08/31/buddy-system-%E5%86%85%E6%A0%B8%E7%89%A9%E7%90%86%E9%A1%B5%E5%88%86%E9%85%8D%E7%9A%84%E5%AE%9E%E7%8E%B0/buddy-alloc-1.png">
@@ -35,7 +35,7 @@
 <meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2016/08/31/buddy-system-%E5%86%85%E6%A0%B8%E7%89%A9%E7%90%86%E9%A1%B5%E5%88%86%E9%85%8D%E7%9A%84%E5%AE%9E%E7%8E%B0/callgraph__alloc_pages-2.png">
 <meta property="og:image" content="https://ggaaooppeenngg.github.io/zh-CN/2016/08/31/buddy-system-%E5%86%85%E6%A0%B8%E7%89%A9%E7%90%86%E9%A1%B5%E5%88%86%E9%85%8D%E7%9A%84%E5%AE%9E%E7%8E%B0/callgraph__free_pages.png">
 <meta property="article:published_time" content="2016-08-30T18:20:53.000Z">
-<meta property="article:modified_time" content="2026-08-31T19:01:01.207Z">
+<meta property="article:modified_time" content="2026-09-03T15:47:57.342Z">
 <meta property="article:author" content="ggaaooppeenngg">
 <meta property="article:tag" content="kernel">
 <meta property="article:tag" content="内核">
@@ -229,7 +229,7 @@
         <i class="far fa-calendar-check"></i>
       </span>
       <span class="post-meta-item-text">更新于</span>
-      <time title="修改时间：2026-09-01 03:01:01" itemprop="dateModified" datetime="2026-09-01T03:01:01+08:00">2026-09-01</time>
+      <time title="修改时间：2026-09-03 23:47:57" itemprop="dateModified" datetime="2026-09-03T23:47:57+08:00">2026-09-03</time>
     </span>
 
   
@@ -242,6 +242,7 @@
     
     
     <div class="post-body" itemprop="articleBody"><p>很多人看内核物理页的分配都喜欢从<code>__alloc_pages</code>开始看，喜欢从程序的执行流程去看问题，其实可换个思路，从开发或者说实现的角度去理解物理页的分配效果可能更好，所以这篇博客，反其道而行之，基于4.7.2的内核代码, 由内向外解释物理页的分配过程的细节.</p>
+<span id="more"></span>
 <h2 id="binary-buddy-system-allocation-算法">binary buddy system allocation 算法</h2>
 <p>伙伴分配器算法的流程如下:</p>
 <ol>

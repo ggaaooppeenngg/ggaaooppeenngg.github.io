@@ -29,7 +29,7 @@
 <meta property="og:description" content="vLLM最近支持了外部加载Transfer Connector，基于LMCache给出的StorageSharedConnector的例子，我尝试实现了一个基于共享内存的Transfer Connector。 v1的接口是一个可以layer wise的实现。 实际上使用下来其实没有明确的区分Producer和Consumer的角色，在P2P的场景下可能比较明显，实际上谁生产kv cache谁消费k">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2025-05-17T02:45:02.000Z">
-<meta property="article:modified_time" content="2026-03-07T07:28:19.138Z">
+<meta property="article:modified_time" content="2026-09-03T15:47:57.246Z">
 <meta property="article:author" content="ggaaooppeenngg">
 <meta property="article:tag" content="PD">
 <meta property="article:tag" content="vLLM">
@@ -220,7 +220,7 @@
         <i class="far fa-calendar-check"></i>
       </span>
       <span class="post-meta-item-text">更新于</span>
-      <time title="修改时间：2026-03-07 15:28:19" itemprop="dateModified" datetime="2026-03-07T15:28:19+08:00">2026-03-07</time>
+      <time title="修改时间：2026-09-03 23:47:57" itemprop="dateModified" datetime="2026-09-03T23:47:57+08:00">2026-09-03</time>
     </span>
 
   
@@ -246,6 +246,7 @@
 </blockquote>
 <p>当然这个接口也可以实现P2P，毕竟他提供了对应的wait接口，无非是等中心化的缓存是否就绪还是Prefill的直接传输是否就绪区别了，这在提供的接口列表当中可以看到。</p>
 <p>实现一个Connector需要关注几个接口。</p>
+<span id="more"></span>
 <h2 id="Worker-side">Worker side</h2>
 <h3 id="Layer-Wise">Layer Wise</h3>
 <p><code>vllm/vllm/attention/layer.py</code>中可以看到。</p>

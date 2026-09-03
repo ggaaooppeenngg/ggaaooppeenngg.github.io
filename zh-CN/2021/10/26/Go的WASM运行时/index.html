@@ -29,7 +29,7 @@
 <meta property="og:description" content="WASM 作为一种通用字节码可以让很多语言编译成 WASM 跑在沙箱VM环境当中：跑在浏览器的 V8 引擎上，让别的语言可以写前端、 构建成 Istio 的代理 Envoy 的 WASM 插件形成一些过滤器或者日志插件（有点像内核的 eBPF）、作为各种语言的浇水层（让Rust调用Go编译出的WASM）。  The major problem is that, whilst the Go comp">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2021-10-26T07:56:55.000Z">
-<meta property="article:modified_time" content="2025-03-14T05:50:06.835Z">
+<meta property="article:modified_time" content="2026-09-03T15:47:57.273Z">
 <meta property="article:author" content="ggaaooppeenngg">
 <meta property="article:tag" content="Go">
 <meta property="article:tag" content="WASM">
@@ -220,7 +220,7 @@
         <i class="far fa-calendar-check"></i>
       </span>
       <span class="post-meta-item-text">更新于</span>
-      <time title="修改时间：2025-03-14 13:50:06" itemprop="dateModified" datetime="2025-03-14T13:50:06+08:00">2025-03-14</time>
+      <time title="修改时间：2026-09-03 23:47:57" itemprop="dateModified" datetime="2026-09-03T23:47:57+08:00">2026-09-03</time>
     </span>
 
   
@@ -239,6 +239,7 @@
 </blockquote>
 <p>Go 的 WASM 目前没有支持 WASI，类似于没有 native 的系统调用，所以很多文件、网络的请求不能通过系统执行，目前只能跑在浏览器通过浏览器的接口执行。<br>
 <a target="_blank" rel="noopener" href="https://github.com/tinygo-org/tinygo">TinyGo</a> 是一个支持比较好的 WASM 的 Go 的运行时，有些需要WASI的项目就需要TinyGo来构建。</p>
+<span id="more"></span>
 <h2 id="调度">调度</h2>
 <p>WASM 是一个单线程的环境，js 是一个基于事件的模型，对于 goroutine 的调度是如何进行的，本着这个好奇研究了一下 Go 本身的 WASM 运行时。比如下面这段代码就明确了 Go 的 WASM 没有多线程也就没有跑 sysmon。<br>
 没有sysmon就相当于sysmon的forcegc触发gc的部分也没有，只能靠主动GC和内存分配的时候触发超过阈值开始gc。</p>

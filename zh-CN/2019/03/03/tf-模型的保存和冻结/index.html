@@ -29,7 +29,7 @@
 <meta property="og:description" content="模型的保存分三种类型  知道模型结构，单纯保存变量 不知道模型结构，保存模型和变量 不需要再改变量，只要常量化的模型（“冻结”）  第一种用于训练的存档，并且临时恢复，这个时候用户是把训练需要的网络结构在代码里面构造好了的，只是在一定的时间下需要暂时保存网络中的变量，为了在崩溃之后继续训练。所以自然而然会有一个问题，如果我用 Python 写的代码，需要在 C++ 当中恢复，我需要知道你的模型结构">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2019-03-02T18:29:46.000Z">
-<meta property="article:modified_time" content="2026-08-31T19:01:01.202Z">
+<meta property="article:modified_time" content="2026-09-03T15:47:57.432Z">
 <meta property="article:author" content="ggaaooppeenngg">
 <meta property="article:tag" content="机器学习">
 <meta property="article:tag" content="tensorflow">
@@ -221,7 +221,7 @@
         <i class="far fa-calendar-check"></i>
       </span>
       <span class="post-meta-item-text">更新于</span>
-      <time title="修改时间：2026-09-01 03:01:01" itemprop="dateModified" datetime="2026-09-01T03:01:01+08:00">2026-09-01</time>
+      <time title="修改时间：2026-09-03 23:47:57" itemprop="dateModified" datetime="2026-09-03T23:47:57+08:00">2026-09-03</time>
     </span>
 
   
@@ -241,6 +241,7 @@
 </ol>
 <p>第一种用于训练的存档，并且临时恢复，这个时候用户是把训练需要的网络结构在代码里面构造好了的，只是在一定的时间下需要暂时保存网络中的变量，为了在崩溃之后继续训练。所以自然而然会有一个问题，如果我用 Python 写的代码，需要在 C++ 当中恢复，我需要知道你的模型结构，才能恢复，这个最蠢的办法是用 C++ 把你的网络结构再构造一遍，但我们按照统一的协议（比如 Protobuf）确定网络结构，就可以直接从标准序列化的数据中解析网络结构，这就是第二种情况，独立于语言，模型和变量一起保存的情况。然后如果碰到我们不需要再训练了，比如只是把这个模型进行部署，不需要改变相关的变量，那么其实只要一个带常量的模型就可以，这就是第三种情况，把变量冻结的正向传播模型。接下来会依次解释这几种情况的工作方式。</p>
 <p>除了这些以外，针对用于服务的模型还可以做很多的优化。</p>
+<span id="more"></span>
 <h2 id="存档">存档</h2>
 <p>存档只是单纯的保存变量，并且能够恢复，可以在一定的迭代次数以后保存变量，并且从任意一个存档开始重新训练。以两个变量加减 1 为例。</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">import tensorflow as tf</span><br><span class="line"></span><br><span class="line"># Create some variables.</span><br><span class="line">v1 = tf.get_variable(&quot;v1&quot;, shape=[3], initializer = tf.zeros_initializer)</span><br><span class="line">v2 = tf.get_variable(&quot;v2&quot;, shape=[5], initializer = tf.zeros_initializer)</span><br><span class="line"></span><br><span class="line">inc_v1 = v1.assign(v1+1)</span><br><span class="line">dec_v2 = v2.assign(v2-1)</span><br><span class="line"></span><br><span class="line"># Add an op to initialize the variables.</span><br><span class="line">init_op = tf.global_variables_initializer()</span><br><span class="line"></span><br><span class="line"># Add ops to save and restore all the variables.</span><br><span class="line">saver = tf.train.Saver()</span><br><span class="line"></span><br><span class="line"># Later, launch the model, initialize the variables, do some work, and save the</span><br><span class="line"># variables to disk.</span><br><span class="line">with tf.Session() as sess:</span><br><span class="line">  sess.run(init_op)</span><br><span class="line">  # Do some work with the model.</span><br><span class="line">  inc_v1.op.run()</span><br><span class="line">  dec_v2.op.run()</span><br><span class="line">  # Save the variables to disk.</span><br><span class="line">  save_path = saver.save(sess, &quot;/tmp/tf-test/model.ckpt&quot;)</span><br><span class="line">  print(&quot;Model saved in path: %s&quot; % save_path)</span><br></pre></td></tr></table></figure>
