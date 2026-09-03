@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Householder 反射：交互示意</title>
+<style>
+  html,body{margin:0;padding:0;background:transparent;}
+  body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Segoe UI",Roboto,Arial,sans-serif;color:#1A1B1C;-webkit-text-size-adjust:100%;}
+  .wrap{max-width:700px;margin:0 auto;padding:4px 8px 12px;box-sizing:border-box;}
+  .card{padding:12px 14px;border:1px solid rgba(0,0,0,.08);border-radius:12px;background:#fff;margin:10px 0;box-sizing:border-box;}
+  .hd{background:rgba(0,0,0,.025);}
+  .t1{font-size:15px;font-weight:600;}
+  .t2{font-size:12.5px;color:#6B7280;margin-top:4px;line-height:1.65;}
+  svg{display:block;width:100%;height:auto;touch-action:none;cursor:crosshair;}
+  .lgd{display:flex;flex-wrap:wrap;gap:10px 18px;font-size:12px;color:#4B5563;margin-top:10px;}
+  .lgd span{display:flex;align-items:center;gap:6px;}
+  .sw{width:16px;height:3px;border-radius:2px;display:inline-block;}
+  .num{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px;line-height:1.9;}
+  .num b{font-weight:600;font-family:inherit;}
+  .row{display:flex;flex-wrap:wrap;gap:8px 20px;}
+  .ctl{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:4px;}
+  .ctl label{font-size:12.5px;color:#4B5563;min-width:76px;}
+  input[type=range]{flex:1 1 160px;min-width:130px;accent-color:#5B7BD5;}
+  button{height:34px;padding:0 12px;border-radius:8px;font-size:12.5px;cursor:pointer;
+         border:1px solid rgba(0,0,0,.12);background:#fff;color:#1A1B1C;box-sizing:border-box;}
+  button.on{background:#5B7BD5;color:#fff;border-color:#5B7BD5;font-weight:600;}
+  .mat{display:inline-grid;grid-template-columns:auto auto;gap:2px 12px;
+       font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;
+       border-left:2px solid #9CA3AF;border-right:2px solid #9CA3AF;padding:4px 8px;margin-top:2px;}
+  .mat i{font-style:normal;text-align:right;min-width:52px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="card hd">
+    <div class="t1">交互示意：H = I − 2uuᵀ 把 x 镜像到 x′</div>
+    <div class="t2">拖动<b>蓝色点</b>移动向量 <i>x</i>，拖动<b>橙色点</b>或用滑块旋转单位向量 <i>u</i>。灰色虚线是 <i>u</i> 的法平面（2D 里是法线），也就是那面镜子。注意 <i>x</i> 与 <i>x′</i> 到镜面的距离始终相等，长度也始终相等。</div>
+  </div>
+
+  <div class="card">
+    <svg id="cv" viewBox="0 0 560 400" role="img" aria-label="Householder 反射交互图"></svg>
+    <div class="lgd">
+      <span><i class="sw" style="background:#5B7BD5"></i>x（原向量）</span>
+      <span><i class="sw" style="background:#D97757"></i>u（单位法向）</span>
+      <span><i class="sw" style="background:#2E9E5B"></i>x′ = Hx（镜像）</span>
+      <span><i class="sw" style="background:#9CA3AF"></i>镜面（u 的法平面）</span>
+      <span><i class="sw" style="background:#B45FBF"></i>(uᵀx)u（沿 u 的分量）</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="ctl">
+      <label for="ang">u 的角度</label>
+      <input type="range" id="ang" min="0" max="180" step="0.5" value="0">
+      <span id="angv" class="num" style="min-width:44px;text-align:right;"></span>
+    </div>
+    <div class="ctl" style="margin-top:10px;">
+      <button data-p="e1" class="on">u = e₁, x = (3,2)</button>
+      <button data-p="diag">u = 45°</button>
+      <button data-p="qr">QR 用法：把 x 打到 e₁ 轴</button>
+      <button data-p="orth">x ⊥ u（不动点）</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <div class="num">
+        <b>u</b> = (<span id="ux"></span>, <span id="uy"></span>)，‖u‖ = 1<br>
+        <b>x</b> = (<span id="xx"></span>, <span id="xy"></span>)，‖x‖ = <span id="xn"></span><br>
+        <b>uᵀx</b> = <span id="dot"></span>　（沿 u 的坐标）<br>
+        <b>x′</b> = (<span id="px"></span>, <span id="py"></span>)，‖x′‖ = <span id="pn"></span>
+      </div>
+      <div class="num">
+        <b>H = I − 2uuᵀ</b>
+        <div class="mat">
+          <i id="h00"></i><i id="h01"></i>
+          <i id="h10"></i><i id="h11"></i>
+        </div>
+        <div style="margin-top:6px;color:#6B7280;">det H = <span id="det"></span>，H² = I</div>
+      </div>
+    </div>
+    <div class="t2" id="note" style="margin-top:10px;"></div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  var svg = document.getElementById('cv');
+  var W = 560, H = 400, cx = 280, cy = 200, S = 46;   // S: 每单位对应像素
+
+  // 状态：x 向量（数学坐标），u 的角度（度）
+  var xv = {x:3, y:2}, ua = 0;
+
+  var el = {};
+  ['ang','angv','ux','uy','xx','xy','xn','dot','px','py','pn',
+   'h00','h01','h10','h11','det','note'].forEach(function(k){ el[k]=document.getElementById(k); });
+
+  function toPix(p){ return {x: cx + p.x*S, y: cy - p.y*S}; }
+  function toMath(p){ return {x: (p.x-cx)/S, y: (cy-p.y)/S}; }
+  function f(v){ var s=(Math.abs(v)<5e-4?0:v).toFixed(2); return s==='-0.00'?'0.00':s; }
+
+  function arrow(x1,y1,x2,y2,color,wid,dash){
+    var dx=x2-x1, dy=y2-y1, L=Math.hypot(dx,dy);
+    if(L<1e-6) return '';
+    var hl=Math.min(13, L*0.32), a=Math.atan2(dy,dx);
+    var bx=x2-hl*Math.cos(a), by=y2-hl*Math.sin(a), s=hl*0.42;
+    return '<line x1="'+x1+'" y1="'+y1+'" x2="'+bx+'" y2="'+by+'" stroke="'+color+
+           '" stroke-width="'+wid+'" stroke-linecap="round"'+(dash?' stroke-dasharray="'+dash+'"':'')+'/>'+
+           '<polygon points="'+x2+','+y2+' '+
+             (bx-s*Math.sin(a))+','+(by+s*Math.cos(a))+' '+
+             (bx+s*Math.sin(a))+','+(by-s*Math.cos(a))+'" fill="'+color+'"/>';
+  }
+  function label(x,y,t,color,anchor){
+    return '<text x="'+x+'" y="'+y+'" fill="'+color+'" font-size="14" font-weight="600" '+
+           'font-family="ui-monospace,Menlo,monospace" text-anchor="'+(anchor||'start')+'">'+t+'</text>';
+  }
+
+  function render(){
+    var rad = ua*Math.PI/180;
+    var u = {x:Math.cos(rad), y:Math.sin(rad)};
+    var d = u.x*xv.x + u.y*xv.y;                       // uᵀx
+    var proj = {x:d*u.x, y:d*u.y};                     // (uᵀx)u
+    var xp = {x:xv.x-2*proj.x, y:xv.y-2*proj.y};       // Hx
+
+    var s = '';
+    // 网格
+    s += '<rect width="'+W+'" height="'+H+'" fill="#FCFCFB"/>';
+    for(var gx=-6; gx<=6; gx++){
+      var px = cx+gx*S; if(px<0||px>W) continue;
+      s += '<line x1="'+px+'" y1="0" x2="'+px+'" y2="'+H+'" stroke="'+(gx?'#EFEFEC':'#D8DAD6')+'" stroke-width="1"/>';
+    }
+    for(var gy=-4; gy<=4; gy++){
+      var py = cy-gy*S; if(py<0||py>H) continue;
+      s += '<line x1="0" y1="'+py+'" x2="'+W+'" y2="'+py+'" stroke="'+(gy?'#EFEFEC':'#D8DAD6')+'" stroke-width="1"/>';
+    }
+
+    // 镜面：垂直于 u 的直线（2D 中方向为 (-u.y, u.x)）
+    var mL = 600, m1 = toPix({x:-u.y*mL, y:u.x*mL}), m2 = toPix({x:u.y*mL, y:-u.x*mL});
+    s += '<line x1="'+m1.x+'" y1="'+m1.y+'" x2="'+m2.x+'" y2="'+m2.y+
+         '" stroke="#9CA3AF" stroke-width="2" stroke-dasharray="7 5"/>';
+
+    var O = toPix({x:0,y:0}), Px = toPix(xv), Pp = toPix(xp), Pj = toPix(proj), Pu = toPix(u);
+
+    // 等长圆弧（说明 ‖x‖ = ‖x′‖）
+    var r = Math.hypot(xv.x,xv.y)*S;
+    if(r>2) s += '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="#E4E6E1" stroke-width="1" stroke-dasharray="3 4"/>';
+
+    // 从 x 与 x′ 到镜面的垂足（都是 proj 点），画出「减两份」的路径
+    if(Math.abs(d)>1e-3){
+      s += '<line x1="'+Px.x+'" y1="'+Px.y+'" x2="'+Pp.x+'" y2="'+Pp.y+
+           '" stroke="#B45FBF" stroke-width="1.5" stroke-dasharray="4 4" opacity="0.75"/>';
+      var foot = toPix({x:xv.x-proj.x, y:xv.y-proj.y});
+      s += '<circle cx="'+foot.x+'" cy="'+foot.y+'" r="3.5" fill="#9CA3AF"/>';
+      s += label(foot.x+8, foot.y-8, 'x−(uᵀx)u', '#6B7280');
+      // 沿 u 的分量（从原点画）
+      s += arrow(O.x,O.y,Pj.x,Pj.y,'#B45FBF',2.2,'5 4');
+    }
+
+    // 三个主向量
+    s += arrow(O.x,O.y,Px.x,Px.y,'#5B7BD5',3.2);
+    s += arrow(O.x,O.y,Pp.x,Pp.y,'#2E9E5B',3.2);
+    s += arrow(O.x,O.y,Pu.x,Pu.y,'#D97757',2.6);
+
+    s += label(Px.x+10, Px.y-6, 'x', '#5B7BD5');
+    s += label(Pp.x+10, Pp.y-6, "x′=Hx", '#2E9E5B');
+    s += label(Pu.x+9,  Pu.y+16, 'u', '#D97757');
+    s += label(m2.x-8,  m2.y-10, '镜面', '#6B7280', 'end');
+
+    // 可拖动手柄
+    s += '<circle id="hx" cx="'+Px.x+'" cy="'+Px.y+'" r="9" fill="#5B7BD5" fill-opacity="0.28" stroke="#5B7BD5" stroke-width="2"/>';
+    s += '<circle id="hu" cx="'+Pu.x+'" cy="'+Pu.y+'" r="9" fill="#D97757" fill-opacity="0.28" stroke="#D97757" stroke-width="2"/>';
+    svg.innerHTML = s;
+
+    // 数值面板
+    el.ang.value = ua; el.angv.textContent = (Math.round(ua*2)/2) + '°';
+    el.ux.textContent=f(u.x); el.uy.textContent=f(u.y);
+    el.xx.textContent=f(xv.x); el.xy.textContent=f(xv.y);
+    el.xn.textContent=f(Math.hypot(xv.x,xv.y));
+    el.dot.textContent=f(d);
+    el.px.textContent=f(xp.x); el.py.textContent=f(xp.y);
+    el.pn.textContent=f(Math.hypot(xp.x,xp.y));
+    el.h00.textContent=f(1-2*u.x*u.x); el.h01.textContent=f(-2*u.x*u.y);
+    el.h10.textContent=f(-2*u.x*u.y);  el.h11.textContent=f(1-2*u.y*u.y);
+    el.det.textContent='-1.00';
+
+    var note;
+    if(Math.abs(d) < 0.02){
+      note = '此刻 uᵀx ≈ 0：x 落在镜面内，反射对它没有作用，x′ = x。法平面里的 n−1 个方向都是这样的不动方向，对应特征值 1。';
+    } else if(Math.hypot(xp.x,xp.y) - Math.abs(xp.x) < 0.02 && Math.abs(xp.y) < 0.02){
+      note = 'x′ 正好落在横轴上——这就是 QR 分解在用的一件事：给定 x，总能选一个 u 使 Hx = ±‖x‖e₁，一次反射把一整列打成只剩首元。';
+    } else {
+      note = '读法：先算标量 uᵀx = ' + f(d) + '，它是 x 沿 u 的坐标；减一份 (uᵀx)u 落到镜面上（灰点），减两份就穿过镜面到对称位置。式子即 x′ = x − 2(uᵀx)u = (I − 2uuᵀ)x。';
+    }
+    el.note.textContent = note;
+  }
+
+  // ── 拖动 ──
+  var drag = null;
+  function pt(ev){
+    var r = svg.getBoundingClientRect();
+    var t = (ev.touches && ev.touches[0]) ? ev.touches[0] : ev;
+    return {x:(t.clientX-r.left)*W/r.width, y:(t.clientY-r.top)*H/r.height};
+  }
+  function down(ev){
+    var p = pt(ev), Px = toPix(xv);
+    var rad = ua*Math.PI/180, Pu = toPix({x:Math.cos(rad), y:Math.sin(rad)});
+    var du = Math.hypot(p.x-Pu.x, p.y-Pu.y), dx = Math.hypot(p.x-Px.x, p.y-Px.y);
+    if(du < 22 && du <= dx) drag = 'u';
+    else if(dx < 26)        drag = 'x';
+    else                    drag = 'x';          // 空白处点一下直接把 x 挪过去
+    move(ev);
+  }
+  function move(ev){
+    if(!drag) return;
+    ev.preventDefault();
+    var m = toMath(pt(ev));
+    if(drag === 'u'){
+      var a = Math.atan2(m.y, m.x)*180/Math.PI;
+      if(a < 0) a += 180;                        // u 与 −u 给出同一个 H
+      ua = (Math.round(a*2)/2) % 180;
+    } else {
+      xv.x = Math.max(-5.6, Math.min(5.6, Math.round(m.x*4)/4));
+      xv.y = Math.max(-3.8, Math.min(3.8, Math.round(m.y*4)/4));
+    }
+    clearPreset(); render();
+  }
+  function up(){ drag = null; }
+
+  svg.addEventListener('mousedown', down);
+  svg.addEventListener('touchstart', down, {passive:false});
+  window.addEventListener('mousemove', move);
+  window.addEventListener('touchmove', move, {passive:false});
+  window.addEventListener('mouseup', up);
+  window.addEventListener('touchend', up);
+
+  el.ang.addEventListener('input', function(){ ua = +el.ang.value; clearPreset(); render(); });
+
+  // ── 预设 ──
+  var btns = Array.prototype.slice.call(document.querySelectorAll('button[data-p]'));
+  function clearPreset(){ btns.forEach(function(b){ b.classList.remove('on'); }); }
+  var presets = {
+    e1:    function(){ ua = 0;  xv = {x:3,    y:2}; },
+    diag:  function(){ ua = 45; xv = {x:3,    y:2}; },
+    // 令 u ∝ x − ‖x‖e₁，则 Hx = ‖x‖e₁（角度恰为 90° + θ/2，θ 为 x 的极角）
+    qr:    function(){ xv = {x:2.5, y:2.5};
+                       var n = Math.hypot(xv.x, xv.y), vx = xv.x - n, vy = xv.y;
+                       var a = Math.atan2(vy, vx)*180/Math.PI; if(a<0) a += 180;
+                       ua = Math.round(a*2)/2; },
+    orth:  function(){ ua = 90; xv = {x:3,    y:0}; }
+  };
+  btns.forEach(function(b){
+    b.addEventListener('click', function(){
+      presets[b.getAttribute('data-p')]();
+      clearPreset(); b.classList.add('on'); render();
+    });
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
