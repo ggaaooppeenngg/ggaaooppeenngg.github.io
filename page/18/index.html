@@ -92,7 +92,7 @@
 
 
 <nav class="site-nav">
-  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-旅行"><a href="/travel/" rel="section"><i class="plane fa-fw"></i>旅行</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">204</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">23</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">108</span></a></li>
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-旅行"><a href="/travel/" rel="section"><i class="plane fa-fw"></i>旅行</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">205</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">23</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">109</span></a></li>
   </ul>
 </nav>
 
@@ -129,7 +129,7 @@
   <nav class="site-state">
       <div class="site-state-item site-state-posts">
         <a href="/archives/">
-          <span class="site-state-item-count">108</span>
+          <span class="site-state-item-count">109</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -140,7 +140,7 @@
       </div>
       <div class="site-state-item site-state-tags">
           <a href="/tags/">
-        <span class="site-state-item-count">204</span>
+        <span class="site-state-item-count">205</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
@@ -169,6 +169,93 @@
     </div>
 
     <div class="main-inner index posts-expand">
+
+    
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2022/09/06/%E4%BD%BF%E7%94%A8ebpf%E5%AF%B9oomkill%E8%BF%9B%E8%A1%8C%E6%8E%A2%E6%B5%8B/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="undefined | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          <a href="/zh-CN/2022/09/06/%E4%BD%BF%E7%94%A8ebpf%E5%AF%B9oomkill%E8%BF%9B%E8%A1%8C%E6%8E%A2%E6%B5%8B/" class="post-title-link" itemprop="url">使用ebpf对oomkill进行探测</a>
+        </h2>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2022-09-06 17:48:18" itemprop="dateCreated datePublished" datetime="2022-09-06T17:48:18+08:00">2022-09-06</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2026-09-03 23:56:01" itemprop="dateModified" datetime="2026-09-03T23:56:01+08:00">2026-09-03</time>
+    </span>
+
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+          <p>ebpf是内核当中一个非常重要的功能，简单来说就是以虚拟机的形式提供一种在内核中执行嵌入字节码的能力。<br>
+ebpf定义的指令集也非常简答，但是写起来比较麻烦所以作为工具提供了libbpf和bpf-tool。<br>
+用户可以通过写C的形式写ebpf程序嵌入到内核中，同时在用户态进行交互，用户态的程序没有语言限制。<br>
+ebpf特性的对应内核版本列表在<a target="_blank" rel="noopener" href="https://github.com/iovisor/bcc/blob/master/docs/kernel-versions.md">这</a>，后面例子中的ringbuffer map是要内核版本在5.8以上。<br>
+ebpf的架构和工具链的一个比较完整的文档是cilium的一个<a target="_blank" rel="noopener" href="https://docs.cilium.io/en/stable/bpf/">文档</a>。</p>
+          <!--noindex-->
+            <div class="post-button">
+              <a class="btn" href="/zh-CN/2022/09/06/%E4%BD%BF%E7%94%A8ebpf%E5%AF%B9oomkill%E8%BF%9B%E8%A1%8C%E6%8E%A2%E6%B5%8B/#more" rel="contents">
+                阅读全文 &raquo;
+              </a>
+            </div>
+          <!--/noindex-->
+        
+      
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+        <div class="post-eof"></div>
+      
+    </footer>
+  </article>
+</div>
+
+
+
 
     
 
@@ -346,91 +433,8 @@
 
 
 
-    
-
-
-<div class="post-block">
-  
-  
-
-  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2021/07/19/%E5%9C%A8goroutine%E4%B8%8A%E5%88%9B%E5%BB%BA%E5%8D%8F%E7%A8%8Bgogoroutine/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="ggaaooppeenngg">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="ggaaooppeenngg">
-      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
-    </span>
-
-    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
-      <meta itemprop="name" content="undefined | ggaaooppeenngg">
-      <meta itemprop="description" content="">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          <a href="/zh-CN/2021/07/19/%E5%9C%A8goroutine%E4%B8%8A%E5%88%9B%E5%BB%BA%E5%8D%8F%E7%A8%8Bgogoroutine/" class="post-title-link" itemprop="url">在goroutine上创建协程gogoroutine</a>
-        </h2>
-
-        <div class="post-meta-container">
-          <div class="post-meta">
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-calendar"></i>
-      </span>
-      <span class="post-meta-item-text">发表于</span>
-
-      <time title="创建时间：2021-07-19 14:14:54" itemprop="dateCreated datePublished" datetime="2021-07-19T14:14:54+08:00">2021-07-19</time>
-    </span>
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-calendar-check"></i>
-      </span>
-      <span class="post-meta-item-text">更新于</span>
-      <time title="修改时间：2026-09-03 23:47:57" itemprop="dateModified" datetime="2026-09-03T23:47:57+08:00">2026-09-03</time>
-    </span>
-
-  
-</div>
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-          <p>目前实现的版本是参照<a target="_blank" rel="noopener" href="https://github.com/golang/go/blob/96824000ed89d13665f6f24ddc10b3bf812e7f47/src/runtime/proc.c">go0.x</a>的一个实现也就是只有一个m，在m上调度g，对应的是我们只用一个goroutine然后在goroutine上调度多个gogoroutine。在实现gogoroutine之前需要介绍一下go的调用惯例，这个<a target="_blank" rel="noopener" href="https://dr-knz.net/go-calling-convention-x86-64-2020.html">文章</a>讲的比较清楚。目前Golang在传递参数和返回值的时候是通过栈传递的。gcc会使用寄存器传递参数，golang有一个使用寄存器传递参数的<a target="_blank" rel="noopener" href="https://go.googlesource.com/proposal/+/refs/changes/78/248178/1/design/40724-register-calling.md">提案</a>。如果要实现一个goroutine上的协程可以利用这么一个调用惯例。</p>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/zh-CN/2021/07/19/%E5%9C%A8goroutine%E4%B8%8A%E5%88%9B%E5%BB%BA%E5%8D%8F%E7%A8%8Bgogoroutine/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-
-    <footer class="post-footer">
-        <div class="post-eof"></div>
-      
-    </footer>
-  </article>
-</div>
-
-
-
-
   <nav class="pagination">
-    <a class="extend prev" rel="prev" title="上一页" aria-label="上一页" href="/page/17/"><i class="fa fa-angle-left"></i></a><a class="page-number" href="/">1</a><span class="space">&hellip;</span><a class="page-number" href="/page/17/">17</a><span class="page-number current">18</span><a class="page-number" href="/page/19/">19</a><span class="space">&hellip;</span><a class="page-number" href="/page/36/">36</a><a class="extend next" rel="next" title="下一页" aria-label="下一页" href="/page/19/"><i class="fa fa-angle-right"></i></a>
+    <a class="extend prev" rel="prev" title="上一页" aria-label="上一页" href="/page/17/"><i class="fa fa-angle-left"></i></a><a class="page-number" href="/">1</a><span class="space">&hellip;</span><a class="page-number" href="/page/17/">17</a><span class="page-number current">18</span><a class="page-number" href="/page/19/">19</a><span class="space">&hellip;</span><a class="page-number" href="/page/37/">37</a><a class="extend next" rel="next" title="下一页" aria-label="下一页" href="/page/19/"><i class="fa fa-angle-right"></i></a>
   </nav>
 
 </div>

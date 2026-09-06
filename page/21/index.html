@@ -92,7 +92,7 @@
 
 
 <nav class="site-nav">
-  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-旅行"><a href="/travel/" rel="section"><i class="plane fa-fw"></i>旅行</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">204</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">23</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">108</span></a></li>
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-旅行"><a href="/travel/" rel="section"><i class="plane fa-fw"></i>旅行</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">205</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">23</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">109</span></a></li>
   </ul>
 </nav>
 
@@ -129,7 +129,7 @@
   <nav class="site-state">
       <div class="site-state-item site-state-posts">
         <a href="/archives/">
-          <span class="site-state-item-count">108</span>
+          <span class="site-state-item-count">109</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -140,7 +140,7 @@
       </div>
       <div class="site-state-item site-state-tags">
           <a href="/tags/">
-        <span class="site-state-item-count">204</span>
+        <span class="site-state-item-count">205</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
@@ -169,6 +169,96 @@
     </div>
 
     <div class="main-inner index posts-expand">
+
+    
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2019/03/03/tf-%E6%A8%A1%E5%9E%8B%E7%9A%84%E4%BF%9D%E5%AD%98%E5%92%8C%E5%86%BB%E7%BB%93/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="undefined | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          <a href="/zh-CN/2019/03/03/tf-%E6%A8%A1%E5%9E%8B%E7%9A%84%E4%BF%9D%E5%AD%98%E5%92%8C%E5%86%BB%E7%BB%93/" class="post-title-link" itemprop="url">tensorflow 模型的存档、保存、冻结、优化</a>
+        </h2>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2019-03-03 02:29:46" itemprop="dateCreated datePublished" datetime="2019-03-03T02:29:46+08:00">2019-03-03</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2026-09-03 23:47:57" itemprop="dateModified" datetime="2026-09-03T23:47:57+08:00">2026-09-03</time>
+    </span>
+
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+          <p>模型的保存分三种类型</p>
+<ol>
+<li>知道模型结构，单纯保存变量</li>
+<li>不知道模型结构，保存模型和变量</li>
+<li>不需要再改变量，只要常量化的模型（“冻结”）</li>
+</ol>
+<p>第一种用于训练的存档，并且临时恢复，这个时候用户是把训练需要的网络结构在代码里面构造好了的，只是在一定的时间下需要暂时保存网络中的变量，为了在崩溃之后继续训练。所以自然而然会有一个问题，如果我用 Python 写的代码，需要在 C++ 当中恢复，我需要知道你的模型结构，才能恢复，这个最蠢的办法是用 C++ 把你的网络结构再构造一遍，但我们按照统一的协议（比如 Protobuf）确定网络结构，就可以直接从标准序列化的数据中解析网络结构，这就是第二种情况，独立于语言，模型和变量一起保存的情况。然后如果碰到我们不需要再训练了，比如只是把这个模型进行部署，不需要改变相关的变量，那么其实只要一个带常量的模型就可以，这就是第三种情况，把变量冻结的正向传播模型。接下来会依次解释这几种情况的工作方式。</p>
+<p>除了这些以外，针对用于服务的模型还可以做很多的优化。</p>
+          <!--noindex-->
+            <div class="post-button">
+              <a class="btn" href="/zh-CN/2019/03/03/tf-%E6%A8%A1%E5%9E%8B%E7%9A%84%E4%BF%9D%E5%AD%98%E5%92%8C%E5%86%BB%E7%BB%93/#more" rel="contents">
+                阅读全文 &raquo;
+              </a>
+            </div>
+          <!--/noindex-->
+        
+      
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+        <div class="post-eof"></div>
+      
+    </footer>
+  </article>
+</div>
+
+
+
 
     
 
@@ -342,91 +432,8 @@
 
 
 
-    
-
-
-<div class="post-block">
-  
-  
-
-  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2018/10/08/K8S-%E5%85%BC%E5%AE%B9-CSI-%E5%81%9A%E7%9A%84%E5%B7%A5%E4%BD%9C/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="ggaaooppeenngg">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="ggaaooppeenngg">
-      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
-    </span>
-
-    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
-      <meta itemprop="name" content="undefined | ggaaooppeenngg">
-      <meta itemprop="description" content="">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          <a href="/zh-CN/2018/10/08/K8S-%E5%85%BC%E5%AE%B9-CSI-%E5%81%9A%E7%9A%84%E5%B7%A5%E4%BD%9C/" class="post-title-link" itemprop="url">K8S 兼容 CSI 做的工作</a>
-        </h2>
-
-        <div class="post-meta-container">
-          <div class="post-meta">
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-calendar"></i>
-      </span>
-      <span class="post-meta-item-text">发表于</span>
-
-      <time title="创建时间：2018-10-08 00:41:41" itemprop="dateCreated datePublished" datetime="2018-10-08T00:41:41+08:00">2018-10-08</time>
-    </span>
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-calendar-check"></i>
-      </span>
-      <span class="post-meta-item-text">更新于</span>
-      <time title="修改时间：2026-09-03 23:47:57" itemprop="dateModified" datetime="2026-09-03T23:47:57+08:00">2026-09-03</time>
-    </span>
-
-  
-</div>
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-          <p>csi 是一个标准的容器存储接口，规定了如何实现一个容器的存储接口，CSI 本身的定义是基于 gRPC 的，所以有一套样例库可以使用，这里分析一下 kuberntes 实现 csi 的方式，为了兼容 CSI kubernete 其实搞得挺绕的，目前这个 CSI 还是定制中包括后期的 Snapshot 的接口怎么设计等等还在讨论中。kubernetes CSI 主要基于几个外部组件和内部功能的一些改动。</p>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/zh-CN/2018/10/08/K8S-%E5%85%BC%E5%AE%B9-CSI-%E5%81%9A%E7%9A%84%E5%B7%A5%E4%BD%9C/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-
-    <footer class="post-footer">
-        <div class="post-eof"></div>
-      
-    </footer>
-  </article>
-</div>
-
-
-
-
   <nav class="pagination">
-    <a class="extend prev" rel="prev" title="上一页" aria-label="上一页" href="/page/20/"><i class="fa fa-angle-left"></i></a><a class="page-number" href="/">1</a><span class="space">&hellip;</span><a class="page-number" href="/page/20/">20</a><span class="page-number current">21</span><a class="page-number" href="/page/22/">22</a><span class="space">&hellip;</span><a class="page-number" href="/page/36/">36</a><a class="extend next" rel="next" title="下一页" aria-label="下一页" href="/page/22/"><i class="fa fa-angle-right"></i></a>
+    <a class="extend prev" rel="prev" title="上一页" aria-label="上一页" href="/page/20/"><i class="fa fa-angle-left"></i></a><a class="page-number" href="/">1</a><span class="space">&hellip;</span><a class="page-number" href="/page/20/">20</a><span class="page-number current">21</span><a class="page-number" href="/page/22/">22</a><span class="space">&hellip;</span><a class="page-number" href="/page/37/">37</a><a class="extend next" rel="next" title="下一页" aria-label="下一页" href="/page/22/"><i class="fa fa-angle-right"></i></a>
   </nav>
 
 </div>

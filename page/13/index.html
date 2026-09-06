@@ -92,7 +92,7 @@
 
 
 <nav class="site-nav">
-  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-旅行"><a href="/travel/" rel="section"><i class="plane fa-fw"></i>旅行</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">204</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">23</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">108</span></a></li>
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-旅行"><a href="/travel/" rel="section"><i class="plane fa-fw"></i>旅行</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">205</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">23</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">109</span></a></li>
   </ul>
 </nav>
 
@@ -129,7 +129,7 @@
   <nav class="site-state">
       <div class="site-state-item site-state-posts">
         <a href="/archives/">
-          <span class="site-state-item-count">108</span>
+          <span class="site-state-item-count">109</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -140,7 +140,7 @@
       </div>
       <div class="site-state-item site-state-tags">
           <a href="/tags/">
-        <span class="site-state-item-count">204</span>
+        <span class="site-state-item-count">205</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
@@ -169,6 +169,121 @@
     </div>
 
     <div class="main-inner index posts-expand">
+
+    
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2025/03/19/Triton%E4%BD%BF%E7%94%A8%E5%92%8CSoftmax%E5%AE%9E%E7%8E%B0/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="undefined | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          <a href="/zh-CN/2025/03/19/Triton%E4%BD%BF%E7%94%A8%E5%92%8CSoftmax%E5%AE%9E%E7%8E%B0/" class="post-title-link" itemprop="url">Triton使用和Softmax实现</a>
+        </h2>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2025-03-19 15:04:18" itemprop="dateCreated datePublished" datetime="2025-03-19T15:04:18+08:00">2025-03-19</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2026-09-03 23:47:57" itemprop="dateModified" datetime="2026-09-03T23:47:57+08:00">2026-09-03</time>
+    </span>
+
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+          <p>参考 <a target="_blank" rel="noopener" href="https://openai.com/index/triton/">OpenAI Triton 主页</a></p>
+<p>参考 <a target="_blank" rel="noopener" href="https://www.eecs.harvard.edu/~htk/publication/2019-mapl-tillet-kung-cox.pdf">Triton论文</a></p>
+<p>参考 <a target="_blank" rel="noopener" href="https://christianjmills.com/posts/cuda-mode-notes/lecture-014/">GPU MODE Lecture 14: Practitioners Guide to Triton</a></p>
+<p>从Trinton主页引用的话</p>
+<p>现代 GPU 的架构大致可以分为三个主要组件 ——DRAM、SRAM 和 ALU—— 在优化 CUDA 代码时必须考虑每个组件：</p>
+<ol>
+<li>来自 DRAM 的内存传输必须合并为更大的事务，以利用现代内存接口的大型总线宽度。</li>
+<li>数据在被再次使用之前，必须手动存储到SRAM中，并且要对数据进行管理，以便在检索数据时尽量减少共享内存存储体冲突的情况。</li>
+<li>计算必须在流式多处理器（SM）之间和内部仔细分区和调度，以促进指令 / 线程级并行性并利用专用 ALU（例如Tensor Core）。</li>
+</ol>
+<p>这几句话可能比较抽象，下面给一下这几个组件的指标可能感受更直观，参考<a target="_blank" rel="noopener" href="https://timdettmers.com/2023/01/30/which-gpu-for-deep-learning/">Which GPU(s) to Get for Deep Learning: My Experience and Advice for Using GPUs in Deep Learning</a>。<br>
+其中指出：</p>
+<ul>
+<li>全局内存访问（高达 80GB）：<code>~380</code> 个周期</li>
+<li>L2 缓存：<code>~200</code> 个周期</li>
+<li>L1 缓存或共享内存访问（每个流式多处理器高达 128 kb）：<code>~34</code> 个周期</li>
+<li>融合乘法和加法，ab+c（FFMA）： 4 个周期</li>
+<li>Tensor Core 矩阵乘法：1 个周期</li>
+</ul>
+<p>每个操作总是由 32 个线程组成的Warp执行，Warp中的线程必须相互等待。GPU 上的所有内存操作都针对warp进行了优化。</p>
+<p>根据<a target="_blank" rel="noopener" href="https://arunjitha.medium.com/simplifying-cuda-kernels-with-triton-a-pythonic-approach-to-gpu-programming-79bb7121e974">Simplifying CUDA kernels with Triton: A Pythonic Approach to GPU Programming</a>的说法，GPU中的HBM（High Bandwidth Memory）等价于我们讲的Global Memory，SRAM对应的是L1和L2 Cache对应的是Shared Memory，这几个词在一些文档中可能会有不同的叫法，但是意思是一样的。</p>
+<p>A100中的内存带宽约为 2TB/s，L1 缓存带宽：<code>~100-200</code> TB/s 理论带宽，L2 缓存带宽：<code>~4-7 TB/s</code> 理论带宽。</p>
+<p>再看OpenAI的三条说明的意思就是：</p>
+<ol>
+<li>因为DRAM很大，比较容易占满总线带宽，所以尽量合并传输的事务可以减少传输的时间，让高速公路跑满。</li>
+<li>如果数据要重复利用，反复参与计算，尽量让他们在SRAM当中能够缓存住，比如L1的读取只要34个cyle，能比从L2中快6到7倍。</li>
+<li>尽量跑满并行度，并且利用更高效的计算单元，比如Tensor Core。</li>
+</ol>
+<img data-src="/zh-CN/2025/03/19/Triton%E4%BD%BF%E7%94%A8%E5%92%8CSoftmax%E5%AE%9E%E7%8E%B0/gpu-architecture.svg" class="">
+<p>这个是OpenAI给出的GPU架构的简图，我们需要明确不同内存，缓存，和执行单元的周期之间的关系就比较好理解GPU计算当中的性能瓶颈。</p>
+<p>Triton的目标其实就是优化 <code>HBM -&gt; SRAM -&gt; 寄存器</code> 的带宽，这在Torch里面直接实现不了，通过一些融合算子是可以减少写回到HBM的。</p>
+<p>Triton的文档给出的很多实现的代码，可能都不太奏效了，笔者自己测试下来并没有超过torch本身的实现，<br>
+可能torch本身也再不断改进吧，这些差别很快就超越了，但是在一些写自定义融合算子方面应该还是比较有优势的。</p>
+          <!--noindex-->
+            <div class="post-button">
+              <a class="btn" href="/zh-CN/2025/03/19/Triton%E4%BD%BF%E7%94%A8%E5%92%8CSoftmax%E5%AE%9E%E7%8E%B0/#more" rel="contents">
+                阅读全文 &raquo;
+              </a>
+            </div>
+          <!--/noindex-->
+        
+      
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+        <div class="post-eof"></div>
+      
+    </footer>
+  </article>
+</div>
+
+
+
 
     
 
@@ -336,92 +451,8 @@
 
 
 
-    
-
-
-<div class="post-block">
-  
-  
-
-  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2025/01/23/vLLM%E7%9A%84PD%E5%88%86%E7%A6%BB/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="ggaaooppeenngg">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="ggaaooppeenngg">
-      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
-    </span>
-
-    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
-      <meta itemprop="name" content="undefined | ggaaooppeenngg">
-      <meta itemprop="description" content="">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          <a href="/zh-CN/2025/01/23/vLLM%E7%9A%84PD%E5%88%86%E7%A6%BB/" class="post-title-link" itemprop="url">vLLM的PD分离</a>
-        </h2>
-
-        <div class="post-meta-container">
-          <div class="post-meta">
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-calendar"></i>
-      </span>
-      <span class="post-meta-item-text">发表于</span>
-
-      <time title="创建时间：2025-01-23 17:10:42" itemprop="dateCreated datePublished" datetime="2025-01-23T17:10:42+08:00">2025-01-23</time>
-    </span>
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-calendar-check"></i>
-      </span>
-      <span class="post-meta-item-text">更新于</span>
-      <time title="修改时间：2026-09-03 23:50:47" itemprop="dateModified" datetime="2026-09-03T23:50:47+08:00">2026-09-03</time>
-    </span>
-
-  
-</div>
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-          <h2 id="vLLM的PD分离">vLLM的PD分离</h2>
-<p>vLLM的PD分离是指vLLM的Prefill和Decode分离到不同的实例中执行。</p>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/zh-CN/2025/01/23/vLLM%E7%9A%84PD%E5%88%86%E7%A6%BB/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-
-    <footer class="post-footer">
-        <div class="post-eof"></div>
-      
-    </footer>
-  </article>
-</div>
-
-
-
-
   <nav class="pagination">
-    <a class="extend prev" rel="prev" title="上一页" aria-label="上一页" href="/page/12/"><i class="fa fa-angle-left"></i></a><a class="page-number" href="/">1</a><span class="space">&hellip;</span><a class="page-number" href="/page/12/">12</a><span class="page-number current">13</span><a class="page-number" href="/page/14/">14</a><span class="space">&hellip;</span><a class="page-number" href="/page/36/">36</a><a class="extend next" rel="next" title="下一页" aria-label="下一页" href="/page/14/"><i class="fa fa-angle-right"></i></a>
+    <a class="extend prev" rel="prev" title="上一页" aria-label="上一页" href="/page/12/"><i class="fa fa-angle-left"></i></a><a class="page-number" href="/">1</a><span class="space">&hellip;</span><a class="page-number" href="/page/12/">12</a><span class="page-number current">13</span><a class="page-number" href="/page/14/">14</a><span class="space">&hellip;</span><a class="page-number" href="/page/37/">37</a><a class="extend next" rel="next" title="下一页" aria-label="下一页" href="/page/14/"><i class="fa fa-angle-right"></i></a>
   </nav>
 
 </div>
