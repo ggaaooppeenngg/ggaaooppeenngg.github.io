@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.3.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="_85tctgPWrqH2EPVuuD5IT6KE-tW8nH0hTISJDMnShg">
+  <meta name="baidu-site-verification" content="bb16c5b1fd3302c18e0015bef11eea42">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha256-dABdfBfUoC8vJUBOwGVdm8L9qlMWaHTIfXt+7GnZCIo=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.css" integrity="sha256-gkQVf8UKZgQ0HyuxL/VnacadJ+D2Kox2TCEBuNQg5+w=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":"giscus","storage":true,"lazyload":false,"nav":null,"activeClass":"giscus"},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="DeepSeek-V4.1-Flash 的技术报告副标题是 “Pushing the Limits of KV Cache Compression”——整篇论文的野心写在脸上：把 KV Cache 压到极致，把长上下文 Agent 负载的部署成本打下来。552B 骨干 + 196B 条件记忆，prefill 每 token 只激活 8B 参数，全局 KV 压到 890 字节&#x2F;token（约 V4-">
+<meta property="og:type" content="article">
+<meta property="og:title" content="DeepSeek-V4.1-Flash 架构解析：KV Cache 压缩的极限在哪里">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2026/10/08/DeepSeek-V4.1-Flash%E6%9E%B6%E6%9E%84%E8%A7%A3%E6%9E%90/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="DeepSeek-V4.1-Flash 的技术报告副标题是 “Pushing the Limits of KV Cache Compression”——整篇论文的野心写在脸上：把 KV Cache 压到极致，把长上下文 Agent 负载的部署成本打下来。552B 骨干 + 196B 条件记忆，prefill 每 token 只激活 8B 参数，全局 KV 压到 890 字节&#x2F;token（约 V4-">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-10-08T03:30:00.000Z">
+<meta property="article:modified_time" content="2026-10-08T12:45:54.926Z">
+<meta property="article:author" content="ggaaooppeenngg">
+<meta property="article:tag" content="LLM">
+<meta property="article:tag" content="Inference">
+<meta property="article:tag" content="DeepSeek">
+<meta property="article:tag" content="KV Cache">
+<meta property="article:tag" content="MoE">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2026/10/08/DeepSeek-V4.1-Flash%E6%9E%B6%E6%9E%84%E8%A7%A3%E6%9E%90/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://ggaaooppeenngg.github.io/zh-CN/2026/10/08/DeepSeek-V4.1-Flash%E6%9E%B6%E6%9E%84%E8%A7%A3%E6%9E%90/","path":"zh-CN/2026/10/08/DeepSeek-V4.1-Flash架构解析/","title":"DeepSeek-V4.1-Flash 架构解析：KV Cache 压缩的极限在哪里"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>DeepSeek-V4.1-Flash 架构解析：KV Cache 压缩的极限在哪里 | ggaaooppeenngg</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-62096626-1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"UA-62096626-1","only_pageview":false,"measure_protocol_api_secret":null}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+  <script src="/js/third-party/analytics/baidu-analytics.js"></script>
+  <script async src="https://hm.baidu.com/hm.js?bb16c5b1fd3302c18e0015bef11eea42"></script>
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">ggaaooppeenngg</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">为什么计算机科学是无限的但生命是有限的</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-旅行"><a href="/travel/" rel="section"><i class="plane fa-fw"></i>旅行</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">206</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">23</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">111</span></a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#1-%E5%85%A8%E6%99%AF%EF%BC%9A%E4%B8%80%E5%BC%A0%E8%A1%A8%E5%92%8C%E4%B8%80%E4%B8%AA%E5%8A%88%E5%8D%8A%E5%8A%A8%E4%BD%9C"><span class="nav-number">1.</span> <span class="nav-text">1. 全景：一张表和一个劈半动作</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-CED%EF%BC%9A%E7%BC%96%E7%A0%81%E5%99%A8%E7%AE%97%E4%B8%80%E5%8D%8A%EF%BC%8C%E8%A7%A3%E7%A0%81%E5%99%A8%E5%80%9F%E7%BB%93%E6%9E%9C"><span class="nav-number">2.</span> <span class="nav-text">2. CED：编码器算一半，解码器借结果</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-CSA2%EF%BC%9A%E4%B8%89%E4%B8%AA%E7%BB%B4%E5%BA%A6%E5%90%8C%E6%97%B6%E5%8E%8B%E7%BC%A9"><span class="nav-number">3.</span> <span class="nav-text">3. CSA2：三个维度同时压缩</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-%E4%B8%89%E4%B8%AA%E4%B9%98%E6%80%A7%E7%BB%B4%E5%BA%A6"><span class="nav-number">3.1.</span> <span class="nav-text">3.1 三个乘性维度</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-%E4%B8%89%E7%A7%8D%E9%9D%99%E6%80%81%E6%A8%A1%E5%BC%8F%E4%B8%8E%E9%83%A8%E7%BD%B2%E9%85%8D%E7%BD%AE"><span class="nav-number">3.2.</span> <span class="nav-text">3.2 三种静态模式与部署配置</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-3-%E5%88%86%E5%B1%82%E7%A8%80%E7%96%8F%E7%B4%A2%E5%BC%95%E5%99%A8%EF%BC%9A16384-%E2%86%92-2048-%E2%86%92-512-%E7%9A%84%E6%BC%8F%E6%96%97"><span class="nav-number">3.3.</span> <span class="nav-text">3.3 分层稀疏索引器：16384 → 2048 → 512 的漏斗</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-SWA-Bounded-Replay%EF%BC%9A%E6%8C%89%E7%94%9F%E5%91%BD%E5%91%A8%E6%9C%9F%E5%88%86%E6%B2%BB"><span class="nav-number">4.</span> <span class="nav-text">4. SWA Bounded Replay：按生命周期分治</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#4-1-%E4%B8%BA%E4%BB%80%E4%B9%88-SWA-%E4%B8%8D%E5%80%BC%E5%BE%97%E6%8C%81%E4%B9%85%E5%8C%96"><span class="nav-number">4.1.</span> <span class="nav-text">4.1 为什么 SWA 不值得持久化</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-2-%E7%B2%BE%E7%A1%AE%E9%87%8D%E5%BB%BA%E4%B8%BA%E4%BB%80%E4%B9%88%E6%98%AF-5120%E2%80%94%E2%80%94-%E6%A5%BC%E6%A2%AF-%E5%BC%8F%E6%84%9F%E5%8F%97%E9%87%8E"><span class="nav-number">4.2.</span> <span class="nav-text">4.2 精确重建为什么是 5120——&quot;楼梯&quot;式感受野</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-3-Bounded-Replay%EF%BC%9A%E5%8F%AA%E9%87%8D%E6%94%BE-128-%E4%B8%AA"><span class="nav-number">4.3.</span> <span class="nav-text">4.3 Bounded Replay：只重放 128 个</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#5-Single-Pass-mHC%EF%BC%9A%E6%8A%8A-A-%E9%94%99%E4%BD%8D%E4%B8%80%E5%B1%82"><span class="nav-number">5.</span> <span class="nav-text">5. Single-Pass mHC：把 A 错位一层</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#6-Engram-%E4%B8%8E-DSpark"><span class="nav-number">6.</span> <span class="nav-text">6. Engram 与 DSpark</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#7-FP4-%E4%B8%BB-KV%EF%BC%9A%E5%85%88%E8%AF%81%E7%95%8C%EF%BC%8C%E5%86%8D%E7%9C%81%E4%BD%8D"><span class="nav-number">7.</span> <span class="nav-text">7. FP4 主 KV：先证界，再省位</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#8-%E6%80%BB%E8%B4%A6%EF%BC%9A890-B-token-%E4%B8%8E-1-8-%E6%98%AF%E6%80%8E%E4%B9%88%E6%9D%A5%E7%9A%84"><span class="nav-number">8.</span> <span class="nav-text">8. 总账：890 B&#x2F;token 与 1&#x2F;8 是怎么来的</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8F%82%E8%80%83"><span class="nav-number">9.</span> <span class="nav-text">参考</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">111</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">23</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">206</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/ggaaooppeenngg" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;ggaaooppeenngg" rel="noopener me" target="_blank"><i class="github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:peng.gao.dut@gmail.com" title="E-Mail → mailto:peng.gao.dut@gmail.com" rel="noopener me" target="_blank"><i class="envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+        <div class="back-to-top animated" role="button" aria-label="返回顶部">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2026/10/08/DeepSeek-V4.1-Flash%E6%9E%B6%E6%9E%84%E8%A7%A3%E6%9E%90/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="DeepSeek-V4.1-Flash 架构解析：KV Cache 压缩的极限在哪里 | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          DeepSeek-V4.1-Flash 架构解析：KV Cache 压缩的极限在哪里
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+      
+
+      <time title="创建时间：2026-10-08 11:30:00 / 修改时间：20:45:54" itemprop="dateCreated datePublished" datetime="2026-10-08T11:30:00+08:00">2026-10-08</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/%E6%8A%80%E6%9C%AF/" itemprop="url" rel="index"><span itemprop="name">技术</span></a>
+        </span>
+    </span>
+
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>DeepSeek-V4.1-Flash 的技术报告副标题是 “Pushing the Limits of KV Cache Compression”——整篇论文的野心写在脸上：把 KV Cache 压到极致，把长上下文 Agent 负载的部署成本打下来。552B 骨干 + 196B 条件记忆，prefill 每 token 只激活 8B 参数，全局 KV 压到 <strong>890 字节/token</strong>（约 V4-Flash 的 1/4、V1 的 1/437），持久化 KV 压到 V4-Flash 的约 <strong>1/8</strong>。本文按报告第 2 章（架构）和第 3 章（推理系统）的顺序，把六个核心设计串成一条线：CED、CSA2、SWA Bounded Replay、Single-Pass mHC、FP4 主 KV、DSpark 与 Engram，最后算一笔总账。数字口径除标注外均来自论文原文，部分以 vLLM 实现/HF config 佐证。</p>
+<span id="more"></span>
+<hr>
+<h2 id="1-全景：一张表和一个劈半动作">1. 全景：一张表和一个劈半动作</h2>
+<table>
+<thead>
+<tr>
+<th>项</th>
+<th>数值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>骨干参数</td>
+<td>552B（MoE，1 共享 + 384 路由专家，激活 6 个，专家中间维 2304）</td>
+</tr>
+<tr>
+<td>Engram 条件记忆参数</td>
+<td>196B（单独计，不计入骨干）</td>
+</tr>
+<tr>
+<td>激活参数</td>
+<td>prefill 每token 8B / decode 每token 16B</td>
+</tr>
+<tr>
+<td>层数与结构</td>
+<td>40 层 = 20 层因果编码器 + 20 层解码器（CED）</td>
+</tr>
+<tr>
+<td>隐维度</td>
+<td>5120，64 查询头 × 头维 512；q_lora 1280，输出侧 8 组 × o_lora 1024</td>
+</tr>
+<tr>
+<td>上下文长度</td>
+<td>100 万 token（64K 起步稀疏注意力训练，34T token 处扩到 1M）</td>
+</tr>
+<tr>
+<td>预训练语料</td>
+<td>45T token（文本:多模态 = 7:1）</td>
+</tr>
+</tbody>
+</table>
+<p>一句话概括架构：把一个标准 Transformer 从中间劈开——前 20 层当&quot;因果编码器&quot;处理全部输入，后 20 层当&quot;解码器&quot;，其全局 KV 不再自己算，而是从编码器最后一层的隐状态投影出来；再叠加跨层 KV 共享、FP4 缓存与滑窗，完成上面那组压缩数字。</p>
+<h2 id="2-CED：编码器算一半，解码器借结果">2. CED：编码器算一半，解码器借结果</h2>
+<p>Agent 工作流中频繁的工具调用产生大量 prefill 请求，KV 未命中时 prefill 计算是主要开销。CED（受 YoCo 启发）的目标是砍掉一半 prefill 计算：对全局注意力，解码器各层（<span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>l</mi><mo>&gt;</mo><mi>L</mi><mi mathvariant="normal">/</mi><mn>2</mn></mrow><annotation encoding="application/x-tex">l &gt; L/2</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.7335em;vertical-align:-0.0391em;"></span><span class="mord mathnormal" style="margin-right:0.0197em;">l</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">&gt;</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal">L</span><span class="mord">/2</span></span></span></span>）的 KV 条目不来自本层隐状态 <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>H</mi><mi>l</mi></msub></mrow><annotation encoding="application/x-tex">H_l</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8333em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0813em;">H</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:-0.0813em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:0.0197em;">l</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span></span>，而是由编码器最后一层隐状态经逐层独立投影直接算出：</p>
+<p class="katex-block "><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><msub><mi>C</mi><mi>l</mi></msub><mo>=</mo><msub><mi>H</mi><mrow><mi>L</mi><mi mathvariant="normal">/</mi><mn>2</mn></mrow></msub><mo>⋅</mo><msubsup><mi>W</mi><mi>l</mi><mrow><mi>K</mi><mi>V</mi></mrow></msubsup><mo separator="true">,</mo><mspace width="1em"/><msub><mi>Z</mi><mi>l</mi></msub><mo>=</mo><msub><mi>H</mi><mrow><mi>L</mi><mi mathvariant="normal">/</mi><mn>2</mn></mrow></msub><mo>⋅</mo><msubsup><mi>W</mi><mi>l</mi><mi>Z</mi></msubsup></mrow><annotation encoding="application/x-tex">C_l = H_{L/2} \cdot W^{KV}_l, \quad Z_l = H_{L/2} \cdot W^{Z}_l
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8333em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0715em;">C</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:-0.0715em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:0.0197em;">l</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1.0385em;vertical-align:-0.3552em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0813em;">H</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3448em;"><span style="top:-2.5198em;margin-left:-0.0813em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight">L</span><span class="mord mtight">/2</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.3552em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">⋅</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:1.1383em;vertical-align:-0.247em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.1389em;">W</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.8913em;"><span style="top:-2.453em;margin-left:-0.1389em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:0.0197em;">l</span></span></span><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight" style="margin-right:0.0715em;">K</span><span class="mord mathnormal mtight" style="margin-right:0.2222em;">V</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.247em;"><span></span></span></span></span></span></span><span class="mpunct">,</span><span class="mspace" style="margin-right:1em;"></span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0715em;">Z</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:-0.0715em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:0.0197em;">l</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1.0385em;vertical-align:-0.3552em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0813em;">H</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3448em;"><span style="top:-2.5198em;margin-left:-0.0813em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight">L</span><span class="mord mtight">/2</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.3552em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">⋅</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:1.1383em;vertical-align:-0.247em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.1389em;">W</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.8913em;"><span style="top:-2.453em;margin-left:-0.1389em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:0.0197em;">l</span></span></span><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight" style="margin-right:0.0715em;">Z</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.247em;"><span></span></span></span></span></span></span></span></span></span></span></p>
+<p>C 是 KV 条目，Z 是对应压缩权重。投影是一次线性变换，相比&quot;一整层 Transformer（注意力+FFN）&quot;开销可忽略，后半层几乎免费拿到全局 KV。序列长度 <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>N</mi><mo>≫</mo><msub><mi>n</mi><mrow><mi>w</mi><mi>i</mi><mi>n</mi></mrow></msub></mrow><annotation encoding="application/x-tex">N \gg n_{win}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.7224em;vertical-align:-0.0391em;"></span><span class="mord mathnormal" style="margin-right:0.109em;">N</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">≫</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.5806em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal">n</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3117em;"><span style="top:-2.55em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight" style="margin-right:0.0269em;">w</span><span class="mord mathnormal mtight">in</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span></span> 时 prefill 复杂度从 <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>O</mi><mo stretchy="false">(</mo><mi>N</mi><mi>L</mi><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">O(NL)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal" style="margin-right:0.0278em;">O</span><span class="mopen">(</span><span class="mord mathnormal" style="margin-right:0.109em;">N</span><span class="mord mathnormal">L</span><span class="mclose">)</span></span></span></span> 降到约 <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>O</mi><mo stretchy="false">(</mo><mi>N</mi><mi>L</mi><mi mathvariant="normal">/</mi><mn>2</mn><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">O(NL/2)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal" style="margin-right:0.0278em;">O</span><span class="mopen">(</span><span class="mord mathnormal" style="margin-right:0.109em;">N</span><span class="mord mathnormal">L</span><span class="mord">/2</span><span class="mclose">)</span></span></span></span>——这就是 prefill 激活 8B、decode 激活 16B 的来源。</p>
+<p>两点澄清：每个解码层的注意力照常进行、KV 有得读，变的只是计算来源；部署配置下上式进一步塌缩——实际只有解码器第一个 Full 层（层 20）执行投影并落缓存，层 21–39 直接读这一份（HF config 佐证：kv_source_layer_ids = [2, 8, 14, 20]，且这次投影与该层 Q 投影融合成单个 GEMM，vLLM 的 fused_wqa_wkv）。</p>
+<p>SWA 维持逐层常规计算，保住局部特征的计算深度；代价是解码器 SWA 需要重放过程，见第 4 节。</p>
+<h2 id="3-CSA2：三个维度同时压缩">3. CSA2：三个维度同时压缩</h2>
+<h3 id="3-1-三个乘性维度">3.1 三个乘性维度</h3>
+<p>长上下文的 KV 开销可以沿三个维度相乘式压缩：<strong>条目大小</strong>（GQA 减 KV 头、MLA 共享 latent）、<strong>序列维度</strong>（每 m 个 token 压成 1 条）、<strong>层维度</strong>（部分层复用其他层的缓存/索引）。既有工作各占一维，CSA2 三个同时吃满。相对 V4 的 CSA：压缩比 m 的每条主 KV 不再去掉重叠与绝对位置编码；indexer K 不再从隐状态单独压缩，而是直接由主 KV 条目投影——少一条管线，且索引器与注意力读到逐位对应的内容。</p>
+<h3 id="3-2-三种静态模式与部署配置">3.2 三种静态模式与部署配置</h3>
+<p>每层静态指定 Full / Reindex / Reuse 三种模式之一，区别只在于 main KV、indexer K、Top-K 索引从哪来：</p>
+<table>
+<thead>
+<tr>
+<th>模式</th>
+<th>main KV + indexer K</th>
+<th>Top-K 索引</th>
+<th>开销</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Full</td>
+<td>本层自己算</td>
+<td>全量打分，产出新索引</td>
+<td>最重</td>
+</tr>
+<tr>
+<td>Reindex</td>
+<td>复用最近 Full 层</td>
+<td>自己的 indexer Q 对共享 K 重新打分</td>
+<td>中</td>
+</tr>
+<tr>
+<td>Reuse</td>
+<td>复用最近 Full 层</td>
+<td>复用最近产索引层的索引</td>
+<td>最轻</td>
+</tr>
+</tbody>
+</table>
+<p>部署配置（HF config 佐证）：层 0–1 纯 SWA（m=0）；编码器层 2–19 压缩比 m=2（3 组 × 6 层，Full 在 2/8/14，其余全 Reuse）；解码器层 20–39 m=1（5 组 × 4 层：首组 1 Full + 3 Reuse，其余 4 组各 1 Reindex + 3 Reuse）。m=1 的含义值得咀嚼：解码器放弃序列维度压缩、保留逐 token 粒度，把压缩收益改从层维度共享（全解码器只有 1 份全局 KV）与 FP4 精度里拿——这是 V4.1 相对 V4（C4/C128）最大的思路转变。</p>
+<p>m=0 的常见疑问：头两层只看 SWA 窗口 128，长上下文是不是&quot;彻底没了&quot;？不是——上下文不靠每层各自看见，而靠分工：层 0–1 把每个 token 加工为局部特征写入残差流，特征向上进入 H₂₀ 被压缩为全局缓存条目，远距离 query 在高层 CSA2 里按需检索。即&quot;低层局部加工 → 残差流运输 → 高层全局检索&quot;。</p>
+<p><strong>Z（压缩权重）的计算</strong>：kv-source 层对每 token 隐状态做两个并行投影——wkv 产出 512 维 latent，wgate 产出 512 维门控分数；按 m 分组后组内做逐通道 softmax 加权求和（每个通道有自己的组内混合权重，不是标量门）。池化后 RMSNorm → 无 RoPE 版本 → 压缩 RoPE（theta=160000）→ FP4 量化入缓存。m=1 时整条门控路径不存在——解码器层 20 的缓存条目就是 wkv 投影 + RMSNorm，论文式(1)的 Z 是 m&gt;1 的一般形式。</p>
+<h3 id="3-3-分层稀疏索引器：16384-→-2048-→-512-的漏斗">3.3 分层稀疏索引器：16384 → 2048 → 512 的漏斗</h3>
+<p>超长上下文下索引器给全上下文打分是 decode 的主要计算瓶颈。分层索引器用四级漏斗解决（仅解码器）：</p>
+<ol>
+<li><strong>建池——唯一一次全量过滤</strong>：解码器第一个 Full 层（层 20）对全部可见位置打分，为自己的注意力选出 Top-512；<strong>同一份分数</strong>顺手完成块级候选选择——位置按 8 个一组分块，每块取块内最大索引分（块 max 是上界，强相关块不会被漏），选出最高的至多 2048 块，展开为至多 2048×8 = 16384 个候选位置，构成共享候选池</li>
+<li><strong>池内过滤——4 次，常数开销</strong>：4 个 Reindex 层（24/28/32/36）用自己的 indexer Q 只对池内候选重新打分，各自选出 Top-512——深层索引器的每查询开销从&quot;正比于上下文长度&quot;变为常数</li>
+<li><strong>纯继承——15 个 Reuse 层</strong>：不做任何打分。每个 decode step 的索引账 = 1 次全量打分 + 4 次池内打分 + 15 次继承</li>
+<li><strong>旁路与边界</strong>：滑窗最近 token 不经漏斗，展开池块后直接并入尾部，最新上下文不因块未攒满而丢失</li>
+</ol>
+<p>时序澄清（容易读错）：top-2048 与 top-512 是<strong>同一次打分、同一处</strong>的两次并行 Top-K（位置级取 512 自用、块级取 2048 展开建池），不是&quot;先选 512 再基于 512 建池&quot;。每个 decode step 各走一遍。该机制在 post-training 引入且训练/推理一致——deeper indexer 在与推理相同的搜索域上被优化。</p>
+<h2 id="4-SWA-Bounded-Replay：按生命周期分治">4. SWA Bounded Replay：按生命周期分治</h2>
+<h3 id="4-1-为什么-SWA-不值得持久化">4.1 为什么 SWA 不值得持久化</h3>
+<p>每层 SWA 窗口 128，SWA KV 以 FP8 存储（对量化敏感，不随主 KV 降 FP4）。V4 部署中 SWA KV 约占持久缓存容量一半，但只在两个点缓存（prompt 末尾、output 末尾各留 128 条），复用只发生在分钟级会话窗口内，会话结束即死——与持久缓存 72 小时的长留存策略根本不匹配：贵且低效。</p>
+<h3 id="4-2-精确重建为什么是-5120——-楼梯-式感受野">4.2 精确重建为什么是 5120——&quot;楼梯&quot;式感受野</h3>
+<p>V4 曾提出 Zero SWA Caching（缺了就精确重算），但精确恢复需要 L×n_win = 40×128 = 5120 token 的完整前向。SWA 的 K/V 本身便宜，贵在隐状态的跨层依赖：第 l 层位置 i 的值由第 l−1 层窗口 [i−127, i] 构成——每往深一层，所需历史的左边界再扩一个窗口，形成楼梯：</p>
+<table>
+<thead>
+<tr>
+<th>层</th>
+<th>精确重建所需历史</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>40（目标）</td>
+<td>[p−127, p]</td>
+</tr>
+<tr>
+<td>39</td>
+<td>[p−254, p]</td>
+</tr>
+<tr>
+<td>⋮</td>
+<td>每降一层再扩一个窗口</td>
+</tr>
+<tr>
+<td>1（底座）</td>
+<td>[p−5119, p] ≈ 40×128</td>
+</tr>
+</tbody>
+</table>
+<p>正常 prefill 不付这笔账（楼梯被逐位置计算摊销），只有断点冷启动重建时才显形。</p>
+<h3 id="4-3-Bounded-Replay：只重放-128-个">4.3 Bounded Replay：只重放 128 个</h3>
+<p>重放只取前缀最后 n_win=128 个 token 过全部 L 层，补出各层 SWA 缓存的最后 128 个槽位；重放期间滑窗左边界截断到重放起点。近似性：重放段靠前的 token 历史被砍短（越靠后越精确，最后一个 token 精确）；重放过程中新算的全局 KV 直接丢弃不覆盖缓存。代价从 5120 骤降到 128，且与上下文长度无关。</p>
+<p>三种方案成本对照（10,000 token 前缀已缓存全局 KV，新 turn 50 个 token）：</p>
+<table>
+<thead>
+<tr>
+<th>方案</th>
+<th>SWA 补齐代价</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>V4：持久化 SWA、命中</td>
+<td>0（但持续占持久缓存）</td>
+</tr>
+<tr>
+<td>精确重建</td>
+<td>5120 token 过 40 层 ≈ 新 token 的 100 倍</td>
+</tr>
+<tr>
+<td><strong>Bounded Replay</strong></td>
+<td>128 token 过 40 层 ≈ 新 token 的 2.6 倍</td>
+</tr>
+</tbody>
+</table>
+<p>两种 Replay 分工：<strong>Encoder 版面向存储</strong>（全局 KV 命中而 SWA 缺失时重放兜底，SWA 彻底退出持久缓存，体积约砍半，改存每机 10% host DRAM 的分钟级 TTL 池）；<strong>Decoder 版面向计算</strong>（每次 prefill 把最后 128 个 token 的编码器输出喂过解码器 20 层，所得 SWA 仅供 decode 不缓存——支撑&quot;prefill ≈ 编码器-only&quot;）。训练适配是共同底座：post-training 期间模拟同样的 replay；LMSYS serving 实测开启 decoder replay 后 prefill 提速 1.56×、AIME 评测零差异。</p>
+<h2 id="5-Single-Pass-mHC：把-A-错位一层">5. Single-Pass mHC：把 A 错位一层</h2>
+<p>mHC 在相邻块间维持 n 条残差流（n = hc_mult = 4）：</p>
+<p class="katex-block "><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><msub><mi>X</mi><mrow><mi>l</mi><mo>+</mo><mn>1</mn></mrow></msub><mo>=</mo><msub><mi>B</mi><mi>l</mi></msub><msub><mi>X</mi><mi>l</mi></msub><mo>+</mo><msub><mi>C</mi><mi>l</mi></msub><msub><mi>F</mi><mi>l</mi></msub><mo stretchy="false">(</mo><msub><mi>A</mi><mi>l</mi></msub><msub><mi>X</mi><mi>l</mi></msub><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">X_{l+1} = B_l X_l + C_l F_l(A_l X_l)
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8917em;vertical-align:-0.2083em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0785em;">X</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:-0.0785em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight" style="margin-right:0.0197em;">l</span><span class="mbin mtight">+</span><span class="mord mtight">1</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.2083em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.8333em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0502em;">B</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:-0.0502em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:0.0197em;">l</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0785em;">X</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:-0.0785em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:0.0197em;">l</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0715em;">C</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:-0.0715em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:0.0197em;">l</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.1389em;">F</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:-0.1389em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:0.0197em;">l</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mopen">(</span><span class="mord"><span class="mord mathnormal">A</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:0.0197em;">l</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0785em;">X</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:-0.0785em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:0.0197em;">l</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mclose">)</span></span></span></span></span></p>
+<p>三组系数 <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false">(</mo><msub><mi>A</mi><mi>l</mi></msub><mo separator="true">,</mo><msub><mi>B</mi><mi>l</mi></msub><mo separator="true">,</mo><msub><mi>C</mi><mi>l</mi></msub><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">(A_l, B_l, C_l)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mopen">(</span><span class="mord"><span class="mord mathnormal">A</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:0.0197em;">l</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0502em;">B</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:-0.0502em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:0.0197em;">l</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0715em;">C</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:-0.0715em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:0.0197em;">l</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mclose">)</span></span></span></span> 由系数预测器 <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>H</mi><mo stretchy="false">(</mo><msub><mi>X</mi><mi>l</mi></msub><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">H(X_l)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal" style="margin-right:0.0813em;">H</span><span class="mopen">(</span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0785em;">X</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:-0.0785em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:0.0197em;">l</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mclose">)</span></span></span></span> 从当前流算出。V4 的三 kernel 实现因数据依赖串行执行，含 pre-norm 总激活访存 <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false">(</mo><mn>4</mn><mi>n</mi><mo>+</mo><mn>4</mn><mo stretchy="false">)</mo><mi>d</mi></mrow><annotation encoding="application/x-tex">(4n+4)d</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mopen">(</span><span class="mord">4</span><span class="mord mathnormal">n</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord">4</span><span class="mclose">)</span><span class="mord mathnormal">d</span></span></span></span>，是理论下界 <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false">(</mo><mn>2</mn><mi>n</mi><mo>+</mo><mn>2</mn><mo stretchy="false">)</mo><mi>d</mi></mrow><annotation encoding="application/x-tex">(2n+2)d</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mopen">(</span><span class="mord">2</span><span class="mord mathnormal">n</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord">2</span><span class="mclose">)</span><span class="mord mathnormal">d</span></span></span></span> 的两倍。卡点在 <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>A</mi><mi>l</mi></msub></mrow><annotation encoding="application/x-tex">A_l</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8333em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal">A</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:0.0197em;">l</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span></span>：它需要扫完整 hidden 维的归约，而输入混合在本层内就要用它——每个 tile 算完只能等全维归约，然后重读 <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>X</mi><mi>l</mi></msub></mrow><annotation encoding="application/x-tex">X_l</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8333em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0785em;">X</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:-0.0785em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:0.0197em;">l</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span></span>。</p>
+<p>Single-Pass 把输入混合系数错位一个块：</p>
+<p class="katex-block "><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><msub><mi>X</mi><mrow><mi>l</mi><mo>+</mo><mn>1</mn></mrow></msub><mo>=</mo><msub><mi>B</mi><mi>l</mi></msub><msub><mi>X</mi><mi>l</mi></msub><mo>+</mo><msub><mi>C</mi><mi>l</mi></msub><msub><mi>F</mi><mi>l</mi></msub><mo stretchy="false">(</mo><msub><mi>A</mi><mrow><mi>l</mi><mo>−</mo><mn>1</mn></mrow></msub><msub><mi>X</mi><mi>l</mi></msub><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">X_{l+1} = B_l X_l + C_l F_l(A_{l-1} X_l)
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8917em;vertical-align:-0.2083em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0785em;">X</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:-0.0785em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight" style="margin-right:0.0197em;">l</span><span class="mbin mtight">+</span><span class="mord mtight">1</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.2083em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.8333em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0502em;">B</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:-0.0502em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:0.0197em;">l</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0785em;">X</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:-0.0785em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:0.0197em;">l</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0715em;">C</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:-0.0715em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:0.0197em;">l</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.1389em;">F</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:-0.1389em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:0.0197em;">l</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mopen">(</span><span class="mord"><span class="mord mathnormal">A</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight" style="margin-right:0.0197em;">l</span><span class="mbin mtight">−</span><span class="mord mtight">1</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.2083em;"><span></span></span></span></span></span></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0785em;">X</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:-0.0785em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:0.0197em;">l</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mclose">)</span></span></span></span></span></p>
+<p>层内循环变成层间接力：<span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>X</mi><mi>l</mi></msub></mrow><annotation encoding="application/x-tex">X_l</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8333em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0785em;">X</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:-0.0785em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:0.0197em;">l</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span></span> 的每个 tile 算完可立即同时用于输入混合、系数预测累加和 RMS 平方和累加，一次遍历完成。部署侧 Mega-mHC kernel 把残差更新、输入混合、系数预测融合进单个 kernel，精确达到 <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false">(</mo><mn>2</mn><mi>n</mi><mo>+</mo><mn>2</mn><mo stretchy="false">)</mo><mi>d</mi></mrow><annotation encoding="application/x-tex">(2n+2)d</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mopen">(</span><span class="mord">2</span><span class="mord mathnormal">n</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord">2</span><span class="mclose">)</span><span class="mord mathnormal">d</span></span></span></span> 的理论下界——激活访存减半，decode 访存受限场景直接转化为时延收益。语义代价是&quot;本层用上一层的混合权重&quot;（相邻层流演化平滑，近似为一阶滞后），实验损失可忽略。vLLM 对应 mhc_pre_delayed_tilelang + MHC_PRE_NORM_KERNEL，Sinkhorn 迭代 20 轮。</p>
+<h2 id="6-Engram-与-DSpark">6. Engram 与 DSpark</h2>
+<p><strong>Engram（条件记忆）</strong>：把&quot;记忆&quot;从计算中解耦——用 N-gram 哈希（{2,3,4} 阶 × 8 哈希头）查 196B 的超大规模 embedding 表，查得的记忆向量按门控注入残差流，挂在第 1、14 层。嵌入用动量更新 + Sinkhorn 平衡优化（仅需动量缓冲，无需 Adam 的状态显存）。训练时表按行切分到专用进程组整批预取；推理时确定性寻址支持从 host 内存后台 RDMA 预取，与第一个 Transformer 块的计算重叠。图像 token 不参与 n-gram 也不注入条件记忆，n-gram 链在图像边界处打断。</p>
+<p><strong>DSpark（推测解码）</strong>：3 个 Transformer 块的草稿 + Markov 头（rank 256）建模草稿 token 依赖 + 置信度头预测逐位置接受概率，调度器按请求动态选验证长度、最大化系统吞吐。V4.1 取消了 V3/V4 的 MTP，DSpark 是唯一推测解码方法。部署约束很有意思：PD 分离时必须双池同开——因为 prefill 池传给 decode 池的不止主模型 KV，还有 prompt 末尾 5 个 noise 槽（dspark_noise_token_id=128799）、3 个草稿块各自的 KV、目标层的注意力输入隐状态，双方记账必须逐位一致；单开一侧会导致位置错位 5 或草稿头读到空 KV。收益集中在低并发/延迟敏感场景，大 batch 下固定步开销不再回本。</p>
+<h2 id="7-FP4-主-KV：先证界，再省位">7. FP4 主 KV：先证界，再省位</h2>
+<table>
+<thead>
+<tr>
+<th>项</th>
+<th>设置</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>格式</td>
+<td>E2M1 + 每 16 通道一个 E4M3 scale（类 NVFP4，省掉二级全局 scale）</td>
+</tr>
+<tr>
+<td>量级安全论证</td>
+<td>格式上限 448×6=2688；RMSNorm 权重幅值≈1，512 维 KV latent 的 L2 范数 ≤ √512≈22.6，RoPE 保范，训练实测最大幅值约 10——余量充足</td>
+</tr>
+<tr>
+<td>时机</td>
+<td>RoPE 之后量化（写入缓存时）；先 RoPE 再量化只带来边际精度提升且增加 decode 开销</td>
+</tr>
+<tr>
+<td>计算侧</td>
+<td>注意力前反量化——FP4 只省存储、不要求原生 FP4 矩阵乘，跨硬件兼容</td>
+</tr>
+</tbody>
+</table>
+<p>注意区分：专家权重的 MXFP4（32 通道 UE8M0 scale）与 KV cache 的 FP4（16 通道 E4M3 scale）是两套格式。缓存布局 448B NoPE + 128B RoPE + 8B scale = 584B/token，576B 对齐分页。</p>
+<h2 id="8-总账：890-B-token-与-1-8-是怎么来的">8. 总账：890 B/token 与 1/8 是怎么来的</h2>
+<p>全局 KV（常驻 HBM）= CSA2 跨层共享 × FP4：</p>
+<ul>
+<li>V4-Flash 基线 → 共享后约为其 1/2 量级（条目数骤减：编码器 3 份、解码器 1 份）</li>
+<li>× FP4/FP8（再减半）→ 合计约 1/4，即 <strong>890 B/token</strong>，1M 上下文 &lt; 1 GB</li>
+</ul>
+<p>持久化 KV（常驻 SSD/host）= 去掉 SWA × 全局压缩：</p>
+<ul>
+<li>SWA 约占 V4 持久缓存一半 → 去掉后 ≈ 1/2</li>
+<li>× 全局 KV 的 1/4 → 合计 ≈ <strong>1/8</strong></li>
+</ul>
+<p>对应地 decode FLOPs 从 4K 到 1M 上下文仅增长 1/4（近常数），prefill 复杂度 <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>O</mi><mo stretchy="false">(</mo><mi>N</mi><mi>L</mi><mi mathvariant="normal">/</mi><mn>2</mn><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">O(NL/2)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal" style="margin-right:0.0278em;">O</span><span class="mopen">(</span><span class="mord mathnormal" style="margin-right:0.109em;">N</span><span class="mord mathnormal">L</span><span class="mord">/2</span><span class="mclose">)</span></span></span></span>——架构 × 缓存精度 × 部署策略三个层面联合压低了计算、存储与带宽三本账。</p>
+<p>回看六个设计，单项都是已有技术的组合，但组合的口径统一：<strong>凡是生命周期长于会话的（全局 KV），往死里压；生命周期短于会话的（SWA），干脆不存</strong>。这个按生命周期分治的存储哲学，比任何单项技术都更值得记住。</p>
+<h2 id="参考">参考</h2>
+<ul>
+<li>DeepSeek-AI 技术报告《DeepSeek-V4.1-Flash: Pushing the Limits of KV Cache Compression》(2026-09)</li>
+<li>HF 仓库 deepseek-ai/DeepSeek-V4.1-Flash（inference/ 目录，vLLM 实现佐证）</li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/LLM/" rel="tag"># LLM</a>
+              <a href="/tags/Inference/" rel="tag"># Inference</a>
+              <a href="/tags/DeepSeek/" rel="tag"># DeepSeek</a>
+              <a href="/tags/KV-Cache/" rel="tag"># KV Cache</a>
+              <a href="/tags/MoE/" rel="tag"># MoE</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/zh-CN/2026/09/05/TileLang%E5%AE%9E%E6%88%98-%E5%8D%95%E4%BD%8D%E4%B8%8B%E4%B8%89%E8%A7%92%E7%9F%A9%E9%98%B5%E6%B1%82%E9%80%86/" rel="prev" title="TileLang 实战：单位下三角矩阵求逆">
+                  <i class="fa fa-angle-left"></i> TileLang 实战：单位下三角矩阵求逆
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/zh-CN/2026/10/08/MLA%E7%9A%84Decode-Context-Parallelism/" rel="next" title="MLA 的 Decode Context Parallelism：用 Q 的通信买 KV 的显存">
+                  MLA 的 Decode Context Parallelism：用 Q 的通信买 KV 的显存 <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments giscus-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 2014 – 
+    <span itemprop="copyrightYear">2026</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+  </div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/mist/" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.umd.js" integrity="sha256-a+H7FYzJv6oU2hfsfDGM2Ohw/cR9v+hPfxHCLdmCrE8=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lozad.js/1.16.0/lozad.min.js" integrity="sha256-mOFREFhqmHeQbXpK2lp4nA3qooVgACfh88fpJftLBbc=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/sidebar.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+  <script src="/js/third-party/fancybox.js"></script>
+
+
+
+  
+
+
+
+
+  
+
+  <script class="next-config" data-name="enableMath" type="application/json">false</script><link rel="stylesheet" href="//cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+
+
+<script>
+(function () {
+  function mountGiscus() {
+    var box = document.querySelector('.giscus-container');
+    if (!box || box.dataset.mounted) return;
+    box.dataset.mounted = '1';
+    var s = document.createElement('script');
+    s.setAttribute('src', "https://giscus.app/client.js");
+    s.setAttribute('data-repo', "ggaaooppeenngg/ggaaooppeenngg.github.io");
+    s.setAttribute('data-repo-id', "MDEwOlJlcG9zaXRvcnkzMzI0MzY4Mw==");
+    s.setAttribute('data-category', "Q&A");
+    s.setAttribute('data-category-id', "DIC_kwDOAftCI84DEmO7");
+    s.setAttribute('data-mapping', "pathname");
+    s.setAttribute('data-strict', "0");
+    s.setAttribute('data-reactions-enabled', "1");
+    s.setAttribute('data-emit-metadata', "0");
+    s.setAttribute('data-input-position', "top");
+    s.setAttribute('data-theme', "preferred_color_scheme");
+    s.setAttribute('data-lang', "zh-CN");
+    s.setAttribute('data-loading', "lazy");
+    s.setAttribute('crossorigin', "anonymous");
+    s.async = true;
+    box.appendChild(s);
+  }
+  if (document.readyState !== 'loading') mountGiscus();
+  else document.addEventListener('DOMContentLoaded', mountGiscus);
+  document.addEventListener('page:loaded', mountGiscus);
+})();
+</script>
+</body>
+</html>
