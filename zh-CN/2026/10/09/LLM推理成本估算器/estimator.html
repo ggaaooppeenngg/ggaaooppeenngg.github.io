@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LLM 推理成本估算器</title>
+<style>
+:root{--ink:#16202b;--ink2:#4a5b6d;--line:#e3e9f0;--soft:#f6f8fb;--ok:#136f63;--okbg:#e6f4f1;--warn:#b3261e;--warnbg:#fceceb;--blue:#0b6bcb}
+*{box-sizing:border-box}
+body{margin:0;background:#fff;color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;font-size:16px;line-height:1.7}
+.wrap{max-width:760px;margin:0 auto;padding:16px 16px 64px}
+h1{font-size:22px;margin:8px 0 4px}
+h2{font-size:18px;margin:34px 0 10px;padding-top:12px;border-top:2px solid var(--ink)}
+h3{font-size:16px;margin:18px 0 6px}
+p.sub{color:var(--ink2);font-size:14px;margin:0 0 14px}
+.pane{border:2px solid var(--ink);border-radius:14px;padding:14px;margin:16px 0;background:#fff}
+.presets{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0 0 12px}
+select{width:100%;font:inherit;font-size:15px;padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--ink)}
+.cgrid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.field{background:var(--soft);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.field label{display:block;font-size:12.5px;color:var(--ink2)}
+.field .row{display:flex;align-items:baseline;gap:6px}
+.field input{flex:1;min-width:0;font-size:16px;font-weight:600;color:var(--ink);border:1px solid #d7dee7;border-radius:7px;padding:4px 7px;background:#fff;font-variant-numeric:tabular-nums}
+.field .unit{font-size:11.5px;color:#7b8794;white-space:nowrap}
+.btnrow{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 4px}
+button{font:inherit;font-size:14px;font-weight:600;padding:8px 14px;border-radius:9px;cursor:pointer;border:1px solid var(--ink);background:var(--ink);color:#fff}
+button.ghost{background:#fff;color:var(--ink)}
+.outgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0 0}
+.outcard{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:#fff}
+.outcard .t{font-size:12.5px;color:var(--ink2)}
+.outcard .big{font-size:24px;font-weight:700;font-variant-numeric:tabular-nums}
+.outcard .sub2{font-size:12px;color:#7b8794;font-variant-numeric:tabular-nums}
+.pos{color:var(--ok)}.neg{color:var(--warn)}.neutral{color:var(--ink)}
+.tw{overflow-x:auto;margin:14px 0;border:1px solid var(--line);border-radius:12px}
+table{border-collapse:collapse;width:100%;min-width:480px;font-size:13.5px;line-height:1.6}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+th{background:var(--soft);font-size:12px;color:var(--ink2);white-space:nowrap}
+tr:last-child td{border-bottom:0}
+td.num{white-space:nowrap;font-variant-numeric:tabular-nums}
+.mini{font-size:12px;color:#7b8794;margin:6px 0 0}
+.calc{background:#fffdf7;border:1px solid #f0e2c4;border-radius:12px;padding:12px 14px;margin:12px 0;font-size:14.5px}
+.calc .step{padding:5px 0;border-bottom:1px dashed #eee3cc}
+.calc .step:last-child{border-bottom:0}
+.calc .lbl{color:var(--ink2);font-size:13px}
+.calc .val{font-variant-numeric:tabular-nums;font-weight:600}
+.box{background:var(--soft);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:14px 0;font-size:14.5px}
+.box.warn{background:var(--warnbg);border-color:#f2cdca}
+.pass{color:var(--ok);font-weight:700}
+@media(max-width:420px){.presets,.cgrid,.outgrid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>LLM 推理成本估算器</h1>
+<p class="sub">公式：成本 = GPU 单价 ÷（吞吐 × 3600 × 利用率）× 1,000,000（¥/1M token）。折扣率 = 1 − 成本 ÷ 官网价；正 = 有安全垫，负 = 亏。默认参数取自 Kimi K3 · B300 整机租用口径，全部可改。</p>
+
+<div class="pane">
+<h3 style="margin-top:0">① 预设（填初值，之后可手改）</h3>
+<div class="presets">
+<div class="field"><label>模型 / 负载</label><select id="sel-model">
+<option value="k3">Kimi K3（默认）</option>
+<option value="dsv41">DeepSeek-V4.1-Flash（API 价，吞吐自填）</option>
+<option value="custom">自定义（不改动）</option>
+</select></div>
+<div class="field"><label>硬件成本基数</label><select id="sel-gpu">
+<option value="b300rent">B300 整机租用 35万/月·台（默认）</option>
+<option value="b300">B300 自建 15.14 ¥/h</option>
+<option value="gb300">GB300 自建 15.48 ¥/h</option>
+<option value="b200">B200 自建 11.6 ¥/h（蓝本口径）</option>
+<option value="manual">直接填写 GPU 单价</option>
+</select></div>
+</div>
+<div class="cgrid">
+<div class="field"><label>GPU 单价</label><div class="row"><input id="in-gpu" type="number" step="0.01" value="60.763889"><span class="unit">¥/GPU·h</span></div></div>
+<div class="field"><label>输入吞吐（prefill）</label><div class="row"><input id="in-tin" type="number" step="1" value="8279"><span class="unit">tok/s/chip</span></div></div>
+<div class="field"><label>输出吞吐（decode）</label><div class="row"><input id="in-tout" type="number" step="0.1" value="58.6"><span class="unit">tok/s/chip</span></div></div>
+<div class="field"><label>时间利用率</label><div class="row"><input id="in-util" type="number" step="1" min="1" max="100" value="60"><span class="unit">%</span></div></div>
+<div class="field"><label>官网价 · 输入</label><div class="row"><input id="in-pin" type="number" step="0.01" value="20"><span class="unit">¥/1M</span></div></div>
+<div class="field"><label>官网价 · 输出</label><div class="row"><input id="in-pout" type="number" step="0.01" value="100"><span class="unit">¥/1M</span></div></div>
+</div>
+<div class="box warn" style="margin:10px 0 0"><b>GPU 单价推导（租用口径）</b>：月租金 ÷ 单台卡数 ÷ 每月小时数。
+<input id="in-rent" type="number" value="350000" style="width:90px"> ¥/月·台 ÷
+<input id="in-cards" type="number" value="8" style="width:40px"> 卡 ÷
+<input id="in-hours" type="number" value="720" style="width:50px"> h =
+<b id="ob-pergpu">60.7639</b> ¥/GPU·h　<button class="ghost" id="btn-apply" style="padding:4px 10px;font-size:13px">套用</button></div>
+<div class="btnrow"><button id="btn-reset">恢复默认（K3 · B300 租用）</button><button class="ghost" id="btn-gpu11">GPU 单价改 11.6（蓝本自建）</button></div>
+</div>
+
+<div class="pane">
+<h3 style="margin-top:0">② 结果</h3>
+<div class="outgrid">
+<div class="outcard"><div class="t">输入 token · 成本 / 折扣率</div><div class="big neutral" id="out-cin">—</div><div class="sub2" id="out-din">—</div></div>
+<div class="outcard"><div class="t">输出 token · 成本 / 折扣率</div><div class="big neutral" id="out-cout">—</div><div class="sub2" id="out-dout">—</div></div>
+<div class="outcard"><div class="t">输入/输出成本比</div><div class="big neutral" id="out-ratio">—</div><div class="sub2">= 吞吐反比，与 GPU 单价无关</div></div>
+<div class="outcard"><div class="t">每卡每月产出（30 天）</div><div class="big neutral" id="out-m">—</div><div class="sub2">M token：输入 + 输出</div></div>
+</div>
+</div>
+
+<div class="pane">
+<h3 style="margin-top:0">③ 保本点（折扣率 = 0 反解）</h3>
+<div class="tw"><table>
+<thead><tr><th>侧</th><th class="num">保本吞吐 (tok/s)</th><th class="num">保本 GPU 单价 (¥/h)</th><th class="num">保本利用率</th></tr></thead>
+<tbody>
+<tr><td>输出</td><td class="num" id="bk-tout">—</td><td class="num" id="bk-pout">—</td><td class="num" id="bk-uout">—</td></tr>
+<tr><td>输入</td><td class="num" id="bk-tin">—</td><td class="num" id="bk-pin">—</td><td class="num" id="bk-uin">—</td></tr>
+</tbody></table></div>
+<p class="mini">保本吞吐 = 吞吐 × 成本 ÷ 官网价；保本单价 = 单价 × 官网价 ÷ 成本；保本利用率 = 利用率 × 成本 ÷ 官网价。保本单价与利用率相互独立于当前 GPU 单价。</p>
+</div>
+
+<div class="pane">
+<h3 style="margin-top:0">④ 利用率阶梯（随上面输入实时重算）</h3>
+<div class="tw"><table>
+<thead><tr><th class="num">利用率</th><th class="num">输入成本 ¥/1M</th><th class="num">输入折扣率</th><th class="num">输出成本 ¥/1M</th><th class="num">输出折扣率</th></tr></thead>
+<tbody id="ld-body"></tbody></table></div>
+</div>
+
+<div class="pane">
+<h3 style="margin-top:0">⑤ 保本输入输出比（结构线）</h3>
+<p class="mini" style="margin:0 0 8px">收入 = P_in·r + P_out，成本 = C_in·r + C_out（按每 1M 输出 token 折算，r = 输入 token ÷ 输出 token）。默认取第 7 节毛利表口径，可改。</p>
+<div class="cgrid">
+<div class="field"><label>成本 · 输入</label><div class="row"><input id="s-cin" type="number" step="0.01" value="0.08"><span class="unit">¥/1M</span></div></div>
+<div class="field"><label>成本 · 输出</label><div class="row"><input id="s-cout" type="number" step="0.01" value="10.44"><span class="unit">¥/1M</span></div></div>
+<div class="field"><label>售价 · 输入</label><div class="row"><input id="s-pin" type="number" step="0.01" value="0.24"><span class="unit">¥/1M</span></div></div>
+<div class="field"><label>售价 · 输出</label><div class="row"><input id="s-pout" type="number" step="0.01" value="8.00"><span class="unit">¥/1M</span></div></div>
+</div>
+<div class="calc" id="s-out"></div>
+</div>
+
+<div class="pane">
+<h3 style="margin-top:0">⑥ 混合口径营收测算（32 台 B300 算例）</h3>
+<p class="mini" style="margin:0 0 8px">不分输入输出、按聚合混合吞吐计：成本 = GPU 单价 ÷（混合吞吐 × 3600 × 填充率）× 1e6；日营收 = 售价 × 混合吞吐 × 86400 × 填充率。默认值取自《32台 B300 营收测算》表。</p>
+<div class="cgrid">
+<div class="field"><label>混合吞吐 / chip</label><div class="row"><input id="m-tp" type="number" value="15625"><span class="unit">tok/s</span></div></div>
+<div class="field"><label>填充率</label><div class="row"><input id="m-util" type="number" min="1" max="100" value="30"><span class="unit">%</span></div></div>
+<div class="field"><label>混合售价</label><div class="row"><input id="m-p" type="number" step="0.001" value="8.333"><span class="unit">¥/1M</span></div></div>
+<div class="field"><label>台数 / 卡每台</label><div class="row"><input id="m-n" type="number" value="32" style="width:52px"><span class="unit">台</span><input id="m-g" type="number" value="8" style="width:40px"><span class="unit">卡</span></div></div>
+</div>
+<div class="outgrid">
+<div class="outcard"><div class="t">混合成本 / 折扣率</div><div class="big neutral" id="m-c">—</div><div class="sub2" id="m-d">—</div></div>
+<div class="outcard"><div class="t">集群月营收 / 月租金（仅扣租金净利）</div><div class="big neutral" id="m-rev">—</div><div class="sub2" id="m-net">—</div></div>
+</div>
+<div class="tw"><table>
+<thead><tr><th>盈亏平衡 / 敏感性</th><th class="num">保本混合吞吐 (tok/s/chip)</th><th class="num">保本填充率</th><th class="num">保本售价 (¥/1M)</th></tr></thead>
+<tbody><tr><td>口径：折扣率 = 0 反解</td><td class="num" id="m-bktp">—</td><td class="num" id="m-bku">—</td><td class="num" id="m-bkp">—</td></tr></tbody>
+</table></div>
+<p class="mini">保本吞吐 = 当前吞吐 × 成本 ÷ 售价；保本填充率 = 当前填充率 × 成本 ÷ 售价；保本售价 = 当前售价 × 成本 ÷ 售价（即成本本身）。填充率阶梯：30% → <span id="m-u30">—</span> · 50% → <span id="m-u50">—</span> · 80% → <span id="m-u80">—</span> · 100% → <span id="m-u100">—</span>（混合成本 ¥/1M）。</p>
+</div>
+
+<div class="pane">
+<h3 style="margin-top:0">⑦ 交叉校验（独立路径重排公式，差 &lt; 1e-6 为 PASS）</h3>
+<div class="tw"><table>
+<thead><tr><th>校验项</th><th class="num">期望值</th><th class="num">实际值</th><th>状态</th></tr></thead>
+<tbody id="rv-body"></tbody></table></div>
+</div>
+
+<p class="mini">默认参数出处：吞吐 8279/58.6 tok/s、官网价 20/100 ¥/1M（Kimi K3 蓝本）；B300 整机租用 35 万元/月·台 ÷ 8 卡 ÷ 720 h = 60.763889 ¥/GPU·h；自建基数 11.6/15.14/15.48 ¥/h（SemiAnalysis InferenceX $/chip·hr × 6.70）；DeepSeek-V4.1-Flash API 价（空闲档）：输入未命中 1 ¥ / 输出 4 ¥，吞吐请自填。</p>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const P={
+ k3:{tin:8279,tout:58.6,pin:20,pout:100,label:'Kimi K3'},
+ dsv41:{tin:'',tout:'',pin:1,pout:4,label:'DeepSeek-V4.1-Flash（吞吐自填）'}
+};
+const G={
+ b300rent:{gpu:60.763889,label:'B300 整机租用'},
+ b300:{gpu:15.14,label:'B300 自建'},
+ gb300:{gpu:15.48,label:'GB300 自建'},
+ b200:{gpu:11.6,label:'B200 自建（蓝本）'}
+};
+function applyPresetModel(){const v=$('sel-model').value;if(P[v]){if(P[v].tin!=='')$('in-tin').value=P[v].tin;if(P[v].tout!=='')$('in-tout').value=P[v].tout;$('in-pin').value=P[v].pin;$('in-pout').value=P[v].pout;}recalc();}
+function applyPresetGpu(){const v=$('sel-gpu').value;if(G[v]){$('in-gpu').value=G[v].gpu;}recalc();}
+$('sel-model').onchange=applyPresetModel;
+$('sel-gpu').onchange=applyPresetGpu;
+$('btn-gpu11').onclick=()=>{$('sel-gpu').value='manual';$('in-gpu').value=11.6;recalc();};
+$('btn-reset').onclick=()=>{$('sel-model').value='k3';$('sel-gpu').value='b300rent';$('in-gpu').value=60.763889;$('in-tin').value=8279;$('in-tout').value=58.6;$('in-util').value=60;$('in-pin').value=20;$('in-pout').value=100;$('in-rent').value=350000;$('in-cards').value=8;$('in-hours').value=720;recalc();};
+$('btn-apply').onclick=()=>{const r=+$('in-rent').value,c=+$('in-cards').value,h=+$('in-hours').value;if(c>0&&h>0){$('sel-gpu').value='manual';$('in-gpu').value=+(r/c/h).toFixed(6);recalc();}};
+function deriveRent(){$('ob-pergpu').textContent=(+$('in-rent').value/(+$('in-cards').value||8)/(+$('in-hours').value||720)).toFixed(4);}
+['in-rent','in-cards','in-hours'].forEach(i=>$(i).oninput=deriveRent);
+function cost(gpu,tp,util){return gpu/(tp*3600*(util/100))*1e6;}
+function disc(c,p){return 1-c/p;}
+function fmt(x,d=2){return Number(x.toFixed(d)).toLocaleString('en-US',{maximumFractionDigits:d});}
+function recalc(){
+ const gpu=+$('in-gpu').value||0,tin=+$('in-tin').value||0,tout=+$('in-tout').value||0,util=+$('in-util').value||1,pin=+$('in-pin').value||0,pout=+$('in-pout').value||0;
+ const cin=cost(gpu,tin,util),cout=cost(gpu,tout,util);
+ $('out-cin').textContent=fmt(cin,3)+' ¥';
+ $('out-cout').textContent=fmt(cout,3)+' ¥';
+ const din=disc(cin,pin),dout=disc(cout,pout);
+ $('out-din').innerHTML='<b class="'+(din>=0?'pos':'neg')+'">'+(din*100).toFixed(2)+'%</b>';
+ $('out-dout').innerHTML='<b class="'+(dout>=0?'pos':'neg')+'">'+(dout*100).toFixed(2)+'%</b>';
+ $('out-ratio').textContent=tin>0&&tout>0?(tin/tout).toFixed(2)+' : 1':'—';
+ $('out-m').textContent=(tin*3600*util/100*720/1e6).toFixed(0)+' / '+(tout*3600*util/100*720/1e6).toFixed(1)+' M';
+ // breakeven
+ if(cout>0&&pout>0){$('bk-tout').textContent=fmt(tout*cout/pout,1);$('bk-pout').textContent=fmt(gpu*pout/cout,2);$('bk-uout').textContent=(util*cout/pout).toFixed(1)+'%';}
+ if(cin>0&&pin>0){$('bk-tin').textContent=fmt(tin*cin/pin,1);$('bk-pin').textContent=fmt(gpu*pin/cin,2);$('bk-uin').textContent=(util*cin/pin).toFixed(1)+'%';}
+ // ladder
+ let rows='';
+ [30,60,80,100].forEach(u=>{
+  const ci=cost(gpu,tin,u),co=cost(gpu,tout,u),di=disc(ci,pin)*100,do_=disc(co,pout)*100;
+  rows+='<tr><td class="num">'+u+'%</td><td class="num">'+fmt(ci,3)+'</td><td class="num '+(di>=0?'pos':'neg')+'">'+di.toFixed(2)+'%</td><td class="num">'+fmt(co,3)+'</td><td class="num '+(do_>=0?'pos':'neg')+'">'+do_.toFixed(2)+'%</td></tr>';
+ });
+ $('ld-body').innerHTML=rows;
+ // structural breakeven
+ const scin=+$('s-cin').value,scout=+$('s-cout').value,spin=+$('s-pin').value,spout=+$('s-pout').value;
+ let s='<div class="step"><span class="lbl">方程</span><br>'+scin+'·r + '+scout+' = '+spin+'·r + '+spout+'</div>';
+ if(spin>scin){const r=(spout-scout)/(spin-scin);
+  s+='<div class="step"><span class="lbl">保本输入输出比</span><br>r = ('+spout+' − '+scout+') ÷ ('+spin+' − '+scin+') = <span class="val">'+r.toFixed(2)+' : 1</span>'+(r>0?(r<=15?'（低于典型对话负载 → 亏）':'（靠输入侧盈利）'):'（输出侧自带正毛利，任何比例都赚）')+'</div>';
+  s+='<div class="step"><span class="lbl">两侧毛利率</span><br>输入 '+((spin-scin)/spin*100).toFixed(1)+'%　输出 '+((spout-scout)/spout*100).toFixed(1)+'%</div>';
+ } else s+='<div class="step">输入侧每 token 不赚钱（售价 ≤ 成本），无法靠输入侧回血。</div>';
+ $('s-out').innerHTML=s;
+ // review
+ const e1=gpu/(tin*3600)*1e6*(100/util),a1=cin; // reordered independent path
+ const e2=gpu/(tout*3600)*1e6*(100/util),a2=cout;
+ const e3=tin/tout,a3=cout/cin>0?cin/cout:0; // ratio identity: cin/cout = tout/tin
+ function row(name,e,a){const pass=Math.abs(e-a)<1e-6;return '<tr><td>'+name+'</td><td class="num">'+e.toFixed(6)+'</td><td class="num">'+a.toFixed(6)+'</td><td class="'+(pass?'pass':'neg')+'">'+(pass?'PASS':'FAIL')+'</td></tr>';}
+ let rv='';
+ if(tin>0)rv+=row('输入成本（重排路径）',e1,a1);
+ if(tout>0)rv+=row('输出成本（重排路径）',e2,a2);
+ if(tin>0&&tout>0)rv+=row('成本比 = 吞吐反比',tin/tout,cout/cin);
+ $('rv-body').innerHTML=rv||'<tr><td colspan="4">请先填吞吐</td></tr>';
+}
+function recalcMix(){
+ const gpu=+$('in-gpu').value||0,tp=+$('m-tp').value||0,util=+$('m-util').value||1,p=+$('m-p').value||0,n=+$('m-n').value||0,g=+$('m-g').value||0;
+ const c=gpu/(tp*3600*(util/100))*1e6;
+ $('m-c').textContent=c.toFixed(3)+' ¥/1M';
+ const d=1-c/p;
+ $('m-d').innerHTML='<b class="'+(d>=0?'pos':'neg')+'">'+(d*100).toFixed(2)+'%</b>　（'+(c<=p?'有安全垫':'按售价卖亏')+'）';
+ const rev=p*tp*3600*(util/100)*24*30/1e6*n*g/1e4;
+ const rent=(+$('in-rent').value||0)*n/1e4;
+ $('m-rev').textContent=rev.toFixed(1)+' 万元';
+ $('m-net').textContent='租金 '+rent.toFixed(1)+' 万 · 净利 '+(rev-rent).toFixed(1)+' 万（'+((rev-rent)/(rev||1)*100).toFixed(1)+'%）';
+ if(p>0&&tp>0){$('m-bktp').textContent=(tp*c/p).toFixed(0);$('m-bku').textContent=(util*c/p).toFixed(1)+'%';$('m-bkp').textContent=c.toFixed(3);}
+ [30,50,80,100].forEach(u=>{$('m-u'+u).textContent=(gpu/(tp*3600*u/100)*1e6).toFixed(2);});
+}
+document.querySelectorAll('input').forEach(i=>i.addEventListener('input',()=>{recalc();recalcMix();}));
+recalc();recalcMix();
+</script>
+</body>
+</html>
