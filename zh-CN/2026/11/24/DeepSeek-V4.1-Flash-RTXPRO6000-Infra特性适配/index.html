@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.3.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="_85tctgPWrqH2EPVuuD5IT6KE-tW8nH0hTISJDMnShg">
+  <meta name="baidu-site-verification" content="bb16c5b1fd3302c18e0015bef11eea42">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha256-dABdfBfUoC8vJUBOwGVdm8L9qlMWaHTIfXt+7GnZCIo=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.css" integrity="sha256-gkQVf8UKZgQ0HyuxL/VnacadJ+D2Kox2TCEBuNQg5+w=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":"giscus","storage":true,"lazyload":false,"nav":null,"activeClass":"giscus"},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="DeepSeek-V4.1-Flash 的官方推理栈是按 H100 到 GB300 和 MI355X 搭的：vLLM 0.30 到 0.32 三个正式版本在 RTX PRO 6000 上连模型都起不来，栈里的 DeepSelect 只编 sm_100a 和 sm_103a，DeepSeek 自己的推理引擎 DeepInfer 只支持 SM100 和昇腾 950。本文记录在 4 张 RTX PRO">
+<meta property="og:type" content="article">
+<meta property="og:title" content="在 RTX PRO 6000 上跑通 DeepSeek-V4.1-Flash：Infra 特性逐项适配与 CSA2 的完整支持">
+<meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2026/11/24/DeepSeek-V4.1-Flash-RTXPRO6000-Infra%E7%89%B9%E6%80%A7%E9%80%82%E9%85%8D/index.html">
+<meta property="og:site_name" content="ggaaooppeenngg">
+<meta property="og:description" content="DeepSeek-V4.1-Flash 的官方推理栈是按 H100 到 GB300 和 MI355X 搭的：vLLM 0.30 到 0.32 三个正式版本在 RTX PRO 6000 上连模型都起不来，栈里的 DeepSelect 只编 sm_100a 和 sm_103a，DeepSeek 自己的推理引擎 DeepInfer 只支持 SM100 和昇腾 950。本文记录在 4 张 RTX PRO">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-11-24T09:14:30.000Z">
+<meta property="article:modified_time" content="2026-11-24T09:14:38.845Z">
+<meta property="article:author" content="ggaaooppeenngg">
+<meta property="article:tag" content="vLLM">
+<meta property="article:tag" content="Inference">
+<meta property="article:tag" content="DeepSeek">
+<meta property="article:tag" content="Blackwell">
+<meta property="article:tag" content="Sparse Attention">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://ggaaooppeenngg.github.io/zh-CN/2026/11/24/DeepSeek-V4.1-Flash-RTXPRO6000-Infra%E7%89%B9%E6%80%A7%E9%80%82%E9%85%8D/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://ggaaooppeenngg.github.io/zh-CN/2026/11/24/DeepSeek-V4.1-Flash-RTXPRO6000-Infra%E7%89%B9%E6%80%A7%E9%80%82%E9%85%8D/","path":"zh-CN/2026/11/24/DeepSeek-V4.1-Flash-RTXPRO6000-Infra特性适配/","title":"在 RTX PRO 6000 上跑通 DeepSeek-V4.1-Flash：Infra 特性逐项适配与 CSA2 的完整支持"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>在 RTX PRO 6000 上跑通 DeepSeek-V4.1-Flash：Infra 特性逐项适配与 CSA2 的完整支持 | ggaaooppeenngg</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-62096626-1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"UA-62096626-1","only_pageview":false,"measure_protocol_api_secret":null}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+  <script src="/js/third-party/analytics/baidu-analytics.js"></script>
+  <script async src="https://hm.baidu.com/hm.js?bb16c5b1fd3302c18e0015bef11eea42"></script>
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">ggaaooppeenngg</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">为什么计算机科学是无限的但生命是有限的</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-旅行"><a href="/travel/" rel="section"><i class="plane fa-fw"></i>旅行</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">210</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">23</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">114</span></a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#1-%E5%AE%98%E6%96%B9%E6%A0%88%E4%B8%8E-SM120-%E7%9A%84%E8%B7%9D%E7%A6%BB"><span class="nav-number">1.</span> <span class="nav-text">1. 官方栈与 SM120 的距离</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-%E5%85%88%E8%AE%A9%E5%9F%BA%E5%BA%A7%E6%A8%A1%E5%9E%8B%E5%90%AF%E5%8A%A8"><span class="nav-number">2.</span> <span class="nav-text">2. 先让基座模型启动</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-1-KV-%E5%87%A0%E4%BD%95%E8%A1%A5%E4%B8%81%E9%93%BE"><span class="nav-number">2.1.</span> <span class="nav-text">2.1 KV 几何补丁链</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-2-%E4%B8%A4%E4%B8%AA%E7%8E%AF%E5%A2%83%E5%9D%91"><span class="nav-number">2.2.</span> <span class="nav-text">2.2 两个环境坑</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-%E7%89%B9%E6%80%A7%E9%80%90%E4%B8%AA%E8%B7%91%E9%80%9A"><span class="nav-number">3.</span> <span class="nav-text">3. 特性逐个跑通</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-CSA2-%E7%9A%84%E5%AE%8C%E6%95%B4%E6%94%AF%E6%8C%81"><span class="nav-number">4.</span> <span class="nav-text">4. CSA2 的完整支持</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#4-1-%E4%BB%80%E4%B9%88%E5%8F%AB%E5%AE%8C%E6%95%B4"><span class="nav-number">4.1.</span> <span class="nav-text">4.1 什么叫完整</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-2-%E4%B8%89%E9%81%93%E9%97%A8"><span class="nav-number">4.2.</span> <span class="nav-text">4.2 三道门</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-3-%E7%AC%AC%E4%B8%80%E9%98%B6%E6%AE%B5%EF%BC%9A%E8%87%AA%E7%A0%94-Triton-%E8%B7%AF%E5%BE%84"><span class="nav-number">4.3.</span> <span class="nav-text">4.3 第一阶段：自研 Triton 路径</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-4-%E7%AC%AC%E4%BA%8C%E9%98%B6%E6%AE%B5%EF%BC%9AC-%E8%B7%AF%E7%BA%BF"><span class="nav-number">4.4.</span> <span class="nav-text">4.4 第二阶段：C++ 路线</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-5-%E7%AC%AC%E4%B8%89%E9%98%B6%E6%AE%B5%EF%BC%9A%E5%AE%9E%E7%8E%B0%E5%AE%A1%E6%9F%A5"><span class="nav-number">4.5.</span> <span class="nav-text">4.5 第三阶段：实现审查</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-6-%E7%8A%B6%E6%80%81"><span class="nav-number">4.6.</span> <span class="nav-text">4.6 状态</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#5-%E5%85%A8%E9%83%A8%E8%B7%91%E8%B5%B7%E6%9D%A5%E4%B9%8B%E5%90%8E%E7%9A%84%E5%90%9E%E5%90%90"><span class="nav-number">5.</span> <span class="nav-text">5. 全部跑起来之后的吞吐</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#6-%E6%94%AF%E6%8C%81%E7%9F%A9%E9%98%B5"><span class="nav-number">6.</span> <span class="nav-text">6. 支持矩阵</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">7.</span> <span class="nav-text">总结</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8F%82%E8%80%83"><span class="nav-number">8.</span> <span class="nav-text">参考</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">ggaaooppeenngg</p>
+  <div class="site-description" itemprop="description">为什么计算机科学是无限的但生命是有限的</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">114</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">23</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">210</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/ggaaooppeenngg" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;ggaaooppeenngg" rel="noopener me" target="_blank"><i class="github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:peng.gao.dut@gmail.com" title="E-Mail → mailto:peng.gao.dut@gmail.com" rel="noopener me" target="_blank"><i class="envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+        <div class="back-to-top animated" role="button" aria-label="返回顶部">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2026/11/24/DeepSeek-V4.1-Flash-RTXPRO6000-Infra%E7%89%B9%E6%80%A7%E9%80%82%E9%85%8D/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="在 RTX PRO 6000 上跑通 DeepSeek-V4.1-Flash：Infra 特性逐项适配与 CSA2 的完整支持 | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          在 RTX PRO 6000 上跑通 DeepSeek-V4.1-Flash：Infra 特性逐项适配与 CSA2 的完整支持
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+      
+
+      <time title="创建时间：2026-11-24 17:14:30 / 修改时间：17:14:38" itemprop="dateCreated datePublished" datetime="2026-11-24T17:14:30+08:00">2026-11-24</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/%E6%8A%80%E6%9C%AF/" itemprop="url" rel="index"><span itemprop="name">技术</span></a>
+        </span>
+    </span>
+
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>DeepSeek-V4.1-Flash 的官方推理栈是按 H100 到 GB300 和 MI355X 搭的：vLLM 0.30 到 0.32 三个正式版本在 RTX PRO 6000 上连模型都起不来，栈里的 DeepSelect 只编 sm_100a 和 sm_103a，DeepSeek 自己的推理引擎 DeepInfer 只支持 SM100 和昇腾 950。<strong>本文记录在 4 张 RTX PRO 6000 上把 V4.1 的 Infra 特性逐项跑通的经过：先让基座模型启动，再把 FP4 KV、MXFP4 Engram、KV 卸载、DSpark 逐个打通，最后把 CSA2 补到完整——包括 Reindex 层只给候选块打分这条被上游硬性排除的路径。</strong> 结果是模型的 9 项特性全部跑通；吞吐和引擎特性的状态见最后三节。数字多数来自 84 GB 的 RTX 6000D 实测。</p>
+<span id="more"></span>
+<hr>
+<h2 id="1-官方栈与-SM120-的距离">1. 官方栈与 SM120 的距离</h2>
+<p>V4.1 的推理栈由几个分工明确的组件拼成。先看每一个在 SM120 上的状态：</p>
+<table>
+<thead>
+<tr>
+<th>组件</th>
+<th>作用</th>
+<th>官方支持的硬件</th>
+<th>SM120 上的状态</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>DeepInfer</td>
+<td>DeepSeek 自己的推理框架，相当于 DeepSeek 版的 vLLM</td>
+<td>SM100、昇腾 950</td>
+<td>❌ 非 SM100 直接报错</td>
+</tr>
+<tr>
+<td>vLLM</td>
+<td>引擎与接线</td>
+<td>H100 ~ GB300、MI355X</td>
+<td>⚠️ 0.30–0.32 起不来；稀疏 indexer 的自动开启只认 SM100</td>
+</tr>
+<tr>
+<td>DeepGEMM</td>
+<td>MoE GEMM、MQA logits、融合大内核</td>
+<td>SM90、SM100</td>
+<td>⚠️ 12 族内核里有 8 族，缺整个 MegaMoE 家族和 mega_mhc 主体</td>
+</tr>
+<tr>
+<td>DeepSelect</td>
+<td>indexer 与采样的 top-k</td>
+<td>sm_100a、sm_103a</td>
+<td>❌ 没有 SM120 的编译目标</td>
+</tr>
+<tr>
+<td>FlashInfer</td>
+<td>稀疏 MLA 注意力、量化 GEMM</td>
+<td>含 SM120</td>
+<td>✅ 0.7.1rc5 起带 V4.1 的 sm120 内核配置</td>
+</tr>
+</tbody>
+</table>
+<p>DeepInfer 是 DeepSeek 生产服务在用的那套引擎，它的 README 给了一份特性清单，这份清单就是本文所说的「V4.1 的 Infra 特性」的范围：优化内核与模型、采样运行时；Attention DP 与均衡的上下文并行；MoE 的 EP 与 EPLB；DSpark 与按置信度调度的验证；SWA bounded replay；异步调度；batch-invariant 推理；确定性采样；结构化输出。第 5 节的矩阵逐项对照它。</p>
+<p>距离的根源在硬件。SM120 没有 cluster 和 multicast，没有 UMMA、TMEM、UTCCP，DeepGEMM 在它上面只能走 mma.sync 加 split-K；也没有 FP32 scale 的 MMA 路径，scale 必须是 UE8M0（2 的幂）。上游针对 GB300 的 <code>latency_specialized</code> decode 路径同样用不上：它的 mHC all-reduce 要求 NVLink multicast，4 张卡之间只有 PCIe。</p>
+<p>所以能借的只有 FlashInfer，其余的要么补、要么自己写。工作分三层：让模型启动（第 2 节），把特性逐个跑通（第 3 节），把 CSA2 补完整（第 4 节）。</p>
+<blockquote>
+<p><strong>一句话总结</strong>：官方栈的四件套里，SM120 只有 FlashInfer 能直接用；DeepSelect 和 DeepInfer 关门，DeepGEMM 缺三分之一。</p>
+</blockquote>
+<h2 id="2-先让基座模型启动">2. 先让基座模型启动</h2>
+<h3 id="2-1-KV-几何补丁链">2.1 KV 几何补丁链</h3>
+<p>V4.1 的压缩 KV 层带一个逐层的压缩比：0 是纯滑窗层，1 是全长压缩缓存，2 是二比一压缩，这份 checkpoint 的序列是 <code>[0,0,2,2,...,2,1,1,1,1,1]</code>。vLLM 的块大小以 token 计，一个压缩层一页里有 <code>block_size // compress_ratio</code> 个 KV 条目。</p>
+<p><strong>64 来自内核。</strong> FlashInfer 的 SM120 稀疏 MLA 调度器把页大小写死成 64（<code>_PAGE_BLOCK_SIZE = 64</code>），decode 内核只在 64 个条目一页上做了实例化；Hopper 一族也是这个布局，128 条目的页是 SM100 专属。于是在 SM120 上没有一个全局块大小能同时满足两种压缩比：全局 64 token，二比一压缩层一页只剩 32 个条目，报 <code>page_block_size=32 is unsupported</code>；全局 128 token，SM120 的内核集里又没有 128 的实例化。上游 issue #59203 记录的就是这个死结。</p>
+<p>补丁的思路是逐层声明，让每个压缩层的一页都恰好 64 个条目：<code>block_size = 64 * max(1, compress_ratio)</code>。压缩比 1 的层每块 64 token，压缩比 2 的层每块 128 token，压缩比 0 的纯滑窗层按 64 处理。落到 4 个文件上：</p>
+<ul>
+<li><code>attention.py</code> 里两处 KV spec 的块大小按上式逐层计算，滑窗的块大小从 32 改成 64；</li>
+<li>两个注意力后端的 <code>get_supported_kernel_block_sizes</code> 对 SM120 返回 <code>[64, 128]</code>，让 KV 管理器按层各取所需。</li>
+</ul>
+<p>一个小坑：<code>is_device_capability_family</code> 的参数是 CUDA family 编号，SM120 要写 120，不是 12。</p>
+<p>上游后来合入了修复（#60762）：indexer 后端、稀疏 MLA 后端和 FlashInfer 后端在 SM12x 上声明 64-token 的内核块，和 SM90 的分支对齐。它选的是统一 64 token 的方案，二比一压缩层一页 32 个条目，前提是 FlashInfer 不低于 0.7.1rc5，页大小改成了运行时参数。那个 PR 的验证矩阵里，统一 64 和「逐层 <code>[64, 128]</code> 加 <code>64*max(1, cr)</code>」两种变体都能启动并通过正确性检查。换到这个基线之后，块大小的补丁不用再手工打：fp8 c16 的输出吞吐和缓存命中率，都和 0.31.0 加补丁是同一档。</p>
+<h3 id="2-2-两个环境坑">2.2 两个环境坑</h3>
+<p><strong>FlashInfer 混装。</strong> 从 0.7.0.post1 直接升级到 0.7.1rc5 会留下元数据与文件不一致的脏状态：引擎启动成功，logits 却全是 NaN，输出全空，prefill 的第一次前向就已经坏了。唯一可靠的解法是卸载、删掉 <code>site-packages/flashinfer</code>、重装，再清掉 FlashInfer、vLLM、Triton 三处 JIT 缓存。</p>
+<p><strong>0.7.3 缺模板。</strong> 换到 FlashInfer 0.7.3 之后，NVFP4 触发新的 JIT 编译，报 <code>mxfp8_gemm_cutlass_sm120.jinja not found</code>。安装包里没有 csrc，把模板解包到 <code>site-packages/flashinfer/data/csrc</code> 才行，一共 4,707 个文件。</p>
+<blockquote>
+<p><strong>一句话总结</strong>：模型启动卡在两件事上，逐层的 KV 几何和一份干净的 FlashInfer；前者上游已经修好，后者每次换版本都要重来。</p>
+</blockquote>
+<h2 id="3-特性逐个跑通">3. 特性逐个跑通</h2>
+<p>先在 nightly 上对 NVIDIA 的 NVFP4 版 checkpoint 做了一轮逐项 boot 实测。五个特性四个通过，唯一没有通过的 CSA2 留到第 4 节：</p>
+<table>
+<thead>
+<tr>
+<th>特性</th>
+<th>结论</th>
+<th>证据</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>checkpoint 加载（NVFP4 专家）</td>
+<td>✅</td>
+<td>权重 75.26 GiB/rank，基座是 73.43</td>
+</tr>
+<tr>
+<td>MXFP4 Engram</td>
+<td>✅</td>
+<td>表卸载到主机内存，12.16 GiB/rank/表，FP8 的一半</td>
+</tr>
+<tr>
+<td>FP4 KV cache（<code>nvfp4_ds_mla</code>）</td>
+<td>✅</td>
+<td>KV 池 738,225 tokens，fp8 KV 是 580,811（+27%）</td>
+</tr>
+<tr>
+<td>KV cache 卸载</td>
+<td>✅</td>
+<td>OffloadingConnector 与 CPUOffloadingSpec 正常创建</td>
+</tr>
+<tr>
+<td>DSpark 投机解码</td>
+<td>✅ 余量极限</td>
+<td>acceptance 54.5%；要 CTX 32768、SEQS 8 才装得下</td>
+</tr>
+<tr>
+<td>CSA2 candidate sparse MQA logits</td>
+<td>❌</td>
+<td>撞上 <code>attention.hpp</code> 里的架构断言</td>
+</tr>
+</tbody>
+</table>
+<p>逐项说清楚「做了什么才通」：</p>
+<p><strong>FP4 KV。</strong> 0.31.0 把 <code>nvfp4_ds_mla</code> 门在 SM100。SM120 的出路是 FlashInfer 的 V41_FP4 压缩缓存内核：稀疏 MLA 注意力直接读 FP4 KV，读写都不经过 DeepGEMM。nightly 把这条路径接通之后，FP4 KV 成了默认项。</p>
+<p><strong>MXFP4 Engram。</strong> 上游 PR #61530 给 Engram 表加了 MXFP4 打包格式。当时它还没合并，移植的方式是整文件替换。两张表从每 rank 每张 23.60 GiB 降到 12.16 GiB，省的是主机内存。</p>
+<p><strong>KV 卸载。</strong> 原生的 OffloadingConnector 在 SM120 上直接可用。之后又移植了上游的 #65373（V4.1 的 CPU KV 在 TP rank 之间共享）。上限是 320 GiB，再往上会在区域初始化阶段静默退出，机制没有定位。</p>
+<p><strong>DSpark。</strong> V4.1 取消了上一代的 MTP，DSpark 是模型唯一的投机解码方法，草稿权重随 checkpoint 一起发布：<code>mtp.&#123;0,1,2&#125;.*</code> 这组权重由 <code>method=dspark</code> 自动加载成 draft。机制一次就通，但读数经历了两层测量伪影才翻案：客户端按 SSE chunk 数 token，CUDA Graph 的捕获档位没覆盖投机步。修正之后的数字见第 5 节。</p>
+<p><strong>权重与算子。</strong> 路由专家出厂就是 MXFP4，走 DeepGEMM 的分组 GEMM（<code>m_grouped_fp8_fp4_gemm_nt</code> 的 masked 与 contiguous 两个变体）；线性层的 MXFP8 权重走 FlashInfer 的 CUTLASS；attention 投影另做了 NVFP4 W4A4 的转换。mHC 在 SM120 上走 TileLang 内核，在一份未命中 prefill 的 nsys 剖面里占 GPU 时间的 6.5%。</p>
+<p><strong>运行时。</strong> SWA bounded replay 和异步调度都是上游默认开启，不需要额外处理——异步调度在不传 flag 时由 vLLM 自动决策，DSpark 在它的投机方法白名单里。多模态输入是缺口：<code>--limit-mm-per-prompt '&#123;&quot;image&quot;:0&#125;'</code> 挡掉运行时的图像输入，避开 SM120 上的 vision 实例化问题。</p>
+<p>五个特性里唯一没有通过的是 CSA2，下一节展开。</p>
+<blockquote>
+<p><strong>一句话总结</strong>：FP4 KV 靠 FlashInfer 的 SM120 内核，MXFP4 Engram 靠移植上游补丁，KV 卸载原生可用，DSpark 通了但要先修测量；到这一步，CSA2 的 consumer 层仍在全量打分再掩码。</p>
+</blockquote>
+<h2 id="4-CSA2-的完整支持">4. CSA2 的完整支持</h2>
+<h3 id="4-1-什么叫完整">4.1 什么叫完整</h3>
+<p>CSA2 的索引器是一个两级漏斗，它是模型定义的一部分：索引器按两级候选训练，训练与推理用同一组约束，四个参数（候选源层、候选块数、块大小、top-k）都从 checkpoint 的 config 直通。带 indexer 权重的层一共 8 层，分两种角色：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">每 6 层  L2 / L8 / L14 / L20   kv-source   对整段上下文打分（永远是 O(ctx)）</span><br><span class="line">                                      │  同一份分数顺带选出 top-2048 块，每块 8 个 token</span><br><span class="line">                                      ▼</span><br><span class="line">                              候选池：每行最多 16,384 个位置</span><br><span class="line">                                      │</span><br><span class="line">每 4 层  L24 / L28 / L32 / L36   consumer   只给候选池里的位置打分，各取 top-512</span><br></pre></td></tr></table></figure>
+<p>「完整」指的是 consumer 层真的只算这 16,384 个位置，索引打分的开销从 O(ctx) 降到 O(1)。上游的默认实现不是这样：它对整段上下文打分，再按候选块掩码。语义没有错，算力没有省。真正的算力跳过是 <code>indexer_sparse_logits</code> 开关背后的路径，它是 opt-in，自动开启只认 SM100；在 SM120 上不显式传 flag，这个开关恒为关闭。</p>
+<h3 id="4-2-三道门">4.2 三道门</h3>
+<p>把这条路径在 SM120 上接通，要过三道门：</p>
+<table>
+<thead>
+<tr>
+<th>环节</th>
+<th>上游在 SM120 上的状态</th>
+<th>做了什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>打分内核（只给候选块算 MQA logits）</td>
+<td>DeepGEMM 的 sparse MQA 内核只对 SM100 实例化，断言编在预编译的 <code>.so</code> 里</td>
+<td>先自研 Triton 内核，再接上 DeepGEMM 开发分支里的 SM120 内核</td>
+</tr>
+<tr>
+<td>top-k 选择</td>
+<td>DeepSelect 只编 sm_100a 和 sm_103a</td>
+<td><code>torch.topk</code> 加上与架构无关的候选展开和 remap</td>
+</tr>
+<tr>
+<td>引擎接线</td>
+<td><code>SparseMQAIndexer</code> 要求 family(100)、DeepGEMM sparse MQA、DeepSelect 三者同时满足</td>
+<td>放行 SM120，再做一轮实现审查</td>
+</tr>
+</tbody>
+</table>
+<p>报错原文很直白：<code>sm_120 (consumer Blackwell) ... not supported</code>。它不是配置问题，是内核没有为这个架构实例化。</p>
+<h3 id="4-3-第一阶段：自研-Triton-路径">4.3 第一阶段：自研 Triton 路径</h3>
+<p>断言守护的是 SM100 才有的 tcgen05 指令，二进制补丁跳不过去，只能自己写。数学不复杂：逐头点积、relu、加权求和，但读的是引擎真实的 indexer k-cache——分段式的物理页布局，fp8 的值和 scale 分开放。这条路上连修四层 bug 才通关：把分段页读成交错布局、Qbar 折叠破坏了逐头 relu、fp8 字节被当成整数读、int32 页地址溢出。最后一层最隐蔽：页号超过 28,244 就溢出，修复只有两行。</p>
+<p>数值验收是在 65K 真流量上做的：max_rel 0.39%，相关系数 0.999991，top-512 与正确语义的重合度 1.000。细节见《SM120 上的 candidate sparse MQA：四层 bug 和一个 int32 溢出》。</p>
+<h3 id="4-4-第二阶段：C-路线">4.4 第二阶段：C++ 路线</h3>
+<p>DeepGEMM 的开发分支里其实有 SM120 的 sparse MQA 内核，契约是 FP8 的 Q 乘 MXFP4 的 K——这个混合精度是 SM120 独有的，SM100 反而不支持。接进来要改四处数值：Q 的 scale 被硬编码成单位值（GSM8K 只有 7%）、metadata 内核的对齐断言、top-k 选到 padding 里的垃圾槽、decode-dense 旁路的格式兼容。修完 GSM8K 300 题 97.33%。</p>
+<p>之后又是两处崩溃，抓到的内核都不是真凶：一处是跨分区去重的归并越界，一处是 CUDA Graph 捕获时固化了 metadata 指针、排水时读到已回收的地址。两处都修在 DeepGEMM 的 C++ 层。</p>
+<p>到这一步，SM120 上的 DeepGEMM 是 12 族内核里的 8 族：GEMM、einsum、MQA logits 的三段（dense、paged、sparse）都在，缺的是整个 MegaMoE 家族和 mega_mhc 的融合主体。</p>
+<h3 id="4-5-第三阶段：实现审查">4.5 第三阶段：实现审查</h3>
+<p>能跑不等于对。之后对这条路径做了一轮实现审查，结论是两级候选的骨架完整且自洽——跨层共享、mask-before-topk、行对齐、CUDA Graph 下无同步，都逐一验证过。但 SM120 路径上审出了两个会直接破坏服务的问题：</p>
+<p><strong>多请求合包的 prefill 错位。</strong> 一个 chunk 里打包多个请求时，请求的 KV 在 workspace 里从第 ks 行开始，ks 是它前面所有请求的压缩长度之和，不一定是 8 的倍数。打分内核的窗口少了 <code>ks % 8</code> 这一项：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">候选块 c 覆盖请求局部位置 [8c, 8c+8)  →  workspace 行 [ks + 8c, ks + 8c + 8)</span><br><span class="line">展开时锚定向下取整：si = c + ks // 8</span><br><span class="line">所以第 j*8 + o 列应读的行 = si*8 + (ks % 8) + o</span><br><span class="line"></span><br><span class="line">旧代码：n = blk*8 + (offs % 8)          少了 ks % 8，decode 不受影响（ks 恒为 0）</span><br><span class="line"></span><br><span class="line">例：ks = 13  →  ks//8 = 1，ks%8 = 5；c = 2  →  si = 3</span><br><span class="line">    应读  3×8 + 5 + o  =  29..36   （请求局部 16..23）</span><br><span class="line">    实读           24..31        （偏了 5 行；c = 0 时读到上一个请求的尾部）</span><br><span class="line"></span><br><span class="line">修复：ksm = ks % 8；n = blk*8 + ksm + (offs % 8)</span><br></pre></td></tr></table></figure>
+<p>之前的数值验收大概率是在单请求、起点对齐的 dump 上做的，恰好掩盖了它。</p>
+<p><strong>与 MTP 同开必崩。</strong> 原生 next_n 等于 2 时，序列长度是每请求多行的布局，而 metadata builder 按每请求一行去展开，第一个投机步就报错。</p>
+<p>修复落在 4 个文件里，另加一个离线测试：合成两个请求的合包 chunk，第二个请求 ks 取 13，和 torch 参照逐位对照。同一路径上还修了 6 处，其中一处和 A800 上的去同步是同一个问题——<code>repeat_interleave</code> 没带 <code>output_size</code>，每个 MTP decode 步多一次 GPU 到 CPU 的同步。其余是 pipeline 并行下候选池的孤儿读写、启动期校验、环境变量布尔解析的归一。</p>
+<p>测试在机器上全部通过。C++ 路线处理的是同一件事：DeepGEMM 的调度内核里有按 <code>si*8 + ks%8</code> 寻址的非对齐模式，vLLM 这一侧要把请求起点的真实 <code>ks</code> 传下去并启用它。</p>
+<h3 id="4-6-状态">4.6 状态</h3>
+<p>到这一步，分层稀疏索引器在 SM120 上有了完整的实现：4 个 consumer 层共享同一份候选展开结果，探针计数打分 50,864 次、展开 12,716 次，正好 1/4。收益那一侧还没有干净的结论：第 5 节里 Reindex 候选打分的数字都是和 DSpark 同开对 dense，投机解码的贡献混在里面；默认配置下走的仍是全量打分再掩码的等价路径。</p>
+<blockquote>
+<p><strong>一句话总结</strong>：CSA2 的完整支持分三步——自己写出打分内核、接上 DeepGEMM 的 SM120 实现、再用一轮审查把「能跑」变成「对」；SM120 上的 CSA2 从「语义等价」走到了「算力真的被跳过」。</p>
+</blockquote>
+<h2 id="5-全部跑起来之后的吞吐">5. 全部跑起来之后的吞吐</h2>
+<p>模型特性全部打开之后能跑到什么程度，分三层看。</p>
+<p><strong>单流。</strong> DSpark 开、草稿深度 5：512 输入的单流 decode 是不开时的 3.5 倍（+249%），65K 输入约 5 倍（+398%）；acceptance 77.5%。</p>
+<p><strong>并发回放。</strong> cc-traces（真实会话的请求 trace）的 39 个会话、600 s 窗，数字是开启相对不开的整机输出变化：</p>
+<table>
+<thead>
+<tr>
+<th>对照（开对不开）</th>
+<th>c16</th>
+<th>c48</th>
+<th>c64</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>DSpark，草稿深度 5（底座 A）</td>
+<td>+9.2%</td>
+<td>+37.6%</td>
+<td>+42.4%</td>
+</tr>
+<tr>
+<td>Reindex 候选打分与 DSpark 同开（底座 B）</td>
+<td>−9.7%</td>
+<td>+30.7%</td>
+<td>+10.9%</td>
+</tr>
+</tbody>
+</table>
+<p><strong>随机 IO。</strong> 65K 输入、8 并发、EOS 口径，Reindex 候选打分与 DSpark 同开对 dense：总 decode +144%，单流 decode +144%；prefill −5.5%。</p>
+<p>三点读法：</p>
+<ul>
+<li>投机解码的收益随并发变化：单流是 3.5–5 倍，到 c48、c64 是 1.1–1.4 倍的整机吞吐。</li>
+<li>Reindex 候选打分与 DSpark 同开的那一轮，c16 比 dense 低 9.7%：它的 KV 池小 12%，prefill 交了 5.5% 的税，低并发时这两项盖过了算力节省；到 c48 反超 30.7%。两行各在自己的底座内可比，不能跨行相减。</li>
+<li>dense 对照栈不开投机解码，其余特性（FP4 KV、MXFP4 Engram、MXFP4 indexer）全开，KV 池 2,861,437 tokens。</li>
+</ul>
+<blockquote>
+<p><strong>一句话总结</strong>：特性全开之后，单流 decode 是 dense 的 3.5–5 倍，并发回放的整机输出在 c48 以上高 11%–42%；代价是 KV 池和 prefill 各让出 5%–12%。</p>
+</blockquote>
+<h2 id="6-支持矩阵">6. 支持矩阵</h2>
+<p>先看模型特性。它们随 checkpoint 一起来，是模型定义的一部分，支持模型就必须支持它们：</p>
+<table>
+<thead>
+<tr>
+<th>模型特性</th>
+<th>状态</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CSA2 稀疏注意力（主注意力）</td>
+<td>✅</td>
+<td>FlashInfer 的 SM120 sparse MLA</td>
+</tr>
+<tr>
+<td>分层稀疏索引器：Reindex 层只给候选块打分</td>
+<td>✅</td>
+<td>Triton 路径已验证；C++ 路径的对齐由 DeepGEMM 调度内核的非对齐寻址负责</td>
+</tr>
+<tr>
+<td>Lightning Indexer k-cache</td>
+<td>✅</td>
+<td>fp8 与 mxfp4 都通</td>
+</tr>
+<tr>
+<td>FP4 主 KV</td>
+<td>✅</td>
+<td>FlashInfer 的 V41_FP4 压缩缓存内核</td>
+</tr>
+<tr>
+<td>MXFP4 专家、MXFP8 线性层</td>
+<td>✅</td>
+<td>DeepGEMM 分组 GEMM、FlashInfer CUTLASS</td>
+</tr>
+<tr>
+<td>Single-Pass mHC</td>
+<td>✅</td>
+<td>TileLang 内核</td>
+</tr>
+<tr>
+<td>Engram（MXFP4 表）</td>
+<td>✅</td>
+<td>移植上游 #61530</td>
+</tr>
+<tr>
+<td>SWA bounded replay</td>
+<td>✅</td>
+<td>上游默认开启</td>
+</tr>
+<tr>
+<td>DSpark 投机解码</td>
+<td>✅</td>
+<td>草稿权重随 checkpoint 发布；低并发是主场</td>
+</tr>
+</tbody>
+</table>
+<p>再看引擎与内核特性。下表对照 DeepInfer 的 README 清单逐项列出（优化内核与采样运行时已并入第 1 节的组件表），其余几行是在 SM120 上试过的可选件：</p>
+<table>
+<thead>
+<tr>
+<th>引擎与内核特性</th>
+<th>状态</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>异步调度</td>
+<td>✅</td>
+<td>不传 flag 时自动决策为 AsyncScheduler</td>
+</tr>
+<tr>
+<td>MoE 专家并行（EP）</td>
+<td>✅</td>
+<td>TP4 + EP4</td>
+</tr>
+<tr>
+<td>按置信度调度的验证（adaptive verification）</td>
+<td>❌</td>
+<td>两个注意力后端都不支持，上游修复未合并</td>
+</tr>
+<tr>
+<td>EPLB</td>
+<td>⚠️ 已关闭</td>
+<td>KV 池 −62%</td>
+</tr>
+<tr>
+<td>Attention DP / 上下文并行</td>
+<td>⚪ 未验证</td>
+<td>SM120 上没有测过</td>
+</tr>
+<tr>
+<td>Batch-invariant 推理</td>
+<td>⚪ 未验证</td>
+<td>没有测过</td>
+</tr>
+<tr>
+<td>确定性采样</td>
+<td>⚪ 未验证</td>
+<td>DeepInfer 的做法建立在 batch-invariant 之上</td>
+</tr>
+<tr>
+<td>结构化输出</td>
+<td>⚪ 未验证</td>
+<td>vLLM 前端能力，本机没有测过</td>
+</tr>
+<tr>
+<td>KV 卸载</td>
+<td>✅</td>
+<td>原生 OffloadingConnector，上限 320 GiB</td>
+</tr>
+<tr>
+<td>CUDA Graph、prefix caching</td>
+<td>✅</td>
+<td>FULL 模式；命中率可观测</td>
+</tr>
+<tr>
+<td>attention 投影 NVFP4 W4A4</td>
+<td>✅</td>
+<td>自研转换，后端固定 cutlass</td>
+</tr>
+<tr>
+<td>DeepSelect top-k</td>
+<td>✅ 替代实现</td>
+<td><code>torch.topk</code> 加架构无关的 remap</td>
+</tr>
+<tr>
+<td>MegaMoE</td>
+<td>⚠️ 已关闭</td>
+<td>FlashInfer 的 SM120 内核能跑，warmup 慢 6.7 倍</td>
+</tr>
+<tr>
+<td>mega_mhc 融合内核</td>
+<td>❌</td>
+<td>主体只支持 SM100，mHC 走 TileLang 内核</td>
+</tr>
+<tr>
+<td>specialized decode</td>
+<td>❌</td>
+<td>SM103 门控，且需要 NVLink multicast</td>
+</tr>
+<tr>
+<td>PD 分离</td>
+<td>⚪ 未验证</td>
+<td>A800 上已落地，SM120 上没有测过</td>
+</tr>
+<tr>
+<td>多模态输入</td>
+<td>❌</td>
+<td>挡掉运行时的图像输入</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>一句话总结</strong>：V4.1 的 9 项模型特性在 SM120 上全部跑通；引擎特性里异步调度、MoE 专家并行、KV 卸载已验证，5 项没有测过，关着的几项都是上游没有 SM120 实现的可选内核或输入通路。</p>
+</blockquote>
+<h2 id="总结">总结</h2>
+<ol>
+<li><strong>距离。</strong> 官方栈按 SM100 和 GB300 搭建：DeepSelect 只编 sm_100a 和 sm_103a，DeepSeek 自己的引擎 DeepInfer 只支持 SM100，DeepGEMM 在 SM120 上是 12 族内核里的 8 族。能直接借的只有 FlashInfer。</li>
+<li><strong>路径。</strong> 先用 4 个文件的补丁链让基座模型启动，再逐项跑通 FP4 KV、MXFP4 Engram、KV 卸载、DSpark，五特性 boot 实测定了四个。</li>
+<li><strong>CSA2。</strong> 完整支持分三步：自研 Triton 打分内核（四层 bug）、接 DeepGEMM 的 SM120 实现（四处数值、两处崩溃）、实现审查（修掉两个会破坏服务的问题）。Reindex 层的打分范围从整段上下文降到 16,384 个候选位置。</li>
+<li><strong>吞吐。</strong> 特性全开之后，单流 decode 是 dense 的 3.5–5 倍；cc-traces 回放里 DSpark 让 c48、c64 的整机输出高 37.6% 和 42.4%；Reindex 候选打分与 DSpark 同开时，随机 IO 的总 decode 高 144%，prefill 低 5.5%。</li>
+<li><strong>现状。</strong> 模型的 9 项特性在 SM120 上全部跑通。引擎特性里异步调度和 MoE 专家并行已验证，5 项没有测过；关着的几项是上游没有 SM120 实现的可选内核或输入通路。Reindex 候选打分的收益尚待同轮对照证明。</li>
+</ol>
+<p>可迁移的启示：<strong>在一块不在官方支持矩阵里的硬件上适配新模型，顺序是先让模型启动、再逐项打通特性、最后才做「完整」。</strong> 每一步的验收标准不一样——启动看能不能出 token，特性看 boot 实测，完整要看到算力真的被跳过，并且与全量结果逐位对得上。</p>
+<h2 id="参考">参考</h2>
+<ul>
+<li><a href="/zh-CN/2026/10/08/DeepSeek-V4.1-Flash%E6%9E%B6%E6%9E%84%E8%A7%A3%E6%9E%90/">DeepSeek-V4.1-Flash 架构解析</a>：CSA2、分层稀疏索引器、SWA bounded replay 的模型侧设计</li>
+<li><a href="/zh-CN/2026/11/24/DeepSeek-V4.1-Flash-RTX6000D%E6%98%BE%E5%AD%98%E8%B4%A6%E6%9C%AC/">4×RTX 6000D 上的 DeepSeek-V4.1-Flash：KV 池从 9 万做到 286 万 tokens</a>：FP4 KV、MXFP4 Engram、KV 卸载的显存账</li>
+<li>DeepInfer 公开仓库的 README：特性清单与支持硬件</li>
+<li>vLLM 上游：issue #59203（SM120 上没有可用的块大小）、PR #60762（SM120 声明 64-token 的内核块）、#61530（MXFP4 打包的 Engram 表）、#65373（V4.1 的 CPU KV 在 TP rank 间共享）、#47808（DSpark 按置信度调度验证）、#65527（放行 SM120，未合并）</li>
+<li>DeepSelect、DeepGEMM 的公开仓库</li>
+<li>本系列其余各篇：《DSpark 投机解码的两次翻案：流式 token 计数与 CUDA Graph 捕获档位》《SM120 上的 candidate sparse MQA：四层 bug 和一个 int32 溢出》</li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/vLLM/" rel="tag"># vLLM</a>
+              <a href="/tags/Inference/" rel="tag"># Inference</a>
+              <a href="/tags/DeepSeek/" rel="tag"># DeepSeek</a>
+              <a href="/tags/Blackwell/" rel="tag"># Blackwell</a>
+              <a href="/tags/Sparse-Attention/" rel="tag"># Sparse Attention</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/zh-CN/2026/11/24/DeepSeek-V4.1-Flash-RTX6000D%E6%98%BE%E5%AD%98%E8%B4%A6%E6%9C%AC/" rel="prev" title="4×RTX 6000D 上的 DeepSeek-V4.1-Flash：KV 池从 9 万做到 286 万 tokens">
+                  <i class="fa fa-angle-left"></i> 4×RTX 6000D 上的 DeepSeek-V4.1-Flash：KV 池从 9 万做到 286 万 tokens
+                </a>
+            </div>
+            <div class="post-nav-item">
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments giscus-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 2014 – 
+    <span itemprop="copyrightYear">2026</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">ggaaooppeenngg</span>
+  </div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/mist/" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fancyapps-ui/5.0.31/fancybox/fancybox.umd.js" integrity="sha256-a+H7FYzJv6oU2hfsfDGM2Ohw/cR9v+hPfxHCLdmCrE8=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lozad.js/1.16.0/lozad.min.js" integrity="sha256-mOFREFhqmHeQbXpK2lp4nA3qooVgACfh88fpJftLBbc=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/sidebar.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+  <script src="/js/third-party/fancybox.js"></script>
+
+
+
+  
+
+
+
+
+  
+
+  <script class="next-config" data-name="enableMath" type="application/json">false</script><link rel="stylesheet" href="//cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+
+
+<script>
+(function () {
+  function mountGiscus() {
+    var box = document.querySelector('.giscus-container');
+    if (!box || box.dataset.mounted) return;
+    box.dataset.mounted = '1';
+    var s = document.createElement('script');
+    s.setAttribute('src', "https://giscus.app/client.js");
+    s.setAttribute('data-repo', "ggaaooppeenngg/ggaaooppeenngg.github.io");
+    s.setAttribute('data-repo-id', "MDEwOlJlcG9zaXRvcnkzMzI0MzY4Mw==");
+    s.setAttribute('data-category', "Q&A");
+    s.setAttribute('data-category-id', "DIC_kwDOAftCI84DEmO7");
+    s.setAttribute('data-mapping', "pathname");
+    s.setAttribute('data-strict', "0");
+    s.setAttribute('data-reactions-enabled', "1");
+    s.setAttribute('data-emit-metadata', "0");
+    s.setAttribute('data-input-position', "top");
+    s.setAttribute('data-theme', "preferred_color_scheme");
+    s.setAttribute('data-lang', "zh-CN");
+    s.setAttribute('data-loading', "lazy");
+    s.setAttribute('crossorigin', "anonymous");
+    s.async = true;
+    box.appendChild(s);
+  }
+  if (document.readyState !== 'loading') mountGiscus();
+  else document.addEventListener('DOMContentLoaded', mountGiscus);
+  document.addEventListener('page:loaded', mountGiscus);
+})();
+</script>
+</body>
+</html>

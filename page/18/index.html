@@ -92,7 +92,7 @@
 
 
 <nav class="site-nav">
-  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-旅行"><a href="/travel/" rel="section"><i class="plane fa-fw"></i>旅行</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">210</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">23</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">113</span></a></li>
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-旅行"><a href="/travel/" rel="section"><i class="plane fa-fw"></i>旅行</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">210</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">23</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">114</span></a></li>
   </ul>
 </nav>
 
@@ -129,7 +129,7 @@
   <nav class="site-state">
       <div class="site-state-item site-state-posts">
         <a href="/archives/">
-          <span class="site-state-item-count">113</span>
+          <span class="site-state-item-count">114</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -169,6 +169,97 @@
     </div>
 
     <div class="main-inner index posts-expand">
+
+    
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2024/12/03/FlashAttention-%E8%A7%A3%E6%9E%90/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="undefined | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          <a href="/zh-CN/2024/12/03/FlashAttention-%E8%A7%A3%E6%9E%90/" class="post-title-link" itemprop="url">FlashAttention 解析</a>
+        </h2>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2024-12-03 16:40:50" itemprop="dateCreated datePublished" datetime="2024-12-03T16:40:50+08:00">2024-12-03</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2026-09-03 23:47:57" itemprop="dateModified" datetime="2026-09-03T23:47:57+08:00">2026-09-03</time>
+    </span>
+
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+          <p>FlashAttention是一种新型的注意力算法，它能够准确计算注意力，且只需进行远远少于传统方法的内存访问。这个算法的主要目标是尽可能避免内存的读取和写入，这是注意力机制性能瓶颈的一个关键因素。该论文提出了一个IO-aware的精确注意力算法，它使用tiling（贴瓷砖，代表数据分片）来减少GPU高带宽内存与低带宽内存之间的内存读取/写入次数。</p>
+<p>该算法基于注意力矩阵通常稀疏这一观察结果：注意力矩阵只有少数元素非零。它通过将输入矩阵Q、K、V分成更小的块来实现，从而避免了计算全矩阵乘积Q*K^T的内存占用问题。通过块级别的处理，FlashAttention使得矩阵操作可以在现代GPU的内存限制下进行，并仅读取/写入每个切片的非零元素。这降低了需要的内存访问次数，使整个过程更快和更高效。</p>
+<p>FlashAttention通过分“瓦片化”的方式计算能够更快的一个原因是将矩阵放入更高速的缓存当中，高速的叫SRAM，低速的叫HBM。</p>
+<p>第一代 FlashAttention 只是把QK切片，这个只要把矩阵切分在SRAM，然后计算出结果再存回HBM，这个比较简单。</p>
+<p>第二代 FlashAttention 把 softmax 的计算也放在了SRAM上。</p>
+<p>源自<a target="_blank" rel="noopener" href="https://jrodthoughts.medium.com/understanding-flashattention-3-one-of-the-most-important-algortihms-to-make-transformers-fast-7d21b0f6e6a4">博客</a>描述的结构中可以看出。</p>
+<img data-src="/zh-CN/2024/12/03/FlashAttention-%E8%A7%A3%E6%9E%90/qkv.webp" class="">
+<p>他这里面标得感觉不是很清楚，其中的O_2应该是最终的结果O，里面的l_1/l_2 * A^1 / l_1 就还原出了最终结果的分母，也就是scale法则。</p>
+<p>第三代 FlashAttention 减少了上面提到的scale，不再每一步做除法，而是放到最后再除。还有就是针对交叉注意力中的mask的优化，跳过了被mask的部分。还有就是CUDA Thread warps的优化提高了并行度。</p>
+          <!--noindex-->
+            <div class="post-button">
+              <a class="btn" href="/zh-CN/2024/12/03/FlashAttention-%E8%A7%A3%E6%9E%90/#more" rel="contents">
+                阅读全文 &raquo;
+              </a>
+            </div>
+          <!--/noindex-->
+        
+      
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+        <div class="post-eof"></div>
+      
+    </footer>
+  </article>
+</div>
+
+
+
 
     
 
@@ -375,90 +466,6 @@
           <!--noindex-->
             <div class="post-button">
               <a class="btn" href="/zh-CN/2024/11/27/VLM%E7%9A%84%E8%AE%A1%E7%AE%97%E8%BF%87%E7%A8%8B%E5%92%8C%E6%8E%A8%E6%96%AD%E4%B8%AD%E7%9A%84%E5%A4%84%E7%90%86%E6%96%B9%E5%BC%8F/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-
-    <footer class="post-footer">
-        <div class="post-eof"></div>
-      
-    </footer>
-  </article>
-</div>
-
-
-
-
-    
-
-
-<div class="post-block">
-  
-  
-
-  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2024/11/25/%E7%94%A8Rust%E4%BB%8E%E9%9B%B6%E7%BC%96%E5%86%99LevelDB/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="ggaaooppeenngg">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="ggaaooppeenngg">
-      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
-    </span>
-
-    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
-      <meta itemprop="name" content="undefined | ggaaooppeenngg">
-      <meta itemprop="description" content="">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          <a href="/zh-CN/2024/11/25/%E7%94%A8Rust%E4%BB%8E%E9%9B%B6%E7%BC%96%E5%86%99LevelDB/" class="post-title-link" itemprop="url">用Rust从零编写LevelDB</a>
-        </h2>
-
-        <div class="post-meta-container">
-          <div class="post-meta">
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-calendar"></i>
-      </span>
-      <span class="post-meta-item-text">发表于</span>
-
-      <time title="创建时间：2024-11-25 11:38:57" itemprop="dateCreated datePublished" datetime="2024-11-25T11:38:57+08:00">2024-11-25</time>
-    </span>
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-calendar-check"></i>
-      </span>
-      <span class="post-meta-item-text">更新于</span>
-      <time title="修改时间：2026-09-03 23:50:47" itemprop="dateModified" datetime="2026-09-03T23:50:47+08:00">2026-09-03</time>
-    </span>
-
-  
-</div>
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-          <h2 id="前言">前言</h2>
-<p>在现代数据驱动的世界中，对高效且可扩展的数据存储方案的需求前所未有地强烈。键值数据库因其简洁性和卓越性能而备受推崇。对于那些热爱Rust编程并希望构建自己的键值数据库的开发者来说，这本书将是您的理想起点。笔者将引导您一步一步，从零开始，使用Rust设计和实现一个键值数据库。</p>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/zh-CN/2024/11/25/%E7%94%A8Rust%E4%BB%8E%E9%9B%B6%E7%BC%96%E5%86%99LevelDB/#more" rel="contents">
                 阅读全文 &raquo;
               </a>
             </div>
