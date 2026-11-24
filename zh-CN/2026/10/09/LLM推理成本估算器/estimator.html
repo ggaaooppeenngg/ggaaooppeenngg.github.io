@@ -147,7 +147,25 @@ td.num{white-space:nowrap;font-variant-numeric:tabular-nums}
 </div>
 
 <div class="pane">
-<h3 style="margin-top:0">⑦ 交叉校验（独立路径重排公式，差 &lt; 1e-6 为 PASS）</h3>
+<h3 style="margin-top:0">⑦ 周期测算（逐月，2026-10-01 ~ 2027-06-30）</h3>
+<p class="mini" style="margin:0 0 8px">把上面的混合口径摊到整个租期：营收按计费月数 × 月营收，成本按台数 × 月租金 × 月数。仅扣租金的净利；天数不足整月按比例折算。</p>
+<div class="cgrid">
+<div class="field"><label>计费月数</label><div class="row"><input id="p-mon" type="number" step="0.1" value="9"><span class="unit">月</span></div></div>
+<div class="field"><label>其它成本占比（电已含租金，此处填运维外开支）</label><div class="row"><input id="p-extra" type="number" value="0"><span class="unit">% 营收</span></div></div>
+</div>
+<div class="calc" id="p-out"></div>
+</div>
+
+<div class="pane">
+<h3 style="margin-top:0">⑧ 成本基数对照（同一吞吐下换基数的敏感性）</h3>
+<div class="tw"><table>
+<thead><tr><th>成本基数</th><th class="num">¥/GPU·h</th><th class="num">输入折扣率</th><th class="num">输出折扣率</th><th class="num">输出保本利用率</th></tr></thead>
+<tbody id="cb-body"></tbody></table></div>
+<p class="mini">按当前输入吞吐/官网价计算，三档自建基数来自 SemiAnalysis InferenceX（$/chip·hr × 6.70），租用基数来自月租摊算。</p>
+</div>
+
+<div class="pane">
+<h3 style="margin-top:0">⑨ 交叉校验（独立路径重排公式，差 &lt; 1e-6 为 PASS）</h3>
 <div class="tw"><table>
 <thead><tr><th>校验项</th><th class="num">期望值</th><th class="num">实际值</th><th>状态</th></tr></thead>
 <tbody id="rv-body"></tbody></table></div>
@@ -232,8 +250,30 @@ function recalcMix(){
  if(p>0&&tp>0){$('m-bktp').textContent=(tp*c/p).toFixed(0);$('m-bku').textContent=(util*c/p).toFixed(1)+'%';$('m-bkp').textContent=c.toFixed(3);}
  [30,50,80,100].forEach(u=>{$('m-u'+u).textContent=(gpu/(tp*3600*u/100)*1e6).toFixed(2);});
 }
-document.querySelectorAll('input').forEach(i=>i.addEventListener('input',()=>{recalc();recalcMix();}));
-recalc();recalcMix();
+function recalcPeriod(){
+ const mon=+$('p-mon').value||0,ex=+$('p-extra').value||0;
+ const tp=+$('m-tp').value||0,util=+$('m-util').value||1,p=+$('m-p').value||0,n=+$('m-n').value||0,g=+$('m-g').value||0;
+ const revM=p*tp*3600*(util/100)*24*30/1e6*n*g/1e4;
+ const rentM=(+$('in-rent').value||0)*n/1e4;
+ const rev=revM*mon,rent=rentM*mon,other=rev*ex/100;
+ $('p-out').innerHTML=
+  '<div class="step"><span class="lbl">月度</span><br>营收 <span class="val">'+revM.toFixed(1)+'</span> 万 − 租金 <span class="val">'+rentM.toFixed(1)+'</span> 万 = 月净利 <span class="val">'+(revM-rentM).toFixed(1)+'</span> 万</div>'+
+  '<div class="step"><span class="lbl">全周期（'+mon+' 个月）</span><br>营收 <span class="val">'+rev.toFixed(1)+'</span> 万 − 租金 <span class="val">'+rent.toFixed(1)+'</span> 万 − 其它 <span class="val">'+other.toFixed(1)+'</span> 万 = 净利 <span class="val '+(rev-rent-other>=0?'pos':'neg')+'">'+(rev-rent-other).toFixed(1)+'</span> 万（净利率 '+((rev-rent-other)/(rev||1)*100).toFixed(1)+'%）</div>';
+}
+function recalcBasis(){
+ const tin=+$('in-tin').value||0,tout=+$('in-tout').value||0,util=+$('in-util').value||1,pin=+$('in-pin').value||0,pout=+$('in-pout').value||0;
+ const rent=+$('in-rent').value||0,cards=+$('in-cards').value||8,hours=+$('in-hours').value||720;
+ const bases=[['B200 自建',11.6],['B300 自建',15.14],['GB300 自建',15.48],['B300 整机租用',rent/cards/hours]];
+ let rows='';
+ bases.forEach(b=>{
+  const ci=b[1]/(tin*3600*(util/100))*1e6,co=b[1]/(tout*3600*(util/100))*1e6;
+  const di=(1-ci/pin)*100,do_=(1-co/pout)*100,bo=util*co/pout;
+  rows+='<tr><td>'+b[0]+'</td><td class="num">'+b[1].toFixed(2)+'</td><td class="num '+(di>=0?'pos':'neg')+'">'+di.toFixed(2)+'%</td><td class="num '+(do_>=0?'pos':'neg')+'">'+do_.toFixed(2)+'%</td><td class="num">'+(bo>100?'>100%（不存在）':bo.toFixed(1)+'%')+'</td></tr>';
+ });
+ $('cb-body').innerHTML=rows;
+}
+document.querySelectorAll('input').forEach(i=>i.addEventListener('input',()=>{recalc();recalcMix();recalcPeriod();recalcBasis();}));
+recalc();recalcMix();recalcPeriod();recalcBasis();
 </script>
 </body>
 </html>

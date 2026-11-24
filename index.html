@@ -92,7 +92,7 @@
 
 
 <nav class="site-nav">
-  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-旅行"><a href="/travel/" rel="section"><i class="plane fa-fw"></i>旅行</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">208</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">23</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">112</span></a></li>
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-旅行"><a href="/travel/" rel="section"><i class="plane fa-fw"></i>旅行</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">210</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">23</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">113</span></a></li>
   </ul>
 </nav>
 
@@ -129,7 +129,7 @@
   <nav class="site-state">
       <div class="site-state-item site-state-posts">
         <a href="/archives/">
-          <span class="site-state-item-count">112</span>
+          <span class="site-state-item-count">113</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -140,7 +140,7 @@
       </div>
       <div class="site-state-item site-state-tags">
           <a href="/tags/">
-        <span class="site-state-item-count">208</span>
+        <span class="site-state-item-count">210</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
@@ -178,6 +178,92 @@
   
 
   <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2026/11/24/DeepSeek-V4.1-Flash-RTX6000D%E6%98%BE%E5%AD%98%E8%B4%A6%E6%9C%AC/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="ggaaooppeenngg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ggaaooppeenngg">
+      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="undefined | ggaaooppeenngg">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          <a href="/zh-CN/2026/11/24/DeepSeek-V4.1-Flash-RTX6000D%E6%98%BE%E5%AD%98%E8%B4%A6%E6%9C%AC/" class="post-title-link" itemprop="url">4×RTX 6000D 上的 DeepSeek-V4.1-Flash：KV 池从 9 万做到 286 万 tokens</a>
+        </h2>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+      
+
+      <time title="创建时间：2026-11-24 16:52:05 / 修改时间：16:52:06" itemprop="dateCreated datePublished" datetime="2026-11-24T16:52:05+08:00">2026-11-24</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/%E6%8A%80%E6%9C%AF/" itemprop="url" rel="index"><span itemprop="name">技术</span></a>
+        </span>
+    </span>
+
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+          <p>把 DeepSeek-V4.1-Flash 部署到 4 张 RTX 6000D 上，第一次跑通时 KV 池只有 9 万 tokens；九天之后，同一个模型、同一组卡，池做到了 <strong>2,861,437 tokens</strong>。关键是：<strong>sm_120 不在官方支持矩阵里、卡间没有 NVLink、单卡显存比 RTX PRO 6000 少 12 GB——这三个错位决定了优化重心不在算力，而在显存容量：贴顶之前，KV 池每多 1 GiB 都能换成 prefix 命中率。</strong> 本文按一本显存账讲清每张卡的显存怎么分、权重侧和 KV 侧各压掉多少、调度参数怎么腾出余量、冷层怎么配、哪几条路走不通。除特别说明外，数字都是同一台 4×RTX 6000D 工作站的实测（TP4/EP4，vLLM nightly 加 sm_120 补丁），池容量取启动日志里的 <code>KV cache size</code>，命中率注明口径。</p>
+          <!--noindex-->
+            <div class="post-button">
+              <a class="btn" href="/zh-CN/2026/11/24/DeepSeek-V4.1-Flash-RTX6000D%E6%98%BE%E5%AD%98%E8%B4%A6%E6%9C%AC/#more" rel="contents">
+                阅读全文 &raquo;
+              </a>
+            </div>
+          <!--/noindex-->
+        
+      
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+        <div class="post-eof"></div>
+      
+    </footer>
+  </article>
+</div>
+
+
+
+
+    
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
     <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2026/10/09/LLM%E6%8E%A8%E7%90%86%E6%88%90%E6%9C%AC%E4%BC%B0%E7%AE%97%E5%99%A8/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -206,9 +292,15 @@
         <i class="far fa-calendar"></i>
       </span>
       <span class="post-meta-item-text">发表于</span>
-      
 
-      <time title="创建时间：2026-10-09 17:10:00 / 修改时间：17:11:02" itemprop="dateCreated datePublished" datetime="2026-10-09T17:10:00+08:00">2026-10-09</time>
+      <time title="创建时间：2026-10-09 17:10:00" itemprop="dateCreated datePublished" datetime="2026-10-09T17:10:00+08:00">2026-10-09</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2026-10-10 02:40:21" itemprop="dateModified" datetime="2026-10-10T02:40:21+08:00">2026-10-10</time>
     </span>
     <span class="post-meta-item">
       <span class="post-meta-item-icon">
@@ -323,92 +415,6 @@
           <!--noindex-->
             <div class="post-button">
               <a class="btn" href="/zh-CN/2026/10/08/MLA%E7%9A%84Decode-Context-Parallelism/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-
-    <footer class="post-footer">
-        <div class="post-eof"></div>
-      
-    </footer>
-  </article>
-</div>
-
-
-
-
-    
-
-
-<div class="post-block">
-  
-  
-
-  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="https://ggaaooppeenngg.github.io/zh-CN/2026/10/08/DeepSeek-V4.1-Flash%E6%9E%B6%E6%9E%84%E8%A7%A3%E6%9E%90/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="ggaaooppeenngg">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="ggaaooppeenngg">
-      <meta itemprop="description" content="为什么计算机科学是无限的但生命是有限的">
-    </span>
-
-    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
-      <meta itemprop="name" content="undefined | ggaaooppeenngg">
-      <meta itemprop="description" content="">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          <a href="/zh-CN/2026/10/08/DeepSeek-V4.1-Flash%E6%9E%B6%E6%9E%84%E8%A7%A3%E6%9E%90/" class="post-title-link" itemprop="url">DeepSeek-V4.1-Flash 架构解析：KV Cache 压缩的极限在哪里</a>
-        </h2>
-
-        <div class="post-meta-container">
-          <div class="post-meta">
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-calendar"></i>
-      </span>
-      <span class="post-meta-item-text">发表于</span>
-      
-
-      <time title="创建时间：2026-10-08 11:30:00 / 修改时间：20:45:54" itemprop="dateCreated datePublished" datetime="2026-10-08T11:30:00+08:00">2026-10-08</time>
-    </span>
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-folder"></i>
-      </span>
-      <span class="post-meta-item-text">分类于</span>
-        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-          <a href="/categories/%E6%8A%80%E6%9C%AF/" itemprop="url" rel="index"><span itemprop="name">技术</span></a>
-        </span>
-    </span>
-
-  
-</div>
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-          <p>DeepSeek-V4.1-Flash 的技术报告副标题是 “Pushing the Limits of KV Cache Compression”——整篇论文的野心写在脸上：把 KV Cache 压到极致，把长上下文 Agent 负载的部署成本打下来。552B 骨干 + 196B 条件记忆，prefill 每 token 只激活 8B 参数，全局 KV 压到 <strong>890 字节/token</strong>（约 V4-Flash 的 1/4、V1 的 1/437），持久化 KV 压到 V4-Flash 的约 <strong>1/8</strong>。本文按报告第 2 章（架构）和第 3 章（推理系统）的顺序，把六个核心设计串成一条线：CED、CSA2、SWA Bounded Replay、Single-Pass mHC、FP4 主 KV、DSpark 与 Engram，最后算一笔总账。数字口径除标注外均来自论文原文，部分以 vLLM 实现/HF config 佐证。</p>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/zh-CN/2026/10/08/DeepSeek-V4.1-Flash%E6%9E%B6%E6%9E%84%E8%A7%A3%E6%9E%90/#more" rel="contents">
                 阅读全文 &raquo;
               </a>
             </div>

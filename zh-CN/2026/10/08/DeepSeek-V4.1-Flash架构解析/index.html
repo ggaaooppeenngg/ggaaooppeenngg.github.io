@@ -29,11 +29,11 @@
 <meta property="og:description" content="DeepSeek-V4.1-Flash 的技术报告副标题是 “Pushing the Limits of KV Cache Compression”——整篇论文的野心写在脸上：把 KV Cache 压到极致，把长上下文 Agent 负载的部署成本打下来。552B 骨干 + 196B 条件记忆，prefill 每 token 只激活 8B 参数，全局 KV 压到 890 字节&#x2F;token（约 V4-">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2026-10-08T03:30:00.000Z">
-<meta property="article:modified_time" content="2026-10-08T12:45:54.926Z">
+<meta property="article:modified_time" content="2026-11-24T08:45:02.936Z">
 <meta property="article:author" content="ggaaooppeenngg">
+<meta property="article:tag" content="DeepSeek">
 <meta property="article:tag" content="LLM">
 <meta property="article:tag" content="Inference">
-<meta property="article:tag" content="DeepSeek">
 <meta property="article:tag" content="KV Cache">
 <meta property="article:tag" content="MoE">
 <meta name="twitter:card" content="summary">
@@ -98,7 +98,7 @@
 
 
 <nav class="site-nav">
-  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-旅行"><a href="/travel/" rel="section"><i class="plane fa-fw"></i>旅行</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">208</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">23</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">112</span></a></li>
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a></li><li class="menu-item menu-item-旅行"><a href="/travel/" rel="section"><i class="plane fa-fw"></i>旅行</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签<span class="badge">210</span></a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="th fa-fw"></i>分类<span class="badge">23</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档<span class="badge">113</span></a></li>
   </ul>
 </nav>
 
@@ -136,7 +136,7 @@
   <nav class="site-state">
       <div class="site-state-item site-state-posts">
         <a href="/archives/">
-          <span class="site-state-item-count">112</span>
+          <span class="site-state-item-count">113</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -147,7 +147,7 @@
       </div>
       <div class="site-state-item site-state-tags">
           <a href="/tags/">
-        <span class="site-state-item-count">208</span>
+        <span class="site-state-item-count">210</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
@@ -214,9 +214,15 @@
         <i class="far fa-calendar"></i>
       </span>
       <span class="post-meta-item-text">发表于</span>
-      
 
-      <time title="创建时间：2026-10-08 11:30:00 / 修改时间：20:45:54" itemprop="dateCreated datePublished" datetime="2026-10-08T11:30:00+08:00">2026-10-08</time>
+      <time title="创建时间：2026-10-08 11:30:00" itemprop="dateCreated datePublished" datetime="2026-10-08T11:30:00+08:00">2026-10-08</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2026-11-24 16:45:02" itemprop="dateModified" datetime="2026-11-24T16:45:02+08:00">2026-11-24</time>
     </span>
     <span class="post-meta-item">
       <span class="post-meta-item-icon">
@@ -431,7 +437,7 @@
 </tr>
 </tbody>
 </table>
-<p>注意区分：专家权重的 MXFP4（32 通道 UE8M0 scale）与 KV cache 的 FP4（16 通道 E4M3 scale）是两套格式。缓存布局 448B NoPE + 128B RoPE + 8B scale = 584B/token，576B 对齐分页。</p>
+<p>注意区分：专家权重的 MXFP4（32 通道 UE8M0 scale）与 KV cache 的 FP4（16 通道 E4M3 scale）是两套格式。缓存布局（按 vLLM 实现）：512 维全部量化，RoPE 的 64 维也不例外——fp8 记录是 512 B e4m3 加 16 B UE8M0 scale，共 528 B/token；FP4 记录是 256 B E2M1 加 32 B E4M3 scale，共 288 B/token。V4 的 584 B/token（448 B fp8 NoPE + 128 B bf16 RoPE + 8 B scale）保留不量化的 RoPE，V4.1 已不再如此。</p>
 <h2 id="8-总账：890-B-token-与-1-8-是怎么来的">8. 总账：890 B/token 与 1/8 是怎么来的</h2>
 <p>全局 KV（常驻 HBM）= CSA2 跨层共享 × FP4：</p>
 <ul>
@@ -459,9 +465,9 @@
 
     <footer class="post-footer">
           <div class="post-tags">
+              <a href="/tags/DeepSeek/" rel="tag"># DeepSeek</a>
               <a href="/tags/LLM/" rel="tag"># LLM</a>
               <a href="/tags/Inference/" rel="tag"># Inference</a>
-              <a href="/tags/DeepSeek/" rel="tag"># DeepSeek</a>
               <a href="/tags/KV-Cache/" rel="tag"># KV Cache</a>
               <a href="/tags/MoE/" rel="tag"># MoE</a>
           </div>
