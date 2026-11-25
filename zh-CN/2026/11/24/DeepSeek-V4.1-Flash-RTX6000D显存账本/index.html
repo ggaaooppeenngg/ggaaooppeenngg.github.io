@@ -21,20 +21,20 @@
 
 <script class="next-config" data-name="main" type="application/json">{"hostname":"ggaaooppeenngg.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"right","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"onmobile":false},"hljswrap":true,"copycode":{"enable":true,"style":"default"},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":"giscus","storage":true,"lazyload":false,"nav":null,"activeClass":"giscus"},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
 
-    <meta name="description" content="把 DeepSeek-V4.1-Flash 部署到 4 张 RTX 6000D 上，第一次跑通时 KV 池只有 9 万 tokens；九天之后，同一个模型、同一组卡，池做到了 2,861,437 tokens。关键是：sm_120 不在官方支持矩阵里、卡间没有 NVLink、单卡显存比 RTX PRO 6000 少 12 GB——这三个错位决定了优化重心不在算力，而在显存容量：贴顶之前，KV 池每">
+    <meta name="description" content="把 DeepSeek-V4.1-Flash 部署到 4 张 RTX 6000D 上，第一次跑通时 KV 池只有 9 万 tokens；几轮优化之后，同一个模型、同一组卡，池做到了 2,861,437 tokens。关键是：sm_120 不在官方支持矩阵里、卡间没有 NVLink、单卡显存比 RTX PRO 6000 少 12 GB——这三个错位决定了优化重心不在算力，而在显存容量：贴顶之前，KV">
 <meta property="og:type" content="article">
 <meta property="og:title" content="4×RTX 6000D 上的 DeepSeek-V4.1-Flash：KV 池从 9 万做到 286 万 tokens">
 <meta property="og:url" content="https://ggaaooppeenngg.github.io/zh-CN/2026/11/24/DeepSeek-V4.1-Flash-RTX6000D%E6%98%BE%E5%AD%98%E8%B4%A6%E6%9C%AC/index.html">
 <meta property="og:site_name" content="ggaaooppeenngg">
-<meta property="og:description" content="把 DeepSeek-V4.1-Flash 部署到 4 张 RTX 6000D 上，第一次跑通时 KV 池只有 9 万 tokens；九天之后，同一个模型、同一组卡，池做到了 2,861,437 tokens。关键是：sm_120 不在官方支持矩阵里、卡间没有 NVLink、单卡显存比 RTX PRO 6000 少 12 GB——这三个错位决定了优化重心不在算力，而在显存容量：贴顶之前，KV 池每">
+<meta property="og:description" content="把 DeepSeek-V4.1-Flash 部署到 4 张 RTX 6000D 上，第一次跑通时 KV 池只有 9 万 tokens；几轮优化之后，同一个模型、同一组卡，池做到了 2,861,437 tokens。关键是：sm_120 不在官方支持矩阵里、卡间没有 NVLink、单卡显存比 RTX PRO 6000 少 12 GB——这三个错位决定了优化重心不在算力，而在显存容量：贴顶之前，KV">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2026-11-24T08:52:05.000Z">
-<meta property="article:modified_time" content="2026-11-24T08:52:06.059Z">
+<meta property="article:modified_time" content="2026-11-25T00:18:22.743Z">
 <meta property="article:author" content="ggaaooppeenngg">
 <meta property="article:tag" content="LLM">
 <meta property="article:tag" content="GPU">
-<meta property="article:tag" content="Inference">
 <meta property="article:tag" content="DeepSeek">
+<meta property="article:tag" content="Inference">
 <meta property="article:tag" content="KV Cache">
 <meta property="article:tag" content="Quantization">
 <meta name="twitter:card" content="summary">
@@ -215,9 +215,15 @@
         <i class="far fa-calendar"></i>
       </span>
       <span class="post-meta-item-text">发表于</span>
-      
 
-      <time title="创建时间：2026-11-24 16:52:05 / 修改时间：16:52:06" itemprop="dateCreated datePublished" datetime="2026-11-24T16:52:05+08:00">2026-11-24</time>
+      <time title="创建时间：2026-11-24 16:52:05" itemprop="dateCreated datePublished" datetime="2026-11-24T16:52:05+08:00">2026-11-24</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2026-11-25 08:18:22" itemprop="dateModified" datetime="2026-11-25T08:18:22+08:00">2026-11-25</time>
     </span>
     <span class="post-meta-item">
       <span class="post-meta-item-icon">
@@ -238,13 +244,13 @@
     
     
     
-    <div class="post-body" itemprop="articleBody"><p>把 DeepSeek-V4.1-Flash 部署到 4 张 RTX 6000D 上，第一次跑通时 KV 池只有 9 万 tokens；九天之后，同一个模型、同一组卡，池做到了 <strong>2,861,437 tokens</strong>。关键是：<strong>sm_120 不在官方支持矩阵里、卡间没有 NVLink、单卡显存比 RTX PRO 6000 少 12 GB——这三个错位决定了优化重心不在算力，而在显存容量：贴顶之前，KV 池每多 1 GiB 都能换成 prefix 命中率。</strong> 本文按一本显存账讲清每张卡的显存怎么分、权重侧和 KV 侧各压掉多少、调度参数怎么腾出余量、冷层怎么配、哪几条路走不通。除特别说明外，数字都是同一台 4×RTX 6000D 工作站的实测（TP4/EP4，vLLM nightly 加 sm_120 补丁），池容量取启动日志里的 <code>KV cache size</code>，命中率注明口径。</p>
+    <div class="post-body" itemprop="articleBody"><p>把 DeepSeek-V4.1-Flash 部署到 4 张 RTX 6000D 上，第一次跑通时 KV 池只有 9 万 tokens；几轮优化之后，同一个模型、同一组卡，池做到了 <strong>2,861,437 tokens</strong>。关键是：<strong>sm_120 不在官方支持矩阵里、卡间没有 NVLink、单卡显存比 RTX PRO 6000 少 12 GB——这三个错位决定了优化重心不在算力，而在显存容量：贴顶之前，KV 池每多 1 GiB 都能换成 prefix 命中率。</strong> 本文按一本显存账讲清每张卡的显存怎么分、权重侧和 KV 侧各压掉多少、调度参数怎么腾出余量、冷层怎么配、哪几条路走不通。除特别说明外，数字都是同一台 4×RTX 6000D 工作站的实测（TP4/EP4，vLLM nightly 加 sm_120 补丁），池容量取启动日志里的 <code>KV cache size</code>，命中率注明口径。</p>
 <span id="more"></span>
 <hr>
 <h2 id="1-三个错位：sm-120、PCIe-与-84-GB">1. 三个错位：sm_120、PCIe 与 84 GB</h2>
 <p>模型的主体结构（CED、CSA2、FP4 主 KV、Engram）在 <a href="/zh-CN/2026/10/08/DeepSeek-V4.1-Flash%E6%9E%B6%E6%9E%84%E8%A7%A3%E6%9E%90/">DeepSeek-V4.1-Flash 架构解析</a> 里已经讲过，这里只列和显存有关的几个事实：552B 骨干；路由专家出厂就是 MXFP4，磁盘上打包后 271.8 GB；Engram 是挂在第 1、14 层的两张 embedding 表，FP8 时约 189 GiB。把这样的模型放到 4 张 RTX 6000D 上，有三个错位。</p>
 <p><strong>错位一：sm_120 不在支持矩阵里。</strong> vLLM 0.30 到 0.32 的正式版本在 sm_120 上都起不来：FlashMLA 的 sparse 路径只认 sm90，DeepGEMM 的 sparse MQA 打分和 DeepSelect 只认 sm100 家族，官方 recipe 覆盖的是 H100 到 GB300 和 MI355X。能跑起来靠的是 nightly 加一组 sm_120 补丁（按层改 KV 几何、放开 KV 块尺寸），本文所有数字都建立在这个前提上。</p>
-<p><strong>错位二：卡间没有 NVLink。</strong> 4 张卡之间只有 PCIe Gen5：NCCL AllReduce 的 busbw 实测 24.3 GB/s，一台 NVLink 机器上的同项测试是 153.9 GB/s，相差 6.3 倍。单卡 FP8 GEMM 能跑到 287 TFLOPS，是 bf16 的 2 倍，算力并不缺，但多卡通信把这点优势抵掉了。TP4 就是这台机器的上限形态，优化重心只能压在显存容量（KV 池）和单步开销上。</p>
+<p><strong>错位二：卡间没有 NVLink。</strong> 4 张卡之间只有 PCIe Gen5：NCCL AllReduce 的实测带宽只有一台 NVLink 机器的约 1/6。单卡 FP8 GEMM 的算力是 bf16 的 2 倍，算力并不缺，但多卡通信把这点优势抵掉了。TP4 就是这台机器的上限形态，优化重心只能压在显存容量（KV 池）和单步开销上。</p>
 <p><strong>错位三：显存比 RTX PRO 6000 少 12 GB。</strong> 单卡 84 GB，权重装进去之后留给 KV 的余量非常薄。最极端的例子是 NVIDIA 的 NVFP4 整包 checkpoint：权重 75.26 GiB/rank，<code>gpu-memory-utilization</code> 取 0.95 时 KV 只剩 1.36 GiB，warmup 阶段一次 882 MB 的分配失败就是 OOM。</p>
 <blockquote>
 <p><strong>一句话总结</strong>：算力不缺、互联受限、显存紧张——这台机器上值得做的优化，是每一个 GiB 都要算清楚。</p>
@@ -254,14 +260,14 @@
 <p class="katex-block "><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><msub><mi>N</mi><mtext>pool</mtext></msub><mo>=</mo><mfrac><mrow><mi>U</mi><mo>⋅</mo><mi>M</mi><mo>−</mo><mi>W</mi><mo>−</mo><msub><mi>A</mi><mtext>peak</mtext></msub><mo>−</mo><mi>G</mi></mrow><mi>b</mi></mfrac></mrow><annotation encoding="application/x-tex">N_{\text{pool}} = \frac{U \cdot M - W - A_{\text{peak}} - G}{b}
 </annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.9694em;vertical-align:-0.2861em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.109em;">N</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:-0.109em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord text mtight"><span class="mord mtight">pool</span></span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.2861em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:2.0463em;vertical-align:-0.686em;"></span><span class="mord"><span class="mopen nulldelimiter"></span><span class="mfrac"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.3603em;"><span style="top:-2.314em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord mathnormal">b</span></span></span><span style="top:-3.23em;"><span class="pstrut" style="height:3em;"></span><span class="frac-line" style="border-bottom-width:0.04em;"></span></span><span style="top:-3.677em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.109em;">U</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">⋅</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mord mathnormal" style="margin-right:0.109em;">M</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mord mathnormal" style="margin-right:0.1389em;">W</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mord"><span class="mord mathnormal">A</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord text mtight"><span class="mord mtight">peak</span></span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.2861em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mord mathnormal">G</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.686em;"><span></span></span></span></span></span><span class="mclose nulldelimiter"></span></span></span></span></span></span></p>
 <p>其中 <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>U</mi></mrow><annotation encoding="application/x-tex">U</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.109em;">U</span></span></span></span> 是 <code>gpu-memory-utilization</code>，<span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>M</mi></mrow><annotation encoding="application/x-tex">M</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.109em;">M</span></span></span></span> 是单卡显存总量，<span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>W</mi></mrow><annotation encoding="application/x-tex">W</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.1389em;">W</span></span></span></span> 是权重，<span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>A</mi><mtext>peak</mtext></msub></mrow><annotation encoding="application/x-tex">A_{\text{peak}}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.9694em;vertical-align:-0.2861em;"></span><span class="mord"><span class="mord mathnormal">A</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord text mtight"><span class="mord mtight">peak</span></span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.2861em;"><span></span></span></span></span></span></span></span></span></span> 是 profile 阶段测到的最大激活占用，<span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>G</mi></mrow><annotation encoding="application/x-tex">G</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord mathnormal">G</span></span></span></span> 是 CUDA graph 占用，<span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>b</mi></mrow><annotation encoding="application/x-tex">b</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6944em;"></span><span class="mord mathnormal">b</span></span></span></span> 是每个 token 的 KV 开销。后面的每一节都在动这个式子里的某一项。</p>
-<p>把生产配置（第 3、4 节的优化全部打开）的数字代进去：</p>
-<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">每张 RTX 6000D，不开投机解码的生产配置（TP4，每 rank）</span><br><span class="line"></span><br><span class="line">  权重 W ≈ 70 GiB</span><br><span class="line">    ├─ 路由专家 MXFP4    ≈ 67 GiB   4-bit，占权重约 95%</span><br><span class="line">    └─ 其余投影 / lm_head / embed   ≈ 3 GiB</span><br><span class="line">  激活峰值 + CUDA graph + 运行时     随 MNBT、图档数变化（第 5 节）</span><br><span class="line">  ─────────────────────────────────────────────</span><br><span class="line">  KV 池 N = 5.67 GiB  ──►  2,861,437 tokens</span><br><span class="line">                          约 505,000 tokens / GiB</span><br><span class="line">        │ GPU 池里放不下的前缀块</span><br><span class="line">        ▼</span><br><span class="line">  冷层：主机内存 320 GiB（4 个 rank 合计，第 6 节）</span><br></pre></td></tr></table></figure>
+<p>把全部优化打开之后的配置（第 3、4 节）的数字代进去：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">每张 RTX 6000D，不开投机解码、全部优化打开的配置（TP4，每 rank）</span><br><span class="line"></span><br><span class="line">  权重 W ≈ 70 GiB</span><br><span class="line">    ├─ 路由专家 MXFP4    ≈ 67 GiB   4-bit，占权重约 95%</span><br><span class="line">    └─ 其余投影 / lm_head / embed   ≈ 3 GiB</span><br><span class="line">  激活峰值 + CUDA graph + 运行时     随 MNBT、图档数变化（第 5 节）</span><br><span class="line">  ─────────────────────────────────────────────</span><br><span class="line">  KV 池 N = 5.67 GiB  ──►  2,861,437 tokens</span><br><span class="line">                          约 505,000 tokens / GiB</span><br><span class="line">        │ GPU 池里放不下的前缀块</span><br><span class="line">        ▼</span><br><span class="line">  冷层：主机内存 320 GiB（4 个 rank 合计，第 6 节）</span><br></pre></td></tr></table></figure>
 <p>两个读法。第一，<strong>权重侧几乎没有再压的空间</strong>：路由专家一项就占 GPU 常驻权重的约 95%，而且出厂就是 4-bit；能动的只有零头（attention 投影、lm_head 这类）和 KV 的格式。第二，<strong>换算率是固定的</strong>：在这台机器上每 rank 省出 1 GiB 显存约等于 50.5 万 tokens，对 2.86M 的池来说是 17.6%。整池折算下来每个 token 约 2.1 KB，远大于主 KV 记录的 288 B——池里除了压缩 KV，还有滑窗 record（仍是 MXFP8）和 indexer cache，三部分一起才是池的大小。</p>
-<p>九天里池容量的每一步变化：</p>
+<p>池容量的每一步变化：</p>
 <table>
 <thead>
 <tr>
-<th>日期</th>
+<th>步骤</th>
 <th>动作</th>
 <th>KV 池（tokens）</th>
 <th>单变量增益</th>
@@ -269,44 +275,44 @@
 </thead>
 <tbody>
 <tr>
-<td>11 月 4 日</td>
+<td>1</td>
 <td>首次跑通：vLLM 0.31.0 + sm_120 补丁，上下文上限 65,536，投机解码开</td>
 <td>约 90,000</td>
 <td>-</td>
 </tr>
 <tr>
-<td>11 月 5 日</td>
+<td>2</td>
 <td>fp8 KV 换成 V4.1 的 528 B 记录（上游 PR #59846 的 fp8 部分）</td>
 <td>588,999 → 638,685</td>
 <td>+8.4%</td>
 </tr>
 <tr>
-<td>11 月 6 日</td>
+<td>3</td>
 <td>池最大化：SEQS 64 → 32、MNBT 8192 → 4096、CGS 64</td>
 <td>638,685 → 1,086,161</td>
 <td>+70%</td>
 </tr>
 <tr>
-<td>11 月 7 日</td>
+<td>4</td>
 <td>换 nightly，主 KV 换 FP4（<code>nvfp4_ds_mla</code>）</td>
 <td>2,030,756</td>
 <td>引擎和配置同时变了，不是单变量对照</td>
 </tr>
 <tr>
-<td>11 月 12 日</td>
+<td>5</td>
 <td>ATTN4：wq_b / wo_b 换 NVFP4 W4A4</td>
 <td>2,224,785 → 2,475,244</td>
 <td>+11.2%</td>
 </tr>
 <tr>
-<td>11 月 13 日</td>
+<td>6</td>
 <td>indexer k-cache 换 MXFP4</td>
 <td>2,475,244 → 2,861,437</td>
 <td>+15.6%</td>
 </tr>
 </tbody>
 </table>
-<p>两处要说明。11 月 4 日那次关掉投机解码是 211,000。11 月 7 日到 12 日之间，基座 checkpoint 在不改任何优化的情况下两次启动都稳定在 2,224,785，比 11 月 7 日的 2,030,756 高 9.5%，原因没有定位，所以 ATTN4 的基线取的是前者。</p>
+<p>两处要说明。首次跑通那次关掉投机解码是 211,000。换 nightly 之后、上 ATTN4 之前，基座 checkpoint 在不改任何优化的情况下两次启动都稳定在 2,224,785，比第 4 步的 2,030,756 高 9.5%，原因没有定位，所以 ATTN4 的基线取的是前者。</p>
 <blockquote>
 <p><strong>一句话总结</strong>：权重约 70 GiB、KV 池 5.67 GiB，每省出 1 GiB 多约 50 万 tokens——后面所有的收益都按这个换算率折算。</p>
 </blockquote>
@@ -317,8 +323,8 @@
 <p>移植时踩了一个值得记下的坑。第一次验证，相对误差（rel-L2）是 143%，远大于预期的 12%。问题不在数据也不在内核，在验证脚本：它把一个字节拆成低 nibble 和高 nibble 之后，按「前一半低、后一半高」拼回去，而实际排布是交错的——偶数列在低 nibble，奇数列在高 nibble。</p>
 <figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">逻辑位置    e0  e1 | e2  e3 | e4  e5 | ... | e254 e255</span><br><span class="line">打包字节    B0      | B1      | B2      | ... | B127</span><br><span class="line">B0 = (e1 &lt;&lt; 4) | e0          偶数列 → 低 nibble，奇数列 → 高 nibble</span><br><span class="line"></span><br><span class="line">交错解码  idx[0::2] = lo, idx[1::2] = hi    rel-L2 = 12.05%   与 NVIDIA 自报的约 12% 吻合</span><br><span class="line">线性拼接  cat([lo, hi])                     rel-L2 = 143%     验证脚本的错</span><br></pre></td></tr></table></figure>
 <p>还有一处真实差异：两边的 scale 对不上，NVIDIA 的和自己推导的相差 6 或 7（UE8M0 的 scale 是 2 的幂，差的就是指数）。这是 NVIDIA 为 E2M1 的量程重新推导了 scale——FP8 组内 amax 约 288-448，要除以 64 或 128 才落进 E2M1 的上限 6。所以移植时 <code>embed.scale</code> 必须跟表一起搬，不能沿用自己按 amax 推导的那份。</p>
-<p>修正之后行范数的相关性是 0.9968。质量门是 GSM8K 300 题 5-shot（thinking 关）：表面 97.67%，其中 4 题是评测脚本解析千分位逗号造成的误判，实际错 3 题，99.0%。吞吐与基座统计持平：65536×c8 下 prefill 14,228.8 vs 14,133 tok/s，聚合 decode（全部请求合计）289.4 vs 287.6 tok/s，单请求 decode 36.38 vs 36.1 tok/s。</p>
-<p>这项优化对 GPU 池没有直接贡献——FP8 表本来就在主机上。它的价值在主机侧：省出来的内存可以分给 KV 冷层，上线的同时冷层从 256 GiB 提到了 320 GiB。</p>
+<p>修正之后行范数的相关性是 0.9968。质量门是 GSM8K 300 题 5-shot（thinking 关）：表面 97.67%，其中 4 题是评测脚本解析千分位逗号造成的误判，实际错 3 题，99.0%。吞吐与基座统计持平：65536×c8 下 prefill +0.7%，聚合 decode（全部请求合计）+0.6%，单请求 decode +0.8%。</p>
+<p>这项优化对 GPU 池没有直接贡献——FP8 表本来就在主机上。它的价值在主机侧：省出来的内存可以分给 KV 冷层，冷层也随之从 256 GiB 提到了 320 GiB。</p>
 <blockquote>
 <p><strong>一句话总结</strong>：Engram 转 MXFP4 省的是主机内存（每 rank 每张表 23.60 → 12.16 GiB），不省显存；移植量化表时 scale 必须随表一起搬，验证脚本要先核对 nibble 排布。</p>
 </blockquote>
@@ -333,41 +339,29 @@
 <thead>
 <tr>
 <th>指标</th>
-<th>基座（1017 版 checkpoint）</th>
-<th>ATTN4</th>
-<th>变化</th>
+<th>ATTN4 相对基座的变化（两轮）</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>prefill（tok/s）</td>
-<td>14,133</td>
-<td>14,704 / 14,525</td>
+<td>prefill</td>
 <td>+2.8% ~ +4.0%，均值 +3.4%</td>
 </tr>
 <tr>
-<td>聚合 decode（tok/s）</td>
-<td>287.6</td>
-<td>315.6 / 316.4</td>
+<td>聚合 decode</td>
 <td>+9.7% ~ +10.0%</td>
 </tr>
 <tr>
-<td>单请求 decode（tok/s）</td>
-<td>36.1</td>
-<td>39.5 / 39.7</td>
+<td>单请求 decode</td>
 <td>+9.4% ~ +10.0%</td>
 </tr>
 <tr>
 <td>KV 池（tokens）</td>
-<td>2,224,785</td>
-<td>2,475,244</td>
-<td>+11.2%</td>
+<td>2,224,785 → 2,475,244，+11.2%</td>
 </tr>
 <tr>
 <td>GSM8K 300 题</td>
-<td>97.67%（表面）</td>
-<td>295/300，真错 1-2 题</td>
-<td>持平</td>
+<td>持平：基座表面 97.67%，ATTN4 为 295/300、真错 1-2 题</td>
 </tr>
 </tbody>
 </table>
@@ -380,15 +374,15 @@
 <p>主 KV 的每 token 开销走过两个格式。fp8 的 V4.1 记录是 528 B：512 维全部按 fp8 e4m3 存，RoPE 那 64 维也量化，再加 16 个 UE8M0 scale（每 32 维一个）。FP4 的 <code>nvfp4_ds_mla</code> 是 288 B：512 个 E2M1 值两个挤一个字节共 256 B，加 32 个 E4M3 scale（每 16 维一个）。</p>
 <p>这个 528 B 要和 <a href="/zh-CN/2026/10/08/DeepSeek-V4.1-Flash%E6%9E%B6%E6%9E%84%E8%A7%A3%E6%9E%90/">DeepSeek-V4.1-Flash 架构解析</a> 里的 584 B/token 区分开。584 B（448 B NoPE + 128 B RoPE + 8 B scale）是 V4 的记录布局：NoPE 用 fp8、RoPE 保持 bf16、每 64 维一个 scale。V4.1 的记录把 RoPE 也量化了，vLLM 在 SM100 和 SM120 上写进缓存的是 528 B 的 V4.1 记录，其它架构仍然写 584 B 的 V4 记录。</p>
 <p>fp8 这一步先走。上游 PR #59846 里让 sm_120 写 V4.1 528 B 记录的那部分先移植到 0.31.0，池从 588,999 涨到 638,685（+8.4%）。FP4 这一步在 0.31.0 上到不了：planner 报 no decode instantiation，0.31.0 的 nvfp4 是 V3.2 的几何、只支持 sm100。要换到 nightly，由 FlashInfer 的 sm120 sparse MLA kernel 直接读 FP4 KV，读写都不经过 DeepGEMM。</p>
-<p>FP4 的池增益有一组单变量对照，但不是在生产配置上测的，而是在 NVIDIA 的 NVFP4 整包 checkpoint 上（KV 余量太薄，只能 <code>--enforce-eager</code>、MNBT 2048、SEQS 16）：只改 <code>--kv-cache-dtype</code>，池从 580,811 涨到 738,225，+27%。记录从 528 B 降到 288 B，少了 45%，整池却只有 +27%——池里还有滑窗 record 和 indexer cache，它们没有跟着变小。回到基座 checkpoint 和生产配置之后，池是 2,030,756 tokens。</p>
+<p>FP4 的池增益有一组单变量对照，但不是在全部优化打开的配置上测的，而是在 NVIDIA 的 NVFP4 整包 checkpoint 上（KV 余量太薄，只能 <code>--enforce-eager</code>、MNBT 2048、SEQS 16）：只改 <code>--kv-cache-dtype</code>，池从 580,811 涨到 738,225，+27%。记录从 528 B 降到 288 B，少了 45%，整池却只有 +27%——池里还有滑窗 record 和 indexer cache，它们没有跟着变小。回到基座 checkpoint 和完整配置之后，池是 2,030,756 tokens。</p>
 <h3 id="4-2-indexer-k-cache：132-B-到-68-B">4.2 indexer k-cache：132 B 到 68 B</h3>
 <p>Lightning Indexer 只缓存 K、不缓存 V：每个 token 一条 128 维的 index key（32 个 index 头共用），query 对它做 q·k 打分。FP8 版每 token 132 B（128 B 的 K 值加 4 B scale），MXFP4 版是 68 B（64 B 打包的 E2M1 加 4 B UE8M0），每 token 省 64 B。</p>
 <p>开启是一个 flag 加一个环境变量：</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">--attention-config <span class="string">&#x27;&#123;&quot;indexer_kv_dtype&quot;:&quot;mxfp4&quot;&#125;&#x27;</span>    <span class="comment"># 值是 mxfp4，不是 fp4</span></span><br><span class="line"><span class="built_in">export</span> VLLM_SM120_SPARSE_DEEPGEMM=1                   <span class="comment"># sm_120 上放行 mxfp4 indexer 的唯一条件</span></span><br></pre></td></tr></table></figure>
-<p>环境变量那一条是个坑：它不进命令行记录，复刻生产启动时漏掉，引擎会在 <code>indexer.py</code> 里直接退出。反过来，开 candidate sparse 的那套配置要求它为 0，两套配置不能混用。</p>
+<p>环境变量那一条是个坑：它不进命令行记录，复刻这套启动配置时漏掉，引擎会在 <code>indexer.py</code> 里直接退出。反过来，开 candidate sparse 的那套配置要求它为 0，两套配置不能混用。</p>
 <p>这条路中间还卡过一个崩溃，值得记一笔。打开之后引擎在 warmup 阶段 SIGSEGV，崩在 DeepJIT 第一次编译时查 <code>Parser::cache</code> 这张哈希表。最初的判断是堆被别的组件越界写，换 jemalloc 做了一轮 A/B，无效。真根因是符号合并：vLLM 自带的 deep_gemm 扩展和另外加载的 nv_dev 扩展都导出了同名的 <code>STB_GNU_UNIQUE</code> 全局符号 <code>deep_gemm::jit</code>，动态链接器把两份合并成一个；两套构建的 Runtime 布局不一样，一方构造的对象被另一方按自己的偏移去读，<code>cache</code> 字段落到了别的成员上，查表时访问的是近空指针。修复是给 nv_dev 的构建加 <code>-fvisibility=hidden</code>，让这个符号只在模块内可见：</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">nm _C.so | grep deep_gemm3jit    <span class="comment"># 期望是 b（模块本地），而不是 u（GNU_UNIQUE）</span></span><br></pre></td></tr></table></figure>
-<p>收益（不开投机解码的生产配置，只换 indexer 格式；回放用 cc-traces（真实会话的请求 trace）的 39 个会话、64 并发，取第二轮热缓存）：</p>
+<p>收益（不开投机解码、只换 indexer 格式的完整配置；回放用 cc-traces（真实会话的请求 trace）的 39 个会话、64 并发，取第二轮热缓存）：</p>
 <table>
 <thead>
 <tr>
@@ -418,9 +412,9 @@
 <td>持平</td>
 </tr>
 <tr>
-<td>回放 c64 热态 out（tok/s/卡）</td>
-<td>163.2</td>
-<td>165.7</td>
+<td>回放 c64 热态输出吞吐（每卡）</td>
+<td>基线</td>
+<td>高于基线</td>
 <td>+1.5%</td>
 </tr>
 <tr>
@@ -441,18 +435,18 @@
 <ul>
 <li>0.31.0 那一代（fp8 KV、无投机解码）：MNBT 8192 能跑；16384 时 KV 池被压到低于 262,144；32768 是 CUDA OOM。</li>
 <li>加上 candidate sparse 的缓冲和投机解码之后，8192 也装不下了：autotune 的 dummy run 在余量上 OOM，降到 4096 之后池才从 3.38 GiB 回到 4.29 GiB。</li>
-<li>投机引擎上 MNBT 最敏感：从 4096 降到 2048，池从 961,859 涨到 2,396,462——4096 的 prefill 工作区预留占用了 78 万 tokens。但降太多会伤 prefill：MNBT 1024 时 prefill 只剩 7,477 tok/s，调回 4096 恢复到 13,812。</li>
+<li>投机引擎上 MNBT 最敏感：从 4096 降到 2048，池从 961,859 涨到 2,396,462——4096 的 prefill 工作区预留占用了 78 万 tokens。但降太多会伤 prefill：MNBT 1024 时 prefill 只剩 4096 时的 54%，调回 4096 即恢复。</li>
 </ul>
-<p><strong>SEQS（<code>--max-num-seqs</code>）</strong>：fp8 时代从 64 降到 32 是池最大化的三项之一；池大了以后生产又用回 64。SEQS 从 8 提到 64，曾把 32 并发回放的 p50 时延从 194 s 压到 77.7 s。</p>
+<p><strong>SEQS（<code>--max-num-seqs</code>）</strong>：fp8 时代从 64 降到 32 是池最大化的三项之一；池大了以后又用回 64。SEQS 从 8 提到 64，曾把 32 并发回放的 p50 时延压到原来的 40%。</p>
 <p><strong>CGS（<code>--max-cudagraph-capture-size</code>）</strong>：FULL 模式下是 CUDA graph 的捕获档位集合，档位越多图内存越大。图内存本身不大（一个投机引擎的 FULL 图，10 档，0.75 GiB），主要开销在 48、64 这种大 batch 的形状上。另一台 96GB 机器上捕获档位从 10 档加到 12 档，池从 4,645,418 降到 4,441,041（-4.4%）。</p>
-<p><strong>MEMFRAC</strong>：生产用 0.95。它是 KV 的总预算，不是 KV 的份额——<code>gpu-memory-utilization</code> 调低之后权重和激活照样要占，KV 反而更少。NVFP4 整包上从 0.95 降到 0.90，直接报 <code>No available memory for cache blocks</code>。</p>
-<p><strong>CTX</strong>：硬下限，池至少要装得下一条，生产用 262,144。开投机解码时 draft 的 KV 和 verify 缓冲都随 <code>max_model_len</code> 线性涨：早期一个投机解码加 candidate sparse 的配置里，上下文从 131,072 提到 262,144，池从约 218 万掉到约 94 万；底座换成 ATTN4 + MXFP4 indexer 之后，同样的 262,144 带着投机解码可以启动，池 1,422,296。</p>
+<p><strong>MEMFRAC</strong>：取 0.95。它是 KV 的总预算，不是 KV 的份额——<code>gpu-memory-utilization</code> 调低之后权重和激活照样要占，KV 反而更少。NVFP4 整包上从 0.95 降到 0.90，直接报 <code>No available memory for cache blocks</code>。</p>
+<p><strong>CTX</strong>：硬下限，池至少要装得下一条，取 262,144。开投机解码时 draft 的 KV 和 verify 缓冲都随 <code>max_model_len</code> 线性涨：早期一个投机解码加 candidate sparse 的配置里，上下文从 131,072 提到 262,144，池从约 218 万掉到约 94 万；底座换成 ATTN4 + MXFP4 indexer 之后，同样的 262,144 带着投机解码可以启动，池 1,422,296。</p>
 <p><strong>用 <code>--kv-cache-memory</code> 直接指定池的字节数时，不能信引擎的推荐值。</strong> 它绕过了 profile，没有安全网：一个稀疏 + 投机的引擎上，6.0 GiB 和 6.38 GiB 都能启动、随后 OOM，5.0 GiB 才稳（池 2,278,080）。原因是 profile 量不到运行期的瞬态分配，大约 0.7-0.8 GiB，而引擎推荐的「fully utilize」值正好没有留这部分。</p>
 <table>
 <thead>
 <tr>
 <th>旋钮</th>
-<th>生产值</th>
+<th>取值</th>
 <th>对池的影响</th>
 <th>代价</th>
 </tr>
@@ -491,7 +485,7 @@
 </tbody>
 </table>
 <blockquote>
-<p><strong>一句话总结</strong>：生产配方 <code>CTX=262144 SEQS=64 MNBT=4096 CGS=64 MEMFRAC=0.95</code> 是在「池尽量大」和「prefill 不被拖慢」之间量出来的点；MNBT 是其中对池影响最大的一个。</p>
+<p><strong>一句话总结</strong>：配方 <code>CTX=262144 SEQS=64 MNBT=4096 CGS=64 MEMFRAC=0.95</code> 是在「池尽量大」和「prefill 不被拖慢」之间量出来的点；MNBT 是其中对池影响最大的一个。</p>
 </blockquote>
 <h2 id="6-冷层：KV-CPU-offload">6. 冷层：KV CPU offload</h2>
 <p><code>--kv-offloading-backend native --kv-offloading-size 320</code> 把 GPU 池里淘汰出去的前缀块换到主机内存。320 是 4 个 rank 合计的 GiB 数，每个 rank 80 GiB pinned 内存，启动时在 <code>/dev/shm</code> 里创建一个约 343.6 GB 的区域。冷层和 GPU 池共用同一个块管理器和同一张 prefix 哈希表，命中直接算 prefix cache 命中，不需要外部组件。</p>
@@ -510,7 +504,7 @@
 </tr>
 <tr>
 <td>320</td>
-<td>✅ 生产值，MXFP4 Engram 上线后从 256 提上来</td>
+<td>✅ 采用值，MXFP4 Engram 启用后从 256 提上来</td>
 </tr>
 <tr>
 <td>336</td>
@@ -530,7 +524,7 @@
 </tr>
 </tbody>
 </table>
-<p>384 的现象值得写清楚。区域的创建分三步：mmap 创建 412.32 GB 成功，<code>MADV_POPULATE_WRITE</code> 物化（约 7 GB/s），最后 <code>cudaHostRegister</code> 注册 pin。两次失败都发生在这段初始化里，没有 traceback、没有 coredump，失败点还会漂移：一次是注册日志打出后卡了 120 s，被引擎主进程判定超时后 SIGKILL；一次是物化到 213 GB 时进程就没了。320 GiB 做对照，同一套流程一次通过。</p>
+<p>384 的现象值得写清楚。区域的创建分三步：mmap 创建 412.32 GB 成功，<code>MADV_POPULATE_WRITE</code> 物化，最后 <code>cudaHostRegister</code> 注册 pin。两次失败都发生在这段初始化里，没有 traceback、没有 coredump，失败点还会漂移：一次是注册日志打出后卡了两分钟，被引擎主进程判定超时后 SIGKILL；一次是物化到 213 GB 时进程就没了。320 GiB 做对照，同一套流程一次通过。</p>
 <p>五轮启动里排除掉的可能：</p>
 <table>
 <thead>
@@ -576,15 +570,15 @@
 </table>
 <p>结论停在现象上：vLLM 0.33 nightly 在 40 层图模式下，<code>CPUOffloadingSpec</code> 的初始化路径和区域大小、时序相关地静默退出，机制没有定位。经验上限是 320。</p>
 <h3 id="6-2-冷层换来了多少命中">6.2 冷层换来了多少命中</h3>
-<p>标准回放口径（3600 s 窗口）下，64 并发时 GPU 池的命中率只剩 13.9%（KV 池 97.5% 满载，前缀不断被挤出），未命中的部分有 93.8% 在冷层找到，综合命中率 94.74%；32 并发时 GPU 池命中 83.9%，综合 94.38%。代价在首 token 时间上：64 并发的 TTFT p50 是 37.9 s，32 并发是 0.698 s——冷层回迁发生在首 token 之前。64 并发这一档只能当批处理用。</p>
+<p>标准回放口径（3600 s 窗口）下，64 并发时 GPU 池的命中率只剩 13.9%（KV 池 97.5% 满载，前缀不断被挤出），未命中的部分有 93.8% 在冷层找到，综合命中率 94.74%；32 并发时 GPU 池命中 83.9%，综合 94.38%。代价在首 token 时间上：64 并发的 TTFT p50 是 32 并发的 54 倍——冷层回迁发生在首 token 之前。64 并发这一档只能当批处理用。</p>
 <h3 id="6-3-读代码得到的三个事实">6.3 读代码得到的三个事实</h3>
 <ul>
 <li><strong>冷读是一个 job、一次批量 DMA。</strong> 一个请求的全部 chunk 合成一个 job，走 <code>cuMemcpyBatchAsync</code> 一次驱动调用，不是逐页搬。</li>
 <li><strong>job 之间是严格 FIFO 的一条链。</strong> <code>stream.wait_event(last_event)</code> 把 job 串起来，跨请求、跨读写；每个调度步先提交 store 再提交 load，满载时冷读排在持续的写入后面。</li>
 <li><strong>pin 失败只打一行 warning，然后退回 pageable 内存。</strong> 不会报错，也不容易察觉。</li>
 </ul>
-<p>所以「冷层回迁只有 10 MB/s」这个数要这样读：它是 64 并发标准回放里用 TTFT 增量反推的等效值（66K token 对应约 21 s），包含排队和调度，不是传输带宽。在同一代引擎上单独测，32K 前缀的冷读 p50 是 0.188 s，和热读的 0.182 s 没有差别，CPU 到 GPU 的聚合带宽 54 GB/s。负载下的等效速度慢在 FIFO 排队，链路本身不慢。</p>
-<p>vLLM 里还有另一套实现 <code>SimpleCPUOffloadConnector</code>，<code>VLLM_USE_SIMPLE_KV_OFFLOAD=1</code> 切换。同一个引擎上做了 A/B（两边池都是 1,328,571）：单发冷读打平（0.194 vs 0.188 s），并发冷读慢 18%（0.556 vs 0.472 s），并发热读慢 48%（0.579 vs 0.392 s）——它的 LRU 会把刚换入的块再淘汰出去。保持关闭。</p>
+<p>所以「冷层回迁很慢」这个印象要这样读：它是 64 并发标准回放里用 TTFT 增量反推的等效值，包含排队和调度，不是传输带宽。在同一代引擎上单独测，32K 前缀的冷读 p50 和热读只差约 3%，CPU 到 GPU 的链路带宽比那个等效值高出三个数量级以上。负载下的等效速度慢在 FIFO 排队，链路本身不慢。</p>
+<p>vLLM 里还有另一套实现 <code>SimpleCPUOffloadConnector</code>，<code>VLLM_USE_SIMPLE_KV_OFFLOAD=1</code> 切换。同一个引擎上做了 A/B（两边池都是 1,328,571）：单发冷读打平（差约 3%），并发冷读慢 18%，并发热读慢 48%——它的 LRU 会把刚换入的块再淘汰出去。保持关闭。</p>
 <h3 id="6-4-适用条件">6.4 适用条件</h3>
 <p>冷层要占物理内存：320 GiB 的区域，加上常驻的 pinned 内存和引擎自身，全套约 512 GB。另一台 4×RTX PRO 6000 96GB 的主机内存只有 503 GB：冷层设 320 GiB 时两次整机僵死，设 192 GiB 时在注册阶段被内核 OOM 终止，最后没有开冷层，靠 4.5M 的显存池维持命中率。</p>
 <blockquote>
@@ -592,10 +586,10 @@
 </blockquote>
 <h2 id="7-命中率的回报曲线：池多大才够">7. 命中率的回报曲线：池多大才够</h2>
 <p>命中率看服务端指标 <code>overall_usage_prompt_cache_read_pct</code>，要开 <code>--enable-prompt-tokens-details</code> 才有。下面是同一代补丁、同一份 cc-traces 回放、冷缓存首轮的成对数字（p39、p72 是其中 39 个、72 个会话的两个子集，c16、c64 是并发）：</p>
-<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">prefix 命中率（冷缓存首轮回放，每格 4%）</span><br><span class="line">           0%   20%   40%   60%   80%   100%</span><br><span class="line">           |----|----|----|----|----|----|</span><br><span class="line">p72   699K ████████████████▋        66.6%   p90 373 s</span><br><span class="line">p39   638K ███████████████████▌     77.8%</span><br><span class="line">p39 1,086K ████████████████████▎    80.9%</span><br><span class="line">p39  2.03M ████████████████████▎    81.0%   理论上限 81.0%</span><br><span class="line">p72  2.03M ████████████████████▊    82.9%   理论上限 83.0%，p90 175 s</span><br></pre></td></tr></table></figure>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">prefix 命中率（冷缓存首轮回放，每格 4%）</span><br><span class="line">           0%   20%   40%   60%   80%   100%</span><br><span class="line">           |----|----|----|----|----|----|</span><br><span class="line">p72   699K ████████████████▋        66.6%</span><br><span class="line">p39   638K ███████████████████▌     77.8%</span><br><span class="line">p39 1,086K ████████████████████▎    80.9%</span><br><span class="line">p39  2.03M ████████████████████▎    81.0%   理论上限 81.0%</span><br><span class="line">p72  2.03M ████████████████████▊    82.9%   理论上限 83.0%</span><br></pre></td></tr></table></figure>
 <p>命中率随池单调，但只在同一代补丁、同一轮回放里可比——记录布局和回放调度都会让数字漂移，跨代的读数不能直接比。</p>
-<p><strong>什么时候贴顶</strong>：每个请求的前缀里有多少是之前出现过的，可以从 trace 直接算出来，这是命中率的理论上限；实测等于上限，再加池也不会涨。p39 的 16 并发实测 81.0% 对理论上限 81.0%，就是贴顶了，这份负载冷缓存的上限在 83% 左右。p72 的 64 并发在 699K 的池上只有 66.6%，是因为工作集远大于池，请求被反复挤出，p90 时延 373 s；池加到 2.03M 再配上冷层之后是 82.9%，p90 时延 175 s。</p>
-<p>两件事容易误读。第一，回放第二轮起是热稳态：同一份会话集再放一遍，命中率会到 98% 以上（p39 链式热缓存，32 / 64 / 48 并发分别是 92.9% / 98.8% / 99.8%）。这是回放口径的产物，不是生产命中率。第二，并发比池更能决定命中率。另一台 96GB 机器上有一个极端例子：池 4.44M，96 并发实测命中 30.36%，理论上限 94.49%，TTFT p50 566 s——96 个 lane 的 unique 前缀工作集约 2700 万 tokens，远大于池。</p>
+<p><strong>什么时候贴顶</strong>：每个请求的前缀里有多少是之前出现过的，可以从 trace 直接算出来，这是命中率的理论上限；实测等于上限，再加池也不会涨。p39 的 16 并发实测 81.0% 对理论上限 81.0%，就是贴顶了，这份负载冷缓存的上限在 83% 左右。p72 的 64 并发在 699K 的池上只有 66.6%，是因为工作集远大于池，请求被反复挤出，p90 时延是 2.03M 池加冷层那一档的 2.1 倍；池加到 2.03M 再配上冷层之后是 82.9%。</p>
+<p>两件事容易误读。第一，回放第二轮起是热稳态：同一份会话集再放一遍，命中率会到 98% 以上（p39 链式热缓存，32 / 64 / 48 并发分别是 92.9% / 98.8% / 99.8%）。这是回放口径的产物，不是真实负载下的命中率。第二，并发比池更能决定命中率。另一台 96GB 机器上有一个极端例子：池 4.44M，96 并发实测命中 30.36%，理论上限 94.49%，TTFT p50 到了数百秒量级——96 个 lane 的 unique 前缀工作集约 2700 万 tokens，远大于池。</p>
 <p>标准口径（3600 s 窗口）下，这台机器上一个 2.4M 池加冷层的投机引擎，32 并发命中 94.38%（理论上限 94.9%），64 并发 94.74%。</p>
 <blockquote>
 <p><strong>一句话总结</strong>：池的回报以「贴顶」为界——实测命中率追平 trace 的理论上限之后，加池不再有用；越不过去的部分由并发和工作集决定，不是显存。</p>
@@ -604,7 +598,7 @@
 <p>换到 NVIDIA 的 NVFP4 整包 checkpoint 之后，引擎启动要 1.5 个小时，卡在 <code>[AutoTuner]: Tuning mxfp8_gemm</code>。原因是 FlashInfer 的 autotune 对每个 token bucket、每个形状逐个 profile；中途 OOM 崩溃的话缓存一个字节都不落盘，下次启动从头再来。</p>
 <p>有意思的是，跳过某些算子的环境变量 <code>VLLM_FLASHINFER_AUTOTUNE_SKIP_OPS</code> 本来就存在，但对这条路不生效。<code>flashinfer_sparse_mla_warmup.py</code> 里的 <code>_run_flashinfer_sparse_mla_decode_autotune</code> 开了一个覆盖整个引擎的 tuning 上下文（<code>flashinfer_autotune(True, cache=path)</code> 包住整只 dummy run，所有可调优的 kernel 都进去选 tactic），但只传了 <code>cache=</code>，没传 <code>skip_ops=</code>；那个环境变量只被 <code>kernel_warmup.py</code> 里另一个入口读取。补丁就是让这里的四处上下文读同一个变量：</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">_warmup_skip_ops</span>():</span><br><span class="line">    <span class="keyword">import</span> vllm.envs <span class="keyword">as</span> envs</span><br><span class="line">    <span class="keyword">if</span> envs.VLLM_FLASHINFER_AUTOTUNE_SKIP_OPS <span class="keyword">is</span> <span class="keyword">not</span> <span class="literal">None</span>:</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">set</span>(envs.VLLM_FLASHINFER_AUTOTUNE_SKIP_OPS) <span class="keyword">or</span> <span class="literal">None</span></span><br><span class="line">    <span class="keyword">return</span> <span class="literal">None</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># v1 / v2 两套 API 各两处，都补上 skip_ops</span></span><br><span class="line">flashinfer_autotune(<span class="literal">True</span>, cache=<span class="built_in">str</span>(cache_path), skip_ops=_warmup_skip_ops())</span><br><span class="line">autotune_v2(mode=<span class="string">&quot;tune&quot;</span>, cache_root=cache_root, skip_ops=_warmup_skip_ops())</span><br></pre></td></tr></table></figure>
-<p>效果：<code>mxfp8_gemm</code> 改走启发式选择，attention 的调优保留（它有持久缓存），NVFP4 checkpoint 的启动从 1.5 h 降到 4 min。生产的环境变量值是 <code>mxfp8_gemm,fp4_gemm</code>。</p>
+<p>效果：<code>mxfp8_gemm</code> 改走启发式选择，attention 的调优保留（它有持久缓存），NVFP4 checkpoint 的启动从 1.5 h 降到 4 min。环境变量取 <code>mxfp8_gemm,fp4_gemm</code>。</p>
 <p>一个附带结论：后来移植了上游把 autotune 峰值剔出 KV sizing 的改动（PR #66197），池一字不变，还是 2,861,437——主要开销已经 skip 掉，autotune 的峰值小于后面 4096 token 的 sizing 步，没有可回收的量。</p>
 <blockquote>
 <p><strong>一句话总结</strong>：一个早就存在的环境变量，因为 warmup 的另一条入口不读它而失效；补上四处读取，启动从 1.5 h 到 4 min。</p>
@@ -666,7 +660,7 @@
 <tr>
 <td>LMCache</td>
 <td><code>--kv-transfer-config</code></td>
-<td>16 并发回放输出 184 tok/s（关闭时 253.6）</td>
+<td>16 并发回放输出比关闭时低 27%</td>
 <td>❌ 关闭</td>
 </tr>
 <tr>
@@ -691,7 +685,7 @@
 <td>NVFP4 整包 checkpoint</td>
 <td>-</td>
 <td>池 738,225</td>
-<td>❌ 未上生产</td>
+<td>❌ 未采用</td>
 </tr>
 <tr>
 <td>Engram 放 NVMe</td>
@@ -708,8 +702,8 @@
 </tbody>
 </table>
 <h3 id="9-2-关闭的路">9.2 关闭的路</h3>
-<p><strong>LMCache。</strong> 外置 KV 层在 16 并发的回放上全面负收益：输出 184 vs 基线 253.6 tok/s，命中率 76.5% vs 87.2%。原因是这个并发下工作集 GPU 池本来就装得下，LMCache 只剩存储开销，外加 0.95 的利用率下 staging 缓冲反复分配失败（524 MiB 的块重试 12 次）。它适合的是工作集远大于池的过载区，不是这里。</p>
-<p><strong>prefix retention。</strong> <code>--prefix-cache-retention-interval 16384</code> 是为 SWA 保留前缀检查点的参数，在 669K 的小池上命中率从 87.2% 掉到 78.6%，输出从 253.6 掉到 206.3 tok/s：检查点占块的开销大于命中收益。</p>
+<p><strong>LMCache。</strong> 外置 KV 层在 16 并发的回放上全面负收益：输出比基线低 27%，命中率 76.5% vs 87.2%。原因是这个并发下工作集 GPU 池本来就装得下，LMCache 只剩存储开销，外加 0.95 的利用率下 staging 缓冲反复分配失败（524 MiB 的块重试 12 次）。它适合的是工作集远大于池的过载区，不是这里。</p>
+<p><strong>prefix retention。</strong> <code>--prefix-cache-retention-interval 16384</code> 是为 SWA 保留前缀检查点的参数，在 669K 的小池上命中率从 87.2% 掉到 78.6%，输出低约 19%：检查点占块的开销大于命中收益。</p>
 <p><strong>内存互斥。</strong> LMCache 的 L1、native 冷层、Engram 的 pinned 内存三者不能叠加：曾经 L1 512 GB 加冷层 512 GB 加 Engram 189 GB，超过 1007 GB 的物理内存，触发 global OOM，L1 的安全上限算出来约 610 GB。另外 <code>expandable_segments</code> 和 OffloadingConnector 互斥，配置校验阶段就会拒绝。</p>
 <p><strong>Engram 放 NVMe。</strong> 既然 Engram 在主机内存里，能不能再挪到 NVMe 腾内存？不能。vLLM 的 engram 磁盘卸载在配置校验里只支持 PLE 类模型，DSv4.1 直接报错，只有 <code>cpu_offload</code> 一条路。而且 <code>cpu_offload</code> 的意义是 pinned 内存供 GPU 经 UVA 零拷贝直读，decode 每步每层都要在 9600 万行里随机查找，NVMe 逐行随机读约 50-100 µs 一次，还在关键路径上；改用 mmap 加 page cache，热了以后页缓存照样占回内存。况且那台机器当时主机可用内存有 332 GB，并不缺这部分内存。</p>
 <h3 id="9-3-取舍表：什么情况下不该用">9.3 取舍表：什么情况下不该用</h3>
@@ -766,7 +760,7 @@
 <h2 id="总结">总结</h2>
 <ol>
 <li>这台机器的约束是显存而不是算力：sm_120 要靠补丁，PCIe 限制了并行策略，单卡 84 GB 里权重占掉约 70 GiB。优化主线是把每一个 GiB 换成 KV 池，换算率是每 GiB 约 50 万 tokens。</li>
-<li>九天里池从约 9 万到 2,861,437 tokens，其中能单独计量的几步：fp8 记录 +8.4%，调度参数 +70%，attention 投影转 NVFP4 +11.2%，indexer 转 MXFP4 +15.6%，FP4 主 KV 在单变量对照下 +27%。</li>
+<li>池从约 9 万到 2,861,437 tokens，其中能单独计量的几步：fp8 记录 +8.4%，调度参数 +70%，attention 投影转 NVFP4 +11.2%，indexer 转 MXFP4 +15.6%，FP4 主 KV 在单变量对照下 +27%。</li>
 <li>冷层 320 GiB 补上了满载时 GPU 池的命中缺口，但上限由负载决定：实测追平 trace 的理论上限就是贴顶，越不过去的部分取决于并发和工作集。</li>
 </ol>
 <p>可迁移的启示是：<strong>量化的收益要按「它占的是哪块内存」来记账。</strong> Engram 转 MXFP4 对显存零贡献，却给冷层腾出了主机内存；indexer 转 MXFP4 的池增益里，每 token 省下的字节只解释了一小部分。账算对了，才知道下一步该动哪一项。</p>
@@ -789,8 +783,8 @@
           <div class="post-tags">
               <a href="/tags/LLM/" rel="tag"># LLM</a>
               <a href="/tags/GPU/" rel="tag"># GPU</a>
-              <a href="/tags/Inference/" rel="tag"># Inference</a>
               <a href="/tags/DeepSeek/" rel="tag"># DeepSeek</a>
+              <a href="/tags/Inference/" rel="tag"># Inference</a>
               <a href="/tags/KV-Cache/" rel="tag"># KV Cache</a>
               <a href="/tags/Quantization/" rel="tag"># Quantization</a>
           </div>

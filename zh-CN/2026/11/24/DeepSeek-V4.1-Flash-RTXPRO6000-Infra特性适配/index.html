@@ -29,11 +29,11 @@
 <meta property="og:description" content="DeepSeek-V4.1-Flash 的官方推理栈是按 H100 到 GB300 和 MI355X 搭的：vLLM 0.30 到 0.32 三个正式版本在 RTX PRO 6000 上连模型都起不来，栈里的 DeepSelect 只编 sm_100a 和 sm_103a，DeepSeek 自己的推理引擎 DeepInfer 只支持 SM100 和昇腾 950。本文记录在 4 张 RTX PRO">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2026-11-24T09:14:30.000Z">
-<meta property="article:modified_time" content="2026-11-24T09:14:38.845Z">
+<meta property="article:modified_time" content="2026-11-25T00:18:23.128Z">
 <meta property="article:author" content="ggaaooppeenngg">
 <meta property="article:tag" content="vLLM">
-<meta property="article:tag" content="Inference">
 <meta property="article:tag" content="DeepSeek">
+<meta property="article:tag" content="Inference">
 <meta property="article:tag" content="Blackwell">
 <meta property="article:tag" content="Sparse Attention">
 <meta name="twitter:card" content="summary">
@@ -214,9 +214,15 @@
         <i class="far fa-calendar"></i>
       </span>
       <span class="post-meta-item-text">发表于</span>
-      
 
-      <time title="创建时间：2026-11-24 17:14:30 / 修改时间：17:14:38" itemprop="dateCreated datePublished" datetime="2026-11-24T17:14:30+08:00">2026-11-24</time>
+      <time title="创建时间：2026-11-24 17:14:30" itemprop="dateCreated datePublished" datetime="2026-11-24T17:14:30+08:00">2026-11-24</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2026-11-25 08:18:23" itemprop="dateModified" datetime="2026-11-25T08:18:23+08:00">2026-11-25</time>
     </span>
     <span class="post-meta-item">
       <span class="post-meta-item-icon">
@@ -363,8 +369,8 @@
 </blockquote>
 <h2 id="4-CSA2-的完整支持">4. CSA2 的完整支持</h2>
 <h3 id="4-1-什么叫完整">4.1 什么叫完整</h3>
-<p>CSA2 的索引器是一个两级漏斗，它是模型定义的一部分：索引器按两级候选训练，训练与推理用同一组约束，四个参数（候选源层、候选块数、块大小、top-k）都从 checkpoint 的 config 直通。带 indexer 权重的层一共 8 层，分两种角色：</p>
-<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">每 6 层  L2 / L8 / L14 / L20   kv-source   对整段上下文打分（永远是 O(ctx)）</span><br><span class="line">                                      │  同一份分数顺带选出 top-2048 块，每块 8 个 token</span><br><span class="line">                                      ▼</span><br><span class="line">                              候选池：每行最多 16,384 个位置</span><br><span class="line">                                      │</span><br><span class="line">每 4 层  L24 / L28 / L32 / L36   consumer   只给候选池里的位置打分，各取 top-512</span><br></pre></td></tr></table></figure>
+<p>CSA2 的索引器是一个两级漏斗，它是模型定义的一部分：索引器按两级候选训练，训练与推理用同一组约束，四个参数（候选源层、候选块数、块大小、top-k）都从 checkpoint 的 config 直通。Reindex 全网只有 4 层，都在解码器，每 4 层一个；带 indexer 权重的层一共 8 层，分两种角色，其余 30 个压缩层不带 indexer：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">kv-source，每 6 层一个：L2 / L8 / L14 / L20</span><br><span class="line">    对整段上下文打分（永远是 O(ctx)），各自取 top-512 给自己的注意力用</span><br><span class="line">    其中只有 L20 在打分的同时发布候选池：top-2048 块 × 8 个 token = 16,384 个位置</span><br><span class="line">        │</span><br><span class="line">        ▼</span><br><span class="line">候选池（L20 发布）</span><br><span class="line">        │</span><br><span class="line">consumer（Reindex），每 4 层一个：L24 / L28 / L32 / L36</span><br><span class="line">    只给候选池里的位置打分，各取 top-512</span><br><span class="line"></span><br><span class="line">其余 30 个压缩层是 Reuse：不带 indexer 权重，不打分，直接继承前面最近一个产索引层的 top-k</span><br></pre></td></tr></table></figure>
 <p>「完整」指的是 consumer 层真的只算这 16,384 个位置，索引打分的开销从 O(ctx) 降到 O(1)。上游的默认实现不是这样：它对整段上下文打分，再按候选块掩码。语义没有错，算力没有省。真正的算力跳过是 <code>indexer_sparse_logits</code> 开关背后的路径，它是 opt-in，自动开启只认 SM100；在 SM120 上不显式传 flag，这个开关恒为关闭。</p>
 <h3 id="4-2-三道门">4.2 三道门</h3>
 <p>把这条路径在 SM120 上接通，要过三道门：</p>
@@ -639,8 +645,8 @@
     <footer class="post-footer">
           <div class="post-tags">
               <a href="/tags/vLLM/" rel="tag"># vLLM</a>
-              <a href="/tags/Inference/" rel="tag"># Inference</a>
               <a href="/tags/DeepSeek/" rel="tag"># DeepSeek</a>
+              <a href="/tags/Inference/" rel="tag"># Inference</a>
               <a href="/tags/Blackwell/" rel="tag"># Blackwell</a>
               <a href="/tags/Sparse-Attention/" rel="tag"># Sparse Attention</a>
           </div>
